@@ -868,16 +868,30 @@ def run_bot():
     if not TOKEN:
         print("⚠️  No DISCORD_TOKEN set. Bot will not start.")
         return
-    print("🤖 Starting Sentinel OS Bot V2.0.3...")
-    try:
-        bot.run(TOKEN)
-    except discord.errors.HTTPException as e:
-        if e.status == 429:
-            print("🚫 Rate Limited! Wait a few minutes and try again.")
-        else:
-            print(f"❌ Bot Error: {e}")
-    except Exception as e:
-        print(f"❌ Fatal Error: {e}")
+    import time
+    retry_delay = 5
+    while True:
+        print("🤖 Starting Sentinel OS Bot V2.0.3...")
+        try:
+            bot.run(TOKEN)
+        except discord.errors.LoginFailure:
+            print("❌ Invalid DISCORD_TOKEN. Bot will not retry.")
+            break
+        except discord.errors.HTTPException as e:
+            if e.status == 429:
+                print(f"🚫 Rate limited. Retrying in 60s...")
+                time.sleep(60)
+            else:
+                print(f"❌ Bot HTTP error: {e}. Retrying in {retry_delay}s...")
+                time.sleep(retry_delay)
+        except Exception as e:
+            print(f"❌ Bot crashed: {e}. Retrying in {retry_delay}s...")
+            time.sleep(retry_delay)
+        # Reset bot state for clean reconnect
+        try:
+            bot.clear()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     # Run bot in background thread so Flask can bind to PORT immediately
