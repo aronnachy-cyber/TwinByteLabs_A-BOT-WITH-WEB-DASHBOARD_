@@ -863,31 +863,32 @@ async def refresh(ctx):
     await ctx.send(f"🔄 Config refreshed! Prefix: `{config.get('prefix', '!')}`")
 
 # ---------------- RUN ----------------
+def run_bot():
+    if not TOKEN:
+        print("⚠️  No DISCORD_TOKEN set. Bot will not start.")
+        return
+    print("🤖 Starting Sentinel OS Bot V2.0.3...")
+    try:
+        bot.run(TOKEN)
+    except discord.errors.HTTPException as e:
+        if e.status == 429:
+            print("🚫 Rate Limited! Wait a few minutes and try again.")
+        else:
+            print(f"❌ Bot Error: {e}")
+    except Exception as e:
+        print(f"❌ Fatal Error: {e}")
+
 if __name__ == "__main__":
     import os
 
-    # Get port from environment (Render sets this automatically)
-    PORT = int(os.environ.get("PORT", 5000))  # fallback to 5000 locally
+    PORT = int(os.environ.get("PORT", 5000))
     DASHBOARD_URL = f"http://127.0.0.1:{PORT}"
 
-    print(f"📡 Starting Dashboard on port {PORT}...")
-    dashboard_thread = threading.Thread(target=lambda: run_dashboard(PORT), daemon=False)
-    try:
-        dashboard_thread.start()
-    except Exception as e:
-        print(f"❌ Dashboard failed (ignored): {e}")
+    # Run bot in background thread so Flask can bind to PORT immediately
+    # (Render requires the port to be open within seconds of startup)
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
 
-    if TOKEN:
-        print("🤖 Starting Sentinel OS Bot V2.0.3...")
-        try:
-            bot.run(TOKEN)
-        except discord.errors.HTTPException as e:
-            if e.status == 429:
-                print("🚫 Rate Limited! Wait a few minutes and try again.")
-            else:
-                print(f"❌ Bot Error: {e}")
-        except Exception as e:
-            print(f"❌ Fatal Error: {e}")
-    else:
-        print("⚠️  No DISCORD_TOKEN set. Dashboard running without bot.")
-        dashboard_thread.join()
+    # Flask runs in the main thread — binds to PORT right away
+    print(f"📡 Starting Dashboard on port {PORT}...")
+    run_dashboard(PORT)
