@@ -1,0 +1,6 @@
+discord.py
+Flask
+gunicorn
+openai
+requests
+gunicorn
