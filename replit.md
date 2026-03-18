@@ -31,4 +31,12 @@ The workflow runs `python main.py` which:
 - Default credentials: admin / admin123
 
 ## Deployment
-Configured as a VM deployment (always-running) since the Discord bot requires persistent connection.
+
+### Render
+- `render.yaml` is included for one-click Render deploy
+- On Render, set `DISCORD_TOKEN` and `OPENAI_KEY` as environment variables in the dashboard
+- Render auto-sets `PORT` — the app reads it automatically
+- The `Procfile` uses `web:` so Render exposes the Flask dashboard as a public URL
+
+### Replit
+- Configured as a VM deployment (always-running)

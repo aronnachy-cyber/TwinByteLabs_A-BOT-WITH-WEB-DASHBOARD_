@@ -587,8 +587,9 @@ async def on_message(message):
             return
 
     refresh_config()
-    await automod.handle_message(message, config)
-    await handle_ai_moderation(message)
+    handled = await automod.handle_message(message, config)
+    if not handled:
+        await handle_ai_moderation(message)
     await social.check_social_alerts(message, config, bot)
     await bot.process_commands(message)
 

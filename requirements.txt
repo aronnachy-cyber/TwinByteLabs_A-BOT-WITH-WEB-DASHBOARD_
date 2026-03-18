@@ -3,4 +3,4 @@ Flask
 gunicorn
 openai
 requests
-gunicorn
+aiohttp

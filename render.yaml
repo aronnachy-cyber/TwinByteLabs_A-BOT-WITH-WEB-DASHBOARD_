@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: sentinel-os
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    plan: free
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: OPENAI_KEY
+        sync: false
+    healthCheckPath: /login

@@ -33,6 +33,7 @@ async def auto_dm_warning_user(member, reason, guild_name):
         pass
 
 async def handle_message(message, config):
+    """Returns True if the message was handled (deleted/warned), False otherwise."""
     content = message.content.lower()
 
     # 1. Custom blacklist + banned words
@@ -52,7 +53,7 @@ async def handle_message(message, config):
                 f"**Channel:** {message.channel.mention}\n"
                 f"**Reason:** Blacklisted/banned word"
             )
-            return
+            return True
 
     # 2. Profanity filter by level
     level = config.get("profanity_level", "low")
@@ -76,7 +77,7 @@ async def handle_message(message, config):
             f"**Channel:** {message.channel.mention}\n"
             f"**Level:** {level}"
         )
-        return
+        return True
 
     # 3. Block Discord invites
     if config.get("auto_block_invites") == "ON":
@@ -90,7 +91,7 @@ async def handle_message(message, config):
                 f"**User:** {message.author} ({message.author.id})\n"
                 f"**Channel:** {message.channel.mention}"
             )
-            return
+            return True
 
     # 4. Block links
     if config.get("auto_block_links") == "ON" or config.get("mod_block_links") == "ON":
@@ -104,7 +105,7 @@ async def handle_message(message, config):
                 f"**User:** {message.author} ({message.author.id})\n"
                 f"**Channel:** {message.channel.mention}"
             )
-            return
+            return True
 
     # 5. Block mass mentions
     if config.get("auto_block_mentions") == "ON" or config.get("mod_block_mentions") == "ON":
@@ -119,4 +120,6 @@ async def handle_message(message, config):
                 f"**Channel:** {message.channel.mention}\n"
                 f"**Mentions:** {len(message.mentions)}"
             )
-            return
+            return True
+
+    return False
