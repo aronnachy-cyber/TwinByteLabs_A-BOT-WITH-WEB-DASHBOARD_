@@ -863,9 +863,16 @@ async def refresh(ctx):
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    print("📡 Starting Dashboard on port 5000...")
+    import os
+
+    # Get port from environment (Render sets this automatically)
+    PORT = int(os.environ.get("PORT", 5000))  # fallback to 5000 locally
+    DASHBOARD_URL = f"http://127.0.0.1:{PORT}"
+
+    print(f"📡 Starting Dashboard on port {PORT}...")
     try:
-        threading.Thread(target=run_dashboard, daemon=True).start()
+        # Make run_dashboard accept port
+        threading.Thread(target=lambda: run_dashboard(PORT), daemon=True).start()
     except Exception as e:
         print(f"❌ Dashboard failed (ignored): {e}")
 
