@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel OS - Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<style>
+:root {
+  --bg: #1a1f2e; --sidebar: #212736; --card: #272d3f; --card-hover: #2e3550;
+  --accent: #4f8ef7; --green: #2ecc71; --red: #e74c3c; --orange: #f39c12;
+  --yellow: #f1c40f; --purple: #9b59b6;
+  --text: #e8ecf0; --muted: #8896a7; --border: #2e3a4e;
+  --input-bg: #1a1f2e;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; display: flex; min-height: 100vh; }
+
+/* SIDEBAR */
+.sidebar { width: 260px; background: var(--sidebar); height: 100vh; position: fixed; left: 0; top: 0; display: flex; flex-direction: column; box-shadow: 2px 0 20px rgba(0,0,0,0.4); z-index: 100; transition: left .3s; }
+.sidebar-logo { padding: 24px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+.logo-icon { width: 40px; height: 40px; background: var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+.logo-text { font-size: 1.2rem; font-weight: 700; }
+.logo-sub { font-size: 0.65rem; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
+nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+.nav-section { padding: 12px 20px 4px; font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 20px; color: var(--muted); text-decoration: none; cursor: pointer; font-size: 0.9rem; font-weight: 500; border-left: 3px solid transparent; transition: all .2s; user-select: none; }
+.nav-item i { width: 18px; text-align: center; font-size: 0.9rem; }
+.nav-item:hover { background: rgba(79,142,247,.08); color: var(--text); border-left-color: rgba(79,142,247,.4); }
+.nav-item.active { background: rgba(79,142,247,.12); color: var(--accent); border-left-color: var(--accent); }
+.drag-handle { color: var(--border); font-size: 0.75rem; margin-left: auto; cursor: grab; opacity: 0; transition: opacity .2s; }
+.nav-item:hover .drag-handle { opacity: 1; }
+.sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); }
+.sidebar-footer a { color: var(--red); text-decoration: none; font-weight: 500; }
+
+/* TOP BAR */
+.topbar { position: fixed; top: 0; left: 260px; right: 0; height: 60px; background: var(--sidebar); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; z-index: 50; }
+.topbar-title { font-size: 1.05rem; font-weight: 600; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+
+/* TOAST */
+#toast { position: fixed; bottom: 24px; right: 24px; background: var(--green); color: #fff; padding: 12px 22px; border-radius: 8px; font-weight: 600; display: none; z-index: 999; box-shadow: 0 4px 20px rgba(0,0,0,0.3); animation: slideUp .3s ease; }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+#toast.error { background: var(--red); }
+
+/* MAIN */
+.main { margin-left: 260px; margin-top: 60px; padding: 28px; min-height: calc(100vh - 60px); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.page-header { margin-bottom: 24px; }
+.page-header h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 4px; }
+.page-header p { color: var(--muted); font-size: 0.88rem; }
+
+/* GRID */
+.grid { display: grid; gap: 20px; }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+
+/* CARD */
+.card { background: var(--card); border-radius: 12px; padding: 22px; border: 1px solid var(--border); transition: border-color .2s; }
+.card:hover { border-color: rgba(79,142,247,.3); }
+.card-title { display: flex; align-items: center; gap: 10px; font-size: 1rem; font-weight: 600; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border); cursor: grab; }
+.card-title i { color: var(--accent); width: 20px; text-align: center; }
+.sortable-ghost { opacity: 0.4; }
+.sortable-drag  { box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+
+/* ROW */
+.row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.row:last-child { border-bottom: none; }
+.row-label { font-size: 0.88rem; color: var(--muted); flex: 1; }
+.row-label strong { display: block; color: var(--text); margin-bottom: 2px; }
+
+/* INPUTS */
+input[type=text], input[type=url], input[type=number], select, textarea {
+  background: var(--input-bg); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 12px; border-radius: 7px; font-size: 0.88rem; font-family: inherit;
+  transition: border-color .2s; width: 100%;
+}
+input[type=text]:focus, input[type=url]:focus, input[type=number]:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+input[type=color] { background: var(--input-bg); border: 1px solid var(--border); border-radius: 7px; width: 48px; height: 36px; padding: 2px; cursor: pointer; }
+textarea { resize: vertical; min-height: 70px; }
+select option { background: var(--card); }
+.input-wrap { flex: 1.2; max-width: 220px; }
+.input-wrap-full { width: 100%; margin-top: 8px; }
+
+/* TOGGLE */
+.toggle { position: relative; display: inline-block; width: 46px; height: 24px; flex-shrink: 0; }
+.toggle input { display: none; }
+.slider { position: absolute; inset: 0; cursor: pointer; background: #3a4257; border-radius: 24px; transition: .3s; }
+.slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
+input:checked + .slider { background: var(--green); }
+input:checked + .slider:before { transform: translateX(22px); }
+
+/* BADGE */
+.badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+.badge-on  { background: rgba(46,204,113,.2); color: var(--green); }
+.badge-off { background: rgba(232,76,60,.2);  color: var(--red); }
+.badge-info { background: rgba(79,142,247,.2); color: var(--accent); }
+
+/* BUTTON */
+.btn { padding: 9px 18px; border: none; border-radius: 7px; cursor: pointer; font-size: 0.88rem; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; transition: all .2s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #3a7ce0; }
+.btn-success { background: var(--green); color: #fff; }
+.btn-success:hover { background: #27ae60; }
+.btn-danger  { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #c0392b; }
+.btn-warning { background: var(--orange); color: #fff; }
+.btn-warning:hover { background: #d68910; }
+.btn-sm { padding: 5px 12px; font-size: 0.8rem; }
+.btn-full { width: 100%; justify-content: center; margin-top: 14px; }
+
+/* STATUS DOT */
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.dot-green  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.dot-orange { background: var(--orange); }
+.dot-red    { background: var(--red); }
+
+/* WARNINGS TABLE */
+.warnings-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 10px; }
+.warnings-table th { text-align: left; padding: 8px 10px; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+.warnings-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
+.warnings-table tr:last-child td { border-bottom: none; }
+.warn-count { font-weight: 700; }
+.warn-count.high { color: var(--red); }
+.warn-count.mid  { color: var(--orange); }
+.warn-count.low  { color: var(--green); }
+.empty-state { text-align: center; padding: 24px; color: var(--muted); font-size: 0.88rem; }
+
+/* LOGS */
+.log-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.log-table th { text-align: left; padding: 8px 10px; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+.log-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.log-table tr:last-child td { border-bottom: none; }
+.log-time { color: var(--muted); font-size: 0.78rem; white-space: nowrap; }
+.log-type { white-space: nowrap; font-weight: 600; min-width: 120px; }
+.log-desc { color: var(--text); }
+.log-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+
+/* STAT CARDS */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+.stat-num { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+
+/* MOBILE */
+.mobile-bar { display: none; }
+@media (max-width: 768px) {
+  .sidebar { left: -260px; }
+  .sidebar.open { left: 0; }
+  .main { margin-left: 0; }
+  .topbar { left: 0; }
+  .mobile-bar { display: flex; align-items: center; gap: 12px; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🛡️</div>
+    <div>
+      <div class="logo-text">Sentinel OS</div>
+      <div class="logo-sub">V2.0.3 Dashboard</div>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-section">Configuration</div>
+    <div id="sortable-nav">
+      <div class="nav-item active" onclick="showTab('general',this)" data-tab="general">
+        <i class="fas fa-cog"></i> General
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('moderation',this)" data-tab="moderation">
+        <i class="fas fa-gavel"></i> Moderation
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('automod',this)" data-tab="automod">
+        <i class="fas fa-robot"></i> Automod
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('security',this)" data-tab="security">
+        <i class="fas fa-user-shield"></i> Security
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('social',this)" data-tab="social">
+        <i class="fas fa-bell"></i> Social Notifier
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('warnings',this)" data-tab="warnings">
+        <i class="fas fa-exclamation-triangle"></i> Live Warnings
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('logs',this)" data-tab="logs">
+        <i class="fas fa-list-alt"></i> Action Logs
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <span><span class="status-dot dot-green"></span>Bot Online</span><br><br>
+    <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div class="mobile-bar">
+      <button onclick="toggleSidebar()" style="background:none;border:none;color:var(--text);font-size:1.2rem;cursor:pointer;">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
+    <span class="topbar-title" id="topbar-title">General Settings</span>
+  </div>
+  <div class="topbar-right">
+    <button class="btn btn-primary" onclick="saveAll()"><i class="fas fa-save"></i> Save Changes</button>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ===================== GENERAL ===================== -->
+<div id="general" class="tab-content active">
+  <div class="page-header">
+    <h2>General Settings</h2>
+    <p>Configure basic bot behavior and appearance.</p>
+  </div>
+  <div class="grid grid-2" id="general-grid">
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-sliders-h"></i> Bot Behavior</div>
+      <div class="row">
+        <div class="row-label"><strong>Command Prefix</strong>Character before commands (e.g. ! / ?)</div>
+        <div class="input-wrap"><input type="text" id="prefix" value="{{ config.get('prefix','!') }}" maxlength="5" placeholder="!"></div>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Bot Status</strong>Shown under the bot's name</div>
+        <div class="input-wrap">
+          <select id="bot_status">
+            <option value="online"  {% if config.get('bot_status')=='online'  %}selected{% endif %}>🟢 Online</option>
+            <option value="idle"    {% if config.get('bot_status')=='idle'    %}selected{% endif %}>🟡 Idle</option>
+            <option value="dnd"     {% if config.get('bot_status')=='dnd'     %}selected{% endif %}>🔴 Do Not Disturb</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Daily Report</strong>Post a moderation summary to log channel every 24 hours</div>
+        <label class="toggle"><input type="checkbox" id="daily_report" {% if config.get('daily_report')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-palette"></i> Appearance</div>
+      <div class="row">
+        <div class="row-label"><strong>Theme Color</strong>Dashboard accent color</div>
+        <input type="color" id="theme_color" value="{{ config.get('theme_color','#3498db') }}">
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Bot Avatar URL</strong>URL to set as bot avatar (updates in ~60s)</div>
+      </div>
+      <div class="input-wrap-full">
+        <input type="url" id="bot_avatar" value="{{ config.get('bot_avatar','') }}" placeholder="https://example.com/avatar.png">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-user-secret"></i> Owner DM Notifications</div>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:12px;">
+        Add up to 3 owner IDs (comma-separated). All owners are DM'd on bans, kicks, raids, and when the warning limit is hit.
+        Reply <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">!approve ban/kick/ignore &lt;id&gt;</code> — first reply wins.
+      </p>
+      <div class="row">
+        <div class="row-label"><strong>Owner Discord IDs</strong>Right-click your name → Copy User ID</div>
+      </div>
+      <div class="input-wrap-full">
+        <input type="text" id="owner_dm_id" value="{{ config.get('owner_dm_id','') }}" placeholder="123456789012, 987654321098, 111222333444">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-comment-alt"></i> Welcome Message</div>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:12px;">
+        Use <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">{user}</code> for mention,
+        <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">{username}</code> for name.
+      </p>
+      <div class="row"><div class="row-label"><strong>Log Channel ID</strong></div></div>
+      <div class="input-wrap-full" style="margin-bottom:10px;">
+        <input type="text" id="log_channel_g" value="{{ config.get('log_channel','') }}" placeholder="Channel ID">
+      </div>
+      <div class="row-label"><strong>Welcome Message</strong></div>
+      <div class="input-wrap-full" style="margin-top:8px;">
+        <textarea id="welcome_msg">{{ config.get('welcome_msg','') }}</textarea>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== MODERATION ===================== -->
+<div id="moderation" class="tab-content">
+  <div class="page-header">
+    <h2>Moderation Settings</h2>
+    <p>Control manual moderation tools and channel configurations.</p>
+  </div>
+  <div class="grid grid-2" id="moderation-grid">
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-wrench"></i> Channel & Role Setup</div>
+      <div class="row"><div class="row-label"><strong>Log Channel ID</strong>Where mod actions are logged</div></div>
+      <div class="input-wrap-full" style="margin-bottom:10px;">
+        <input type="text" id="log_channel" value="{{ config.get('log_channel','') }}" placeholder="Channel ID">
+      </div>
+      <div class="row"><div class="row-label"><strong>Mute Role ID</strong>Role assigned when muted</div></div>
+      <div class="input-wrap-full" style="margin-bottom:10px;">
+        <input type="text" id="mute_role" value="{{ config.get('mute_role','') }}" placeholder="Role ID">
+      </div>
+      <div class="row"><div class="row-label"><strong>Auto-Role on Join</strong>Role given to new members</div></div>
+      <div class="input-wrap-full">
+        <input type="text" id="auto_role" value="{{ config.get('auto_role','') }}" placeholder="Role ID">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-filter"></i> Message Filters</div>
+      <div class="row">
+        <div class="row-label"><strong>Block Links</strong>Delete messages containing URLs</div>
+        <label class="toggle"><input type="checkbox" id="mod_block_links" {% if config.get('mod_block_links')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Block Mass Mentions</strong>Delete messages with 4+ mentions</div>
+        <label class="toggle"><input type="checkbox" id="mod_block_mentions" {% if config.get('mod_block_mentions')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Profanity Filter Level</strong></div>
+        <div class="input-wrap">
+          <select id="profanity_level">
+            <option value="low"    {% if config.get('profanity_level')=='low'    %}selected{% endif %}>Low (off)</option>
+            <option value="medium" {% if config.get('profanity_level')=='medium' %}selected{% endif %}>Medium</option>
+            <option value="high"   {% if config.get('profanity_level')=='high'   %}selected{% endif %}>High (strict)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== AUTOMOD ===================== -->
+<div id="automod" class="tab-content">
+  <div class="page-header">
+    <h2>Automod Settings</h2>
+    <p>Automatic message filtering and warning system.</p>
+  </div>
+  <div class="grid grid-2" id="automod-grid">
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-robot"></i> Auto Filters</div>
+      <div class="row">
+        <div class="row-label"><strong>Block Links</strong>Auto-delete messages with URLs</div>
+        <label class="toggle"><input type="checkbox" id="auto_block_links" {% if config.get('auto_block_links')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Block Discord Invites</strong>Auto-delete discord.gg links</div>
+        <label class="toggle"><input type="checkbox" id="auto_block_invites" {% if config.get('auto_block_invites')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Block Mass Mentions</strong>Auto-delete mass @mention messages</div>
+        <label class="toggle"><input type="checkbox" id="auto_block_mentions" {% if config.get('auto_block_mentions')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Auto DM Warning</strong>DM user when their message is deleted</div>
+        <label class="toggle"><input type="checkbox" id="auto_dm_warning" {% if config.get('auto_dm_warning')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-list-ul"></i> Custom Word Blacklist</div>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px;">Comma-separated. Messages with these words are auto-deleted + warned.</p>
+      <textarea id="auto_custom_blacklist" style="min-height:100px;" placeholder="word1, word2, phrase">{{ config.get('auto_custom_blacklist','') }}</textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-globe"></i> Webhook Log</div>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px;">Paste a Discord webhook URL to receive automod logs there.</p>
+      <input type="url" id="webhook_log" value="{{ config.get('webhook_log','') }}" placeholder="https://discord.com/api/webhooks/...">
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-exclamation-circle"></i> Warning System</div>
+      <div class="row">
+        <div class="row-label"><strong>Warning Limit</strong>Max warnings before action triggers</div>
+        <div class="input-wrap"><input type="number" id="warning_limit" value="{{ config.get('warning_limit',30) }}" min="1" max="999"></div>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Owner Approval Required</strong>DM owners when limit is hit instead of auto-action</div>
+        <label class="toggle"><input type="checkbox" id="owner_approval" {% if config.get('owner_approval')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== SECURITY ===================== -->
+<div id="security" class="tab-content">
+  <div class="page-header">
+    <h2>Security & Anti-Raid</h2>
+    <p>Protect your server from raids, mass bans, and abuse.</p>
+  </div>
+  <div class="grid grid-2" id="security-grid">
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-shield-alt"></i> Anti-Raid</div>
+      <div class="row">
+        <div class="row-label"><strong>Enable Anti-Raid</strong>Kick new accounts (&lt;7 days) and mass-joiners. Owners DM'd on raid detection.</div>
+        <label class="toggle"><input type="checkbox" id="anti_raid" {% if config.get('anti_raid')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Mass Ban Prevention</strong>Block more than 5 bans/kicks per minute</div>
+        <label class="toggle"><input type="checkbox" id="mass_ban_prevent" {% if config.get('mass_ban_prevent')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Temporary Lockdown</strong>Allow <code>!lockdown</code> / <code>!unlockdown</code></div>
+        <label class="toggle"><input type="checkbox" id="temp_lockdown" {% if config.get('temp_lockdown')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-eye"></i> Monitoring</div>
+      <div class="row">
+        <div class="row-label"><strong>Role Monitor</strong>Log role changes to log channel</div>
+        <label class="toggle"><input type="checkbox" id="role_monitor" {% if config.get('role_monitor')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>2FA Protection</strong>Log when admins without 2FA take action</div>
+        <label class="toggle"><input type="checkbox" id="security_2fa" {% if config.get('security_2fa')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-ban"></i> Server-Wide Banned Words</div>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px;">Comma-separated. Triggers auto-delete + warning in any channel.</p>
+      <textarea id="banned_words" style="min-height:90px;" placeholder="word1, word2, phrase">{{ config.get('banned_words','') }}</textarea>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== SOCIAL ===================== -->
+<div id="social" class="tab-content">
+  <div class="page-header">
+    <h2>Social Notifier</h2>
+    <p>Get alerts when social media links are shared in your server.</p>
+  </div>
+  <div class="grid grid-2" id="social-grid">
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-bell"></i> Platform Alerts</div>
+      <div class="row">
+        <div class="row-label"><strong>YouTube Alerts</strong>Notify when a YouTube video is shared</div>
+        <label class="toggle"><input type="checkbox" id="youtube_alerts" {% if config.get('youtube_alerts')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Twitter / X Alerts</strong>Notify when a Twitter/X link is shared</div>
+        <label class="toggle"><input type="checkbox" id="twitter_alerts" {% if config.get('twitter_alerts')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Discord Alerts</strong>Notify when an external Discord invite is shared</div>
+        <label class="toggle"><input type="checkbox" id="discord_alerts" {% if config.get('discord_alerts')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-satellite-dish"></i> Notification Setup</div>
+      <div class="row"><div class="row-label"><strong>Alert Channel ID</strong></div></div>
+      <div class="input-wrap-full" style="margin-bottom:12px;">
+        <input type="text" id="multi_channel" value="{{ config.get('multi_channel','') }}" placeholder="Channel ID">
+      </div>
+      <div class="row"><div class="row-label"><strong>YouTube Channel Link</strong></div></div>
+      <div class="input-wrap-full" style="margin-bottom:12px;">
+        <input type="url" id="youtube_channel_link" value="{{ config.get('youtube_channel_link','') }}" placeholder="https://youtube.com/@yourchannel">
+      </div>
+      <div class="row"><div class="row-label"><strong>YouTube Notification Message</strong></div></div>
+      <div class="input-wrap-full">
+        <textarea id="youtube_notify_msg">{{ config.get('youtube_notify_msg','📺 A new YouTube video was shared! Check it out:') }}</textarea>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===================== WARNINGS ===================== -->
+<div id="warnings" class="tab-content">
+  <div class="page-header">
+    <h2>Live Warnings</h2>
+    <p>Real-time warning counts — auto-refreshes every 5 seconds.</p>
+  </div>
+
+  <div class="stat-grid" id="warn-stats">
+    <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Total Warned Users</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-high" style="color:var(--red)">0</div><div class="stat-label">High Risk (≥ limit)</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-mid" style="color:var(--orange)">0</div><div class="stat-label">Medium Risk</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-clean" style="color:var(--green)">0</div><div class="stat-label">Low Risk</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <i class="fas fa-exclamation-triangle"></i> Active Warnings
+      <span id="warn-count-badge" class="badge badge-off" style="margin-left:8px;">0 users</span>
+      <button class="btn btn-warning btn-sm" style="margin-left:auto;" onclick="exportReport()">
+        <i class="fas fa-download"></i> Export Report
+      </button>
+    </div>
+    <table class="warnings-table">
+      <thead>
+        <tr><th>Member</th><th>Warnings</th><th>Status</th><th>Quick Actions</th></tr>
+      </thead>
+      <tbody id="warnings-tbody">
+        <tr><td colspan="4" class="empty-state"><i class="fas fa-check-circle" style="color:var(--green)"></i> No warnings yet — server is clean!</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===================== LOGS ===================== -->
+<div id="logs" class="tab-content">
+  <div class="page-header">
+    <h2>Action Logs</h2>
+    <p>Live feed of all bot actions and events. Auto-refreshes every 8 seconds.</p>
+  </div>
+
+  <div class="log-controls">
+    <button class="btn btn-primary btn-sm" onclick="loadLogs()"><i class="fas fa-sync-alt"></i> Refresh Now</button>
+    <button class="btn btn-warning btn-sm" onclick="exportReport()"><i class="fas fa-download"></i> Export Full Report</button>
+    <button class="btn btn-danger btn-sm" onclick="clearLocalLogs()"><i class="fas fa-trash"></i> Clear View</button>
+    <span style="color:var(--muted);font-size:0.8rem;" id="log-refresh-indicator">Auto-refresh: ON</span>
+    <input type="text" id="log-filter" placeholder="Filter logs..." style="max-width:200px;" oninput="filterLogs()">
+  </div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-history"></i> Event History <span class="badge badge-info" id="log-count-badge">0 events</span></div>
+    <table class="log-table" id="log-table-el">
+      <thead>
+        <tr><th style="width:150px">Time</th><th style="width:160px">Event Type</th><th>Description</th></tr>
+      </thead>
+      <tbody id="logs-tbody">
+        <tr><td colspan="3" class="empty-state">No log entries yet. Bot actions will appear here.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- end .main -->
+<div id="toast"></div>
+
+<script>
+// ---- NAV ----
+const tabTitles = {
+  general: 'General Settings', moderation: 'Moderation Settings',
+  automod: 'Automod Settings', security: 'Security & Anti-Raid',
+  social: 'Social Notifier', warnings: 'Live Warnings', logs: 'Action Logs'
+};
+
+function showTab(id, el) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('topbar-title').textContent = tabTitles[id] || id;
+  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+  if (id === 'logs') loadLogs();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ---- SIDEBAR DRAG TO REORDER (Sortable.js) ----
+const sortableNav = document.getElementById('sortable-nav');
+Sortable.create(sortableNav, {
+  animation: 150,
+  handle: '.drag-handle',
+  ghostClass: 'sortable-ghost',
+  onEnd() {
+    const order = [...sortableNav.querySelectorAll('.nav-item')].map(el => el.dataset.tab);
+    localStorage.setItem('sentinel_nav_order', JSON.stringify(order));
+  }
+});
+
+// Restore saved nav order
+try {
+  const saved = JSON.parse(localStorage.getItem('sentinel_nav_order') || '[]');
+  if (saved.length > 0) {
+    saved.forEach(tab => {
+      const el = sortableNav.querySelector(`[data-tab="${tab}"]`);
+      if (el) sortableNav.appendChild(el);
+    });
+  }
+} catch(e) {}
+
+// ---- CARD DRAG REORDER ----
+['general-grid','moderation-grid','automod-grid','security-grid','social-grid'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    Sortable.create(el, {
+      animation: 150,
+      handle: '.card-title',
+      ghostClass: 'sortable-ghost',
+      dragClass: 'sortable-drag',
+      onEnd() {
+        const order = [...el.children].map((c,i) => i);
+        localStorage.setItem('sentinel_card_' + id, JSON.stringify(
+          [...el.children].map(c => c.querySelector('.card-title')?.textContent?.trim())
+        ));
+      }
+    });
+  }
+});
+
+// ---- TOAST ----
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isError ? 'error' : '';
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+// ---- COLLECT FIELDS ----
+function collectData() {
+  const getText  = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const getCheck = id => { const el = document.getElementById(id); return el ? el.checked : false; };
+
+  return {
+    prefix: getText('prefix'), bot_status: getText('bot_status'),
+    theme_color: getText('theme_color'), bot_avatar: getText('bot_avatar'),
+    welcome_msg: getText('welcome_msg'),
+    log_channel: getText('log_channel') || getText('log_channel_g'),
+    owner_dm_id: getText('owner_dm_id'),
+    mod_block_links: getCheck('mod_block_links'), mod_block_mentions: getCheck('mod_block_mentions'),
+    profanity_level: getText('profanity_level'), mute_role: getText('mute_role'), auto_role: getText('auto_role'),
+    auto_block_links: getCheck('auto_block_links'), auto_block_invites: getCheck('auto_block_invites'),
+    auto_block_mentions: getCheck('auto_block_mentions'), auto_dm_warning: getCheck('auto_dm_warning'),
+    auto_custom_blacklist: getText('auto_custom_blacklist'), webhook_log: getText('webhook_log'),
+    warning_limit: parseInt(getText('warning_limit')) || 30, owner_approval: getCheck('owner_approval'),
+    anti_raid: getCheck('anti_raid'), security_2fa: getCheck('security_2fa'),
+    role_monitor: getCheck('role_monitor'), mass_ban_prevent: getCheck('mass_ban_prevent'),
+    temp_lockdown: getCheck('temp_lockdown'), banned_words: getText('banned_words'),
+    discord_alerts: getCheck('discord_alerts'), twitter_alerts: getCheck('twitter_alerts'),
+    youtube_alerts: getCheck('youtube_alerts'), youtube_channel_link: getText('youtube_channel_link'),
+    youtube_notify_msg: getText('youtube_notify_msg'), multi_channel: getText('multi_channel'),
+    daily_report: getCheck('daily_report')
+  };
+}
+
+async function saveAll() {
+  try {
+    const res = await fetch('/api/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(collectData())
+    });
+    const data = await res.json();
+    if (data.status === 'success') {
+      showToast('✅ Settings saved!');
+      const tc = document.getElementById('theme_color');
+      if (tc) document.documentElement.style.setProperty('--accent', tc.value);
+    } else {
+      showToast('❌ Save failed: ' + (data.message || 'unknown'), true);
+    }
+  } catch(e) {
+    showToast('❌ Network error: ' + e.message, true);
+  }
+}
+
+// ---- WARNINGS ----
+const warnLimit = {{ config.get('warning_limit', 30) }};
+
+async function loadWarnings() {
+  try {
+    const res = await fetch('/api/get_warnings');
+    const data = await res.json();
+    const tbody = document.getElementById('warnings-tbody');
+    const badge = document.getElementById('warn-count-badge');
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><i class="fas fa-check-circle" style="color:var(--green)"></i> No warnings yet — server is clean!</td></tr>';
+      badge.textContent = '0 users';
+      badge.className = 'badge badge-on';
+      updateWarnStats([]);
+      return;
+    }
+    const sorted = data.sort((a,b) => b.warnings - a.warnings);
+    badge.textContent = sorted.length + ' user' + (sorted.length !== 1 ? 's' : '');
+    badge.className = sorted.length > 0 ? 'badge badge-off' : 'badge badge-on';
+    tbody.innerHTML = sorted.map(w => {
+      const cls = w.warnings >= warnLimit ? 'high' : w.warnings >= Math.floor(warnLimit/2) ? 'mid' : 'low';
+      const status = w.warnings >= warnLimit
+        ? '<span class="badge badge-off">⛔ Limit Reached</span>'
+        : w.warnings >= Math.floor(warnLimit/2)
+          ? '<span class="badge" style="background:rgba(243,156,18,.2);color:var(--orange)">⚠️ Watch</span>'
+          : '<span class="badge badge-on">✅ OK</span>';
+      return `<tr>
+        <td><strong>${w.username}</strong><br><span style="color:var(--muted);font-size:.75rem;">${w.id}</span></td>
+        <td><span class="warn-count ${cls}">${w.warnings}</span></td>
+        <td>${status}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="quickAction('ban','${w.id}','${w.username}')">⛔ Ban</button>
+          <button class="btn btn-warning btn-sm" onclick="quickAction('kick','${w.id}','${w.username}')" style="margin-left:6px;">🚪 Kick</button>
+          <button class="btn btn-sm" style="background:var(--card-hover);margin-left:6px;" onclick="clearWarning('${w.id}','${w.username}')">🧹 Clear</button>
+        </td>
+      </tr>`;
+    }).join('');
+    updateWarnStats(sorted);
+  } catch(e) { console.error('Warnings load error:', e); }
+}
+
+function updateWarnStats(data) {
+  const high  = data.filter(w => w.warnings >= warnLimit).length;
+  const mid   = data.filter(w => w.warnings >= Math.floor(warnLimit/2) && w.warnings < warnLimit).length;
+  const low   = data.filter(w => w.warnings < Math.floor(warnLimit/2)).length;
+  document.getElementById('stat-total').textContent = data.length;
+  document.getElementById('stat-high').textContent  = high;
+  document.getElementById('stat-mid').textContent   = mid;
+  document.getElementById('stat-clean').textContent = low;
+}
+
+async function quickAction(action, memberId, username) {
+  if (!confirm(`Are you sure you want to ${action} ${username}?`)) return;
+  try {
+    const res = await fetch('/api/confirm_action', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({member_id: memberId, action})
+    });
+    const data = await res.json();
+    showToast(`✅ ${action.toUpperCase()} request sent for ${username}`);
+    loadWarnings();
+    loadLogs();
+  } catch(e) {
+    showToast('❌ Action failed: ' + e.message, true);
+  }
+}
+
+async function clearWarning(memberId, username) {
+  if (!confirm(`Clear all warnings for ${username}?`)) return;
+  try {
+    await fetch('/api/clear_warning', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({member_id: memberId})
+    });
+    showToast(`🧹 Warnings cleared for ${username}`);
+    loadWarnings();
+  } catch(e) {
+    showToast('❌ Clear failed: ' + e.message, true);
+  }
+}
+
+// ---- LOGS ----
+let allLogs = [];
+let logsVisible = true;
+
+async function loadLogs() {
+  try {
+    const res = await fetch('/api/logs?limit=200');
+    allLogs = await res.json();
+    renderLogs(allLogs);
+    document.getElementById('log-refresh-indicator').textContent = 'Last refresh: ' + new Date().toLocaleTimeString();
+  } catch(e) { console.error('Log load error:', e); }
+}
+
+function renderLogs(logs) {
+  const tbody = document.getElementById('logs-tbody');
+  const badge = document.getElementById('log-count-badge');
+  badge.textContent = logs.length + ' event' + (logs.length !== 1 ? 's' : '');
+  if (logs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No log entries yet. Bot actions will appear here.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = logs.map(l => {
+    const typeStr = l.type || 'INFO';
+    let color = 'var(--accent)';
+    if (typeStr.includes('BAN'))      color = 'var(--red)';
+    else if (typeStr.includes('KICK')) color = 'var(--orange)';
+    else if (typeStr.includes('RAID')) color = 'var(--red)';
+    else if (typeStr.includes('WARN')) color = 'var(--orange)';
+    else if (typeStr.includes('LOGIN'))color = 'var(--green)';
+    else if (typeStr.includes('EXPORT'))color= 'var(--purple)';
+    return `<tr>
+      <td class="log-time">${l.time || ''}</td>
+      <td class="log-type" style="color:${color}">${typeStr}</td>
+      <td class="log-desc">${l.description || ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterLogs() {
+  const q = document.getElementById('log-filter').value.toLowerCase();
+  if (!q) { renderLogs(allLogs); return; }
+  renderLogs(allLogs.filter(l =>
+    (l.type||'').toLowerCase().includes(q) ||
+    (l.description||'').toLowerCase().includes(q)
+  ));
+}
+
+function clearLocalLogs() {
+  allLogs = [];
+  renderLogs([]);
+  showToast('🧹 Log view cleared (bot logs are still running)');
+}
+
+// ---- EXPORT ----
+function exportReport() {
+  window.location.href = '/api/export/report';
+}
+
+// ---- APPLY THEME ----
+const savedTheme = document.getElementById('theme_color');
+if (savedTheme && savedTheme.value) {
+  document.documentElement.style.setProperty('--accent', savedTheme.value);
+}
+
+// ---- AUTO REFRESH ----
+setInterval(loadWarnings, 5000);
+setInterval(() => {
+  const active = document.querySelector('.tab-content.active');
+  if (active && active.id === 'logs') loadLogs();
+}, 8000);
+
+loadWarnings();
+</script>
+</body>
+</html>
