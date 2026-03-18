@@ -65,9 +65,10 @@ DEFAULT_CONFIG = {
 
 config = {**DEFAULT_CONFIG, **load_config()}
 
-TOKEN        = os.environ.get("DISCORD_TOKEN", "")
-DASHBOARD_URL = "http://127.0.0.1:5000"
-OPENAI_KEY   = os.environ.get("OPENAI_KEY", "")
+TOKEN         = os.environ.get("DISCORD_TOKEN", "")
+OPENAI_KEY    = os.environ.get("OPENAI_KEY", "")
+_PORT         = int(os.environ.get("PORT", 5000))
+DASHBOARD_URL = f"http://127.0.0.1:{_PORT}"
 
 intents = discord.Intents.all()
 bot = commands.Bot(
@@ -879,16 +880,11 @@ def run_bot():
         print(f"❌ Fatal Error: {e}")
 
 if __name__ == "__main__":
-    import os
-
-    PORT = int(os.environ.get("PORT", 5000))
-    DASHBOARD_URL = f"http://127.0.0.1:{PORT}"
-
     # Run bot in background thread so Flask can bind to PORT immediately
-    # (Render requires the port to be open within seconds of startup)
+    # Render detects the open port within seconds — Flask must be first
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
 
-    # Flask runs in the main thread — binds to PORT right away
-    print(f"📡 Starting Dashboard on port {PORT}...")
-    run_dashboard(PORT)
+    # Flask runs in the main thread — binds to PORT (from env) right away
+    print(f"📡 Starting Dashboard on port {_PORT}...")
+    run_dashboard(_PORT)
