@@ -870,19 +870,23 @@ if __name__ == "__main__":
     DASHBOARD_URL = f"http://127.0.0.1:{PORT}"
 
     print(f"📡 Starting Dashboard on port {PORT}...")
+    dashboard_thread = threading.Thread(target=lambda: run_dashboard(PORT), daemon=False)
     try:
-        # Make run_dashboard accept port
-        threading.Thread(target=lambda: run_dashboard(PORT), daemon=True).start()
+        dashboard_thread.start()
     except Exception as e:
         print(f"❌ Dashboard failed (ignored): {e}")
 
-    print("🤖 Starting Sentinel OS Bot V2.0.3...")
-    try:
-        bot.run(TOKEN)
-    except discord.errors.HTTPException as e:
-        if e.status == 429:
-            print("🚫 Rate Limited! Wait a few minutes and try again.")
-        else:
-            print(f"❌ Bot Error: {e}")
-    except Exception as e:
-        print(f"❌ Fatal Error: {e}")
+    if TOKEN:
+        print("🤖 Starting Sentinel OS Bot V2.0.3...")
+        try:
+            bot.run(TOKEN)
+        except discord.errors.HTTPException as e:
+            if e.status == 429:
+                print("🚫 Rate Limited! Wait a few minutes and try again.")
+            else:
+                print(f"❌ Bot Error: {e}")
+        except Exception as e:
+            print(f"❌ Fatal Error: {e}")
+    else:
+        print("⚠️  No DISCORD_TOKEN set. Dashboard running without bot.")
+        dashboard_thread.join()
