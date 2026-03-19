@@ -10,7 +10,7 @@ import requests
 import aiohttp
 from datetime import datetime, timedelta
 
-from dashboard import app, config as dash_config, run_dashboard, add_dashboard_log
+from dashboard import app, config as dash_config, run_dashboard, add_dashboard_log, set_bot_restart_callback
 import moderation, automod, roles, logs, social, security
 
 # ---------------- CONFIG LOADER ----------------
@@ -864,6 +864,8 @@ async def refresh(ctx):
     await ctx.send(f"🔄 Config refreshed! Prefix: `{config.get('prefix', '!')}`")
 
 # ---------------- RUN ----------------
+_bot_thread = None
+
 def run_bot():
     if not TOKEN:
         print("⚠️  No DISCORD_TOKEN set. Bot will not start.")
@@ -873,9 +875,9 @@ def run_bot():
     while True:
         print("🤖 Starting Sentinel OS Bot V2.0.3...")
         try:
-            bot.run(TOKEN)
+            bot.run(TOKEN, reconnect=True)
         except discord.errors.LoginFailure:
-            print("❌ Invalid DISCORD_TOKEN. Bot will not retry.")
+            print("❌ Invalid DISCORD_TOKEN. Check your DISCORD_TOKEN env var.")
             break
         except discord.errors.HTTPException as e:
             if e.status == 429:
@@ -887,17 +889,21 @@ def run_bot():
         except Exception as e:
             print(f"❌ Bot crashed: {e}. Retrying in {retry_delay}s...")
             time.sleep(retry_delay)
-        # Reset bot state for clean reconnect
-        try:
-            bot.clear()
-        except Exception:
-            pass
+
+def start_bot_thread():
+    global _bot_thread
+    if _bot_thread and _bot_thread.is_alive():
+        return False
+    _bot_thread = threading.Thread(target=run_bot, daemon=True)
+    _bot_thread.start()
+    return True
 
 if __name__ == "__main__":
+    # Register the restart function so the dashboard can trigger it
+    set_bot_restart_callback(start_bot_thread)
+
     # Run bot in background thread so Flask can bind to PORT immediately
-    # Render detects the open port within seconds — Flask must be first
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
+    start_bot_thread()
 
     # Flask runs in the main thread — binds to PORT (from env) right away
     print(f"📡 Starting Dashboard on port {_PORT}...")

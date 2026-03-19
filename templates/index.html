@@ -218,6 +218,9 @@ input:checked + .slider:before { transform: translateX(22px); }
   </div>
   <div class="topbar-right">
     <button class="btn btn-primary" onclick="saveAll()"><i class="fas fa-save"></i> Save Changes</button>
+    <button class="btn" id="restart-bot-btn" onclick="restartBot()" style="background:var(--green);color:#fff;border:none;padding:8px 16px;border-radius:7px;font-weight:600;cursor:pointer;font-size:0.88rem;">
+      <i class="fas fa-sync-alt"></i> Restart Bot
+    </button>
   </div>
 </div>
 
@@ -654,6 +657,23 @@ function collectData() {
     youtube_notify_msg: getText('youtube_notify_msg'), multi_channel: getText('multi_channel'),
     daily_report: getCheck('daily_report')
   };
+}
+
+async function restartBot() {
+  const btn = document.getElementById('restart-bot-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Restarting...';
+  try {
+    const res = await fetch('/api/restart_bot', { method: 'POST' });
+    const data = await res.json();
+    showToast(data.status === 'success' ? '🤖 ' + data.message : '❌ ' + data.message, data.status !== 'success');
+  } catch(e) {
+    showToast('❌ Error: ' + e.message, true);
+  }
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-sync-alt"></i> Restart Bot';
+  }, 3000);
 }
 
 async function saveAll() {

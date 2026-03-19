@@ -58,6 +58,13 @@ if os.path.exists('settings.json'):
 
 warnings_db = []
 
+# ---- BOT RESTART CALLBACK ----
+_bot_restart_callback = None
+
+def set_bot_restart_callback(fn):
+    global _bot_restart_callback
+    _bot_restart_callback = fn
+
 # ---- ACTION LOGS ----
 action_logs = []
 
@@ -290,6 +297,25 @@ def confirm_action():
     print(f"⚡ Dashboard: {action.upper()} approved for member {member_id}")
     add_dashboard_log(f"{'⛔' if action=='ban' else '🚪'} {action.upper()}", f"Dashboard action approved for member {member_id}")
     return jsonify({"status": "success", "member_id": member_id, "action": action})
+
+# ---- API: BOT STATUS & RESTART ----
+@app.route('/api/bot_status')
+def bot_status():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    alive = _bot_restart_callback is not None
+    return jsonify({"status": "ok", "restart_available": alive})
+
+@app.route('/api/restart_bot', methods=['POST'])
+def restart_bot():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    if _bot_restart_callback:
+        started = _bot_restart_callback()
+        add_dashboard_log("🔄 RESTART", "Bot restart triggered from dashboard")
+        msg = "Bot thread started." if started else "Bot is already running."
+        return jsonify({"status": "success", "message": msg})
+    return jsonify({"status": "error", "message": "Restart not available."}), 503
 
 # ---- RUN ----
 def run_dashboard(port=None):
