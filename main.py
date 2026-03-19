@@ -500,10 +500,19 @@ async def on_voice_state_update(member, before, after):
     except Exception as e:
         print(f"Voice log error: {e}")
 
+_processed_msg_ids = set()
+
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
+
+    # Deduplicate — prevent double-firing if two connections briefly overlap
+    if message.id in _processed_msg_ids:
+        return
+    _processed_msg_ids.add(message.id)
+    if len(_processed_msg_ids) > 2000:
+        _processed_msg_ids.clear()
 
     # ---- Owner DM approval handler ----
     if isinstance(message.channel, discord.DMChannel):
