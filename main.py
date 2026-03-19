@@ -603,6 +603,23 @@ async def on_message(message):
     await social.check_social_alerts(message, config, bot)
     await bot.process_commands(message)
 
+# ---------------- COMMAND ERROR HANDLER ----------------
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        perms = ", ".join(error.missing_permissions)
+        await ctx.send(f"❌ {ctx.author.mention}, you need the **{perms}** permission to use this command.", delete_after=8)
+    elif isinstance(error, commands.MemberNotFound):
+        await ctx.send(f"❌ Member not found. Make sure you @mention or use their ID.", delete_after=8)
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f"❌ Missing argument: `{error.param.name}`. Check `!commands` for usage.", delete_after=8)
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send(f"❌ Invalid argument. Check `!commands` for usage.", delete_after=8)
+    elif isinstance(error, commands.CommandNotFound):
+        pass
+    else:
+        print(f"Unhandled command error: {error}")
+
 # ---------------- MODERATION COMMANDS ----------------
 @bot.command()
 @commands.has_permissions(manage_roles=True)
@@ -611,7 +628,7 @@ async def mute(ctx, member: discord.Member):
     dlog("🔇 MUTE", f"{member} muted by {ctx.author}")
 
 @bot.command()
-@commands.has_permissions(manage_roles=True)
+@commands.has_permissions(manage_messages=True)
 async def warn(ctx, member: discord.Member, *, reason="Violation"):
     await add_warning(member, reason)
     entry = _get_member_entry(str(ctx.guild.id), str(member.id))
