@@ -1,0 +1,50 @@
+2026-03-19T04:15:37.376257006Z Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+2026-03-19T04:15:37.377355678Z Using cached itsdangerous-2.2.0-py3-none-any.whl (16 kB)
+2026-03-19T04:15:37.378444559Z Using cached jinja2-3.1.6-py3-none-any.whl (134 kB)
+2026-03-19T04:15:37.379640353Z Using cached markupsafe-3.0.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (23 kB)
+2026-03-19T04:15:37.380741785Z Using cached propcache-0.4.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (201 kB)
+2026-03-19T04:15:37.38196486Z Using cached tqdm-4.67.3-py3-none-any.whl (78 kB)
+2026-03-19T04:15:37.383130264Z Using cached typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+2026-03-19T04:15:37.384192174Z Using cached werkzeug-3.1.6-py3-none-any.whl (225 kB)
+2026-03-19T04:15:37.38545506Z Using cached audioop_lts-0.2.2-cp313-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (85 kB)
+2026-03-19T04:15:37.386588853Z Using cached packaging-26.0-py3-none-any.whl (74 kB)
+2026-03-19T04:15:37.387736626Z Using cached sniffio-1.3.1-py3-none-any.whl (10 kB)
+2026-03-19T04:15:37.486475333Z Installing collected packages: urllib3, typing-extensions, tqdm, sniffio, propcache, packaging, multidict, markupsafe, jiter, itsdangerous, idna, h11, frozenlist, distro, click, charset_normalizer, certifi, blinker, audioop-lts, attrs, annotated-types, aiohappyeyeballs, yarl, werkzeug, typing-inspection, requests, pydantic-core, jinja2, httpcore, gunicorn, anyio, aiosignal, pydantic, httpx, Flask, aiohttp, openai, discord.py
+2026-03-19T04:15:41.909457565Z 
+2026-03-19T04:15:41.913358027Z Successfully installed Flask-3.1.3 aiohappyeyeballs-2.6.1 aiohttp-3.13.3 aiosignal-1.4.0 annotated-types-0.7.0 anyio-4.12.1 attrs-25.4.0 audioop-lts-0.2.2 blinker-1.9.0 certifi-2026.2.25 charset_normalizer-3.4.6 click-8.3.1 discord.py-2.7.1 distro-1.9.0 frozenlist-1.8.0 gunicorn-25.1.0 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 idna-3.11 itsdangerous-2.2.0 jinja2-3.1.6 jiter-0.13.0 markupsafe-3.0.3 multidict-6.7.1 openai-2.29.0 packaging-26.0 propcache-0.4.1 pydantic-2.12.5 pydantic-core-2.41.5 requests-2.32.5 sniffio-1.3.1 tqdm-4.67.3 typing-extensions-4.15.0 typing-inspection-0.4.2 urllib3-2.6.3 werkzeug-3.1.6 yarl-1.23.0
+2026-03-19T04:15:41.919256686Z 
+2026-03-19T04:15:41.919271166Z [notice] A new release of pip is available: 25.3 -> 26.0.1
+2026-03-19T04:15:41.919274927Z [notice] To update, run: pip install --upgrade pip
+2026-03-19T04:15:53.127446529Z ==> Uploading build...
+2026-03-19T04:16:09.626045645Z ==> Uploaded in 12.5s. Compression took 4.0s
+2026-03-19T04:16:09.718973576Z ==> Build successful 🎉
+2026-03-19T04:16:11.756926493Z ==> Deploying...
+2026-03-19T04:16:11.830278948Z ==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+2026-03-19T04:16:42.111163117Z ==> Running 'python3 main.py'
+2026-03-19T04:16:48.910606646Z 📁 Settings loaded into Dashboard!
+2026-03-19T04:16:48.910629177Z 🤖 Starting Sentinel OS Bot V2.0.3...
+2026-03-19T04:16:48.910632547Z 📡 Starting Dashboard on port 10000...
+2026-03-19T04:16:48.910636257Z  * Serving Flask app 'dashboard'
+2026-03-19T04:16:48.910650778Z  * Debug mode: off
+2026-03-19T04:16:48.91086325Z [2026-03-19 04:16:48] [INFO    ] discord.client: logging in using static token
+2026-03-19T04:16:48.91493978Z WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+2026-03-19T04:16:48.91495182Z  * Running on all addresses (0.0.0.0)
+2026-03-19T04:16:48.914955311Z  * Running on http://127.0.0.1:10000
+2026-03-19T04:16:48.914958381Z  * Running on http://10.21.36.22:10000
+2026-03-19T04:16:48.914961821Z Press CTRL+C to quit
+2026-03-19T04:16:49.304931434Z 127.0.0.1 - - [19/Mar/2026 04:16:49] "HEAD / HTTP/1.1" 302 -
+2026-03-19T04:16:53.317757601Z ==> Your service is live 🎉
+2026-03-19T04:16:53.35817597Z 127.0.0.1 - - [19/Mar/2026 04:16:53] "GET / HTTP/1.1" 302 -
+2026-03-19T04:16:53.399780936Z 127.0.0.1 - - [19/Mar/2026 04:16:53] "GET /login HTTP/1.1" 200 -
+2026-03-19T04:16:53.548313049Z ==> 
+2026-03-19T04:16:53.552301184Z ==> ///////////////////////////////////////////////////////////
+2026-03-19T04:16:53.556049816Z ==> 
+2026-03-19T04:16:53.559145015Z ==> Available at your primary URL https://sentinel-bot-main-main.onrender.com
+2026-03-19T04:16:53.572913542Z ==> 
+2026-03-19T04:16:53.576023051Z ==> ///////////////////////////////////////////////////////////
+2026-03-19T04:17:01.981328665Z 127.0.0.1 - - [19/Mar/2026 04:17:01] "GET /login HTTP/1.1" 200 -
+2026-03-19T04:17:10.614946457Z 127.0.0.1 - - [19/Mar/2026 04:17:10] "GET / HTTP/1.1" 302 -
+2026-03-19T04:17:11.092127528Z 127.0.0.1 - - [19/Mar/2026 04:17:11] "GET /login HTTP/1.1" 200 -
+2026-03-19T04:17:11.473514728Z 127.0.0.1 - - [19/Mar/2026 04:17:11] "GET /favicon.ico HTTP/1.1" 404 -
+2026-03-19T04:17:49.045646849Z [2026-03-19 04:17:49] [INFO    ] discord.client: logging in using static token
+2026-03-19T04:17:49.04566793Z [2026-03-19 04:17:49] [INFO    ] discord.client: logging in using static token
