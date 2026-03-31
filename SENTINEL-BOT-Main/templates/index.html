@@ -301,6 +301,24 @@ input:checked + .slider:before { transform: translateX(22px); }
     </div>
 
   </div>
+
+  <!-- Byte Ai Button -->
+  <div style="text-align:center; margin-top: 28px;">
+    <button onclick="document.getElementById('byteai-modal').style.display='flex'" style="background: linear-gradient(135deg, #6c3fc5, #4f8ef7); color:#fff; border:none; padding: 10px 28px; border-radius: 50px; font-size: 0.95rem; font-weight: 700; cursor: pointer; letter-spacing: 1px; box-shadow: 0 4px 18px rgba(108,63,197,0.35); transition: transform .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+      ✦ Byte Ai
+    </button>
+  </div>
+</div>
+
+<!-- Byte Ai Coming Soon Modal -->
+<div id="byteai-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background: linear-gradient(145deg, #1a1f2e, #212736); border: 1px solid #6c3fc5; border-radius: 18px; padding: 48px 40px; text-align:center; max-width:420px; width:90%; box-shadow: 0 0 60px rgba(108,63,197,0.4);">
+    <div style="font-size: 2.8rem; margin-bottom: 12px;">🤖</div>
+    <h2 style="font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #6c3fc5, #4f8ef7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px;">Byte Ai</h2>
+    <div style="display:inline-block; background: rgba(108,63,197,0.2); border: 1px solid #6c3fc5; color: #c39af7; font-size: 0.75rem; font-weight: 700; letter-spacing: 3px; padding: 5px 18px; border-radius: 50px; text-transform: uppercase; margin-bottom: 20px;">Coming Soon</div>
+    <p style="color: #8896a7; font-size: 0.95rem; line-height: 1.6; margin-bottom: 28px;">An intelligent AI assistant built right into your Sentinel OS dashboard. Stay tuned.</p>
+    <button onclick="document.getElementById('byteai-modal').style.display='none'" style="background: rgba(108,63,197,0.2); border: 1px solid #6c3fc5; color: #c39af7; padding: 10px 28px; border-radius: 50px; font-size: 0.9rem; cursor: pointer; font-weight: 600;">Close</button>
+  </div>
 </div>
 
 <!-- ===================== MODERATION ===================== -->
