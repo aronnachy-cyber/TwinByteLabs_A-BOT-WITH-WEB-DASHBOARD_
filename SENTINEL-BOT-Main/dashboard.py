@@ -2,13 +2,11 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import os
 import json
 import random
+import string
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = "sentinel_mega_secret_key_v2"
-
-ADMIN_USER = "admin"
-ADMIN_PASS = "admin123"
 
 DEFAULT_CONFIG = {
     "prefix": "!",
@@ -58,6 +56,34 @@ if os.path.exists('settings.json'):
 
 warnings_db = []
 
+# ---- USERS MANAGEMENT ----
+USERS_FILE = 'users.json'
+
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, 'r') as f:
+            try:
+                return json.load(f).get('users', [])
+            except Exception:
+                return []
+    return []
+
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump({'users': users}, f, indent=4)
+
+def find_user_by_uid(uid):
+    for u in load_users():
+        if u.get('uid', '').upper() == uid.upper():
+            return u
+    return None
+
+def generate_uid(name):
+    clean = ''.join(c for c in name.upper() if c.isalpha())[:4]
+    clean = clean.ljust(4, 'X')
+    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    return f"TBLS-{clean}-{code}"
+
 # ---- BOT RESTART CALLBACK ----
 _bot_restart_callback = None
 
@@ -84,9 +110,9 @@ def generate_captcha():
     return f"{a} + {b}", a + b
 
 # ---- LOGIN ATTEMPT TRACKING ----
-login_attempts = {}  # ip -> {"count": int, "locked_until": datetime|None}
-MAX_ATTEMPTS   = 3
-LOCKOUT_MINS   = 5
+login_attempts = {}
+MAX_ATTEMPTS = 3
+LOCKOUT_MINS = 5
 
 TOGGLE_KEYS = [
     "mod_block_links", "mod_block_mentions",
@@ -110,13 +136,17 @@ def save_config():
         json.dump(config, f, indent=4)
     print("💾 Settings saved to settings.json")
 
-# ---- AUTH ----
+# ---- LANDING PAGE ----
+@app.route('/')
+def landing():
+    return render_template('landing.html')
+
+# ---- AUTH: LOGIN (UID-based) ----
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
     ip = request.remote_addr or "unknown"
 
-    # Check lockout
     if ip in login_attempts:
         attempt = login_attempts[ip]
         if attempt.get('locked_until') and datetime.now() < attempt['locked_until']:
@@ -130,26 +160,37 @@ def login():
 
     if request.method == 'POST':
         captcha_input = request.form.get('captcha_answer', '').strip()
-        expected      = str(session.get('captcha_answer', ''))
+        expected = str(session.get('captcha_answer', ''))
 
         if captcha_input != expected:
             error = "❌ Wrong captcha answer!"
-        elif request.form.get('username') == ADMIN_USER and request.form.get('password') == ADMIN_PASS:
-            session['logged_in'] = True
-            login_attempts.pop(ip, None)
-            add_dashboard_log("🔑 LOGIN", f"Admin logged in from {ip}")
-            return redirect(url_for('index'))
         else:
-            if ip not in login_attempts:
-                login_attempts[ip] = {"count": 0, "locked_until": None}
-            login_attempts[ip]["count"] += 1
-            count = login_attempts[ip]["count"]
-            if count >= MAX_ATTEMPTS:
-                login_attempts[ip]["locked_until"] = datetime.now() + timedelta(minutes=LOCKOUT_MINS)
-                error = f"🔒 Too many failed attempts! Locked for {LOCKOUT_MINS} minutes."
-            else:
-                left = MAX_ATTEMPTS - count
-                error = f"❌ Invalid credentials! {left} attempt(s) left."
+            uid = request.form.get('uid', '').strip().upper()
+            user = find_user_by_uid(uid)
+
+            if not user:
+                if ip not in login_attempts:
+                    login_attempts[ip] = {"count": 0, "locked_until": None}
+                login_attempts[ip]["count"] += 1
+                count = login_attempts[ip]["count"]
+                if count >= MAX_ATTEMPTS:
+                    login_attempts[ip]["locked_until"] = datetime.now() + timedelta(minutes=LOCKOUT_MINS)
+                    error = f"🔒 Too many failed attempts! Locked for {LOCKOUT_MINS} minutes."
+                else:
+                    left = MAX_ATTEMPTS - count
+                    error = f"❌ Invalid UID. {left} attempt(s) left."
+            elif user['status'] == 'pending':
+                error = "⏳ Your registration is pending admin approval. Please wait."
+            elif user['status'] == 'rejected':
+                error = "❌ Your registration was rejected. Contact the admin."
+            elif user['status'] == 'approved':
+                session['logged_in'] = True
+                session['uid'] = user['uid']
+                session['is_admin'] = user.get('is_admin', False)
+                session['user_name'] = user.get('name', 'User')
+                login_attempts.pop(ip, None)
+                add_dashboard_log("🔑 LOGIN", f"{user['name']} ({user['uid']}) logged in from {ip}")
+                return redirect(url_for('index'))
 
     question, answer = generate_captcha()
     session['captcha_answer'] = answer
@@ -157,16 +198,56 @@ def login():
 
 @app.route('/logout')
 def logout():
-    add_dashboard_log("🚪 LOGOUT", "Admin logged out")
+    name = session.get('user_name', 'User')
+    add_dashboard_log("🚪 LOGOUT", f"{name} logged out")
     session.clear()
     return redirect(url_for('login'))
 
+# ---- REGISTER ----
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        if not name or len(name) < 2:
+            return render_template('register.html', error="Please enter a valid name (at least 2 characters).")
+
+        uid = generate_uid(name)
+        users = load_users()
+        while any(u['uid'] == uid for u in users):
+            uid = generate_uid(name)
+
+        users.append({
+            'uid': uid,
+            'name': name,
+            'status': 'pending',
+            'is_admin': False,
+            'created_at': datetime.now().strftime('%Y-%m-%d')
+        })
+        save_users(users)
+        add_dashboard_log("📝 REGISTER", f"New registration: {name} ({uid}) — pending approval")
+        return render_template('register.html', success=True, uid=uid, name=name)
+
+    return render_template('register.html')
+
 # ---- MAIN DASHBOARD ----
-@app.route('/')
+@app.route('/dashboard')
 def index():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
-    return render_template('index.html', config=config)
+
+    users = load_users()
+    pending_users = [u for u in users if u['status'] == 'pending']
+    all_users = users
+
+    return render_template(
+        'index.html',
+        config=config,
+        is_admin=session.get('is_admin', False),
+        current_user_name=session.get('user_name', 'User'),
+        current_uid=session.get('uid', ''),
+        pending_users=pending_users,
+        all_users=all_users
+    )
 
 # ---- UPDATE SETTINGS ----
 @app.route('/update', methods=['POST'])
@@ -267,8 +348,8 @@ def get_warnings():
 def add_warning_api():
     data = request.get_json() or {}
     member_id = data.get("member_id")
-    username  = data.get("username")
-    count     = data.get("warnings", 0)
+    username = data.get("username")
+    count = data.get("warnings", 0)
     for w in warnings_db:
         if w["id"] == member_id:
             w["warnings"] = count
@@ -291,9 +372,9 @@ def clear_warning_api():
 # ---- API: CONFIRM ACTION ----
 @app.route('/api/confirm_action', methods=['POST'])
 def confirm_action():
-    data      = request.get_json() or {}
+    data = request.get_json() or {}
     member_id = data.get("member_id")
-    action    = data.get("action")
+    action = data.get("action")
     print(f"⚡ Dashboard: {action.upper()} approved for member {member_id}")
     add_dashboard_log(f"{'⛔' if action=='ban' else '🚪'} {action.upper()}", f"Dashboard action approved for member {member_id}")
     return jsonify({"status": "success", "member_id": member_id, "action": action})
@@ -316,6 +397,55 @@ def restart_bot():
         msg = "Bot thread started." if started else "Bot is already running."
         return jsonify({"status": "success", "message": msg})
     return jsonify({"status": "error", "message": "Restart not available."}), 503
+
+# ---- API: USER MANAGEMENT (admin only) ----
+@app.route('/api/users')
+def api_users():
+    if not session.get('logged_in') or not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 401
+    return jsonify(load_users())
+
+@app.route('/api/approve_user', methods=['POST'])
+def approve_user():
+    if not session.get('logged_in') or not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    uid = data.get('uid', '').upper()
+    users = load_users()
+    for u in users:
+        if u['uid'].upper() == uid:
+            u['status'] = 'approved'
+            add_dashboard_log("✅ APPROVED", f"User {u['name']} ({uid}) approved")
+            break
+    save_users(users)
+    return jsonify({"status": "success"})
+
+@app.route('/api/reject_user', methods=['POST'])
+def reject_user():
+    if not session.get('logged_in') or not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    uid = data.get('uid', '').upper()
+    users = load_users()
+    for u in users:
+        if u['uid'].upper() == uid:
+            u['status'] = 'rejected'
+            add_dashboard_log("❌ REJECTED", f"User {u['name']} ({uid}) rejected")
+            break
+    save_users(users)
+    return jsonify({"status": "success"})
+
+@app.route('/api/delete_user', methods=['POST'])
+def delete_user():
+    if not session.get('logged_in') or not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    uid = data.get('uid', '').upper()
+    users = load_users()
+    users = [u for u in users if u['uid'].upper() != uid or u.get('is_admin')]
+    save_users(users)
+    add_dashboard_log("🗑️ DELETED", f"User {uid} removed")
+    return jsonify({"status": "success"})
 
 # ---- HEALTH CHECK ----
 @app.route('/health')

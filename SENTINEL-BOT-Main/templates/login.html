@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sentinel OS — Login</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -14,33 +15,22 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  padding: 20px;
 }
 .login-wrap {
   background: #212736;
   border: 1px solid #2e3a4e;
   border-radius: 14px;
   padding: 42px 36px 36px;
-  width: 380px;
+  width: 400px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 28px;
-}
-.logo-icon {
-  width: 44px; height: 44px;
-  background: #4f8ef7;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-}
+.logo { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.logo-icon { width: 44px; height: 44px; background: #4f8ef7; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
 .logo-text { font-size: 1.25rem; font-weight: 700; }
 .logo-sub { font-size: 0.65rem; color: #4f8ef7; letter-spacing: 2px; text-transform: uppercase; }
-h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 20px; color: #8896a7; }
+h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 6px; }
+.subtitle { font-size: 0.8rem; color: #8896a7; margin-bottom: 22px; }
 .field { margin-bottom: 14px; }
 label { display: block; font-size: 0.8rem; color: #8896a7; margin-bottom: 5px; font-weight: 500; }
 input {
@@ -50,10 +40,19 @@ input {
   color: #e8ecf0;
   border-radius: 8px;
   font-size: 0.9rem;
-  font-family: inherit;
+  font-family: 'Courier New', monospace;
   transition: border-color .2s;
+  letter-spacing: 1px;
 }
+input.normal-font { font-family: inherit; letter-spacing: normal; }
 input:focus { outline: none; border-color: #4f8ef7; }
+input::placeholder { font-family: 'Segoe UI', system-ui, sans-serif; letter-spacing: normal; color: #4a5568; }
+.uid-hint {
+  font-size: 0.72rem;
+  color: #4a5568;
+  margin-top: 5px;
+  font-family: 'Courier New', monospace;
+}
 .captcha-box {
   background: #1a1f2e;
   border: 1px solid #2e3a4e;
@@ -65,20 +64,8 @@ input:focus { outline: none; border-color: #4f8ef7; }
   justify-content: space-between;
   gap: 12px;
 }
-.captcha-question {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #4f8ef7;
-  letter-spacing: 1px;
-  min-width: 80px;
-}
-.captcha-input {
-  flex: 1;
-  text-align: center;
-  max-width: 100px;
-  font-size: 1rem;
-  font-weight: 700;
-}
+.captcha-question { font-size: 1.1rem; font-weight: 700; color: #4f8ef7; letter-spacing: 1px; min-width: 80px; }
+.captcha-input { flex: 1; text-align: center; max-width: 100px; font-size: 1rem; font-weight: 700; font-family: inherit; letter-spacing: normal; }
 .btn {
   width: 100%;
   padding: 11px;
@@ -95,9 +82,18 @@ input:focus { outline: none; border-color: #4f8ef7; }
 .btn:hover { background: #3a7ce0; }
 .btn:disabled { background: #3a4257; cursor: not-allowed; }
 .error {
-  background: rgba(231, 76, 60, 0.12);
-  border: 1px solid rgba(231, 76, 60, 0.3);
+  background: rgba(231,76,60,0.12);
+  border: 1px solid rgba(231,76,60,0.3);
   color: #ff6b6b;
+  padding: 10px 13px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+.pending-msg {
+  background: rgba(243,156,18,0.1);
+  border: 1px solid rgba(243,156,18,0.3);
+  color: #f39c12;
   padding: 10px 13px;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -105,7 +101,44 @@ input:focus { outline: none; border-color: #4f8ef7; }
 }
 .divider { border: none; border-top: 1px solid #2e3a4e; margin: 18px 0; }
 .hint { font-size: 0.78rem; color: #8896a7; text-align: center; }
+.hint a { color: #4f8ef7; text-decoration: none; }
+.hint a:hover { text-decoration: underline; }
 .locked-icon { font-size: 2rem; text-align: center; margin-bottom: 12px; }
+
+/* Login options section */
+.options-label {
+  font-size: 0.7rem;
+  color: #4a5568;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.option-card {
+  background: #1a1f2e;
+  border: 1px solid #2e3a4e;
+  border-radius: 10px;
+  padding: 13px 16px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  cursor: pointer;
+  transition: border-color .2s;
+  text-decoration: none;
+  color: inherit;
+}
+.option-card:hover { border-color: #4f8ef7; }
+.option-card-icon {
+  width: 38px; height: 38px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.option-card-title { font-size: 0.9rem; font-weight: 700; color: #e8ecf0; }
+.option-card-sub { font-size: 0.75rem; color: #8896a7; }
+.option-card-arrow { margin-left: auto; color: #4f8ef7; }
 </style>
 </head>
 <body>
@@ -119,22 +152,23 @@ input:focus { outline: none; border-color: #4f8ef7; }
   </div>
 
   {% if error %}
-  <div class="error">{{ error }}</div>
+  <div class="error"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
   {% endif %}
 
   {% if locked %}
   <div class="locked-icon">🔒</div>
   <div class="hint" style="margin-bottom:16px;">Access temporarily locked. Please wait before trying again.</div>
   {% else %}
-  <h2>Sign in to continue</h2>
+  <h2>Sign in with your UID</h2>
+  <div class="subtitle">Enter your unique access ID to continue.</div>
+
   <form method="POST" autocomplete="off">
     <div class="field">
-      <label>Username</label>
-      <input type="text" name="username" placeholder="Enter username" required autofocus>
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input type="password" name="password" placeholder="Enter password" required>
+      <label><i class="fas fa-id-badge"></i> &nbsp;Unique ID (UID)</label>
+      <input type="text" name="uid" placeholder="TBLS-XXXX-XXXX" required autofocus
+             maxlength="14" style="text-transform:uppercase;"
+             oninput="this.value=this.value.toUpperCase()">
+      <div class="uid-hint">Format: TBLS-XXXX-XXXX</div>
     </div>
 
     <hr class="divider">
@@ -143,28 +177,38 @@ input:focus { outline: none; border-color: #4f8ef7; }
       <label>🔒 Security Check — Solve to continue</label>
       <div class="captcha-box">
         <span class="captcha-question">{{ captcha_question }}</span>
-        <input class="captcha-input" type="number" name="captcha_answer"
+        <input class="captcha-input normal-font" type="number" name="captcha_answer"
                placeholder="= ?" required min="0" max="99" autocomplete="off">
       </div>
     </div>
 
-    <button class="btn" type="submit">Login →</button>
+    <button class="btn" type="submit"><i class="fas fa-sign-in-alt"></i> &nbsp;Login →</button>
   </form>
 
   <hr class="divider">
-  <div class="hint">3 failed attempts locks you out for 5 minutes</div>
+  <div class="hint" style="margin-bottom:8px;">
+    Don't have a UID? <a href="/register">Request access</a>
+  </div>
+  <div class="hint">
+    3 failed attempts locks you out for 5 minutes
+  </div>
   {% endif %}
 
   <hr class="divider">
-  <a href="https://orbit-bot.up.railway.app/login" target="_blank" style="text-decoration:none; display:block;">
-    <div style="background:#1a1f2e; border:1px solid #2e3a4e; border-radius:10px; padding:13px 16px; display:flex; align-items:center; gap:13px; cursor:pointer; transition: border-color .2s;" onmouseover="this.style.borderColor='#4f8ef7'" onmouseout="this.style.borderColor='#2e3a4e'">
-      <div style="width:38px; height:38px; background:linear-gradient(135deg,#4f8ef7,#2ecc71); border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;">🌐</div>
-      <div>
-        <div style="font-size:0.9rem; font-weight:700; color:#e8ecf0;">Orbit</div>
-        <div style="font-size:0.75rem; color:#8896a7;">Open Orbit Bot Dashboard →</div>
-      </div>
+
+  <!-- Other Login Options -->
+  <div class="options-label">Other Dashboards</div>
+  <a class="option-card" href="https://orbit-bot.up.railway.app/login" target="_blank">
+    <div class="option-card-icon" style="background:linear-gradient(135deg,#4f8ef7,#2ecc71);">🌐</div>
+    <div>
+      <div class="option-card-title">Orbit Bot</div>
+      <div class="option-card-sub">Open Orbit Bot Dashboard</div>
     </div>
+    <div class="option-card-arrow"><i class="fas fa-external-link-alt"></i></div>
   </a>
+
+  <hr class="divider">
+  <div class="hint"><a href="/">← Back to Home</a></div>
 </div>
 </body>
 </html>

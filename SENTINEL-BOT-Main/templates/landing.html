@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel OS — Discord Bot Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a1f2e;
+  color: #e8ecf0;
+  min-height: 100vh;
+}
+
+/* NAV */
+nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 48px;
+  background: rgba(33,39,54,0.9);
+  border-bottom: 1px solid #2e3a4e;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+}
+.nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.nav-logo-icon {
+  width: 40px; height: 40px;
+  background: #4f8ef7;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+}
+.nav-logo-text { font-size: 1.15rem; font-weight: 700; color: #e8ecf0; }
+.nav-logo-sub { font-size: 0.6rem; color: #4f8ef7; letter-spacing: 2px; text-transform: uppercase; }
+.nav-actions { display: flex; gap: 10px; align-items: center; }
+.btn-nav-register {
+  padding: 9px 20px;
+  background: transparent;
+  border: 1px solid #2e3a4e;
+  color: #8896a7;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s;
+}
+.btn-nav-register:hover { border-color: #4f8ef7; color: #e8ecf0; }
+.btn-nav-login {
+  padding: 9px 22px;
+  background: #4f8ef7;
+  border: none;
+  color: white;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .2s;
+}
+.btn-nav-login:hover { background: #3a7ce0; }
+
+/* HERO */
+.hero {
+  padding: 100px 48px 80px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -80px; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(79,142,247,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(79,142,247,0.1);
+  border: 1px solid rgba(79,142,247,0.3);
+  color: #4f8ef7;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 6px 16px;
+  border-radius: 50px;
+  margin-bottom: 28px;
+}
+.hero h1 {
+  font-size: 3.4rem;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #e8ecf0 0%, #4f8ef7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero p {
+  font-size: 1.1rem;
+  color: #8896a7;
+  max-width: 560px;
+  margin: 0 auto 40px;
+  line-height: 1.7;
+}
+.hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn-hero-primary {
+  padding: 14px 32px;
+  background: #4f8ef7;
+  border: none;
+  color: white;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.btn-hero-primary:hover { background: #3a7ce0; transform: translateY(-1px); }
+.btn-hero-secondary {
+  padding: 14px 32px;
+  background: transparent;
+  border: 1px solid #2e3a4e;
+  color: #8896a7;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.btn-hero-secondary:hover { border-color: #4f8ef7; color: #e8ecf0; }
+
+/* FEATURES */
+.features {
+  padding: 60px 48px 80px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.section-label {
+  text-align: center;
+  color: #4f8ef7;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.section-title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 48px;
+}
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+.feature-card {
+  background: #212736;
+  border: 1px solid #2e3a4e;
+  border-radius: 14px;
+  padding: 28px;
+  transition: all .2s;
+}
+.feature-card:hover { border-color: rgba(79,142,247,0.4); transform: translateY(-2px); }
+.feature-icon {
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem;
+  margin-bottom: 16px;
+}
+.feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+.feature-card p { font-size: 0.85rem; color: #8896a7; line-height: 1.6; }
+
+/* STATS */
+.stats {
+  background: #212736;
+  border-top: 1px solid #2e3a4e;
+  border-bottom: 1px solid #2e3a4e;
+  padding: 48px;
+  display: flex;
+  justify-content: center;
+  gap: 80px;
+  flex-wrap: wrap;
+}
+.stat-item { text-align: center; }
+.stat-num { font-size: 2.4rem; font-weight: 800; color: #4f8ef7; }
+.stat-label { font-size: 0.82rem; color: #8896a7; margin-top: 4px; }
+
+/* CTA */
+.cta {
+  padding: 80px 48px;
+  text-align: center;
+}
+.cta h2 { font-size: 2rem; font-weight: 700; margin-bottom: 14px; }
+.cta p { color: #8896a7; margin-bottom: 32px; font-size: 0.95rem; }
+
+/* FOOTER */
+footer {
+  text-align: center;
+  padding: 24px;
+  color: #8896a7;
+  font-size: 0.8rem;
+  border-top: 1px solid #2e3a4e;
+}
+
+@media (max-width: 768px) {
+  nav { padding: 16px 20px; }
+  .hero { padding: 60px 20px 50px; }
+  .hero h1 { font-size: 2.2rem; }
+  .features { padding: 40px 20px; }
+  .stats { gap: 40px; padding: 40px 20px; }
+  .cta { padding: 50px 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="/">
+    <div class="nav-logo-icon">🛡️</div>
+    <div>
+      <div class="nav-logo-text">Sentinel OS</div>
+      <div class="nav-logo-sub">V2.0.3</div>
+    </div>
+  </a>
+  <div class="nav-actions">
+    <a class="btn-nav-register" href="/register">Register</a>
+    <a class="btn-nav-login" href="/login"><i class="fas fa-sign-in-alt"></i> Login</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge"><i class="fas fa-shield-alt"></i> Discord Bot Dashboard</div>
+  <h1>Your Server.<br>Fully Protected.</h1>
+  <p>Sentinel OS is a powerful, all-in-one Discord bot with a web dashboard for real-time moderation, auto-mod, security, and social alerts.</p>
+  <div class="hero-actions">
+    <a class="btn-hero-primary" href="/login"><i class="fas fa-sign-in-alt"></i> Login to Dashboard</a>
+    <a class="btn-hero-secondary" href="/register"><i class="fas fa-user-plus"></i> Request Access</a>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat-item">
+    <div class="stat-num">50+</div>
+    <div class="stat-label">Bot Commands</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">10+</div>
+    <div class="stat-label">Security Features</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">24/7</div>
+    <div class="stat-label">Uptime</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">Real-time</div>
+    <div class="stat-label">Monitoring</div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="features">
+  <div class="section-label">What's Inside</div>
+  <div class="section-title">Everything you need to run your server</div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(79,142,247,0.15);">🛡️</div>
+      <h3>Auto Moderation</h3>
+      <p>Automatically block links, invites, mass mentions, and custom blacklisted words with configurable severity levels.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(46,204,113,0.15);">🤖</div>
+      <h3>AI-Powered Mod</h3>
+      <p>OpenAI-powered content analysis catches harmful messages that traditional filters miss — in real time.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(231,76,60,0.15);">🚨</div>
+      <h3>Anti-Raid</h3>
+      <p>Detect and stop coordinated raid attacks automatically. Mass ban prevention, temp lockdown, and 2FA verification.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(243,156,18,0.15);">⚠️</div>
+      <h3>Warning System</h3>
+      <p>Track user warnings across sessions. Set warning limits, auto-escalate penalties, and get live alerts.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(155,89,182,0.15);">📊</div>
+      <h3>Live Dashboard</h3>
+      <p>Full-featured web dashboard with real-time logs, settings management, and one-click bot restart.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(79,142,247,0.15);">🔔</div>
+      <h3>Social Alerts</h3>
+      <p>Automatically detect and announce YouTube, Discord, and Twitter links shared in your server channels.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <h2>Ready to get started?</h2>
+  <p>Request access by registering below, or log in if you already have a UID.</p>
+  <div class="hero-actions">
+    <a class="btn-hero-primary" href="/register"><i class="fas fa-user-plus"></i> Request Access</a>
+    <a class="btn-hero-secondary" href="/login"><i class="fas fa-sign-in-alt"></i> Login</a>
+  </div>
+</section>
+
+<footer>
+  &copy; 2026 Sentinel OS &mdash; All rights reserved.
+</footer>
+
+</body>
+</html>

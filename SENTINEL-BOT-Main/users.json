@@ -1,0 +1,11 @@
+{
+    "users": [
+        {
+            "uid": "TBLS-ADMI-9ZX7",
+            "name": "Admin",
+            "status": "approved",
+            "is_admin": true,
+            "created_at": "2026-04-06"
+        }
+    ]
+}

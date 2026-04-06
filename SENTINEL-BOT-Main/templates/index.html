@@ -198,10 +198,23 @@ input:checked + .slider:before { transform: translateX(22px); }
         <i class="fas fa-list-alt"></i> Action Logs
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
       </div>
+      {% if is_admin %}
+      <div class="nav-item" onclick="showTab('users',this)" data-tab="users">
+        <i class="fas fa-users"></i> Users
+        {% if pending_users|length > 0 %}
+        <span style="margin-left:auto;background:var(--red);color:#fff;font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px;">{{ pending_users|length }}</span>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
   </nav>
   <div class="sidebar-footer">
-    <span><span class="status-dot dot-green"></span>Bot Online</span><br><br>
+    <div style="margin-bottom:10px;">
+      <span style="font-size:0.78rem;color:var(--text);font-weight:600;">{{ current_user_name }}</span>
+      {% if is_admin %}<span style="font-size:0.68rem;background:rgba(79,142,247,0.2);color:var(--accent);padding:1px 7px;border-radius:6px;margin-left:5px;font-weight:600;">Admin</span>{% endif %}<br>
+      <span style="font-size:0.68rem;color:var(--muted);font-family:'Courier New',monospace;">{{ current_uid }}</span>
+    </div>
+    <span><span class="status-dot dot-green"></span>Bot Online</span>&nbsp;&nbsp;
     <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
   </div>
 </div>
@@ -301,18 +314,6 @@ input:checked + .slider:before { transform: translateX(22px); }
     </div>
 
   </div>
-
-  <!-- Orbit Bot Card -->
-  <a href="https://orbit-bot.up.railway.app/login" target="_blank" style="text-decoration:none; display:block; margin-top: 28px;">
-    <div style="background: linear-gradient(135deg, #1a1f2e, #212736); border: 1px solid #2e3a4e; border-radius: 14px; padding: 18px 22px; display: flex; align-items: center; gap: 16px; cursor: pointer; transition: border-color .2s, box-shadow .2s;" onmouseover="this.style.borderColor='#4f8ef7';this.style.boxShadow='0 4px 24px rgba(79,142,247,0.2)'" onmouseout="this.style.borderColor='#2e3a4e';this.style.boxShadow='none'">
-      <div style="width:46px; height:46px; background: linear-gradient(135deg, #4f8ef7, #2ecc71); border-radius: 12px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0;">🌐</div>
-      <div>
-        <div style="font-size:1rem; font-weight:700; color:#e8ecf0;">Orbit</div>
-        <div style="font-size:0.8rem; color:#8896a7; margin-top:2px;">Another powerful Discord bot — click to open dashboard</div>
-      </div>
-      <div style="margin-left:auto; color:#4f8ef7; font-size:1rem;">→</div>
-    </div>
-  </a>
 
   <!-- Byte Ai Button -->
   <div style="text-align:center; margin-top: 28px;">
@@ -585,6 +586,97 @@ input:checked + .slider:before { transform: translateX(22px); }
     </table>
   </div>
 </div>
+
+{% if is_admin %}
+<!-- ===================== USERS ===================== -->
+<div id="users" class="tab-content">
+  <div class="page-header">
+    <h2>User Management</h2>
+    <p>Review registration requests and manage dashboard access.</p>
+  </div>
+
+  <!-- Pending Approvals -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">
+      <i class="fas fa-user-clock"></i> Pending Approvals
+      <span class="badge badge-off" id="pending-badge">{{ pending_users|length }} pending</span>
+    </div>
+    <div id="pending-list">
+      {% if pending_users %}
+        {% for u in pending_users %}
+        <div class="row" id="pending-{{ u.uid }}">
+          <div class="row-label">
+            <strong>{{ u.name }}</strong>
+            <span style="font-family:'Courier New',monospace;font-size:0.8rem;color:var(--accent);margin-left:8px;">{{ u.uid }}</span>
+            <span style="display:block;font-size:0.75rem;color:var(--muted);margin-top:2px;">Registered: {{ u.created_at }}</span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-success btn-sm" onclick="approveUser('{{ u.uid }}', '{{ u.name }}')">
+              <i class="fas fa-check"></i> Approve
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="rejectUser('{{ u.uid }}', '{{ u.name }}')">
+              <i class="fas fa-times"></i> Reject
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state"><i class="fas fa-check-circle" style="color:var(--green)"></i> No pending requests.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- All Users -->
+  <div class="card">
+    <div class="card-title"><i class="fas fa-users"></i> All Users</div>
+    <table class="warnings-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>UID</th>
+          <th>Status</th>
+          <th>Joined</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="all-users-tbody">
+        {% for u in all_users %}
+        <tr id="user-row-{{ u.uid }}">
+          <td>
+            <strong>{{ u.name }}</strong>
+            {% if u.is_admin %}<span class="badge badge-info" style="margin-left:6px;">Admin</span>{% endif %}
+          </td>
+          <td style="font-family:'Courier New',monospace;font-size:0.82rem;color:var(--accent);">{{ u.uid }}</td>
+          <td>
+            {% if u.status == 'approved' %}
+              <span class="badge badge-on">✅ Approved</span>
+            {% elif u.status == 'pending' %}
+              <span class="badge" style="background:rgba(243,156,18,.2);color:var(--orange);">⏳ Pending</span>
+            {% else %}
+              <span class="badge badge-off">❌ Rejected</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--muted);font-size:0.8rem;">{{ u.created_at }}</td>
+          <td>
+            {% if not u.is_admin %}
+              {% if u.status == 'pending' %}
+                <button class="btn btn-success btn-sm" onclick="approveUser('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-check"></i></button>
+                <button class="btn btn-danger btn-sm" onclick="rejectUser('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-times"></i></button>
+              {% elif u.status == 'rejected' %}
+                <button class="btn btn-success btn-sm" onclick="approveUser('{{ u.uid }}','{{ u.name }}')">Re-approve</button>
+              {% endif %}
+              <button class="btn btn-sm" style="background:var(--card-hover);" onclick="deleteUser('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-trash"></i></button>
+            {% else %}
+              <span style="color:var(--muted);font-size:0.8rem;">Protected</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 
 </div><!-- end .main -->
 <div id="toast"></div>
@@ -865,6 +957,76 @@ function clearLocalLogs() {
 // ---- EXPORT ----
 function exportReport() {
   window.location.href = '/api/export/report';
+}
+
+// ---- USER MANAGEMENT ----
+async function approveUser(uid, name) {
+  try {
+    await fetch('/api/approve_user', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({uid})
+    });
+    showToast(`✅ ${name} approved!`);
+    const row = document.getElementById('pending-' + uid);
+    if (row) row.remove();
+    const badge = document.getElementById('pending-badge');
+    if (badge) {
+      const cur = parseInt(badge.textContent) || 1;
+      badge.textContent = Math.max(0, cur - 1) + ' pending';
+    }
+    const userRow = document.getElementById('user-row-' + uid);
+    if (userRow) {
+      const statusCell = userRow.querySelector('td:nth-child(3)');
+      if (statusCell) statusCell.innerHTML = '<span class="badge badge-on">✅ Approved</span>';
+      const actionCell = userRow.querySelector('td:nth-child(5)');
+      if (actionCell) actionCell.innerHTML = '<button class="btn btn-sm" style="background:var(--card-hover);" onclick="deleteUser(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-trash"></i></button>';
+    }
+  } catch(e) {
+    showToast('❌ Error: ' + e.message, true);
+  }
+}
+
+async function rejectUser(uid, name) {
+  if (!confirm(`Reject ${name}'s registration?`)) return;
+  try {
+    await fetch('/api/reject_user', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({uid})
+    });
+    showToast(`❌ ${name} rejected.`, true);
+    const row = document.getElementById('pending-' + uid);
+    if (row) row.remove();
+    const badge = document.getElementById('pending-badge');
+    if (badge) {
+      const cur = parseInt(badge.textContent) || 1;
+      badge.textContent = Math.max(0, cur - 1) + ' pending';
+    }
+    const userRow = document.getElementById('user-row-' + uid);
+    if (userRow) {
+      const statusCell = userRow.querySelector('td:nth-child(3)');
+      if (statusCell) statusCell.innerHTML = '<span class="badge badge-off">❌ Rejected</span>';
+    }
+  } catch(e) {
+    showToast('❌ Error: ' + e.message, true);
+  }
+}
+
+async function deleteUser(uid, name) {
+  if (!confirm(`Permanently delete ${name}?`)) return;
+  try {
+    await fetch('/api/delete_user', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({uid})
+    });
+    showToast(`🗑️ ${name} deleted.`);
+    const userRow = document.getElementById('user-row-' + uid);
+    if (userRow) userRow.remove();
+  } catch(e) {
+    showToast('❌ Error: ' + e.message, true);
+  }
 }
 
 // ---- APPLY THEME ----

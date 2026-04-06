@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel OS — Register</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a1f2e;
+  color: #e8ecf0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+.wrap {
+  background: #212736;
+  border: 1px solid #2e3a4e;
+  border-radius: 14px;
+  padding: 42px 36px 36px;
+  width: 400px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.logo { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.logo-icon { width: 44px; height: 44px; background: #4f8ef7; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+.logo-text { font-size: 1.25rem; font-weight: 700; }
+.logo-sub { font-size: 0.65rem; color: #4f8ef7; letter-spacing: 2px; text-transform: uppercase; }
+h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 8px; }
+.subtitle { font-size: 0.82rem; color: #8896a7; margin-bottom: 22px; line-height: 1.5; }
+.field { margin-bottom: 16px; }
+label { display: block; font-size: 0.8rem; color: #8896a7; margin-bottom: 5px; font-weight: 500; }
+input {
+  width: 100%; padding: 11px 13px;
+  background: #1a1f2e;
+  border: 1px solid #2e3a4e;
+  color: #e8ecf0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: border-color .2s;
+}
+input:focus { outline: none; border-color: #4f8ef7; }
+.btn {
+  width: 100%;
+  padding: 11px;
+  background: #4f8ef7;
+  border: none;
+  color: white;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background .2s;
+}
+.btn:hover { background: #3a7ce0; }
+.error {
+  background: rgba(231,76,60,0.12);
+  border: 1px solid rgba(231,76,60,0.3);
+  color: #ff6b6b;
+  padding: 10px 13px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+.divider { border: none; border-top: 1px solid #2e3a4e; margin: 20px 0; }
+.hint { font-size: 0.78rem; color: #8896a7; text-align: center; }
+.hint a { color: #4f8ef7; text-decoration: none; }
+.hint a:hover { text-decoration: underline; }
+
+/* Success state */
+.success-box {
+  text-align: center;
+}
+.success-icon { font-size: 2.8rem; margin-bottom: 16px; }
+.success-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; color: #2ecc71; }
+.success-msg { font-size: 0.85rem; color: #8896a7; margin-bottom: 24px; line-height: 1.6; }
+.uid-display {
+  background: #1a1f2e;
+  border: 2px solid #4f8ef7;
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.uid-label { font-size: 0.72rem; color: #8896a7; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.uid-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #4f8ef7;
+  letter-spacing: 2px;
+  font-family: 'Courier New', monospace;
+}
+.uid-copy-hint { font-size: 0.72rem; color: #8896a7; margin-top: 8px; }
+.warning-box {
+  background: rgba(243,156,18,0.1);
+  border: 1px solid rgba(243,156,18,0.3);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  color: #f39c12;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.btn-secondary {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid #2e3a4e;
+  color: #8896a7;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+  text-align: center;
+  transition: all .2s;
+  margin-top: 10px;
+}
+.btn-secondary:hover { border-color: #4f8ef7; color: #e8ecf0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">
+    <div class="logo-icon">🛡️</div>
+    <div>
+      <div class="logo-text">Sentinel OS</div>
+      <div class="logo-sub">Request Access</div>
+    </div>
+  </div>
+
+  {% if success %}
+  <!-- Success state -->
+  <div class="success-box">
+    <div class="success-icon">✅</div>
+    <div class="success-title">Registration Submitted!</div>
+    <div class="success-msg">Your request has been sent to the admin for approval. Save your UID below — you'll need it to log in once approved.</div>
+
+    <div class="uid-display">
+      <div class="uid-label">Your UID</div>
+      <div class="uid-value" id="uid-val">{{ uid }}</div>
+      <div class="uid-copy-hint">Click to copy</div>
+    </div>
+
+    <div class="warning-box">
+      <span>⚠️</span>
+      <span>Save this UID now. It will not be shown again. You will need it to log into the dashboard once the admin approves your request.</span>
+    </div>
+
+    <a class="btn" href="/login" style="display:block;text-decoration:none;text-align:center;">Go to Login</a>
+    <a class="btn-secondary" href="/">← Back to Home</a>
+  </div>
+
+  <script>
+    document.getElementById('uid-val').addEventListener('click', function() {
+      navigator.clipboard.writeText(this.textContent.trim()).then(() => {
+        this.textContent = 'Copied!';
+        setTimeout(() => this.textContent = '{{ uid }}', 1500);
+      });
+    });
+    document.getElementById('uid-val').style.cursor = 'pointer';
+  </script>
+
+  {% else %}
+  <!-- Registration form -->
+  <h2>Request Dashboard Access</h2>
+  <div class="subtitle">Enter your name to register. The admin will review your request and assign you a unique UID to log in.</div>
+
+  {% if error %}
+  <div class="error"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
+  {% endif %}
+
+  <form method="POST" autocomplete="off">
+    <div class="field">
+      <label>Your Name</label>
+      <input type="text" name="name" placeholder="Enter your full name" required autofocus maxlength="32">
+    </div>
+    <button class="btn" type="submit"><i class="fas fa-paper-plane"></i> Submit Registration</button>
+  </form>
+
+  <hr class="divider">
+  <div class="hint">
+    Already have a UID? <a href="/login">Login here</a>
+  </div>
+  <div class="hint" style="margin-top:8px;">
+    <a href="/">← Back to Home</a>
+  </div>
+  {% endif %}
+</div>
+</body>
+</html>
