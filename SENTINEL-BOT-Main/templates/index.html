@@ -245,6 +245,62 @@ input:checked + .slider:before { transform: translateX(22px); }
     <h2>General Settings</h2>
     <p>Configure basic bot behavior and appearance.</p>
   </div>
+
+  <!-- Bot Overview Stats -->
+  <div class="card" style="margin-bottom:24px;">
+    <div class="card-title"><i class="fas fa-chart-bar"></i> Bot Overview — Exact Stats</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;">
+      <div style="background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--accent);">13</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Prefix Commands</div>
+      </div>
+      <div style="background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--accent);">2</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Slash Commands</div>
+      </div>
+      <div style="background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--green);">6</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Auto-Mod Rules</div>
+      </div>
+      <div style="background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--orange);">5</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Security Features</div>
+      </div>
+      <div style="background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--purple);">10</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Event Listeners</div>
+      </div>
+      <div style="background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--yellow);">3</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Social Alert Types</div>
+      </div>
+    </div>
+    <!-- Command breakdown -->
+    <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:0.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">All 13 Prefix Commands</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">mute</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">warn</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">warnings</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">clearwarnings</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">kick</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">ban</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">tempban</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">purge</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">slowmode</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">userinfo</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">lockdown</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">unlockdown</span>
+        <span style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">refresh</span>
+      </div>
+      <div style="font-size:0.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin:12px 0 10px;">2 Slash Commands</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <span style="background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.25);color:var(--green);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">/commands</span>
+        <span style="background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.25);color:var(--green);padding:3px 10px;border-radius:6px;font-size:0.78rem;font-family:'Courier New',monospace;">/serverinfo</span>
+      </div>
+    </div>
+  </div>
+
   <div class="grid grid-2" id="general-grid">
 
     <div class="card">
