@@ -28,23 +28,33 @@ Sentinel OS is a feature-rich Discord bot with a web-based admin dashboard. Prov
 - `/register` - Registration request form
 - `/dashboard` - Main dashboard (requires login)
 - `/logout` - Logout
-- `/health` - Health check endpoint (for Railway)
+- `/health` - Health check endpoint
 - `/api/*` - REST API endpoints
 
 ## Auth System
 - UID format: `TBLS-{first 4 letters of name}-{4 char unique code}`
-- Admin UID: `TBLS-ADMI-9ZX7` (full admin access)
 - Users register → admin approves in Users tab → user logs in with UID
 - Captcha on login to prevent brute force, lockout after 3 failed attempts
 
-## Running the App
-**Development:** `cd SENTINEL-BOT-Main && python main.py`
-**Production (Railway):** `cd SENTINEL-BOT-Main && gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 wsgi:app`
+## Running the App on Replit
+**Workflow command:** `cd SENTINEL-BOT-Main && python3 -m gunicorn --bind 0.0.0.0:5000 --workers 1 --timeout 120 wsgi:app`
+
+The app uses `python3 -m gunicorn` to correctly resolve gunicorn from `.pythonlibs/`.
 
 ## Environment Variables
-- `DISCORD_TOKEN` - Discord bot token (required for bot functionality)
+- `DISCORD_TOKEN` - Discord bot token (required for bot to connect to Discord)
 - `OPENAI_KEY` - OpenAI API key (optional, for AI moderation)
+- `FLASK_SECRET_KEY` - Flask session secret key (auto-generated, set as shared env var)
 
-## Deployment
-- `railway.json` at project root configures Railway deployment
-- `Procfile` in SENTINEL-BOT-Main for Railway/Render
+## Dependencies
+All managed via `pyproject.toml` and installed in `.pythonlibs/`:
+- `discord-py` - Discord API
+- `flask` - Web dashboard
+- `gunicorn` - WSGI server
+- `openai` - AI moderation
+- `aiohttp`, `requests` - HTTP clients
+
+## Security Notes
+- Flask `secret_key` uses `FLASK_SECRET_KEY` env var (set in shared environment)
+- Falls back to `SESSION_SECRET` then a random key if neither is set
+- No hardcoded secrets in source code

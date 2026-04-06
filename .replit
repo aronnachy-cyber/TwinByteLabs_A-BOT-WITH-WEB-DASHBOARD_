@@ -27,7 +27,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd SENTINEL-BOT-Main && gunicorn --bind 0.0.0.0:5000 --workers 1 --timeout 120 wsgi:app"
+args = "cd SENTINEL-BOT-Main && python3 -m gunicorn --bind 0.0.0.0:5000 --workers 1 --timeout 120 wsgi:app"
 waitForPort = 5000
 
 [[ports]]
@@ -37,3 +37,8 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
+
+[userenv]
+
+[userenv.shared]
+FLASK_SECRET_KEY = "32ae2219526fd9e7d86fe84929ca7d7b937943428a069c1b36666dbea95d856c"

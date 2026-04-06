@@ -6,7 +6,7 @@ import string
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.secret_key = "sentinel_mega_secret_key_v2"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
 
 DEFAULT_CONFIG = {
     "prefix": "!",
