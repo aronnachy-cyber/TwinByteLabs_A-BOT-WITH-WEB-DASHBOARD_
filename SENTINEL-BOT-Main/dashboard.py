@@ -317,6 +317,11 @@ def restart_bot():
         return jsonify({"status": "success", "message": msg})
     return jsonify({"status": "error", "message": "Restart not available."}), 503
 
+# ---- HEALTH CHECK ----
+@app.route('/health')
+def health():
+    return 'OK', 200
+
 # ---- RUN ----
 def run_dashboard(port=None):
     if port is None:
