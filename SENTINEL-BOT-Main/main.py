@@ -379,7 +379,7 @@ async def slash_serverinfo(interaction: discord.Interaction):
     embed.add_field(name="Created",  value=guild.created_at.strftime("%Y-%m-%d"))
     if guild.icon:
         embed.set_thumbnail(url=guild.icon.url)
-    embed.set_footer(text="Sentinel OS V2.0.3")
+    embed.set_footer(text="Sentinel OS V2.0.4")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="bot", description="Show Sentinel OS bot details and status")
@@ -1191,7 +1191,7 @@ def run_bot():
     import time
     retry_delay = 5
     while True:
-        print("🤖 Starting Sentinel OS Bot V2.0.3...")
+        print("🤖 Starting Sentinel OS Bot V2.0.4...")
         try:
             bot.run(TOKEN, reconnect=True)
         except discord.errors.LoginFailure:
