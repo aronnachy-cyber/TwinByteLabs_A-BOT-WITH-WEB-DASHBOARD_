@@ -3,7 +3,14 @@ import os
 import json
 import random
 import string
+import secrets
+import requests as http_requests
 from datetime import datetime, timedelta
+
+DISCORD_CLIENT_ID     = os.environ.get("DISCORD_CLIENT_ID", "")
+DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
+DISCORD_REDIRECT_URI  = os.environ.get("DISCORD_REDIRECT_URI", "")
+DISCORD_API_BASE      = "https://discord.com/api/v10"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
@@ -202,6 +209,121 @@ def logout():
     add_dashboard_log("🚪 LOGOUT", f"{name} logged out")
     session.clear()
     return redirect(url_for('login'))
+
+# ---- DISCORD OAUTH2 ----
+def _login_error(msg):
+    """Helper: render login page with an error and fresh captcha."""
+    question, answer = generate_captcha()
+    session['captcha_answer'] = answer
+    return render_template('login.html', error=msg, captcha_question=question, locked=False)
+
+@app.route('/auth/discord')
+def auth_discord():
+    if not DISCORD_CLIENT_ID:
+        return _login_error("Discord login is not configured. Contact the administrator.")
+
+    redirect_uri = DISCORD_REDIRECT_URI or request.host_url.rstrip('/') + '/auth/discord/callback'
+    state = secrets.token_urlsafe(16)
+    session['oauth_state'] = state
+
+    oauth_url = (
+        f"https://discord.com/api/oauth2/authorize"
+        f"?client_id={DISCORD_CLIENT_ID}"
+        f"&redirect_uri={redirect_uri}"
+        f"&response_type=code"
+        f"&scope=identify"
+        f"&state={state}"
+    )
+    return redirect(oauth_url)
+
+@app.route('/auth/discord/callback')
+def auth_discord_callback():
+    error = request.args.get('error')
+    if error:
+        return _login_error("Discord authorization was denied.")
+
+    code  = request.args.get('code', '')
+    state = request.args.get('state', '')
+
+    if not code or state != session.get('oauth_state'):
+        return _login_error("Invalid OAuth state. Please try again.")
+
+    session.pop('oauth_state', None)
+
+    redirect_uri = DISCORD_REDIRECT_URI or request.host_url.rstrip('/') + '/auth/discord/callback'
+
+    try:
+        token_res = http_requests.post(
+            f"{DISCORD_API_BASE}/oauth2/token",
+            data={
+                'client_id':     DISCORD_CLIENT_ID,
+                'client_secret': DISCORD_CLIENT_SECRET,
+                'grant_type':    'authorization_code',
+                'code':          code,
+                'redirect_uri':  redirect_uri,
+            },
+            headers={'Content-Type': 'application/x-www-form-urlencoded'},
+            timeout=10
+        )
+        token_data = token_res.json()
+    except Exception as e:
+        return _login_error(f"Discord token exchange failed: {e}")
+
+    access_token = token_data.get('access_token')
+    if not access_token:
+        return _login_error("Could not get Discord access token. Try again.")
+
+    try:
+        user_res = http_requests.get(
+            f"{DISCORD_API_BASE}/users/@me",
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10
+        )
+        discord_user = user_res.json()
+    except Exception as e:
+        return _login_error(f"Could not fetch Discord profile: {e}")
+
+    discord_id       = discord_user.get('id', '')
+    discord_username = discord_user.get('username', 'Unknown')
+    discord_global   = discord_user.get('global_name') or discord_username
+
+    users = load_users()
+    existing = next((u for u in users if u.get('discord_id') == discord_id), None)
+
+    if existing:
+        if existing.get('status') == 'approved':
+            session['logged_in']  = True
+            session['user_name']  = existing['name']
+            session['uid']        = existing['uid']
+            session['is_admin']   = existing.get('is_admin', False)
+            add_dashboard_log("✅ LOGIN", f"{existing['name']} logged in via Discord")
+            return redirect(url_for('index'))
+        elif existing.get('status') == 'rejected':
+            return _login_error("Your account has been rejected. Contact the administrator.")
+        else:
+            return _login_error(f"Your account is pending admin approval. Your UID is: {existing['uid']}")
+
+    uid = generate_uid(discord_global)
+    while any(u['uid'] == uid for u in users):
+        uid = generate_uid(discord_global)
+
+    new_user = {
+        'uid':              uid,
+        'name':             discord_global,
+        'discord_id':       discord_id,
+        'discord_username': discord_username,
+        'status':           'pending',
+        'is_admin':         False,
+        'created_at':       datetime.now().strftime('%Y-%m-%d')
+    }
+    users.append(new_user)
+    save_users(users)
+    add_dashboard_log("📝 DISCORD-REGISTER", f"New Discord login: {discord_global} ({uid}) — pending approval")
+
+    return _login_error(
+        f"Welcome {discord_global}! Your account has been created and is pending admin approval. "
+        f"Your UID is: {uid}"
+    )
 
 # ---- REGISTER ----
 @app.route('/register', methods=['GET', 'POST'])
