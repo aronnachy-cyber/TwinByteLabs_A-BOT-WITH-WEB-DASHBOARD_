@@ -5,12 +5,42 @@ import random
 import string
 import secrets
 import requests as http_requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
 DISCORD_CLIENT_ID     = os.environ.get("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
 DISCORD_REDIRECT_URI  = os.environ.get("DISCORD_REDIRECT_URI", "")
 DISCORD_API_BASE      = "https://discord.com/api/v10"
+
+SMTP_EMAIL    = os.environ.get("SMTP_EMAIL", "")
+SMTP_PASSWORD = (os.environ.get("SMTP_PASSWORD") or os.environ.get("SMTP_PASS")
+                 or os.environ.get("SMTP_ID") or os.environ.get("SMTP_KEY", ""))
+SMTP_HOST     = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT     = int(os.environ.get("SMTP_PORT", "587"))
+
+def send_email(to_address, subject, html_body):
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        print("⚠️  SMTP not configured — email not sent.")
+        return False
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = f"Sentinel OS <{SMTP_EMAIL}>"
+        msg["To"]      = to_address
+        msg.attach(MIMEText(html_body, "html"))
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(SMTP_EMAIL, SMTP_PASSWORD)
+            server.sendmail(SMTP_EMAIL, to_address, msg.as_string())
+        print(f"✅ Email sent to {to_address}")
+        return True
+    except Exception as e:
+        print(f"❌ Email send error: {e}")
+        return False
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
@@ -329,7 +359,8 @@ def auth_discord_callback():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        name = request.form.get('name', '').strip()
+        name  = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip().lower()
         if not name or len(name) < 2:
             return render_template('register.html', error="Please enter a valid name (at least 2 characters).")
 
@@ -338,18 +369,80 @@ def register():
         while any(u['uid'] == uid for u in users):
             uid = generate_uid(name)
 
+        if email and any(u.get('email','').lower() == email for u in users):
+            return render_template('register.html', error="That email is already registered.")
+
         users.append({
-            'uid': uid,
-            'name': name,
-            'status': 'pending',
-            'is_admin': False,
+            'uid':        uid,
+            'name':       name,
+            'email':      email,
+            'status':     'pending',
+            'is_admin':   False,
             'created_at': datetime.now().strftime('%Y-%m-%d')
         })
         save_users(users)
         add_dashboard_log("📝 REGISTER", f"New registration: {name} ({uid}) — pending approval")
+
+        if email:
+            send_email(email,
+                "Sentinel OS — Registration Received",
+                f"""
+                <div style="background:#07101f;color:#e8f0ff;font-family:sans-serif;padding:40px;border-radius:12px;max-width:480px;margin:auto;">
+                  <h2 style="color:#3a8fff;">🛡️ Sentinel OS</h2>
+                  <p>Hi <strong>{name}</strong>, your registration has been received!</p>
+                  <p>Your UID is:</p>
+                  <div style="background:#0d1a33;border:1px solid #1e3a6e;border-radius:8px;padding:14px 20px;font-size:1.3rem;letter-spacing:3px;color:#3a8fff;text-align:center;margin:16px 0;">
+                    {uid}
+                  </div>
+                  <p style="color:#7a93b8;font-size:0.88rem;">An admin will review and approve your account. Once approved, use your UID to log in.</p>
+                  <p style="color:#7a93b8;font-size:0.8rem;margin-top:24px;">Sentinel OS — Your Server's Guardian</p>
+                </div>
+                """
+            )
+
         return render_template('register.html', success=True, uid=uid, name=name)
 
     return render_template('register.html')
+
+# ---- FORGOT PASSWORD ----
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        if not email:
+            return render_template('forgot_password.html', error="Please enter your email address.")
+
+        users = load_users()
+        user = next((u for u in users if u.get('email', '').lower() == email), None)
+
+        if not user:
+            return render_template('forgot_password.html',
+                error="No account found with that email address.")
+
+        sent = send_email(email,
+            "Sentinel OS — Your UID",
+            f"""
+            <div style="background:#07101f;color:#e8f0ff;font-family:sans-serif;padding:40px;border-radius:12px;max-width:480px;margin:auto;">
+              <h2 style="color:#3a8fff;">🛡️ Sentinel OS — UID Recovery</h2>
+              <p>Hi <strong>{user['name']}</strong>, here is your UID:</p>
+              <div style="background:#0d1a33;border:1px solid #1e3a6e;border-radius:8px;padding:14px 20px;font-size:1.3rem;letter-spacing:3px;color:#3a8fff;text-align:center;margin:16px 0;">
+                {user['uid']}
+              </div>
+              <p style="color:#7a93b8;font-size:0.88rem;">Use this UID to log in to your Sentinel OS dashboard.</p>
+              <p style="color:#7a93b8;font-size:0.8rem;margin-top:24px;">If you did not request this, please ignore this email.</p>
+              <p style="color:#7a93b8;font-size:0.8rem;">Sentinel OS — Your Server's Guardian</p>
+            </div>
+            """
+        )
+
+        if sent:
+            add_dashboard_log("📧 UID-RECOVERY", f"UID sent to {email} for {user['name']}")
+            return render_template('forgot_password.html', success=True)
+        else:
+            return render_template('forgot_password.html',
+                error="Email could not be sent. SMTP may not be configured — contact the admin.")
+
+    return render_template('forgot_password.html')
 
 # ---- MAIN DASHBOARD ----
 @app.route('/dashboard')
