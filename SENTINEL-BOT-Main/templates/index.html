@@ -207,6 +207,26 @@ input:checked + .slider:before { transform: translateX(22px); }
         <i class="fas fa-list-alt"></i> Action Logs
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
       </div>
+      <div class="nav-item" onclick="showTab('giveaways',this)" data-tab="giveaways">
+        <i class="fas fa-gift"></i> Giveaways
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('tickets',this)" data-tab="tickets">
+        <i class="fas fa-ticket-alt"></i> Tickets
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('autoresponder',this)" data-tab="autoresponder">
+        <i class="fas fa-comments"></i> Auto-Responder
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('reactionroles',this)" data-tab="reactionroles">
+        <i class="fas fa-smile"></i> Reaction Roles
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('leveling',this)" data-tab="leveling">
+        <i class="fas fa-star"></i> Leveling / XP
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
       {% if is_admin %}
       <div class="nav-item" onclick="showTab('users',this)" data-tab="users">
         <i class="fas fa-users"></i> Users
@@ -215,6 +235,10 @@ input:checked + .slider:before { transform: translateX(22px); }
         {% endif %}
       </div>
       {% endif %}
+      <div class="nav-item" onclick="showTab('account',this)" data-tab="account">
+        <i class="fas fa-user-circle"></i> Account
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
     </div>
   </nav>
   <div class="sidebar-footer">
@@ -331,6 +355,16 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="row">
         <div class="row-label"><strong>Daily Report</strong>Post a moderation summary to log channel every 24 hours</div>
         <label class="toggle"><input type="checkbox" id="daily_report" {% if config.get('daily_report')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Leveling / XP</strong>Members earn XP for chatting — /rank and /leaderboard enabled</div>
+        <label class="toggle"><input type="checkbox" id="leveling" {% if config.get('leveling')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Ticket Category ID</strong>Category channel where ticket channels are created</div>
+      </div>
+      <div class="input-wrap-full" style="margin-bottom:4px;">
+        <input type="text" id="ticket_category" value="{{ config.get('ticket_category','') }}" placeholder="Discord category channel ID (optional)">
       </div>
     </div>
 
@@ -743,6 +777,148 @@ input:checked + .slider:before { transform: translateX(22px); }
 </div>
 {% endif %}
 
+<!-- ==================== GIVEAWAYS TAB ==================== -->
+<div id="giveaways" class="tab-content">
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><i class="fas fa-gift"></i> Giveaways Manager</div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:16px;">Use <code>/giveaway</code> in Discord to start giveaways. Manage them here.</p>
+    <div id="giveaway-stats" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:18px;">
+      <div style="background:rgba(79,142,247,.08);border:1px solid var(--border);border-radius:10px;padding:14px 20px;flex:1;min-width:120px;">
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px;">ACTIVE</div>
+        <div id="ga-active" style="font-size:1.6rem;font-weight:700;color:var(--accent);">—</div>
+      </div>
+      <div style="background:rgba(79,142,247,.08);border:1px solid var(--border);border-radius:10px;padding:14px 20px;flex:1;min-width:120px;">
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px;">COMPLETED</div>
+        <div id="ga-ended" style="font-size:1.6rem;font-weight:700;color:var(--green);">—</div>
+      </div>
+      <div style="background:rgba(79,142,247,.08);border:1px solid var(--border);border-radius:10px;padding:14px 20px;flex:1;min-width:120px;">
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px;">TOTAL</div>
+        <div id="ga-total" style="font-size:1.6rem;font-weight:700;color:var(--text);">—</div>
+      </div>
+    </div>
+    <table class="warnings-table">
+      <thead><tr><th>Prize</th><th>Hosted By</th><th>Winners</th><th>Status</th><th>Created</th></tr></thead>
+      <tbody id="giveaway-table-body">
+        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== TICKETS TAB ==================== -->
+<div id="tickets" class="tab-content">
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><i class="fas fa-ticket-alt"></i> Support Tickets</div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:16px;">Members use <code>/ticket</code> in Discord. Staff close tickets with <code>/ticket-close</code> or the button.</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:18px;">
+      <div style="background:rgba(79,142,247,.08);border:1px solid var(--border);border-radius:10px;padding:14px 20px;flex:1;min-width:120px;">
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px;">OPEN</div>
+        <div id="tk-open" style="font-size:1.6rem;font-weight:700;color:var(--accent);">—</div>
+      </div>
+      <div style="background:rgba(79,142,247,.08);border:1px solid var(--border);border-radius:10px;padding:14px 20px;flex:1;min-width:120px;">
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px;">CLOSED</div>
+        <div id="tk-closed" style="font-size:1.6rem;font-weight:700;color:var(--green);">—</div>
+      </div>
+    </div>
+    <table class="warnings-table">
+      <thead><tr><th>#</th><th>User</th><th>Reason</th><th>Status</th><th>Opened</th><th>Closed By</th></tr></thead>
+      <tbody id="ticket-table-body">
+        <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== AUTO-RESPONDER TAB ==================== -->
+<div id="autoresponder" class="tab-content">
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><i class="fas fa-comments"></i> Auto-Responder Rules</div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:16px;">Bot automatically replies when a message matches a trigger. You can also use <code>/autorespond add</code> in Discord.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end;">
+      <div style="flex:1;min-width:160px;">
+        <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:4px;">TRIGGER KEYWORD</label>
+        <input id="ar-trigger" type="text" placeholder="e.g. hello, discord.gg" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:0.88rem;">
+      </div>
+      <div style="flex:2;min-width:200px;">
+        <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:4px;">RESPONSE (use {user} for mention)</label>
+        <input id="ar-response" type="text" placeholder="e.g. Hey {user}! Welcome!" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:0.88rem;">
+      </div>
+      <div style="min-width:130px;">
+        <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:4px;">MATCH TYPE</label>
+        <select id="ar-match" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:0.88rem;">
+          <option value="contains">Contains</option>
+          <option value="exact">Exact</option>
+          <option value="startswith">Starts with</option>
+        </select>
+      </div>
+      <button onclick="addAutoResponder()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-weight:600;white-space:nowrap;height:40px;"><i class="fas fa-plus"></i> Add Rule</button>
+    </div>
+    <table class="warnings-table">
+      <thead><tr><th>Trigger</th><th>Response</th><th>Match</th><th>Action</th></tr></thead>
+      <tbody id="ar-table-body">
+        <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== REACTION ROLES TAB ==================== -->
+<div id="reactionroles" class="tab-content">
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><i class="fas fa-smile"></i> Reaction Roles</div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:16px;">Use <code>/setup-reaction-role</code> in Discord to link emoji reactions to roles. Manage existing rules here.</p>
+    <table class="warnings-table">
+      <thead><tr><th>Message ID</th><th>Emoji</th><th>Role</th><th>Action</th></tr></thead>
+      <tbody id="rr-table-body">
+        <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== LEVELING TAB ==================== -->
+<div id="leveling" class="tab-content">
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><i class="fas fa-star"></i> Leveling & XP</div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:16px;">Members earn XP by chatting (1 gain per minute). Enable leveling in General Settings with the <strong>Leveling</strong> toggle. Use <code>/rank</code> and <code>/leaderboard</code> in Discord.</p>
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="color:var(--muted);font-size:0.85rem;">XP per message: <strong>15–25</strong> &nbsp;|&nbsp; Cooldown: <strong>60s</strong> &nbsp;|&nbsp; Level formula: <strong>100 × (level+1) XP</strong></span>
+      <button onclick="loadLeaderboard()" style="margin-left:auto;background:rgba(79,142,247,.15);color:var(--accent);border:1px solid var(--border);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.82rem;"><i class="fas fa-sync-alt"></i> Refresh</button>
+    </div>
+    <table class="warnings-table">
+      <thead><tr><th>#</th><th>User</th><th>Level</th><th>Total XP</th><th>Messages</th></tr></thead>
+      <tbody id="xp-table-body">
+        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== ACCOUNT TAB ==================== -->
+<div id="account" class="tab-content">
+  <div class="card" style="max-width:500px;">
+    <div class="card-title"><i class="fas fa-user-circle"></i> Account Settings</div>
+    <div style="display:flex;flex-direction:column;gap:18px;">
+      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Logged in as</div>
+        <div style="font-size:1.1rem;font-weight:700;color:var(--text);">{{ current_user_name }}</div>
+        <div style="font-size:0.8rem;color:var(--muted);margin-top:4px;">Role: <span style="color:{% if is_admin %}var(--accent){% else %}var(--text){% endif %};">{% if is_admin %}Administrator{% else %}Member{% endif %}</span></div>
+      </div>
+      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Your UID</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <code style="background:var(--bg);padding:8px 14px;border-radius:8px;font-size:0.95rem;color:var(--accent);letter-spacing:2px;flex:1;">{{ session.get('uid', 'N/A') }}</code>
+          <button onclick="copyUID()" style="background:rgba(79,142,247,.15);color:var(--accent);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.82rem;"><i class="fas fa-copy"></i> Copy</button>
+        </div>
+      </div>
+      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Quick Actions</div>
+        <a href="/logout" style="display:inline-flex;align-items:center;gap:8px;background:rgba(231,76,60,.12);color:#e74c3c;border:1px solid rgba(231,76,60,.25);border-radius:8px;padding:9px 18px;text-decoration:none;font-size:0.88rem;font-weight:600;"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      </div>
+    </div>
+  </div>
+</div>
+
 </div><!-- end .main -->
 <div id="toast"></div>
 
@@ -751,7 +927,10 @@ input:checked + .slider:before { transform: translateX(22px); }
 const tabTitles = {
   general: 'General Settings', moderation: 'Moderation Settings',
   automod: 'Automod Settings', security: 'Security & Anti-Raid',
-  social: 'Social Notifier', warnings: 'Live Warnings', logs: 'Action Logs'
+  social: 'Social Notifier', warnings: 'Live Warnings', logs: 'Action Logs',
+  giveaways: 'Giveaways', tickets: 'Support Tickets',
+  autoresponder: 'Auto-Responder', reactionroles: 'Reaction Roles',
+  leveling: 'Leveling & XP', account: 'Account Settings', users: 'User Management'
 };
 
 function showTab(id, el) {
@@ -762,6 +941,11 @@ function showTab(id, el) {
   document.getElementById('topbar-title').textContent = tabTitles[id] || id;
   if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
   if (id === 'logs') loadLogs();
+  if (id === 'giveaways') loadGiveaways();
+  if (id === 'tickets') loadTickets();
+  if (id === 'autoresponder') loadAutoResponder();
+  if (id === 'reactionroles') loadReactionRoles();
+  if (id === 'leveling') loadLeaderboard();
 }
 
 function toggleSidebar() {
@@ -842,7 +1026,9 @@ function collectData() {
     discord_alerts: getCheck('discord_alerts'), twitter_alerts: getCheck('twitter_alerts'),
     youtube_alerts: getCheck('youtube_alerts'), youtube_channel_link: getText('youtube_channel_link'),
     youtube_notify_msg: getText('youtube_notify_msg'), multi_channel: getText('multi_channel'),
-    daily_report: getCheck('daily_report')
+    daily_report: getCheck('daily_report'),
+    leveling: getCheck('leveling'),
+    ticket_category: getText('ticket_category')
   };
 }
 
@@ -1100,12 +1286,201 @@ if (savedTheme && savedTheme.value) {
   document.documentElement.style.setProperty('--accent', savedTheme.value);
 }
 
+// ---- GIVEAWAYS ----
+async function loadGiveaways() {
+  try {
+    const res = await fetch('/api/giveaways');
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : [];
+    const active = list.filter(g => !g.ended);
+    const ended = list.filter(g => g.ended);
+    document.getElementById('ga-active').textContent = active.length;
+    document.getElementById('ga-ended').textContent = ended.length;
+    document.getElementById('ga-total').textContent = list.length;
+    const tbody = document.getElementById('giveaway-table-body');
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">No giveaways yet. Use /giveaway in Discord.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.slice().reverse().map(g => `
+      <tr>
+        <td style="font-weight:600;">${g.prize || '—'}</td>
+        <td style="color:var(--muted);font-size:0.82rem;">${g.host_name || g.host_id || '—'}</td>
+        <td>${g.winners || 1}</td>
+        <td><span style="padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;background:${g.ended ? 'rgba(46,204,113,.12)' : 'rgba(79,142,247,.12)'};color:${g.ended ? 'var(--green)' : 'var(--accent)'};">${g.ended ? '✅ Ended' : '🎉 Active'}</span></td>
+        <td style="color:var(--muted);font-size:0.8rem;">${(g.created_at||'').slice(0,16)}</td>
+      </tr>`).join('');
+  } catch(e) {
+    document.getElementById('giveaway-table-body').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">Failed to load</td></tr>';
+  }
+}
+
+// ---- TICKETS ----
+async function loadTickets() {
+  try {
+    const res = await fetch('/api/tickets');
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : [];
+    const open = list.filter(t => t.status === 'open');
+    const closed = list.filter(t => t.status === 'closed');
+    document.getElementById('tk-open').textContent = open.length;
+    document.getElementById('tk-closed').textContent = closed.length;
+    const tbody = document.getElementById('ticket-table-body');
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">No tickets yet. Members use /ticket in Discord.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.slice().reverse().map(t => `
+      <tr>
+        <td style="color:var(--accent);font-weight:700;">#${String(t.id||'?').padStart(4,'0')}</td>
+        <td>${t.user_name || t.user_id || '—'}</td>
+        <td style="font-size:0.82rem;">${(t.reason||'General Support').slice(0,40)}</td>
+        <td><span style="padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;background:${t.status==='open' ? 'rgba(79,142,247,.12)' : 'rgba(46,204,113,.12)'};color:${t.status==='open' ? 'var(--accent)' : 'var(--green)'};">${t.status==='open' ? '🟢 Open' : '🔒 Closed'}</span></td>
+        <td style="color:var(--muted);font-size:0.8rem;">${(t.created_at||'').slice(0,16)}</td>
+        <td style="color:var(--muted);font-size:0.8rem;">${t.closed_by || '—'}</td>
+      </tr>`).join('');
+  } catch(e) {
+    document.getElementById('ticket-table-body').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);">Failed to load</td></tr>';
+  }
+}
+
+// ---- AUTO-RESPONDER ----
+async function loadAutoResponder() {
+  try {
+    const res = await fetch('/api/autoresponder');
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : [];
+    const tbody = document.getElementById('ar-table-body');
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">No rules yet. Add one above or use /autorespond add in Discord.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(r => `
+      <tr>
+        <td><code style="background:var(--bg);padding:3px 8px;border-radius:6px;color:var(--accent);">${r.trigger||''}</code></td>
+        <td style="font-size:0.85rem;">${(r.response||'').slice(0,60)}${(r.response||'').length>60?'…':''}</td>
+        <td><span style="font-size:0.78rem;color:var(--muted);">${r.match||'contains'}</span></td>
+        <td><button onclick="removeAutoResponder('${r.trigger}')" style="background:rgba(231,76,60,.12);color:#e74c3c;border:1px solid rgba(231,76,60,.25);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:0.78rem;">Remove</button></td>
+      </tr>`).join('');
+  } catch(e) {
+    document.getElementById('ar-table-body').innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);">Failed to load</td></tr>';
+  }
+}
+
+async function addAutoResponder() {
+  const trigger = document.getElementById('ar-trigger').value.trim();
+  const response = document.getElementById('ar-response').value.trim();
+  const match = document.getElementById('ar-match').value;
+  if (!trigger || !response) { showToast('❌ Fill in both trigger and response.', true); return; }
+  try {
+    const res = await fetch('/api/autoresponder/add', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({trigger, response, match})
+    });
+    const data = await res.json();
+    if (data.status === 'success') {
+      showToast(data.new ? '✅ Rule added!' : '✅ Rule updated!');
+      document.getElementById('ar-trigger').value = '';
+      document.getElementById('ar-response').value = '';
+      loadAutoResponder();
+    } else {
+      showToast('❌ ' + (data.error||'Error'), true);
+    }
+  } catch(e) { showToast('❌ Error: ' + e.message, true); }
+}
+
+async function removeAutoResponder(trigger) {
+  if (!confirm(`Remove auto-responder for "${trigger}"?`)) return;
+  try {
+    const res = await fetch('/api/autoresponder/remove', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({trigger})
+    });
+    showToast('✅ Removed!');
+    loadAutoResponder();
+  } catch(e) { showToast('❌ Error', true); }
+}
+
+// ---- REACTION ROLES ----
+async function loadReactionRoles() {
+  try {
+    const res = await fetch('/api/reaction_roles');
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : [];
+    const tbody = document.getElementById('rr-table-body');
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">No reaction roles set. Use /setup-reaction-role in Discord.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(r => `
+      <tr>
+        <td><code style="background:var(--bg);padding:3px 8px;border-radius:6px;font-size:0.82rem;">${r.message_id||'—'}</code></td>
+        <td style="font-size:1.2rem;">${r.emoji||'—'}</td>
+        <td style="color:var(--accent);font-weight:600;">@${r.role_name||r.role_id||'—'}</td>
+        <td><button onclick="removeReactionRole(${r.message_id},'${r.emoji}')" style="background:rgba(231,76,60,.12);color:#e74c3c;border:1px solid rgba(231,76,60,.25);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:0.78rem;">Remove</button></td>
+      </tr>`).join('');
+  } catch(e) {
+    document.getElementById('rr-table-body').innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);">Failed to load</td></tr>';
+  }
+}
+
+async function removeReactionRole(messageId, emoji) {
+  if (!confirm(`Remove reaction role for ${emoji} on message ${messageId}?`)) return;
+  try {
+    await fetch('/api/reaction_roles/remove', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message_id: messageId, emoji})
+    });
+    showToast('✅ Reaction role removed!');
+    loadReactionRoles();
+  } catch(e) { showToast('❌ Error', true); }
+}
+
+// ---- LEADERBOARD / XP ----
+async function loadLeaderboard() {
+  try {
+    const res = await fetch('/api/xp/leaderboard');
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : [];
+    const tbody = document.getElementById('xp-table-body');
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">No XP data yet. Enable leveling in General Settings and let members chat!</td></tr>';
+      return;
+    }
+    const medals = ['🥇','🥈','🥉'];
+    tbody.innerHTML = list.map((m,i) => `
+      <tr>
+        <td style="font-weight:700;color:${i<3?'var(--accent)':'var(--muted)'};">${medals[i]||('#'+(i+1))}</td>
+        <td style="font-weight:600;">${m.username||m.user_id}</td>
+        <td><span style="background:rgba(241,196,15,.12);color:#f1c40f;padding:3px 10px;border-radius:20px;font-size:0.8rem;font-weight:700;">Lv ${m.level||0}</span></td>
+        <td style="color:var(--accent);">${m.xp||0} XP</td>
+        <td style="color:var(--muted);font-size:0.85rem;">${m.messages||0}</td>
+      </tr>`).join('');
+  } catch(e) {
+    document.getElementById('xp-table-body').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">Failed to load</td></tr>';
+  }
+}
+
+// ---- COPY UID ----
+function copyUID() {
+  const uid = document.querySelector('#account code');
+  if (uid) {
+    navigator.clipboard.writeText(uid.textContent.trim()).then(() => showToast('✅ UID copied!')).catch(() => showToast('❌ Could not copy', true));
+  }
+}
+
 // ---- AUTO REFRESH ----
 setInterval(loadWarnings, 5000);
 setInterval(() => {
   const active = document.querySelector('.tab-content.active');
-  if (active && active.id === 'logs') loadLogs();
-}, 8000);
+  if (!active) return;
+  if (active.id === 'logs') loadLogs();
+  if (active.id === 'giveaways') loadGiveaways();
+  if (active.id === 'tickets') loadTickets();
+}, 10000);
 
 loadWarnings();
 </script>

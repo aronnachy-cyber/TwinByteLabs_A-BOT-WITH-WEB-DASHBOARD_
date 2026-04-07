@@ -447,6 +447,184 @@ def delete_user():
     add_dashboard_log("🗑️ DELETED", f"User {uid} removed")
     return jsonify({"status": "success"})
 
+# ---- API: GIVEAWAYS ----
+@app.route('/api/giveaways')
+def api_giveaways():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        import giveaway as giveaway_mod
+        return jsonify(giveaway_mod.get_all_giveaways())
+    except Exception as e:
+        return jsonify([])
+
+# ---- API: TICKETS ----
+@app.route('/api/tickets')
+def api_tickets():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        import tickets as tickets_mod
+        return jsonify(tickets_mod.get_all_tickets())
+    except Exception as e:
+        return jsonify([])
+
+# ---- API: AUTO-RESPONDER ----
+@app.route('/api/autoresponder')
+def api_autoresponder():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        import autoresponder as ar_mod
+        return jsonify(ar_mod.get_all_responses())
+    except Exception as e:
+        return jsonify([])
+
+@app.route('/api/autoresponder/add', methods=['POST'])
+def api_autoresponder_add():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    trigger = data.get('trigger', '').strip()
+    response = data.get('response', '').strip()
+    match = data.get('match', 'contains')
+    if not trigger or not response:
+        return jsonify({"error": "Missing trigger or response"}), 400
+    try:
+        import autoresponder as ar_mod
+        is_new = ar_mod.add_response(trigger, response, match)
+        add_dashboard_log("🤖 AUTO-RESPOND", f"{'Added' if is_new else 'Updated'} trigger: {trigger}")
+        return jsonify({"status": "success", "new": is_new})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/autoresponder/remove', methods=['POST'])
+def api_autoresponder_remove():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    trigger = data.get('trigger', '').strip()
+    try:
+        import autoresponder as ar_mod
+        removed = ar_mod.remove_response(trigger)
+        if removed:
+            add_dashboard_log("🤖 AUTO-RESPOND", f"Removed trigger: {trigger}")
+        return jsonify({"status": "success", "removed": removed})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- API: REACTION ROLES ----
+@app.route('/api/reaction_roles')
+def api_reaction_roles():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        import reaction_roles as rr_mod
+        return jsonify(rr_mod.get_all_rules())
+    except Exception as e:
+        return jsonify([])
+
+@app.route('/api/reaction_roles/remove', methods=['POST'])
+def api_reaction_roles_remove():
+    if not session.get('logged_in') or not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    message_id = data.get('message_id')
+    emoji = data.get('emoji', '')
+    try:
+        import reaction_roles as rr_mod
+        removed = rr_mod.remove_rule(message_id, emoji)
+        return jsonify({"status": "success", "removed": removed})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- API: XP LEADERBOARD ----
+@app.route('/api/xp/leaderboard')
+def api_xp_leaderboard():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        import leveling as lev_mod
+        import json, os
+        if not os.path.exists('xp.json'):
+            return jsonify([])
+        with open('xp.json') as f:
+            xp_data = json.load(f)
+        result = []
+        for guild_id, members in xp_data.items():
+            for uid, data in members.items():
+                result.append({
+                    "user_id": uid,
+                    "username": data.get("username", uid),
+                    "xp": data.get("xp", 0),
+                    "level": lev_mod.get_level_from_xp(data.get("xp", 0)),
+                    "messages": data.get("messages", 0)
+                })
+        result.sort(key=lambda x: x["xp"], reverse=True)
+        return jsonify(result[:20])
+    except Exception as e:
+        return jsonify([])
+
+# ---- API: STATS OVERVIEW ----
+@app.route('/api/stats')
+def api_stats():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    import os, json as _json
+    total_warnings = 0
+    try:
+        if os.path.exists('warnings.json'):
+            with open('warnings.json') as f:
+                wdb = _json.load(f)
+            for guild in wdb.values():
+                if isinstance(guild, dict):
+                    for v in guild.values():
+                        if isinstance(v, dict):
+                            total_warnings += v.get("count", 0)
+                        elif isinstance(v, int):
+                            total_warnings += v
+    except Exception:
+        pass
+    active_giveaways = 0
+    try:
+        if os.path.exists('giveaways.json'):
+            with open('giveaways.json') as f:
+                gd = _json.load(f)
+            active_giveaways = len([g for g in gd.get("giveaways", []) if not g.get("ended")])
+    except Exception:
+        pass
+    open_tickets = 0
+    try:
+        if os.path.exists('tickets.json'):
+            with open('tickets.json') as f:
+                td = _json.load(f)
+            open_tickets = len([t for t in td.get("tickets", []) if t.get("status") == "open"])
+    except Exception:
+        pass
+    ar_count = 0
+    try:
+        if os.path.exists('autoresponder.json'):
+            with open('autoresponder.json') as f:
+                ar = _json.load(f)
+            ar_count = len(ar.get("responses", []))
+    except Exception:
+        pass
+    rr_count = 0
+    try:
+        if os.path.exists('reaction_roles.json'):
+            with open('reaction_roles.json') as f:
+                rr = _json.load(f)
+            rr_count = len(rr.get("rules", []))
+    except Exception:
+        pass
+    return jsonify({
+        "total_warnings": total_warnings,
+        "active_giveaways": active_giveaways,
+        "open_tickets": open_tickets,
+        "autoresponders": ar_count,
+        "reaction_roles": rr_count
+    })
+
 # ---- HEALTH CHECK ----
 @app.route('/health')
 def health():

@@ -12,6 +12,13 @@ from datetime import datetime, timedelta
 
 from dashboard import app, config as dash_config, run_dashboard, add_dashboard_log, set_bot_restart_callback
 import moderation, automod, roles, logs, social, security
+import giveaway as giveaway_mod
+import tickets as tickets_mod
+import autoresponder as autoresponder_mod
+import reaction_roles as rr_mod
+import leveling as leveling_mod
+
+BOT_START_TIME = datetime.utcnow()
 
 # ---------------- CONFIG LOADER ----------------
 def load_config():
@@ -60,7 +67,9 @@ DEFAULT_CONFIG = {
     "youtube_notify_msg": "📺 A new YouTube video was shared! Check it out:",
     "multi_channel": "",
     "owner_dm_id": "",
-    "daily_report": "OFF"
+    "daily_report": "OFF",
+    "leveling": "OFF",
+    "ticket_category": ""
 }
 
 config = {**DEFAULT_CONFIG, **load_config()}
@@ -322,7 +331,8 @@ async def slash_commands(interaction: discord.Interaction):
         f"`{p}kick @user [reason]` — Kick a member\n"
         f"`{p}ban @user [reason]` — Permanent ban\n"
         f"`{p}tempban @user <dur> [reason]` — Temp ban (e.g. `1h`, `2d`, `7d`)\n"
-        f"`{p}mute @user` — Mute a member\n"
+        f"`{p}mute @user [duration]` — Mute a member (e.g. `30m`, `2h`)\n"
+        f"`{p}unmute @user` — Unmute a member\n"
         f"`{p}purge [1-200]` — Bulk delete messages\n"
         f"`{p}slowmode [0-21600]` — Set channel slowmode (0 = off)"
     ))
@@ -336,12 +346,27 @@ async def slash_commands(interaction: discord.Interaction):
         f"`{p}refresh` — Reload config from dashboard"
     ))
     embed.add_field(name="💫 Slash Commands", inline=False, value=(
-        "`/commands` — This list\n`/serverinfo` — Server stats"
+        "`/bot` — Bot stats & uptime\n"
+        "`/dashboard` — Mini admin dashboard (admin only)\n"
+        "`/commands` — This list\n"
+        "`/serverinfo` — Server statistics\n"
+        "`/giveaway <duration> <prize>` — Start a giveaway\n"
+        "`/giveaway-end <msg_id>` — End giveaway early\n"
+        "`/giveaway-reroll <msg_id>` — Reroll giveaway winner\n"
+        "`/poll <question> <opt1> <opt2>` — Create a vote poll\n"
+        "`/ticket [reason]` — Open a support ticket\n"
+        "`/ticket-close` — Close current ticket\n"
+        "`/setup-reaction-role <msg> <emoji> <role>` — Link emoji to role\n"
+        "`/autorespond add <trigger> <response>` — Add auto-reply\n"
+        "`/autorespond remove <trigger>` — Remove auto-reply\n"
+        "`/autorespond list` — Show all auto-replies\n"
+        "`/rank [@user]` — Check XP and level\n"
+        "`/leaderboard` — Server XP leaderboard"
     ))
     embed.add_field(name="📬 Owner DM (via DM only)", inline=False, value=(
         f"`!approve ban <id>` / `!approve kick <id>` / `!approve ignore <id>`"
     ))
-    embed.set_footer(text="Sentinel OS V2.0.3 • AI-Powered Moderation")
+    embed.set_footer(text="Sentinel OS V2.5.0 • AI-Powered Moderation")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="serverinfo", description="Show server information")
@@ -356,6 +381,251 @@ async def slash_serverinfo(interaction: discord.Interaction):
         embed.set_thumbnail(url=guild.icon.url)
     embed.set_footer(text="Sentinel OS V2.0.3")
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="bot", description="Show Sentinel OS bot details and status")
+async def slash_bot(interaction: discord.Interaction):
+    uptime = datetime.utcnow() - BOT_START_TIME
+    hours, rem = divmod(int(uptime.total_seconds()), 3600)
+    minutes, seconds = divmod(rem, 60)
+    uptime_str = f"{hours}h {minutes}m {seconds}s"
+    latency_ms = round(bot.latency * 1000)
+    guild_count = len(bot.guilds)
+    total_members = sum(g.member_count for g in bot.guilds)
+    giveaways_active = len([g for g in giveaway_mod.get_all_giveaways() if not g.get("ended")])
+    tickets_open = len([t for t in tickets_mod.get_all_tickets() if t.get("status") == "open"])
+    ar_count = len(autoresponder_mod.get_all_responses())
+    rr_count = len(rr_mod.get_all_rules())
+    embed = discord.Embed(
+        title="🛡️ Sentinel OS — Bot Details",
+        description="AI-Powered Discord Moderation & Management",
+        color=0x3a8fff
+    )
+    embed.add_field(name="⚡ Latency",       value=f"{latency_ms}ms",       inline=True)
+    embed.add_field(name="⏱️ Uptime",         value=uptime_str,              inline=True)
+    embed.add_field(name="🌐 Servers",        value=str(guild_count),        inline=True)
+    embed.add_field(name="👥 Total Members",  value=str(total_members),      inline=True)
+    embed.add_field(name="🎉 Active Giveaways", value=str(giveaways_active), inline=True)
+    embed.add_field(name="🎫 Open Tickets",   value=str(tickets_open),       inline=True)
+    embed.add_field(name="🤖 Auto-Responders", value=str(ar_count),          inline=True)
+    embed.add_field(name="🎭 Reaction Roles", value=str(rr_count),           inline=True)
+    embed.add_field(name="🔢 Version",        value="V2.5.0",                inline=True)
+    embed.set_footer(text="Sentinel OS — Your Server's Guardian")
+    embed.timestamp = datetime.utcnow()
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="dashboard", description="Mini admin dashboard (admin only)")
+async def slash_dashboard(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ This command is for admins only.", ephemeral=True)
+        return
+    refresh_config()
+    guild = interaction.guild
+    total_warnings = sum(
+        (v.get("count", 0) if isinstance(v, dict) else v)
+        for g in warnings_db.values()
+        for v in (g.values() if isinstance(g, dict) else [])
+    )
+    giveaways_active = len([g for g in giveaway_mod.get_all_giveaways() if not g.get("ended")])
+    tickets_open = len([t for t in tickets_mod.get_all_tickets() if t.get("status") == "open"])
+    uptime = datetime.utcnow() - BOT_START_TIME
+    hours, rem = divmod(int(uptime.total_seconds()), 3600)
+    minutes = rem // 60
+    embed = discord.Embed(
+        title="🖥️ Sentinel OS — Admin Dashboard",
+        description=f"Quick overview for **{guild.name}**",
+        color=0x3a8fff
+    )
+    embed.add_field(name="👥 Members",        value=str(guild.member_count),                   inline=True)
+    embed.add_field(name="⚠️ Total Warnings", value=str(total_warnings),                       inline=True)
+    embed.add_field(name="⏱️ Uptime",          value=f"{hours}h {minutes}m",                    inline=True)
+    embed.add_field(name="🎉 Giveaways Active", value=str(giveaways_active),                   inline=True)
+    embed.add_field(name="🎫 Open Tickets",    value=str(tickets_open),                         inline=True)
+    embed.add_field(name="🔰 Prefix",          value=f"`{config.get('prefix','!')}`",           inline=True)
+    embed.add_field(name="🔴 Profanity Filter", value=config.get("profanity_level","low").upper(), inline=True)
+    embed.add_field(name="🛡️ Anti-Raid",       value=config.get("anti_raid","OFF"),             inline=True)
+    embed.add_field(name="🤖 AI Moderation",   value="ON" if OPENAI_KEY else "OFF",             inline=True)
+    embed.set_footer(text="Full dashboard available at your web dashboard URL")
+    embed.timestamp = datetime.utcnow()
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="giveaway", description="Start a giveaway (use duration like 30m, 2h, 1d)")
+@app_commands.describe(duration="Duration e.g. 30m, 2h, 1d", prize="What are you giving away?", winners="Number of winners (default 1)")
+async def slash_giveaway(interaction: discord.Interaction, duration: str, prize: str, winners: int = 1):
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        return
+    seconds = parse_duration(duration)
+    if not seconds:
+        await interaction.response.send_message("❌ Invalid duration! Use `30m`, `2h`, `1d`, etc.", ephemeral=True)
+        return
+    if winners < 1 or winners > 20:
+        await interaction.response.send_message("❌ Winners must be between 1 and 20.", ephemeral=True)
+        return
+    await interaction.response.send_message(f"🎉 Starting giveaway for **{prize}**!", ephemeral=True)
+    await giveaway_mod.start_giveaway(bot, interaction.channel, seconds, prize, interaction.user, winners)
+    dlog("🎉 GIVEAWAY", f"{interaction.user} started giveaway: {prize} ({duration})")
+
+@bot.tree.command(name="giveaway-end", description="Manually end a giveaway by message ID")
+@app_commands.describe(message_id="The giveaway message ID")
+async def slash_giveaway_end(interaction: discord.Interaction, message_id: str):
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        return
+    try:
+        mid = int(message_id)
+    except ValueError:
+        await interaction.response.send_message("❌ Invalid message ID.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=True)
+    result = await giveaway_mod.end_giveaway(bot, mid, interaction.channel_id, force=True)
+    if result:
+        await interaction.followup.send("✅ Giveaway ended!", ephemeral=True)
+    else:
+        await interaction.followup.send("❌ Giveaway not found or already ended.", ephemeral=True)
+
+@bot.tree.command(name="giveaway-reroll", description="Reroll a giveaway winner")
+@app_commands.describe(message_id="The giveaway message ID")
+async def slash_giveaway_reroll(interaction: discord.Interaction, message_id: str):
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        return
+    try:
+        mid = int(message_id)
+    except ValueError:
+        await interaction.response.send_message("❌ Invalid message ID.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=True)
+    winner = await giveaway_mod.reroll_giveaway(bot, mid, interaction.channel_id)
+    if winner:
+        await interaction.followup.send(f"🔄 Rerolled! New winner: {winner.mention}", ephemeral=True)
+    else:
+        await interaction.followup.send("❌ Could not reroll. No eligible entries.", ephemeral=True)
+
+@bot.tree.command(name="poll", description="Create a reaction poll")
+@app_commands.describe(question="The poll question", option1="First option", option2="Second option", option3="Third option (optional)", option4="Fourth option (optional)")
+async def slash_poll(interaction: discord.Interaction, question: str, option1: str, option2: str, option3: str = None, option4: str = None):
+    options = [o for o in [option1, option2, option3, option4] if o]
+    emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+    desc = "\n".join(f"{emojis[i]} **{opt}**" for i, opt in enumerate(options))
+    embed = discord.Embed(
+        title=f"📊 {question}",
+        description=desc,
+        color=0x3a8fff,
+        timestamp=datetime.utcnow()
+    )
+    embed.set_footer(text=f"Poll by {interaction.user.display_name}")
+    await interaction.response.send_message(embed=embed)
+    msg = await interaction.original_response()
+    for i in range(len(options)):
+        await msg.add_reaction(emojis[i])
+    dlog("📊 POLL", f"{interaction.user} created poll: {question}")
+
+@bot.tree.command(name="ticket", description="Open a support ticket")
+@app_commands.describe(reason="Why are you opening this ticket?")
+async def slash_ticket(interaction: discord.Interaction, reason: str = "General Support"):
+    await interaction.response.defer(ephemeral=True)
+    result = await tickets_mod.create_ticket(interaction.guild, interaction.user, config, reason)
+    if result:
+        channel, ticket = result
+        await interaction.followup.send(f"✅ Your ticket has been created: {channel.mention}", ephemeral=True)
+        dlog("🎫 TICKET", f"{interaction.user} opened ticket #{ticket['id']}: {reason}")
+    else:
+        await interaction.followup.send("❌ Could not create ticket. Check that I have Manage Channels permission.", ephemeral=True)
+
+@bot.tree.command(name="ticket-close", description="Close the current ticket channel")
+async def slash_ticket_close(interaction: discord.Interaction):
+    ticket_data = next((t for t in tickets_mod.get_all_tickets() if t["channel_id"] == interaction.channel.id), None)
+    if not ticket_data:
+        await interaction.response.send_message("❌ This is not a ticket channel.", ephemeral=True)
+        return
+    if not interaction.user.guild_permissions.manage_messages and interaction.user.id != ticket_data.get("user_id"):
+        await interaction.response.send_message("❌ Only staff or the ticket opener can close this.", ephemeral=True)
+        return
+    await interaction.response.send_message("🔒 Closing ticket...")
+    await tickets_mod.close_ticket(interaction.channel, interaction.user)
+    dlog("🔒 TICKET-CLOSE", f"{interaction.user} closed ticket #{ticket_data.get('id', '?')}")
+
+@bot.tree.command(name="setup-reaction-role", description="Link a message emoji to a role")
+@app_commands.describe(message_id="Message ID to watch", emoji="Emoji to react with", role="Role to assign")
+async def slash_setup_rr(interaction: discord.Interaction, message_id: str, emoji: str, role: discord.Role):
+    if not interaction.user.guild_permissions.manage_roles:
+        await interaction.response.send_message("❌ You need Manage Roles permission.", ephemeral=True)
+        return
+    try:
+        mid = int(message_id)
+    except ValueError:
+        await interaction.response.send_message("❌ Invalid message ID.", ephemeral=True)
+        return
+    rr_mod.add_rule(interaction.guild.id, interaction.channel.id, mid, emoji, role.id, role.name)
+    await interaction.response.send_message(f"✅ Reaction role set! React with {emoji} on message `{message_id}` to get **{role.name}**.", ephemeral=True)
+    dlog("🎭 REACTION-ROLE", f"{interaction.user} linked {emoji} → {role.name} on msg {message_id}")
+
+autorespond_group = app_commands.Group(name="autorespond", description="Manage auto-responder rules")
+
+@autorespond_group.command(name="add", description="Add a keyword auto-responder rule")
+@app_commands.describe(trigger="Keyword or phrase to trigger on", response="Bot's response (use {user} for mention)", match="Match type: contains, exact, startswith")
+async def ar_add(interaction: discord.Interaction, trigger: str, response: str, match: str = "contains"):
+    if not interaction.user.guild_permissions.manage_messages:
+        await interaction.response.send_message("❌ You need Manage Messages permission.", ephemeral=True)
+        return
+    if match not in ("contains", "exact", "startswith"):
+        await interaction.response.send_message("❌ Match type must be: `contains`, `exact`, or `startswith`.", ephemeral=True)
+        return
+    is_new = autoresponder_mod.add_response(trigger, response, match)
+    action = "Added" if is_new else "Updated"
+    await interaction.response.send_message(f"✅ {action} auto-responder: `{trigger}` → `{response}` (match: {match})", ephemeral=True)
+    dlog("🤖 AUTO-RESPOND", f"{interaction.user} {action.lower()} trigger: {trigger}")
+
+@autorespond_group.command(name="remove", description="Remove an auto-responder rule")
+@app_commands.describe(trigger="The trigger keyword to remove")
+async def ar_remove(interaction: discord.Interaction, trigger: str):
+    if not interaction.user.guild_permissions.manage_messages:
+        await interaction.response.send_message("❌ You need Manage Messages permission.", ephemeral=True)
+        return
+    removed = autoresponder_mod.remove_response(trigger)
+    if removed:
+        await interaction.response.send_message(f"✅ Removed auto-responder for `{trigger}`.", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"❌ No rule found for `{trigger}`.", ephemeral=True)
+
+@autorespond_group.command(name="list", description="List all auto-responder rules")
+async def ar_list(interaction: discord.Interaction):
+    rules = autoresponder_mod.get_all_responses()
+    if not rules:
+        await interaction.response.send_message("No auto-responder rules set.", ephemeral=True)
+        return
+    desc = "\n".join(f"• `{r['trigger']}` → {r['response'][:40]} ({r.get('match','contains')})" for r in rules[:20])
+    embed = discord.Embed(title="🤖 Auto-Responder Rules", description=desc, color=0x3a8fff)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+bot.tree.add_command(autorespond_group)
+
+@bot.tree.command(name="rank", description="Check your XP and level")
+@app_commands.describe(member="Member to check (default: yourself)")
+async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
+    target = member or interaction.user
+    data = leveling_mod.get_member_xp(interaction.guild.id, target.id)
+    level = leveling_mod.get_level_from_xp(data.get("xp", 0))
+    embed = discord.Embed(title=f"⭐ {target.display_name}'s Rank", color=0xf1c40f)
+    embed.set_thumbnail(url=target.display_avatar.url)
+    embed.add_field(name="Level",    value=str(level),                  inline=True)
+    embed.add_field(name="Total XP", value=str(data.get("xp", 0)),     inline=True)
+    embed.add_field(name="Messages", value=str(data.get("messages",0)), inline=True)
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="leaderboard", description="Show the XP leaderboard for this server")
+async def slash_leaderboard(interaction: discord.Interaction):
+    board = leveling_mod.get_leaderboard(interaction.guild.id, 10)
+    if not board:
+        await interaction.response.send_message("No XP data yet. Start chatting!", ephemeral=True)
+        return
+    desc = ""
+    medals = ["🥇", "🥈", "🥉"]
+    for i, (uid, data) in enumerate(board):
+        medal = medals[i] if i < 3 else f"`#{i+1}`"
+        desc += f"{medal} <@{uid}> — **Level {leveling_mod.get_level_from_xp(data.get('xp',0))}** ({data.get('xp',0)} XP)\n"
+    embed = discord.Embed(title=f"🏆 {interaction.guild.name} XP Leaderboard", description=desc, color=0xf1c40f)
+    await interaction.response.send_message(embed=embed)
 
 # ---------------- EVENTS ----------------
 @bot.event
@@ -399,6 +669,18 @@ async def on_member_remove(member):
     refresh_config()
     await logs.log_event(bot, config, "🚪 Member Left", f"{member.mention} left **{member.guild.name}**", color=0xe67e22)
     dlog("🚪 LEAVE", f"{member} left {member.guild.name}")
+
+@bot.event
+async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
+    if payload.guild_id is None:
+        return
+    await rr_mod.handle_reaction_add(bot, payload)
+
+@bot.event
+async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
+    if payload.guild_id is None:
+        return
+    await rr_mod.handle_reaction_remove(bot, payload)
 
 @bot.event
 async def on_message_edit(before, after):
@@ -600,6 +882,8 @@ async def on_message(message):
     handled = await automod.handle_message(message, config)
     if not handled:
         await handle_ai_moderation(message)
+        await autoresponder_mod.check_message(message)
+    await leveling_mod.process_message_xp(bot, message, config)
     await social.check_social_alerts(message, config, bot)
     await bot.process_commands(message)
 
@@ -623,9 +907,17 @@ async def on_command_error(ctx, error):
 # ---------------- MODERATION COMMANDS ----------------
 @bot.command()
 @commands.has_permissions(manage_roles=True)
-async def mute(ctx, member: discord.Member):
-    await moderation.mute_member(ctx, member, config)
-    dlog("🔇 MUTE", f"{member} muted by {ctx.author}")
+async def mute(ctx, member: discord.Member, duration: str = None):
+    """Mute a member. Optional duration: 30m, 2h, 1d. Example: !mute @user 30m"""
+    await moderation.mute_member(ctx, member, config, duration)
+    dlog("🔇 MUTE", f"{member} muted by {ctx.author}" + (f" for {duration}" if duration else ""))
+
+@bot.command()
+@commands.has_permissions(manage_roles=True)
+async def unmute(ctx, member: discord.Member):
+    """Unmute a member. Example: !unmute @user"""
+    await moderation.unmute_member(ctx, member, config)
+    dlog("🔊 UNMUTE", f"{member} unmuted by {ctx.author}")
 
 @bot.command()
 @commands.has_permissions(manage_messages=True)

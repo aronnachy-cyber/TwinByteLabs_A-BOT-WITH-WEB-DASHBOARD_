@@ -65,7 +65,7 @@ async def send_webhook_log(config, title, description, color=0xff6b6b):
 async def auto_dm_warning_user(member, reason, guild_name):
     try:
         await member.send(
-            f"⚠️ **TwinLabs.com Warning**\n"
+            f"⚠️ **Sentinel OS — Warning**\n"
             f"You received a warning in **{guild_name}**.\n"
             f"**Reason:** {reason}"
         )
