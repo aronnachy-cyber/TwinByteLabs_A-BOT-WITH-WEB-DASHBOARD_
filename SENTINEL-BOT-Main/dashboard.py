@@ -15,7 +15,7 @@ DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
 DISCORD_REDIRECT_URI  = os.environ.get("DISCORD_REDIRECT_URI", "")
 DISCORD_API_BASE      = "https://discord.com/api/v10"
 
-SMTP_EMAIL    = os.environ.get("SMTP_EMAIL", "")
+SMTP_EMAIL    = (os.environ.get("SMTP_EMAIL") or os.environ.get("SMTP_USER", ""))
 SMTP_PASSWORD = (os.environ.get("SMTP_PASSWORD") or os.environ.get("SMTP_PASS")
                  or os.environ.get("SMTP_ID") or os.environ.get("SMTP_KEY", ""))
 SMTP_HOST     = os.environ.get("SMTP_HOST", "smtp.gmail.com")
