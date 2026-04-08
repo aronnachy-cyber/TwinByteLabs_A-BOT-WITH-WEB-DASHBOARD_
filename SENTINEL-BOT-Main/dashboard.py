@@ -384,9 +384,7 @@ def register():
         add_dashboard_log("📝 REGISTER", f"New registration: {name} ({uid}) — pending approval")
 
         if email:
-            send_email(email,
-                "Sentinel OS — Registration Received",
-                f"""
+            email_body = f"""
                 <div style="background:#07101f;color:#e8f0ff;font-family:sans-serif;padding:40px;border-radius:12px;max-width:480px;margin:auto;">
                   <h2 style="color:#3a8fff;">🛡️ Sentinel OS</h2>
                   <p>Hi <strong>{name}</strong>, your registration has been received!</p>
@@ -398,7 +396,7 @@ def register():
                   <p style="color:#7a93b8;font-size:0.8rem;margin-top:24px;">Sentinel OS — Your Server's Guardian</p>
                 </div>
                 """
-            )
+            threading.Thread(target=send_email, args=(email, "Sentinel OS — Registration Received", email_body), daemon=True).start()
 
         return render_template('register.html', success=True, uid=uid, name=name)
 
@@ -419,9 +417,7 @@ def forgot_password():
             return render_template('forgot_password.html',
                 error="No account found with that email address.")
 
-        sent = send_email(email,
-            "Sentinel OS — Your UID",
-            f"""
+        recovery_body = f"""
             <div style="background:#07101f;color:#e8f0ff;font-family:sans-serif;padding:40px;border-radius:12px;max-width:480px;margin:auto;">
               <h2 style="color:#3a8fff;">🛡️ Sentinel OS — UID Recovery</h2>
               <p>Hi <strong>{user['name']}</strong>, here is your UID:</p>
@@ -433,14 +429,9 @@ def forgot_password():
               <p style="color:#7a93b8;font-size:0.8rem;">Sentinel OS — Your Server's Guardian</p>
             </div>
             """
-        )
-
-        if sent:
-            add_dashboard_log("📧 UID-RECOVERY", f"UID sent to {email} for {user['name']}")
-            return render_template('forgot_password.html', success=True)
-        else:
-            return render_template('forgot_password.html',
-                error="Email could not be sent. SMTP may not be configured — contact the admin.")
+        threading.Thread(target=send_email, args=(email, "Sentinel OS — Your UID", recovery_body), daemon=True).start()
+        add_dashboard_log("📧 UID-RECOVERY", f"UID recovery requested for {email} ({user['name']})")
+        return render_template('forgot_password.html', success=True)
 
     return render_template('forgot_password.html')
 
