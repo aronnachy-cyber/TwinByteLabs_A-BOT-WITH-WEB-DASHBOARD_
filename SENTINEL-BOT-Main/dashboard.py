@@ -15,27 +15,27 @@ DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
 DISCORD_REDIRECT_URI  = os.environ.get("DISCORD_REDIRECT_URI", "")
 DISCORD_API_BASE      = "https://discord.com/api/v10"
 
-SMTP_EMAIL    = (os.environ.get("SMTP_EMAIL") or os.environ.get("SMTP_USER", ""))
-SMTP_PASSWORD = (os.environ.get("SMTP_PASSWORD") or os.environ.get("SMTP_PASS")
-                 or os.environ.get("SMTP_ID") or os.environ.get("SMTP_KEY", ""))
-SMTP_HOST     = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT     = int(os.environ.get("SMTP_PORT", "587"))
-
 def send_email(to_address, subject, html_body):
-    if not SMTP_EMAIL or not SMTP_PASSWORD:
+    smtp_email    = (os.environ.get("SMTP_EMAIL") or os.environ.get("SMTP_USER", ""))
+    smtp_password = (os.environ.get("SMTP_PASSWORD") or os.environ.get("SMTP_PASS")
+                     or os.environ.get("SMTP_ID") or os.environ.get("SMTP_KEY", ""))
+    smtp_host     = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port     = int(os.environ.get("SMTP_PORT", "587"))
+
+    if not smtp_email or not smtp_password:
         print("⚠️  SMTP not configured — email not sent.")
         return False
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"]    = f"Sentinel OS <{SMTP_EMAIL}>"
+        msg["From"]    = f"Sentinel OS <{smtp_email}>"
         msg["To"]      = to_address
         msg.attach(MIMEText(html_body, "html"))
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
             server.ehlo()
             server.starttls()
-            server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.sendmail(SMTP_EMAIL, to_address, msg.as_string())
+            server.login(smtp_email, smtp_password)
+            server.sendmail(smtp_email, to_address, msg.as_string())
         print(f"✅ Email sent to {to_address}")
         return True
     except Exception as e:
