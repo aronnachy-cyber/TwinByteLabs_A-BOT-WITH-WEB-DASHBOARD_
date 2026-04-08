@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: sentinel-os
+    runtime: python
+    rootDir: SENTINEL-BOT-Main
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 wsgi:app
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: FLASK_SECRET_KEY
+        sync: false
+      - key: OPENAI_KEY
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
