@@ -392,18 +392,21 @@ def register():
 
         if email:
             email_body = f"""
-                <div style="background:#07101f;color:#e8f0ff;font-family:sans-serif;padding:40px;border-radius:12px;max-width:480px;margin:auto;">
-                  <h2 style="color:#3a8fff;">🛡️ Sentinel OS</h2>
-                  <p>Hi <strong>{name}</strong>, your registration has been received!</p>
-                  <p>Your UID is:</p>
+                <div style="background:#07101f;color:#e8f0ff;font-family:sans-serif;padding:40px;border-radius:12px;max-width:520px;margin:auto;">
+                  <h1 style="color:#3a8fff;font-size:2rem;margin-bottom:4px;letter-spacing:2px;">WELCOME!</h1>
+                  <hr style="border:1px solid #1e3a6e;margin:16px 0;">
+                  <p style="font-size:1rem;line-height:1.7;">Welcome to our web dashboard. You can control bot's features A-Z from here. But don't be impatient. If you are the right person our Admin will receive your request and accept your registration. Then you can control Sentinel.</p>
+                  <p style="color:#7a93b8;font-size:0.9rem;margin-top:8px;">By <strong style="color:#3a8fff;">TwinByteLabs.co</strong></p>
+                  <hr style="border:1px solid #1e3a6e;margin:20px 0;">
+                  <p style="margin:0;font-size:0.95rem;">Hi <strong>{name}</strong>, your UID is:</p>
                   <div style="background:#0d1a33;border:1px solid #1e3a6e;border-radius:8px;padding:14px 20px;font-size:1.3rem;letter-spacing:3px;color:#3a8fff;text-align:center;margin:16px 0;">
                     {uid}
                   </div>
-                  <p style="color:#7a93b8;font-size:0.88rem;">An admin will review and approve your account. Once approved, use your UID to log in.</p>
-                  <p style="color:#7a93b8;font-size:0.8rem;margin-top:24px;">Sentinel OS — Your Server's Guardian</p>
+                  <p style="color:#7a93b8;font-size:0.85rem;">Keep this UID safe — you will use it to log in once your account is approved.</p>
+                  <p style="color:#7a93b8;font-size:0.78rem;margin-top:24px;">Sentinel OS — Your Server's Guardian</p>
                 </div>
                 """
-            threading.Thread(target=send_email, args=(email, "Sentinel OS — Registration Received", email_body), daemon=True).start()
+            threading.Thread(target=send_email, args=(email, "Welcome to Sentinel OS — Registration Received", email_body), daemon=True).start()
 
         return render_template('register.html', success=True, uid=uid, name=name)
 
