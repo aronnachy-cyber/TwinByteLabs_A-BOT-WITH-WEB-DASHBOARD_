@@ -10,11 +10,21 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
+from supabase import create_client, Client as SupabaseClient
 
 DISCORD_CLIENT_ID     = os.environ.get("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
 DISCORD_REDIRECT_URI  = os.environ.get("DISCORD_REDIRECT_URI", "")
 DISCORD_API_BASE      = "https://discord.com/api/v10"
+
+# ---- SUPABASE ----
+_sb_url = os.environ.get("SUPABASE_URL", "")
+_sb_key = os.environ.get("SUPABASE_KEY", "")
+supabase: SupabaseClient = create_client(_sb_url, _sb_key) if _sb_url and _sb_key else None
+if supabase:
+    print("✅ Supabase connected")
+else:
+    print("⚠️  Supabase not configured — falling back to local JSON files")
 
 def send_email(to_address, subject, html_body):
     gmail_user     = os.environ.get("GMAIL_USER", "")
@@ -80,20 +90,40 @@ DEFAULT_CONFIG = {
 
 config = {**DEFAULT_CONFIG}
 
-if os.path.exists('settings.json'):
-    with open('settings.json', 'r') as f:
+def load_config_from_supabase():
+    global config
+    if supabase:
         try:
-            config.update(json.load(f))
-            print("📁 Settings loaded into Dashboard!")
-        except Exception:
-            pass
+            res = supabase.table("sentinel_config").select("*").eq("id", 1).execute()
+            if res.data:
+                stored = res.data[0].get("data", {})
+                config.update(stored)
+                print("📁 Settings loaded from Supabase!")
+                return
+        except Exception as e:
+            print(f"⚠️ Supabase config load error: {e}")
+    if os.path.exists('settings.json'):
+        with open('settings.json', 'r') as f:
+            try:
+                config.update(json.load(f))
+                print("📁 Settings loaded from settings.json")
+            except Exception:
+                pass
+
+load_config_from_supabase()
 
 warnings_db = []
 
-# ---- USERS MANAGEMENT ----
+# ---- USERS MANAGEMENT (Supabase-backed, JSON fallback) ----
 USERS_FILE = 'users.json'
 
 def load_users():
+    if supabase:
+        try:
+            res = supabase.table("sentinel_users").select("*").execute()
+            return res.data or []
+        except Exception as e:
+            print(f"⚠️ Supabase load_users error: {e}")
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, 'r') as f:
             try:
@@ -103,10 +133,49 @@ def load_users():
     return []
 
 def save_users(users):
+    if supabase:
+        try:
+            for u in users:
+                existing = supabase.table("sentinel_users").select("uid").eq("uid", u["uid"]).execute()
+                if existing.data:
+                    supabase.table("sentinel_users").update(u).eq("uid", u["uid"]).execute()
+                else:
+                    supabase.table("sentinel_users").insert(u).execute()
+            return
+        except Exception as e:
+            print(f"⚠️ Supabase save_users error: {e}")
+    with open(USERS_FILE, 'w') as f:
+        json.dump({'users': users}, f, indent=4)
+
+def save_single_user(u):
+    if supabase:
+        try:
+            existing = supabase.table("sentinel_users").select("uid").eq("uid", u["uid"]).execute()
+            if existing.data:
+                supabase.table("sentinel_users").update(u).eq("uid", u["uid"]).execute()
+            else:
+                supabase.table("sentinel_users").insert(u).execute()
+            return
+        except Exception as e:
+            print(f"⚠️ Supabase save_single_user error: {e}")
+    users = load_users()
+    for i, existing in enumerate(users):
+        if existing["uid"] == u["uid"]:
+            users[i] = u
+            break
+    else:
+        users.append(u)
     with open(USERS_FILE, 'w') as f:
         json.dump({'users': users}, f, indent=4)
 
 def find_user_by_uid(uid):
+    if supabase:
+        try:
+            res = supabase.table("sentinel_users").select("*").ilike("uid", uid).execute()
+            if res.data:
+                return res.data[0]
+        except Exception as e:
+            print(f"⚠️ Supabase find_user_by_uid error: {e}")
     for u in load_users():
         if u.get('uid', '').upper() == uid.upper():
             return u
@@ -166,6 +235,17 @@ TEXT_KEYS = [
 ]
 
 def save_config():
+    if supabase:
+        try:
+            res = supabase.table("sentinel_config").select("id").eq("id", 1).execute()
+            if res.data:
+                supabase.table("sentinel_config").update({"data": config}).eq("id", 1).execute()
+            else:
+                supabase.table("sentinel_config").insert({"id": 1, "data": config}).execute()
+            print("💾 Settings saved to Supabase!")
+            return
+        except Exception as e:
+            print(f"⚠️ Supabase save_config error: {e}")
     with open('settings.json', 'w') as f:
         json.dump(config, f, indent=4)
     print("💾 Settings saved to settings.json")
