@@ -440,6 +440,8 @@ def register():
         email = request.form.get('email', '').strip().lower()
         if not name or len(name) < 2:
             return render_template('register.html', error="Please enter a valid name (at least 2 characters).")
+        if not email:
+            return render_template('register.html', error="Please enter your email address.")
 
         uid = generate_uid(name)
         users = load_users()
