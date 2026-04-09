@@ -17,12 +17,14 @@ DISCORD_REDIRECT_URI  = os.environ.get("DISCORD_REDIRECT_URI", "")
 DISCORD_API_BASE      = "https://discord.com/api/v10"
 
 def send_email(to_address, subject, html_body):
-    smtp_user     = (os.environ.get("SMTP_USER") or os.environ.get("SMTP_EMAIL", ""))
-    smtp_password = (os.environ.get("SMTP_PASSWORD") or os.environ.get("SMTP_PASS")
+    smtp_user     = os.environ.get("SMTP_USER", "")
+    smtp_password = (os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD")
                      or os.environ.get("SMTP_ID") or os.environ.get("SMTP_KEY", ""))
-    smtp_host     = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    smtp_port     = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_from     = os.environ.get("SMTP_FROM") or smtp_user
+    smtp_host     = os.environ.get("SMTP_HOST", "smtp.resend.com")
+    smtp_port     = int(os.environ.get("SMTP_PORT", "465"))
+    smtp_from     = os.environ.get("SMTP_FROM", "onboarding@resend.dev")
+
+    print(f"📧 Email attempt → user={smtp_user!r} host={smtp_host} port={smtp_port} from={smtp_from!r}")
 
     if not smtp_user or not smtp_password:
         print("⚠️  SMTP not configured — email not sent.")
