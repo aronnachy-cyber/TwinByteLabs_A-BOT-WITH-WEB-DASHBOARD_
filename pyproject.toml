@@ -13,4 +13,5 @@ dependencies = [
     "openai>=2.30.0",
     "psycopg2-binary>=2.9.11",
     "requests>=2.33.1",
+    "resend>=2.27.0",
 ]

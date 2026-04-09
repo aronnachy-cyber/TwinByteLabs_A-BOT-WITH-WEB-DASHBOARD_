@@ -6,9 +6,7 @@ import string
 import secrets
 import threading
 import requests as http_requests
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import resend
 from datetime import datetime, timedelta
 
 DISCORD_CLIENT_ID     = os.environ.get("DISCORD_CLIENT_ID", "")
@@ -17,35 +15,20 @@ DISCORD_REDIRECT_URI  = os.environ.get("DISCORD_REDIRECT_URI", "")
 DISCORD_API_BASE      = "https://discord.com/api/v10"
 
 def send_email(to_address, subject, html_body):
-    smtp_user     = os.environ.get("SMTP_USER", "")
-    smtp_password = (os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD")
-                     or os.environ.get("SMTP_ID") or os.environ.get("SMTP_KEY", ""))
-    smtp_host     = os.environ.get("SMTP_HOST", "smtp.resend.com")
-    smtp_port     = int(os.environ.get("SMTP_PORT", "465"))
-    smtp_from     = os.environ.get("SMTP_FROM", "onboarding@resend.dev")
-
-    print(f"📧 Email attempt → user={smtp_user!r} host={smtp_host} port={smtp_port} from={smtp_from!r}")
-
-    if not smtp_user or not smtp_password:
-        print("⚠️  SMTP not configured — email not sent.")
+    api_key = (os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_PASS", ""))
+    if not api_key:
+        print("⚠️  RESEND_API_KEY not set — email not sent.")
         return False
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = f"Sentinel OS <{smtp_from}>"
-        msg["To"]      = to_address
-        msg.attach(MIMEText(html_body, "html"))
-        if smtp_port == 465:
-            with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_from, to_address, msg.as_string())
-        else:
-            with smtplib.SMTP(smtp_host, smtp_port) as server:
-                server.ehlo()
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_from, to_address, msg.as_string())
-        print(f"✅ Email sent to {to_address}")
+        resend.api_key = api_key
+        params = {
+            "from": "Sentinel OS <onboarding@resend.dev>",
+            "to": [to_address],
+            "subject": subject,
+            "html": html_body,
+        }
+        response = resend.Emails.send(params)
+        print(f"✅ Email sent to {to_address} | id={response.get('id')}")
         return True
     except Exception as e:
         print(f"❌ Email send error: {e}")
