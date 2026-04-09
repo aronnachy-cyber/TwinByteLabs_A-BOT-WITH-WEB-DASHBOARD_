@@ -27,10 +27,18 @@ else:
     print("⚠️  Supabase not configured — falling back to local JSON files")
 
 def send_email(to_address, subject, html_body):
-    gmail_user     = os.environ.get("GMAIL_USER", "")
-    gmail_password = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
+    gmail_user     = os.environ.get("GMAIL_USER") or os.environ.get("SMTP_EMAIL", "")
+    gmail_password = (os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD", "")).replace(" ", "")
+    smtp_host      = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port      = int(os.environ.get("SMTP_PORT", "587"))
+
+    # If using Gmail explicitly, force correct host/port
+    if os.environ.get("GMAIL_USER"):
+        smtp_host = "smtp.gmail.com"
+        smtp_port = 587
+
     if not gmail_user or not gmail_password:
-        print("⚠️  GMAIL_USER / GMAIL_APP_PASSWORD not set — email not sent.")
+        print("⚠️  Email credentials not set — email not sent.")
         return False
     try:
         msg = MIMEMultipart("alternative")
@@ -38,11 +46,17 @@ def send_email(to_address, subject, html_body):
         msg["From"]    = f"Sentinel OS <{gmail_user}>"
         msg["To"]      = to_address
         msg.attach(MIMEText(html_body, "html"))
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(gmail_user, gmail_password)
-            server.sendmail(gmail_user, to_address, msg.as_string())
+        print(f"📧 Sending to {to_address} via {smtp_host}:{smtp_port}")
+        if smtp_port == 465:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
+                server.login(gmail_user, gmail_password)
+                server.sendmail(gmail_user, to_address, msg.as_string())
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.ehlo()
+                server.starttls()
+                server.login(gmail_user, gmail_password)
+                server.sendmail(gmail_user, to_address, msg.as_string())
         print(f"✅ Email sent to {to_address}")
         return True
     except Exception as e:
