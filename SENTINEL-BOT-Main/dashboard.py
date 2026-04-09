@@ -6,7 +6,9 @@ import string
 import secrets
 import threading
 import requests as http_requests
-import resend
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
 DISCORD_CLIENT_ID     = os.environ.get("DISCORD_CLIENT_ID", "")
@@ -15,20 +17,23 @@ DISCORD_REDIRECT_URI  = os.environ.get("DISCORD_REDIRECT_URI", "")
 DISCORD_API_BASE      = "https://discord.com/api/v10"
 
 def send_email(to_address, subject, html_body):
-    api_key = (os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_PASS", ""))
-    if not api_key:
-        print("⚠️  RESEND_API_KEY not set — email not sent.")
+    gmail_user     = os.environ.get("GMAIL_USER", "")
+    gmail_password = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
+    if not gmail_user or not gmail_password:
+        print("⚠️  GMAIL_USER / GMAIL_APP_PASSWORD not set — email not sent.")
         return False
     try:
-        resend.api_key = api_key
-        params = {
-            "from": "Sentinel OS <onboarding@resend.dev>",
-            "to": [to_address],
-            "subject": subject,
-            "html": html_body,
-        }
-        response = resend.Emails.send(params)
-        print(f"✅ Email sent to {to_address} | id={response.get('id')}")
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = f"Sentinel OS <{gmail_user}>"
+        msg["To"]      = to_address
+        msg.attach(MIMEText(html_body, "html"))
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(gmail_user, gmail_password)
+            server.sendmail(gmail_user, to_address, msg.as_string())
+        print(f"✅ Email sent to {to_address}")
         return True
     except Exception as e:
         print(f"❌ Email send error: {e}")
