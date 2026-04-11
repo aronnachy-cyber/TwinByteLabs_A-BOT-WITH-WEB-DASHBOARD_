@@ -10,7 +10,12 @@ import requests
 import aiohttp
 from datetime import datetime, timedelta
 
-from dashboard import app, config as dash_config, run_dashboard, add_dashboard_log, set_bot_restart_callback
+from dashboard import (
+    app, config as dash_config, run_dashboard, add_dashboard_log,
+    set_bot_restart_callback,
+    supabase_save_warning, supabase_clear_warnings,
+    supabase_save_mod_log, supabase_save_note, supabase_get_notes,
+)
 import moderation, automod, roles, logs, social, security
 import giveaway as giveaway_mod
 import tickets as tickets_mod
@@ -69,7 +74,21 @@ DEFAULT_CONFIG = {
     "owner_dm_id": "",
     "daily_report": "OFF",
     "leveling": "OFF",
-    "ticket_category": ""
+    "ticket_category": "",
+    # Advanced automod
+    "spam_filter": "OFF",
+    "spam_threshold": 5,
+    "spam_window": 5,
+    "caps_filter": "OFF",
+    "caps_percent": 70,
+    "emoji_filter": "OFF",
+    "emoji_limit": 8,
+    "duplicate_filter": "OFF",
+    "wall_filter": "OFF",
+    "wall_newlines": 10,
+    "wall_length": 1000,
+    "anti_zalgo": "OFF",
+    "grad_punish": "OFF",
 }
 
 config = {**DEFAULT_CONFIG, **load_config()}
@@ -228,15 +247,15 @@ async def add_warning(member, reason="Violation"):
     member_id = str(member.id)
     entry = _get_member_entry(guild_id, member_id)
     entry["count"] += 1
-    entry["history"].append({
-        "reason": reason,
-        "time":   datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    })
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry["history"].append({"reason": reason, "time": ts})
     count = entry["count"]
     save_warnings()
+    supabase_save_warning(guild_id, member_id, str(member), count, reason, ts)
     dlog("⚠️ WARNING", f"{member} now has {count} warning(s) — {reason}")
     print(f"⚠️ Warning added to {member}: {count} total | Reason: {reason}")
     await check_warning_limit(member, count)
+    return count
 
 # ---------------- AI MODERATION ----------------
 async def handle_ai_moderation(message):
@@ -328,8 +347,14 @@ async def slash_commands(interaction: discord.Interaction):
         f"`{p}warn @user [reason]` — Warn a member\n"
         f"`{p}warnings @user` — Show warning count + full history\n"
         f"`{p}clearwarnings @user` — Clear all warnings\n"
+        f"`{p}modlogs @user` — Full mod log (warnings + notes)\n"
+        f"`{p}note @user <note>` — Add a private mod note\n"
+        f"`{p}notes @user` — View all mod notes\n"
+        f"`{p}timeout @user <dur> [reason]` — Timeout (e.g. `10m`, `2h`, `7d`)\n"
+        f"`{p}untimeout @user` — Remove timeout\n"
         f"`{p}kick @user [reason]` — Kick a member\n"
         f"`{p}ban @user [reason]` — Permanent ban\n"
+        f"`{p}unban <user_id> [reason]` — Unban by ID\n"
         f"`{p}tempban @user <dur> [reason]` — Temp ban (e.g. `1h`, `2d`, `7d`)\n"
         f"`{p}mute @user [duration]` — Mute a member (e.g. `30m`, `2h`)\n"
         f"`{p}unmute @user` — Unmute a member\n"
@@ -879,7 +904,7 @@ async def on_message(message):
             return
 
     refresh_config()
-    handled = await automod.handle_message(message, config)
+    handled = await automod.handle_message(message, config, add_warning_fn=add_warning)
     if not handled:
         await handle_ai_moderation(message)
         await autoresponder_mod.check_message(message)
@@ -972,8 +997,127 @@ async def clearwarnings(ctx, member: discord.Member):
     if guild_id in warnings_db and member_id in warnings_db[guild_id]:
         warnings_db[guild_id][member_id] = {"count": 0, "history": []}
         save_warnings()
+    supabase_clear_warnings(guild_id, member_id)
     dlog("🧹 CLEAR-WARN", f"Warnings cleared for {member} by {ctx.author}")
+    await logs.log_event(bot, config, "🧹 Warnings Cleared", f"{member}'s warnings cleared by {ctx.author}", color=0x2ecc71)
     await ctx.send(f"✅ All warnings cleared for {member.mention}.")
+
+@bot.command(name="timeout")
+@commands.has_permissions(moderate_members=True)
+async def timeout_member(ctx, member: discord.Member, duration: str, *, reason="No reason provided"):
+    """Timeout a member. Duration: 30s, 10m, 2h, 7d (max 28d)."""
+    seconds = parse_duration(duration)
+    if not seconds:
+        await ctx.send("❌ Invalid duration! Use e.g. `30m`, `2h`, `1d`. Max 28 days.")
+        return
+    if seconds > 2419200:
+        await ctx.send("❌ Discord timeout limit is 28 days.")
+        return
+    label = duration_label(seconds)
+    try:
+        until = discord.utils.utcnow() + timedelta(seconds=seconds)
+        await member.timeout(until, reason=reason)
+        await ctx.send(f"⏱️ {member.mention} has been timed out for **{label}**. Reason: {reason}")
+        await logs.log_event(bot, config, "⏱️ Timeout", f"{member} timed out by {ctx.author} for {label} | Reason: {reason}", color=0xf39c12)
+        supabase_save_mod_log(ctx.guild.id, "timeout", str(member), str(ctx.author), f"{label} — {reason}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        dlog("⏱️ TIMEOUT", f"{member} timed out for {label} by {ctx.author}")
+    except discord.Forbidden:
+        await ctx.send(f"❌ I don't have permission to timeout {member.mention}.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.command(name="untimeout")
+@commands.has_permissions(moderate_members=True)
+async def untimeout_member(ctx, member: discord.Member):
+    """Remove a timeout from a member."""
+    try:
+        await member.timeout(None, reason=f"Timeout removed by {ctx.author}")
+        await ctx.send(f"✅ Timeout removed for {member.mention}.")
+        await logs.log_event(bot, config, "✅ Timeout Removed", f"{member}'s timeout removed by {ctx.author}", color=0x2ecc71)
+        dlog("✅ UNTIMEOUT", f"Timeout removed for {member} by {ctx.author}")
+    except discord.Forbidden:
+        await ctx.send(f"❌ I don't have permission to remove {member.mention}'s timeout.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.command(name="unban")
+@commands.has_permissions(ban_members=True)
+async def unban_member(ctx, user_id: int, *, reason="No reason provided"):
+    """Unban a user by their ID. Usage: !unban <user_id> [reason]"""
+    try:
+        user = await bot.fetch_user(user_id)
+        await ctx.guild.unban(user, reason=reason)
+        await ctx.send(f"✅ {user} has been unbanned. Reason: {reason}")
+        await logs.log_event(bot, config, "✅ Unban", f"{user} unbanned by {ctx.author} | Reason: {reason}", color=0x2ecc71)
+        supabase_save_mod_log(ctx.guild.id, "unban", str(user), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        dlog("✅ UNBAN", f"{user} unbanned by {ctx.author}")
+    except discord.NotFound:
+        await ctx.send("❌ User not found or not banned.")
+    except discord.Forbidden:
+        await ctx.send("❌ I don't have permission to unban users.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.command(name="note")
+@commands.has_permissions(manage_messages=True)
+async def add_note(ctx, member: discord.Member, *, note: str):
+    """Add a moderator note to a user. Usage: !note @user <note>"""
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    supabase_save_note(ctx.guild.id, member.id, str(member), note, str(ctx.author), ts)
+    await ctx.send(f"📝 Note added for {member.mention}: *{note}*", delete_after=10)
+    dlog("📝 NOTE", f"Note added for {member} by {ctx.author}: {note}")
+
+@bot.command(name="notes")
+@commands.has_permissions(manage_messages=True)
+async def get_member_notes(ctx, member: discord.Member):
+    """View all moderator notes for a user. Usage: !notes @user"""
+    notes = supabase_get_notes(ctx.guild.id, member.id)
+    embed = discord.Embed(title=f"📝 Mod Notes — {member}", color=0x3a8fff)
+    embed.set_thumbnail(url=member.display_avatar.url)
+    if not notes:
+        embed.description = "No notes on record."
+    else:
+        for n in notes[-10:]:
+            embed.add_field(
+                name=f"🕐 {n.get('timestamp', 'Unknown')} by {n.get('moderator', '?')}",
+                value=n.get('note', '—'),
+                inline=False
+            )
+    embed.set_footer(text=f"User ID: {member.id} | {len(notes)} total note(s)")
+    await ctx.send(embed=embed)
+
+@bot.command(name="modlogs")
+@commands.has_permissions(manage_messages=True)
+async def modlogs(ctx, member: discord.Member):
+    """View warning history + mod notes for a user. Usage: !modlogs @user"""
+    guild_id  = str(ctx.guild.id)
+    member_id = str(member.id)
+    entry   = _get_member_entry(guild_id, member_id)
+    count   = entry["count"]
+    history = entry["history"]
+    notes   = supabase_get_notes(ctx.guild.id, member.id)
+
+    embed = discord.Embed(
+        title=f"📋 Mod Logs — {member}",
+        color=0xe74c3c if count >= 5 else (0xf39c12 if count >= 2 else 0x2ecc71)
+    )
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="⚠️ Warnings", value=f"**{count}** / {config.get('warning_limit', 30)}", inline=True)
+    embed.add_field(name="📝 Notes",    value=str(len(notes)), inline=True)
+    embed.add_field(name="🆔 User ID",  value=f"`{member.id}`", inline=True)
+
+    if history:
+        last5 = history[-5:][::-1]
+        warn_text = "\n".join(f"`{i+1}.` {h['reason']} — *{h['time']}*" for i, h in enumerate(last5))
+        embed.add_field(name="Recent Warnings", value=warn_text, inline=False)
+
+    if notes:
+        last3 = notes[-3:]
+        note_text = "\n".join(f"*{n.get('note')}* — {n.get('moderator')} @ {n.get('timestamp')}" for n in last3)
+        embed.add_field(name="Recent Notes", value=note_text, inline=False)
+
+    embed.set_footer(text=f"Requested by {ctx.author}")
+    await ctx.send(embed=embed)
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -986,6 +1130,7 @@ async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
         await ctx.send(f"🚪 {member.mention} has been kicked! Reason: {reason}")
         await logs.log_event(bot, config, "🚪 Kick", f"{member} kicked by {ctx.author} | Reason: {reason}", color=0xe67e22)
         await dm_owner("kick", str(member), reason, str(ctx.author))
+        supabase_save_mod_log(ctx.guild.id, "kick", str(member), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("🚪 KICK", f"{member} kicked by {ctx.author} — {reason}")
     except discord.Forbidden:
         await ctx.send(f"❌ I don't have permission to kick {member.mention}.")
@@ -1003,6 +1148,7 @@ async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
         await ctx.send(f"⛔ {member.mention} has been permanently banned! Reason: {reason}")
         await logs.log_event(bot, config, "⛔ Ban", f"{member} banned by {ctx.author} | Reason: {reason}", color=0xe74c3c)
         await dm_owner("ban", str(member), reason, str(ctx.author))
+        supabase_save_mod_log(ctx.guild.id, "ban", str(member), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("⛔ BAN", f"{member} banned by {ctx.author} — {reason}")
     except discord.Forbidden:
         await ctx.send(f"❌ I don't have permission to ban {member.mention}.")

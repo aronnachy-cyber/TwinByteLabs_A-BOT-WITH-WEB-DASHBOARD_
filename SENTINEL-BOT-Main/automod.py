@@ -1,6 +1,9 @@
 import discord
 import requests
 import re
+import time
+import unicodedata
+from collections import defaultdict, deque
 
 # --- Profanity word lists by level ---
 PROFANITY_MEDIUM = ["damn", "crap", "hell", "ass", "piss"]
@@ -10,33 +13,25 @@ PROFANITY_HIGH   = PROFANITY_MEDIUM + ["shit", "bitch", "bastard", "cunt", "fuck
 _LEET = {'@': 'a', '0': 'o', '1': 'i', '3': 'e', '$': 's',
          '4': 'a', '5': 's', '!': 'i', '+': 't', '7': 't', '9': 'g'}
 
+# --- Per-user spam tracking: {guild_id: {user_id: deque of timestamps}} ---
+_spam_tracker     = defaultdict(lambda: defaultdict(deque))
+_duplicate_cache  = defaultdict(lambda: defaultdict(str))   # last message per user
+
 def _normalize(text):
-    """Lowercase + replace common leet/symbol substitutions."""
     t = text.lower()
     for k, v in _LEET.items():
         t = t.replace(k, v)
     return t
 
 def _contains_word(content, word):
-    """
-    Check if a bad word appears in content, accounting for obfuscation:
-      - Direct match:          'fuck'    in 'you fuck off'
-      - Punct separators:      'fuck'    in 'f.u.c.k' / 'f-u-c-k' / 'f_u_c_k' / 'f*u*c*k'
-      - Space separators:      'fuck'    in 'f u c k'
-      - Mixed separators:      'fuck'    in 'f. u. c. k'
-    """
-    # 1. Direct match (already lowercased + leet-subbed)
     if word in content:
         return True
-    # 2. Strip all punctuation-style separators between letters: . - _ * ~
     stripped_punct = re.sub(r'[.\-_*~]', '', content)
     if word in stripped_punct:
         return True
-    # 3. Strip all whitespace (catches 'f u c k', 'f  u  c  k')
     stripped_spaces = re.sub(r'\s+', '', content)
     if word in stripped_spaces:
         return True
-    # 4. Strip both punctuation AND spaces together (catches 'f. u. c. k')
     stripped_all = re.sub(r'[.\-_*~\s]', '', content)
     if word in stripped_all:
         return True
@@ -45,6 +40,20 @@ def _contains_word(content, word):
 def _message_contains_bad_word(content, word_list):
     normalized = _normalize(content)
     return any(_contains_word(normalized, w) for w in word_list)
+
+def _is_zalgo(text):
+    """Detect zalgo/unicode abuse — excessive combining characters."""
+    combining = sum(1 for c in text if unicodedata.category(c) == 'Mn')
+    return combining > 10
+
+def _emoji_count(text):
+    count = 0
+    for c in text:
+        cp = ord(c)
+        if 0x1F300 <= cp <= 0x1FAFF or 0x2600 <= cp <= 0x27BF:
+            count += 1
+    count += len(re.findall(r'<a?:\w+:\d+>', text))
+    return count
 
 async def send_webhook_log(config, title, description, color=0xff6b6b):
     webhook_url = config.get("webhook_log", "").strip()
@@ -70,94 +79,235 @@ async def auto_dm_warning_user(member, reason, guild_name):
     except Exception:
         pass
 
-async def handle_message(message, config):
-    """Returns True if the message was handled (deleted/warned), False otherwise."""
+async def apply_graduated_punishment(message, config, count, add_warning_fn):
+    """Apply escalating punishments based on warning count."""
+    if config.get("grad_punish") != "ON":
+        return
+
+    member = message.author
+    guild  = message.guild
+
+    try:
+        if count >= 10:
+            await member.ban(reason=f"Sentinel: Auto-ban ({count} warnings)")
+            await message.channel.send(
+                f"⛔ {member.mention} has been **banned** after accumulating {count} warnings.",
+                delete_after=10
+            )
+        elif count >= 8:
+            await member.kick(reason=f"Sentinel: Auto-kick ({count} warnings)")
+            await message.channel.send(
+                f"👢 {member.mention} has been **kicked** after {count} warnings.",
+                delete_after=10
+            )
+        elif count >= 5:
+            duration = discord.utils.utcnow() + discord.timedelta(hours=1)
+            await member.timeout(duration, reason=f"Sentinel: Auto-timeout ({count} warnings)")
+            await message.channel.send(
+                f"⏱️ {member.mention} has been **timed out for 1 hour** ({count} warnings).",
+                delete_after=10
+            )
+        elif count >= 3:
+            duration = discord.utils.utcnow() + discord.timedelta(minutes=10)
+            await member.timeout(duration, reason=f"Sentinel: Auto-timeout ({count} warnings)")
+            await message.channel.send(
+                f"⏱️ {member.mention} has been **timed out for 10 minutes** ({count} warnings).",
+                delete_after=10
+            )
+    except discord.Forbidden:
+        pass
+    except Exception as e:
+        print(f"Graduated punishment error: {e}")
+
+async def check_spam(message, config):
+    """Returns True if user is spamming (too many messages too fast)."""
+    if config.get("spam_filter") != "ON":
+        return False
+
+    threshold = int(config.get("spam_threshold", 5))
+    window    = int(config.get("spam_window", 5))
+
+    guild_id  = message.guild.id
+    user_id   = message.author.id
+    now       = time.time()
+
+    q = _spam_tracker[guild_id][user_id]
+    q.append(now)
+    while q and now - q[0] > window:
+        q.popleft()
+
+    return len(q) >= threshold
+
+async def check_caps(message, config):
+    """Returns True if message has excessive caps."""
+    if config.get("caps_filter") != "ON":
+        return False
     content = message.content
+    if len(content) < 8:
+        return False
+    letters = [c for c in content if c.isalpha()]
+    if len(letters) < 8:
+        return False
+    caps_pct = int(config.get("caps_percent", 70))
+    upper_count = sum(1 for c in letters if c.isupper())
+    return (upper_count / len(letters)) * 100 >= caps_pct
+
+async def check_emoji_spam(message, config):
+    """Returns True if message has too many emojis."""
+    if config.get("emoji_filter") != "ON":
+        return False
+    limit = int(config.get("emoji_limit", 8))
+    return _emoji_count(message.content) >= limit
+
+async def check_duplicate(message, config):
+    """Returns True if user is repeating the same message."""
+    if config.get("duplicate_filter") != "ON":
+        return False
+    content = message.content.strip().lower()
+    if len(content) < 5:
+        return False
+    guild_id = message.guild.id
+    user_id  = message.author.id
+    last     = _duplicate_cache[guild_id][user_id]
+    _duplicate_cache[guild_id][user_id] = content
+    return last == content
+
+async def check_wall_of_text(message, config):
+    """Returns True if message contains excessive newlines or is extremely long."""
+    if config.get("wall_filter") != "ON":
+        return False
+    content = message.content
+    newlines = content.count('\n')
+    if newlines >= int(config.get("wall_newlines", 10)):
+        return True
+    if len(content) >= int(config.get("wall_length", 1000)):
+        return True
+    return False
+
+async def check_zalgo(message, config):
+    """Returns True if message contains zalgo text."""
+    if config.get("anti_zalgo") != "ON":
+        return False
+    return _is_zalgo(message.content)
+
+async def handle_message(message, config, add_warning_fn=None):
+    """
+    Returns True if the message was handled (deleted/warned), False otherwise.
+    add_warning_fn: async callable(member, reason) -> new warning count
+    """
+    content = message.content
+    author  = message.author
+    channel = message.channel
+
+    async def _punish(reason, log_title, log_desc, dm=True):
+        await message.delete()
+        if dm and config.get("auto_dm_warning") == "ON":
+            await auto_dm_warning_user(author, reason, message.guild.name)
+        await channel.send(
+            f"⚠️ {author.mention} Warning issued. Don't test system limits.", delete_after=7
+        )
+        count = None
+        if add_warning_fn:
+            count = await add_warning_fn(author, reason)
+        await send_webhook_log(config, log_title, log_desc)
+        if count and config.get("grad_punish") == "ON":
+            await apply_graduated_punishment(message, config, count, add_warning_fn)
+        return True
 
     # 1. Custom blacklist + banned words
     all_bad = (config.get("banned_words", "") or "") + "," + (config.get("auto_custom_blacklist", "") or "")
     if all_bad.strip(","):
         words = [w.strip().lower() for w in all_bad.split(",") if w.strip()]
         if _message_contains_bad_word(content, words):
-            await message.delete()
-            if config.get("auto_dm_warning") == "ON":
-                await auto_dm_warning_user(message.author, "Inappropriate language", message.guild.name)
-            await message.channel.send(
-                f"⚠️ {message.author.mention} Warning issued. Don't test system limits.", delete_after=7
+            return await _punish(
+                "Blacklisted word",
+                "🚫 Blacklisted Word Detected",
+                f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Reason:** Banned/blacklisted word"
             )
-            await send_webhook_log(
-                config, "🚫 Blacklisted Word Detected",
-                f"**User:** {message.author} ({message.author.id})\n"
-                f"**Channel:** {message.channel.mention}\n"
-                f"**Reason:** Blacklisted/banned word"
-            )
-            return True
 
-    # 2. Profanity filter by level
+    # 2. Profanity filter
     level = config.get("profanity_level", "low")
-    if level == "medium":
-        profanity_list = PROFANITY_MEDIUM
-    elif level == "high":
-        profanity_list = PROFANITY_HIGH
-    else:
-        profanity_list = []
-
+    profanity_list = PROFANITY_HIGH if level == "high" else (PROFANITY_MEDIUM if level == "medium" else [])
     if profanity_list and _message_contains_bad_word(content, profanity_list):
-        await message.delete()
-        if config.get("auto_dm_warning") == "ON":
-            await auto_dm_warning_user(message.author, "Profanity is not allowed", message.guild.name)
-        await message.channel.send(
-            f"⚠️ {message.author.mention} Warning issued. Don't test system limits.", delete_after=7
+        return await _punish(
+            "Profanity",
+            "🤬 Profanity Detected",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Level:** {level}"
         )
-        await send_webhook_log(
-            config, "🤬 Profanity Detected",
-            f"**User:** {message.author} ({message.author.id})\n"
-            f"**Channel:** {message.channel.mention}\n"
-            f"**Level:** {level}"
-        )
-        return True
 
     # 3. Block Discord invites
     if config.get("auto_block_invites") == "ON":
         if "discord.gg/" in content.lower() or "discord.com/invite/" in content.lower():
-            await message.delete()
-            if config.get("auto_dm_warning") == "ON":
-                await auto_dm_warning_user(message.author, "Posting Discord invites is not allowed", message.guild.name)
-            await message.channel.send(f"⚠️ {message.author.mention} Warning issued. Don't test system limits.", delete_after=5)
-            await send_webhook_log(
-                config, "🚫 Discord Invite Blocked",
-                f"**User:** {message.author} ({message.author.id})\n"
-                f"**Channel:** {message.channel.mention}"
+            return await _punish(
+                "Discord invite",
+                "🚫 Discord Invite Blocked",
+                f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}"
             )
-            return True
 
     # 4. Block links
     if config.get("auto_block_links") == "ON" or config.get("mod_block_links") == "ON":
         if re.search(r'https?://\S+', content):
-            await message.delete()
-            if config.get("auto_dm_warning") == "ON":
-                await auto_dm_warning_user(message.author, "Posting links is not allowed", message.guild.name)
-            await message.channel.send(f"⚠️ {message.author.mention} Warning issued. Don't test system limits.", delete_after=5)
-            await send_webhook_log(
-                config, "🔗 Link Blocked",
-                f"**User:** {message.author} ({message.author.id})\n"
-                f"**Channel:** {message.channel.mention}"
+            return await _punish(
+                "Link blocked",
+                "🔗 Link Blocked",
+                f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}"
             )
-            return True
 
     # 5. Block mass mentions
     if config.get("auto_block_mentions") == "ON" or config.get("mod_block_mentions") == "ON":
         if len(message.mentions) > 3 or message.mention_everyone:
-            await message.delete()
-            if config.get("auto_dm_warning") == "ON":
-                await auto_dm_warning_user(message.author, "Mass mentions are not allowed", message.guild.name)
-            await message.channel.send(f"⚠️ {message.author.mention} Warning issued. Don't test system limits.", delete_after=5)
-            await send_webhook_log(
-                config, "🔔 Mass Mention Blocked",
-                f"**User:** {message.author} ({message.author.id})\n"
-                f"**Channel:** {message.channel.mention}\n"
-                f"**Mentions:** {len(message.mentions)}"
+            return await _punish(
+                "Mass mentions",
+                "🔔 Mass Mention Blocked",
+                f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Mentions:** {len(message.mentions)}"
             )
-            return True
+
+    # 6. Spam detection
+    if await check_spam(message, config):
+        return await _punish(
+            "Message spam",
+            "💬 Spam Detected",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Threshold:** {config.get('spam_threshold', 5)} msgs/{config.get('spam_window', 5)}s"
+        )
+
+    # 7. Caps filter
+    if await check_caps(message, config):
+        return await _punish(
+            "Excessive caps",
+            "🔠 Caps Spam Detected",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Threshold:** {config.get('caps_percent', 70)}%"
+        )
+
+    # 8. Emoji spam
+    if await check_emoji_spam(message, config):
+        return await _punish(
+            "Emoji spam",
+            "😂 Emoji Spam Detected",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Emojis:** {_emoji_count(content)}"
+        )
+
+    # 9. Duplicate messages
+    if await check_duplicate(message, config):
+        return await _punish(
+            "Duplicate message",
+            "🔁 Duplicate Message",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}"
+        )
+
+    # 10. Wall of text
+    if await check_wall_of_text(message, config):
+        return await _punish(
+            "Wall of text",
+            "📜 Wall of Text Detected",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Length:** {len(content)} chars"
+        )
+
+    # 11. Zalgo text
+    if await check_zalgo(message, config):
+        return await _punish(
+            "Zalgo/unicode abuse",
+            "⚠️ Zalgo Text Detected",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}"
+        )
 
     return False

@@ -99,7 +99,21 @@ DEFAULT_CONFIG = {
     "youtube_notify_msg": "📺 A new YouTube video was shared! Check it out:",
     "multi_channel": "",
     "owner_dm_id": "",
-    "daily_report": "OFF"
+    "daily_report": "OFF",
+    # --- Advanced automod ---
+    "spam_filter": "OFF",
+    "spam_threshold": 5,
+    "spam_window": 5,
+    "caps_filter": "OFF",
+    "caps_percent": 70,
+    "emoji_filter": "OFF",
+    "emoji_limit": 8,
+    "duplicate_filter": "OFF",
+    "wall_filter": "OFF",
+    "wall_newlines": 10,
+    "wall_length": 1000,
+    "anti_zalgo": "OFF",
+    "grad_punish": "OFF",
 }
 
 config = {**DEFAULT_CONFIG}
@@ -127,6 +141,93 @@ def load_config_from_supabase():
 load_config_from_supabase()
 
 warnings_db = []
+
+# ---- WARNINGS (Supabase-backed, JSON fallback) ----
+def supabase_save_warning(guild_id, member_id, username, count, reason, timestamp):
+    if not supabase:
+        return
+    try:
+        supabase.table("sentinel_warnings").insert({
+            "guild_id":  str(guild_id),
+            "member_id": str(member_id),
+            "username":  username,
+            "count":     count,
+            "reason":    reason,
+            "timestamp": timestamp,
+        }).execute()
+    except Exception as e:
+        print(f"⚠️ Supabase save_warning error: {e}")
+
+def supabase_clear_warnings(guild_id, member_id):
+    if not supabase:
+        return
+    try:
+        supabase.table("sentinel_warnings").delete()\
+            .eq("guild_id", str(guild_id))\
+            .eq("member_id", str(member_id))\
+            .execute()
+    except Exception as e:
+        print(f"⚠️ Supabase clear_warnings error: {e}")
+
+def supabase_get_warnings(guild_id, member_id):
+    if not supabase:
+        return []
+    try:
+        res = supabase.table("sentinel_warnings")\
+            .select("*")\
+            .eq("guild_id", str(guild_id))\
+            .eq("member_id", str(member_id))\
+            .order("timestamp", desc=False)\
+            .execute()
+        return res.data or []
+    except Exception as e:
+        print(f"⚠️ Supabase get_warnings error: {e}")
+        return []
+
+def supabase_save_mod_log(guild_id, action, target, moderator, reason, timestamp):
+    if not supabase:
+        return
+    try:
+        supabase.table("sentinel_mod_logs").insert({
+            "guild_id":  str(guild_id),
+            "action":    action,
+            "target":    target,
+            "moderator": moderator,
+            "reason":    reason,
+            "timestamp": timestamp,
+        }).execute()
+    except Exception as e:
+        print(f"⚠️ Supabase save_mod_log error: {e}")
+
+def supabase_save_note(guild_id, member_id, username, note, moderator, timestamp):
+    if not supabase:
+        return
+    try:
+        supabase.table("sentinel_notes").insert({
+            "guild_id":  str(guild_id),
+            "member_id": str(member_id),
+            "username":  username,
+            "note":      note,
+            "moderator": moderator,
+            "timestamp": timestamp,
+        }).execute()
+    except Exception as e:
+        print(f"⚠️ Supabase save_note error: {e}")
+
+def supabase_get_notes(guild_id, member_id):
+    if not supabase:
+        return []
+    try:
+        res = supabase.table("sentinel_notes")\
+            .select("*")\
+            .eq("guild_id", str(guild_id))\
+            .eq("member_id", str(member_id))\
+            .order("timestamp", desc=False)\
+            .execute()
+        return res.data or []
+    except Exception as e:
+        print(f"⚠️ Supabase get_notes error: {e}")
+        return []
 
 # ---- USERS MANAGEMENT (Supabase-backed, JSON fallback) ----
 USERS_FILE = 'users.json'
@@ -237,7 +338,9 @@ TOGGLE_KEYS = [
     "auto_dm_warning", "owner_approval",
     "anti_raid", "security_2fa", "role_monitor", "mass_ban_prevent",
     "temp_lockdown", "discord_alerts", "twitter_alerts", "youtube_alerts",
-    "daily_report"
+    "daily_report",
+    "spam_filter", "caps_filter", "emoji_filter", "duplicate_filter",
+    "wall_filter", "anti_zalgo", "grad_punish",
 ]
 
 TEXT_KEYS = [
@@ -245,7 +348,9 @@ TEXT_KEYS = [
     "log_channel", "profanity_level", "mute_role", "auto_role",
     "auto_custom_blacklist", "webhook_log", "banned_words",
     "youtube_channel_link", "youtube_notify_msg", "multi_channel",
-    "owner_dm_id"
+    "owner_dm_id",
+    "spam_threshold", "spam_window", "caps_percent",
+    "emoji_limit", "wall_newlines", "wall_length",
 ]
 
 def save_config():
