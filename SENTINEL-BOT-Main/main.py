@@ -670,8 +670,16 @@ async def on_ready():
     s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
     await bot.change_presence(status=s_map.get(config.get("bot_status", "online"), discord.Status.online))
     try:
-        synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} slash command(s)")
+        # Sync to every guild immediately (guild syncs are instant, global can take ~1hr)
+        total = 0
+        for guild in bot.guilds:
+            try:
+                bot.tree.copy_global_to(guild=guild)
+                synced = await bot.tree.sync(guild=guild)
+                total += len(synced)
+            except Exception as ge:
+                print(f"Guild sync error ({guild.name}): {ge}")
+        print(f"✅ Synced slash commands to {len(bot.guilds)} guild(s) ({total} total)")
     except Exception as e:
         print(f"Slash command sync error: {e}")
     sync_bot_settings.start()
