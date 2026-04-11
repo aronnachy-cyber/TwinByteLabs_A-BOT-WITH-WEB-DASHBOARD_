@@ -549,13 +549,17 @@ async def slash_poll(interaction: discord.Interaction, question: str, option1: s
 @app_commands.describe(reason="Why are you opening this ticket?")
 async def slash_ticket(interaction: discord.Interaction, reason: str = "General Support"):
     await interaction.response.defer(ephemeral=True)
-    result = await tickets_mod.create_ticket(interaction.guild, interaction.user, config, reason)
-    if result:
-        channel, ticket = result
-        await interaction.followup.send(f"✅ Your ticket has been created: {channel.mention}", ephemeral=True)
-        dlog("🎫 TICKET", f"{interaction.user} opened ticket #{ticket['id']}: {reason}")
-    else:
-        await interaction.followup.send("❌ Could not create ticket. Check that I have Manage Channels permission.", ephemeral=True)
+    try:
+        result = await tickets_mod.create_ticket(interaction.guild, interaction.user, config, reason)
+        if result:
+            channel, ticket = result
+            await interaction.followup.send(f"✅ Your ticket has been created: {channel.mention}", ephemeral=True)
+            dlog("🎫 TICKET", f"{interaction.user} opened ticket #{ticket['id']}: {reason}")
+        else:
+            await interaction.followup.send("❌ Could not create ticket. Make sure I have **Manage Channels** permission and a valid ticket category is set in the dashboard.", ephemeral=True)
+    except Exception as e:
+        print(f"Ticket slash error: {e}")
+        await interaction.followup.send(f"❌ An error occurred while creating your ticket: `{e}`", ephemeral=True)
 
 @bot.tree.command(name="ticket-close", description="Close the current ticket channel")
 async def slash_ticket_close(interaction: discord.Interaction):
@@ -656,6 +660,8 @@ async def slash_leaderboard(interaction: discord.Interaction):
 @bot.event
 async def on_ready():
     refresh_config()
+    # Register persistent views so buttons survive bot restarts
+    bot.add_view(tickets_mod.TicketCloseView())
     s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
     await bot.change_presence(status=s_map.get(config.get("bot_status", "online"), discord.Status.online))
     try:

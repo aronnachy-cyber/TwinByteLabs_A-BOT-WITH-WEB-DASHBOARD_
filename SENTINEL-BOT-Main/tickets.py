@@ -1,6 +1,7 @@
 import discord
 import json
 import os
+import re
 from datetime import datetime
 
 TICKETS_FILE = "tickets.json"
@@ -29,7 +30,13 @@ async def create_ticket(guild, member, config, reason="General Support"):
     category_id = config.get("ticket_category", "").strip()
     category = None
     if category_id and category_id.isdigit():
-        category = guild.get_channel(int(category_id))
+        ch = guild.get_channel(int(category_id))
+        if isinstance(ch, discord.CategoryChannel):
+            category = ch
+
+    # Clean channel name — Discord allows only lowercase letters, numbers, hyphens
+    safe_name = re.sub(r'[^a-z0-9]', '', member.name.lower())[:12] or "user"
+    channel_name = f"ticket-{ticket_num:04d}-{safe_name}"
 
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=False),
@@ -40,7 +47,6 @@ async def create_ticket(guild, member, config, reason="General Support"):
         if role.permissions.manage_messages and not role.is_everyone():
             overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
 
-    channel_name = f"ticket-{ticket_num:04d}-{member.name.lower()[:12]}"
     try:
         channel = await guild.create_text_channel(
             channel_name,
@@ -48,9 +54,12 @@ async def create_ticket(guild, member, config, reason="General Support"):
             overwrites=overwrites,
             topic=f"Support ticket for {member} | Reason: {reason}"
         )
+    except discord.Forbidden:
+        print(f"Ticket error: Missing Manage Channels permission in {guild.name}")
+        raise Exception("I don't have permission to create channels. Grant me **Manage Channels**.")
     except Exception as e:
         print(f"Ticket channel creation error: {e}")
-        return None
+        raise
 
     embed = discord.Embed(
         title=f"🎫 Ticket #{ticket_num:04d}",
