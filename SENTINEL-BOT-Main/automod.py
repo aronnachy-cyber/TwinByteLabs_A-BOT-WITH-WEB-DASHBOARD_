@@ -24,16 +24,23 @@ def _normalize(text):
     return t
 
 def _contains_word(content, word):
-    if word in content:
+    escaped = re.escape(word)
+    # 1. Whole-word direct match (e.g. "hell" won't match "hello")
+    if re.search(r'\b' + escaped + r'\b', content):
         return True
+    # 2. Punct separators stripped, whole-word (e.g. "f.u.c.k" → "fuck")
     stripped_punct = re.sub(r'[.\-_*~]', '', content)
-    if word in stripped_punct:
+    if re.search(r'\b' + escaped + r'\b', stripped_punct):
         return True
-    stripped_spaces = re.sub(r'\s+', '', content)
-    if word in stripped_spaces:
+    # 3. Space separators stripped, whole-word (e.g. "f u c k" → "fuck")
+    #    Only trigger if original tokens form exactly the bad word letters
+    tokens = content.split()
+    if len(tokens) == len(word) and ''.join(tokens) == word:
         return True
+    # 4. All separators stripped for mixed obfuscation (e.g. "f. u. c. k")
+    #    Only flag if stripped result IS exactly the bad word (avoids "hello"→"hello" matching "hell")
     stripped_all = re.sub(r'[.\-_*~\s]', '', content)
-    if word in stripped_all:
+    if stripped_all == word:
         return True
     return False
 
