@@ -22,6 +22,7 @@ import tickets as tickets_mod
 import autoresponder as autoresponder_mod
 import reaction_roles as rr_mod
 import leveling as leveling_mod
+import server_template as template_mod
 
 BOT_START_TIME = datetime.utcnow()
 
@@ -387,6 +388,10 @@ async def slash_commands(interaction: discord.Interaction):
         "`/autorespond list` — Show all auto-replies\n"
         "`/rank [@user]` — Check XP and level\n"
         "`/leaderboard` — Server XP leaderboard"
+    ))
+    embed.add_field(name="🗂️ Server Templates", inline=False, value=(
+        "`/copy` — Snapshot this server's channels, roles & permissions\n"
+        "`/paste` — Recreate a copied template into this server"
     ))
     embed.add_field(name="📬 Owner DM (via DM only)", inline=False, value=(
         f"`!approve ban <id>` / `!approve kick <id>` / `!approve ignore <id>`"
@@ -1311,6 +1316,85 @@ async def userinfo(ctx, member: discord.Member = None):
     embed.add_field(name="🔑 Key Permissions", value=", ".join(perms) or "None", inline=False)
     embed.set_footer(text=f"Requested by {ctx.author}")
     await ctx.send(embed=embed)
+
+# ---------------- SERVER TEMPLATE COMMANDS ----------------
+@bot.tree.command(name="copy", description="Copy this server's full structure (channels, roles, permissions) into a template")
+async def slash_copy(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ Administrator permission required.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=True)
+    try:
+        await interaction.edit_original_response(content="📸 Scanning server structure…")
+        template = await template_mod.copy_server(interaction.guild)
+        info = template_mod.get_template_info()
+        embed = discord.Embed(
+            title="✅ Server Template Saved",
+            description=(
+                f"**Source:** {interaction.guild.name}\n"
+                f"**Copied at:** {info['copied_at'][:19].replace('T', ' ')}\n\n"
+                f"Use `/paste` in any server to recreate this structure."
+            ),
+            color=0x2ecc71
+        )
+        embed.add_field(name="🎭 Roles",          value=str(info["roles"]),          inline=True)
+        embed.add_field(name="📁 Categories",      value=str(info["categories"]),     inline=True)
+        embed.add_field(name="💬 Text Channels",   value=str(info["text_channels"]),  inline=True)
+        embed.add_field(name="🔊 Voice Channels",  value=str(info["voice_channels"]), inline=True)
+        embed.set_footer(text="Sentinel OS — Server Template")
+        await interaction.edit_original_response(content=None, embed=embed)
+        dlog("📸 COPY", f"{interaction.user} copied server template from {interaction.guild.name}")
+    except Exception as e:
+        print(f"/copy error: {e}")
+        await interaction.edit_original_response(content=f"❌ Failed to copy server: `{e}`")
+
+@bot.tree.command(name="paste", description="Recreate a copied server template in this server (adds channels & roles)")
+async def slash_paste(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ Administrator permission required.", ephemeral=True)
+        return
+    info = template_mod.get_template_info()
+    if not info:
+        await interaction.response.send_message(
+            "❌ No template found. Run `/copy` in a server first.", ephemeral=True
+        )
+        return
+    await interaction.response.defer(ephemeral=True)
+    await interaction.edit_original_response(
+        content=(
+            f"⏳ Pasting template from **{info['source']}**…\n"
+            f"Creating {info['roles']} role(s), {info['categories']} categor(ies), "
+            f"{info['text_channels']} text and {info['voice_channels']} voice channel(s).\n"
+            f"This may take a minute — please wait."
+        )
+    )
+    try:
+        async def progress(msg):
+            try:
+                await interaction.edit_original_response(content=f"⏳ {msg}")
+            except Exception:
+                pass
+
+        summary = await template_mod.paste_server(interaction.guild, progress_callback=progress)
+
+        embed = discord.Embed(
+            title="✅ Server Template Applied",
+            description=f"Template from **{info['source']}** has been pasted into **{interaction.guild.name}**.",
+            color=0x2ecc71
+        )
+        embed.add_field(name="🎭 Roles Created",         value=str(summary["roles"]),         inline=True)
+        embed.add_field(name="📁 Categories Created",    value=str(summary["categories"]),    inline=True)
+        embed.add_field(name="💬 Text Channels Created", value=str(summary["text_channels"]), inline=True)
+        embed.add_field(name="🔊 Voice Channels Created",value=str(summary["voice_channels"]),inline=True)
+        embed.add_field(name="⏭️ Skipped (already exist)", value=str(summary["skipped"]),    inline=True)
+        embed.set_footer(text="Sentinel OS — Server Template • Existing channels/roles were not duplicated")
+        await interaction.edit_original_response(content=None, embed=embed)
+        dlog("📋 PASTE", f"{interaction.user} pasted server template into {interaction.guild.name}")
+    except FileNotFoundError:
+        await interaction.edit_original_response(content="❌ No template found. Run `/copy` first.")
+    except Exception as e:
+        print(f"/paste error: {e}")
+        await interaction.edit_original_response(content=f"❌ An error occurred: `{e}`")
 
 # ---------------- SECURITY COMMANDS ----------------
 @bot.command()
