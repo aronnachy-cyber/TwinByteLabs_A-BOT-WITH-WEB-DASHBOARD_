@@ -1425,6 +1425,20 @@ async def refresh(ctx):
     refresh_config()
     await ctx.send(f"🔄 Config refreshed! Prefix: `{config.get('prefix', '!')}`")
 
+@bot.command(name="sync")
+async def force_sync(ctx):
+    """Force-sync all slash commands to this server instantly. Admin only."""
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.send("❌ You need Administrator permission to run this.")
+        return
+    msg = await ctx.send("⏳ Syncing slash commands to this server…")
+    try:
+        bot.tree.copy_global_to(guild=ctx.guild)
+        synced = await bot.tree.sync(guild=ctx.guild)
+        await msg.edit(content=f"✅ Synced **{len(synced)}** slash command(s) to **{ctx.guild.name}**. They should appear in Discord immediately.")
+    except Exception as e:
+        await msg.edit(content=f"❌ Sync failed: `{e}`")
+
 # ---------------- RUN ----------------
 _bot_thread = None
 
