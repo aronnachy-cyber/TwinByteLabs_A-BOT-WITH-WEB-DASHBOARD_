@@ -65,9 +65,7 @@ async def send_webhook_log(config, title, description, color=0xff6b6b):
 async def auto_dm_warning_user(member, reason, guild_name):
     try:
         await member.send(
-            f"⚠️ **Sentinel OS — Warning**\n"
-            f"You received a warning in **{guild_name}**.\n"
-            f"**Reason:** {reason}"
+            f"⚠️ Sentinel Alert: Chill. That behavior ain't it. Fix it before this escalates."
         )
     except Exception:
         pass
@@ -85,7 +83,7 @@ async def handle_message(message, config):
             if config.get("auto_dm_warning") == "ON":
                 await auto_dm_warning_user(message.author, "Inappropriate language", message.guild.name)
             await message.channel.send(
-                f"⚠️ {message.author.mention}, that word is not allowed here.", delete_after=7
+                f"⚠️ {message.author.mention} Warning issued. Don't test system limits.", delete_after=7
             )
             await send_webhook_log(
                 config, "🚫 Blacklisted Word Detected",
@@ -109,7 +107,7 @@ async def handle_message(message, config):
         if config.get("auto_dm_warning") == "ON":
             await auto_dm_warning_user(message.author, "Profanity is not allowed", message.guild.name)
         await message.channel.send(
-            f"🤬 {message.author.mention}, profanity is not allowed here.", delete_after=7
+            f"⚠️ {message.author.mention} Warning issued. Don't test system limits.", delete_after=7
         )
         await send_webhook_log(
             config, "🤬 Profanity Detected",
@@ -125,7 +123,7 @@ async def handle_message(message, config):
             await message.delete()
             if config.get("auto_dm_warning") == "ON":
                 await auto_dm_warning_user(message.author, "Posting Discord invites is not allowed", message.guild.name)
-            await message.channel.send("🚫 Discord invites are not allowed!", delete_after=5)
+            await message.channel.send(f"⚠️ {message.author.mention} Warning issued. Don't test system limits.", delete_after=5)
             await send_webhook_log(
                 config, "🚫 Discord Invite Blocked",
                 f"**User:** {message.author} ({message.author.id})\n"
@@ -139,7 +137,7 @@ async def handle_message(message, config):
             await message.delete()
             if config.get("auto_dm_warning") == "ON":
                 await auto_dm_warning_user(message.author, "Posting links is not allowed", message.guild.name)
-            await message.channel.send("🔗 Links are blocked here!", delete_after=5)
+            await message.channel.send(f"⚠️ {message.author.mention} Warning issued. Don't test system limits.", delete_after=5)
             await send_webhook_log(
                 config, "🔗 Link Blocked",
                 f"**User:** {message.author} ({message.author.id})\n"
@@ -153,7 +151,7 @@ async def handle_message(message, config):
             await message.delete()
             if config.get("auto_dm_warning") == "ON":
                 await auto_dm_warning_user(message.author, "Mass mentions are not allowed", message.guild.name)
-            await message.channel.send("🔔 Mass mentions are not allowed!", delete_after=5)
+            await message.channel.send(f"⚠️ {message.author.mention} Warning issued. Don't test system limits.", delete_after=5)
             await send_webhook_log(
                 config, "🔔 Mass Mention Blocked",
                 f"**User:** {message.author} ({message.author.id})\n"
