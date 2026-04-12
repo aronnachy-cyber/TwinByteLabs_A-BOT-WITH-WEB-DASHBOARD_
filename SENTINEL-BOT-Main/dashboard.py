@@ -329,25 +329,31 @@ def generate_session_token(name, users=None):
             return token
     return f"SENTINEL-{clean}-{secrets.token_hex(3).upper()}"
 
+def normalize_user_record(u, users=None):
+    changed = False
+    if not isinstance(u, dict) or not u.get('uid'):
+        return False
+    if not u.get('name'):
+        u['name'] = 'User'
+        changed = True
+    if not u.get('status'):
+        u['status'] = 'approved' if u.get('is_admin') else 'pending'
+        changed = True
+    if not u.get('created_at'):
+        u['created_at'] = datetime.now().strftime('%Y-%m-%d')
+        changed = True
+    if 'is_admin' not in u:
+        u['is_admin'] = False
+        changed = True
+    if not u.get('session_token'):
+        u['session_token'] = generate_session_token(u.get('name', 'User'), users or [])
+        changed = True
+    return changed
+
 def ensure_user_session_tokens(users):
     changed = False
     for u in users:
-        if not u.get('uid'):
-            continue
-        if not u.get('name'):
-            u['name'] = 'User'
-            changed = True
-        if not u.get('status'):
-            u['status'] = 'approved' if u.get('is_admin') else 'pending'
-            changed = True
-        if not u.get('created_at'):
-            u['created_at'] = datetime.now().strftime('%Y-%m-%d')
-            changed = True
-        if 'is_admin' not in u:
-            u['is_admin'] = False
-            changed = True
-        if not u.get('session_token'):
-            u['session_token'] = generate_session_token(u.get('name', 'User'), users)
+        if normalize_user_record(u, users):
             changed = True
     return changed
 
@@ -357,7 +363,10 @@ def find_user_by_login(login_value):
         return None
     value_upper = value.upper()
     value_lower = value.lower()
-    for u in load_users():
+    users = load_users()
+    if ensure_user_session_tokens(users):
+        save_users(users)
+    for u in users:
         if u.get('uid', '').upper() == value_upper:
             return u
         if u.get('session_token', '').upper() == value_upper:
@@ -505,22 +514,25 @@ def login():
                 else:
                     left = MAX_ATTEMPTS - count
                     error = f"❌ Invalid UID. {left} attempt(s) left."
-            elif user['status'] == 'pending':
+            status = user.get('status', 'pending')
+            if status == 'pending':
                 error = "⏳ Your registration is pending admin approval. Please wait."
-            elif user['status'] == 'rejected':
+            elif status == 'rejected':
                 error = "❌ Your registration was rejected. Contact the admin."
-            elif user['status'] == 'approved':
+            elif status == 'approved':
                 if not user.get('session_token'):
                     user['session_token'] = generate_session_token(user.get('name', 'User'), load_users())
                     save_single_user(user)
                 session['logged_in'] = True
-                session['uid'] = user['uid']
+                session['uid'] = user.get('uid', '')
                 session['is_admin'] = user.get('is_admin', False)
                 session['user_name'] = user.get('name', 'User')
                 session['session_token'] = user.get('session_token', '')
                 login_attempts.pop(ip, None)
-                add_dashboard_log("🔑 LOGIN", f"{user['name']} ({user['uid']}) logged in from {ip}")
+                add_dashboard_log("🔑 LOGIN", f"{user.get('name', 'User')} ({user.get('uid', 'Unknown')}) logged in from {ip}")
                 return redirect(url_for('index'))
+            else:
+                error = "❌ This account has an invalid status. Ask an admin to approve it again."
 
     question, answer = generate_captcha()
     session['captcha_answer'] = answer
