@@ -82,8 +82,10 @@ warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, purge, 
 
 ## Auth System
 - UID format: `TBLS-{first 4 letters of name}-{4 char unique code}`
+- Human-readable session token format: `SENTINEL-{name}-{word}-{code}`
 - Admin UID: `TBLS-ADMI-9ZX7`
-- Users register → admin approves → user logs in with UID
+- Users register → admin approves → user logs in with UID, session token, or email
+- Admins can view every user's session token and grant or revoke admin access from the Users tab
 - Captcha on login (math), lockout after 3 failed attempts
 
 ## Running the App on Replit

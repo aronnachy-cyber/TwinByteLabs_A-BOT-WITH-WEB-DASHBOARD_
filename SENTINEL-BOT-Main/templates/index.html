@@ -733,6 +733,7 @@ input:checked + .slider:before { transform: translateX(22px); }
         <tr>
           <th>Name</th>
           <th>UID</th>
+          <th>Session Token</th>
           <th>Status</th>
           <th>Joined</th>
           <th>Action</th>
@@ -746,6 +747,7 @@ input:checked + .slider:before { transform: translateX(22px); }
             {% if u.is_admin %}<span class="badge badge-info" style="margin-left:6px;">Admin</span>{% endif %}
           </td>
           <td style="font-family:'Courier New',monospace;font-size:0.82rem;color:var(--accent);">{{ u.uid }}</td>
+          <td style="font-family:'Courier New',monospace;font-size:0.78rem;color:var(--accent2);word-break:break-all;">{{ u.session_token }}</td>
           <td>
             {% if u.status == 'approved' %}
               <span class="badge badge-on">✅ Approved</span>
@@ -764,9 +766,14 @@ input:checked + .slider:before { transform: translateX(22px); }
               {% elif u.status == 'rejected' %}
                 <button class="btn btn-success btn-sm" onclick="approveUser('{{ u.uid }}','{{ u.name }}')">Re-approve</button>
               {% endif %}
+              <button class="btn btn-primary btn-sm" onclick="grantAdmin('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-user-shield"></i> Admin</button>
               <button class="btn btn-sm" style="background:var(--card-hover);" onclick="deleteUser('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-trash"></i></button>
             {% else %}
-              <span style="color:var(--muted);font-size:0.8rem;">Protected</span>
+              {% if u.uid != current_uid %}
+                <button class="btn btn-warning btn-sm" onclick="revokeAdmin('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-user-minus"></i> Remove Admin</button>
+              {% else %}
+                <span style="color:var(--muted);font-size:0.8rem;">Current admin</span>
+              {% endif %}
             {% endif %}
           </td>
         </tr>
@@ -909,6 +916,13 @@ input:checked + .slider:before { transform: translateX(22px); }
         <div style="display:flex;align-items:center;gap:10px;">
           <code style="background:var(--bg);padding:8px 14px;border-radius:8px;font-size:0.95rem;color:var(--accent);letter-spacing:2px;flex:1;">{{ session.get('uid', 'N/A') }}</code>
           <button onclick="copyUID()" style="background:rgba(79,142,247,.15);color:var(--accent);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.82rem;"><i class="fas fa-copy"></i> Copy</button>
+        </div>
+      </div>
+      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Your Session Token</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <code class="session-token-code" style="background:var(--bg);padding:8px 14px;border-radius:8px;font-size:0.82rem;color:var(--accent2);letter-spacing:1px;flex:1;word-break:break-all;">{{ current_session_token or 'N/A' }}</code>
+          <button onclick="copySessionToken()" style="background:rgba(79,142,247,.15);color:var(--accent);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.82rem;"><i class="fas fa-copy"></i> Copy</button>
         </div>
       </div>
       <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
@@ -1228,10 +1242,10 @@ async function approveUser(uid, name) {
     }
     const userRow = document.getElementById('user-row-' + uid);
     if (userRow) {
-      const statusCell = userRow.querySelector('td:nth-child(3)');
+      const statusCell = userRow.querySelector('td:nth-child(4)');
       if (statusCell) statusCell.innerHTML = '<span class="badge badge-on">✅ Approved</span>';
-      const actionCell = userRow.querySelector('td:nth-child(5)');
-      if (actionCell) actionCell.innerHTML = '<button class="btn btn-sm" style="background:var(--card-hover);" onclick="deleteUser(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-trash"></i></button>';
+      const actionCell = userRow.querySelector('td:nth-child(6)');
+      if (actionCell) actionCell.innerHTML = '<button class="btn btn-primary btn-sm" onclick="grantAdmin(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-user-shield"></i> Admin</button> <button class="btn btn-sm" style="background:var(--card-hover);" onclick="deleteUser(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-trash"></i></button>';
     }
   } catch(e) {
     showToast('❌ Error: ' + e.message, true);
@@ -1256,7 +1270,7 @@ async function rejectUser(uid, name) {
     }
     const userRow = document.getElementById('user-row-' + uid);
     if (userRow) {
-      const statusCell = userRow.querySelector('td:nth-child(3)');
+      const statusCell = userRow.querySelector('td:nth-child(4)');
       if (statusCell) statusCell.innerHTML = '<span class="badge badge-off">❌ Rejected</span>';
     }
   } catch(e) {
@@ -1275,6 +1289,58 @@ async function deleteUser(uid, name) {
     showToast(`🗑️ ${name} deleted.`);
     const userRow = document.getElementById('user-row-' + uid);
     if (userRow) userRow.remove();
+  } catch(e) {
+    showToast('❌ Error: ' + e.message, true);
+  }
+}
+
+async function grantAdmin(uid, name) {
+  if (!confirm(`Give ${name} admin access?`)) return;
+  try {
+    const res = await fetch('/api/grant_admin', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({uid})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not grant admin access');
+    showToast(`🛡️ ${name} is now an admin.`);
+    const userRow = document.getElementById('user-row-' + uid);
+    if (userRow) {
+      const nameCell = userRow.querySelector('td:nth-child(1)');
+      if (nameCell && !nameCell.innerHTML.includes('Admin</span>')) {
+        nameCell.innerHTML = '<strong>' + name + '</strong> <span class="badge badge-info" style="margin-left:6px;">Admin</span>';
+      }
+      const statusCell = userRow.querySelector('td:nth-child(4)');
+      if (statusCell) statusCell.innerHTML = '<span class="badge badge-on">✅ Approved</span>';
+      const tokenCell = userRow.querySelector('td:nth-child(3)');
+      if (tokenCell && data.session_token) tokenCell.textContent = data.session_token;
+      const actionCell = userRow.querySelector('td:nth-child(6)');
+      if (actionCell) actionCell.innerHTML = '<button class="btn btn-warning btn-sm" onclick="revokeAdmin(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-user-minus"></i> Remove Admin</button>';
+    }
+  } catch(e) {
+    showToast('❌ Error: ' + e.message, true);
+  }
+}
+
+async function revokeAdmin(uid, name) {
+  if (!confirm(`Remove admin access from ${name}?`)) return;
+  try {
+    const res = await fetch('/api/revoke_admin', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({uid})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not remove admin access');
+    showToast(`🛡️ ${name} is no longer an admin.`);
+    const userRow = document.getElementById('user-row-' + uid);
+    if (userRow) {
+      const nameCell = userRow.querySelector('td:nth-child(1)');
+      if (nameCell) nameCell.innerHTML = '<strong>' + name + '</strong>';
+      const actionCell = userRow.querySelector('td:nth-child(6)');
+      if (actionCell) actionCell.innerHTML = '<button class="btn btn-primary btn-sm" onclick="grantAdmin(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-user-shield"></i> Admin</button> <button class="btn btn-sm" style="background:var(--card-hover);" onclick="deleteUser(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-trash"></i></button>';
+    }
   } catch(e) {
     showToast('❌ Error: ' + e.message, true);
   }
@@ -1466,9 +1532,16 @@ async function loadLeaderboard() {
 
 // ---- COPY UID ----
 function copyUID() {
-  const uid = document.querySelector('#account code');
+  const uid = document.querySelector('#account code:not(.session-token-code)');
   if (uid) {
     navigator.clipboard.writeText(uid.textContent.trim()).then(() => showToast('✅ UID copied!')).catch(() => showToast('❌ Could not copy', true));
+  }
+}
+
+function copySessionToken() {
+  const token = document.querySelector('#account .session-token-code');
+  if (token) {
+    navigator.clipboard.writeText(token.textContent.trim()).then(() => showToast('✅ Session token copied!')).catch(() => showToast('❌ Could not copy', true));
   }
 }
 

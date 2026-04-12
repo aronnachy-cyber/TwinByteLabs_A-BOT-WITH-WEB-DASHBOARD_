@@ -266,11 +266,11 @@ footer{
 
       <form method="POST" autocomplete="off">
         <div class="field">
-          <div class="field-label">UID or Email</div>
+          <div class="field-label">UID, Session Token, or Email</div>
           <div class="input-wrap">
             <i class="fas fa-user prefix-icon"></i>
-            <input type="text" name="uid" placeholder="UID (e.g., TBLS-NAME-XXXX) or Email" required autofocus
-                   maxlength="20" style="text-transform:uppercase;"
+            <input type="text" name="uid" placeholder="TBLS-NAME-XXXX or SENTINEL-NAME-WORD-1234" required autofocus
+                   maxlength="80" style="text-transform:uppercase;"
                    oninput="this.value=this.value.toUpperCase()">
           </div>
         </div>

@@ -5,7 +5,8 @@
             "name": "Admin",
             "status": "approved",
             "is_admin": true,
-            "created_at": "2026-04-06"
+            "created_at": "2026-04-06",
+            "session_token": "SENTINEL-ADMIN-CASTLE-2CYT"
         }
     ]
 }

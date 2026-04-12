@@ -238,13 +238,20 @@ def load_users():
     if supabase:
         try:
             res = supabase.table("sentinel_users").select("*").execute()
-            return res.data or []
+            users = res.data or []
+            if ensure_user_session_tokens(users):
+                save_users(users)
+            return users
         except Exception as e:
             print(f"⚠️ Supabase load_users error: {e}")
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, 'r') as f:
             try:
-                return json.load(f).get('users', [])
+                users = json.load(f).get('users', [])
+                if ensure_user_session_tokens(users):
+                    with open(USERS_FILE, 'w') as out:
+                        json.dump({'users': users}, out, indent=4)
+                return users
             except Exception:
                 return []
     return []
@@ -303,6 +310,49 @@ def generate_uid(name):
     clean = clean.ljust(4, 'X')
     code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     return f"TBLS-{clean}-{code}"
+
+SESSION_WORDS = [
+    "SHIELD", "CASTLE", "RIVER", "FALCON", "NOVA", "EMBER", "ORBIT", "ANCHOR",
+    "CROWN", "BEACON", "FORGE", "SUMMIT", "HAVEN", "VALOR", "SPARK", "GATE"
+]
+
+def generate_session_token(name, users=None):
+    clean = ''.join(c for c in name.upper() if c.isalpha())[:5] or "USER"
+    clean = clean.ljust(5, "X")
+    existing = {u.get('session_token', '').upper() for u in (users or [])}
+    for _ in range(50):
+        word = random.choice(SESSION_WORDS)
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        token = f"SENTINEL-{clean}-{word}-{code}"
+        if token.upper() not in existing:
+            return token
+    return f"SENTINEL-{clean}-{secrets.token_hex(3).upper()}"
+
+def ensure_user_session_tokens(users):
+    changed = False
+    for u in users:
+        if 'is_admin' not in u:
+            u['is_admin'] = False
+            changed = True
+        if not u.get('session_token'):
+            u['session_token'] = generate_session_token(u.get('name', 'User'), users)
+            changed = True
+    return changed
+
+def find_user_by_login(login_value):
+    value = (login_value or "").strip()
+    if not value:
+        return None
+    value_upper = value.upper()
+    value_lower = value.lower()
+    for u in load_users():
+        if u.get('uid', '').upper() == value_upper:
+            return u
+        if u.get('session_token', '').upper() == value_upper:
+            return u
+        if u.get('email', '').lower() == value_lower:
+            return u
+    return None
 
 # ---- BOT RESTART CALLBACK ----
 _bot_restart_callback = None
@@ -415,8 +465,8 @@ def login():
         if captcha_input != expected:
             error = "❌ Wrong captcha answer!"
         else:
-            uid = request.form.get('uid', '').strip().upper()
-            user = find_user_by_uid(uid)
+            login_value = request.form.get('uid', '').strip()
+            user = find_user_by_login(login_value)
 
             if not user:
                 if ip not in login_attempts:
@@ -434,10 +484,14 @@ def login():
             elif user['status'] == 'rejected':
                 error = "❌ Your registration was rejected. Contact the admin."
             elif user['status'] == 'approved':
+                if not user.get('session_token'):
+                    user['session_token'] = generate_session_token(user.get('name', 'User'), load_users())
+                    save_single_user(user)
                 session['logged_in'] = True
                 session['uid'] = user['uid']
                 session['is_admin'] = user.get('is_admin', False)
                 session['user_name'] = user.get('name', 'User')
+                session['session_token'] = user.get('session_token', '')
                 login_attempts.pop(ip, None)
                 add_dashboard_log("🔑 LOGIN", f"{user['name']} ({user['uid']}) logged in from {ip}")
                 return redirect(url_for('index'))
@@ -535,10 +589,14 @@ def auth_discord_callback():
 
     if existing:
         if existing.get('status') == 'approved':
+            if not existing.get('session_token'):
+                existing['session_token'] = generate_session_token(existing.get('name', 'User'), users)
+                save_single_user(existing)
             session['logged_in']  = True
             session['user_name']  = existing['name']
             session['uid']        = existing['uid']
             session['is_admin']   = existing.get('is_admin', False)
+            session['session_token'] = existing.get('session_token', '')
             add_dashboard_log("✅ LOGIN", f"{existing['name']} logged in via Discord")
             return redirect(url_for('index'))
         elif existing.get('status') == 'rejected':
@@ -557,6 +615,7 @@ def auth_discord_callback():
         'discord_username': discord_username,
         'status':           'pending',
         'is_admin':         False,
+        'session_token':    generate_session_token(discord_global, users),
         'created_at':       datetime.now().strftime('%Y-%m-%d')
     }
     users.append(new_user)
@@ -593,6 +652,7 @@ def register():
             'email':      email,
             'status':     'pending',
             'is_admin':   False,
+            'session_token': generate_session_token(name, users),
             'created_at': datetime.now().strftime('%Y-%m-%d')
         })
         save_users(users)
@@ -660,8 +720,11 @@ def index():
         return redirect(url_for('login'))
 
     users = load_users()
+    if ensure_user_session_tokens(users):
+        save_users(users)
     pending_users = [u for u in users if u['status'] == 'pending']
     all_users = users
+    current_user = next((u for u in users if u.get('uid') == session.get('uid')), {})
 
     return render_template(
         'index.html',
@@ -669,6 +732,7 @@ def index():
         is_admin=session.get('is_admin', False),
         current_user_name=session.get('user_name', 'User'),
         current_uid=session.get('uid', ''),
+        current_session_token=current_user.get('session_token', session.get('session_token', '')),
         pending_users=pending_users,
         all_users=all_users
     )
@@ -829,7 +893,10 @@ def restart_bot():
 def api_users():
     if not session.get('logged_in') or not session.get('is_admin'):
         return jsonify({"error": "Unauthorized"}), 401
-    return jsonify(load_users())
+    users = load_users()
+    if ensure_user_session_tokens(users):
+        save_users(users)
+    return jsonify(users)
 
 @app.route('/api/approve_user', methods=['POST'])
 def approve_user():
@@ -841,10 +908,50 @@ def approve_user():
     for u in users:
         if u['uid'].upper() == uid:
             u['status'] = 'approved'
+            if not u.get('session_token'):
+                u['session_token'] = generate_session_token(u.get('name', 'User'), users)
             add_dashboard_log("✅ APPROVED", f"User {u['name']} ({uid}) approved")
             break
     save_users(users)
     return jsonify({"status": "success"})
+
+@app.route('/api/grant_admin', methods=['POST'])
+def grant_admin():
+    if not session.get('logged_in') or not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    uid = data.get('uid', '').upper()
+    users = load_users()
+    for u in users:
+        if u['uid'].upper() == uid:
+            u['is_admin'] = True
+            u['status'] = 'approved'
+            if not u.get('session_token'):
+                u['session_token'] = generate_session_token(u.get('name', 'User'), users)
+            save_users(users)
+            add_dashboard_log("🛡️ ADMIN", f"Admin access granted to {u['name']} ({uid})")
+            return jsonify({"status": "success", "session_token": u.get('session_token', '')})
+    return jsonify({"error": "User not found"}), 404
+
+@app.route('/api/revoke_admin', methods=['POST'])
+def revoke_admin():
+    if not session.get('logged_in') or not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    uid = data.get('uid', '').upper()
+    if uid == session.get('uid', '').upper():
+        return jsonify({"error": "You cannot remove your own admin access while logged in."}), 400
+    users = load_users()
+    admin_count = sum(1 for u in users if u.get('is_admin'))
+    if admin_count <= 1:
+        return jsonify({"error": "At least one admin must remain."}), 400
+    for u in users:
+        if u['uid'].upper() == uid:
+            u['is_admin'] = False
+            save_users(users)
+            add_dashboard_log("🛡️ ADMIN", f"Admin access revoked from {u['name']} ({uid})")
+            return jsonify({"status": "success"})
+    return jsonify({"error": "User not found"}), 404
 
 @app.route('/api/reject_user', methods=['POST'])
 def reject_user():
