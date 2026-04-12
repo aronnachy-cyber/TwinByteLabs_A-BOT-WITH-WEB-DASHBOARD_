@@ -751,16 +751,8 @@ async def on_ready():
     s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
     await bot.change_presence(status=s_map.get(config.get("bot_status", "online"), discord.Status.online))
     try:
-        # Sync to every guild immediately (guild syncs are instant, global can take ~1hr)
-        total = 0
-        for guild in bot.guilds:
-            try:
-                bot.tree.copy_global_to(guild=guild)
-                synced = await bot.tree.sync(guild=guild)
-                total += len(synced)
-            except Exception as ge:
-                print(f"Guild sync error ({guild.name}): {ge}")
-        print(f"✅ Synced slash commands to {len(bot.guilds)} guild(s) ({total} total)")
+        synced = await bot.tree.sync()
+        print(f"✅ Synced {len(synced)} global slash command(s)")
     except Exception as e:
         print(f"Slash command sync error: {e}")
     sync_bot_settings.start()
@@ -1508,15 +1500,21 @@ async def refresh(ctx):
 
 @bot.command(name="sync")
 async def force_sync(ctx):
-    """Force-sync all slash commands to this server instantly. Admin only."""
+    """Clear duplicate guild commands and re-sync globally. Admin only."""
     if not ctx.author.guild_permissions.administrator:
         await ctx.send("❌ You need Administrator permission to run this.")
         return
-    msg = await ctx.send("⏳ Syncing slash commands to this server…")
+    msg = await ctx.send("⏳ Removing duplicates and syncing…")
     try:
-        bot.tree.copy_global_to(guild=ctx.guild)
-        synced = await bot.tree.sync(guild=ctx.guild)
-        await msg.edit(content=f"✅ Synced **{len(synced)}** slash command(s) to **{ctx.guild.name}**. They should appear in Discord immediately.")
+        # Wipe any guild-specific commands (these caused the duplicates)
+        bot.tree.clear_commands(guild=ctx.guild)
+        await bot.tree.sync(guild=ctx.guild)
+        # Push the real global command list
+        synced = await bot.tree.sync()
+        await msg.edit(content=(
+            f"✅ Done! Removed guild-specific duplicates and synced **{len(synced)}** global "
+            f"command(s). Discord may take up to a minute to refresh — try closing and reopening the slash menu."
+        ))
     except Exception as e:
         await msg.edit(content=f"❌ Sync failed: `{e}`")
 
