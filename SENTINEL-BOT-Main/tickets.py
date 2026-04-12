@@ -44,7 +44,7 @@ async def create_ticket(guild, member, config, reason="General Support"):
         guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True),
     }
     for role in guild.roles:
-        if role.permissions.manage_messages and not role.is_everyone():
+        if role.permissions.manage_messages and role != guild.default_role:
             overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
 
     try:
