@@ -402,7 +402,8 @@ async def slash_commands(interaction: discord.Interaction):
     ))
     embed.add_field(name="🗂️ Server Templates", inline=False, value=(
         "`/copy` — Snapshot this server's channels, roles & permissions\n"
-        "`/paste` — Recreate a copied template into this server"
+        "`/paste` — Recreate a copied template into this server\n"
+        "`/delete-template` — Remove everything /paste created (with confirmation)"
     ))
     embed.add_field(name="📬 Owner DM (via DM only)", inline=False, value=(
         f"`!approve ban <id>` / `!approve kick <id>` / `!approve ignore <id>`"
@@ -1440,6 +1441,63 @@ async def slash_copy(interaction: discord.Interaction):
         print(f"/copy error: {e}")
         await interaction.edit_original_response(content=f"❌ Failed to copy server: `{e}`")
 
+class DeleteTemplateConfirmView(discord.ui.View):
+    """Two-button confirm/cancel for /delete-template."""
+    def __init__(self, guild: discord.Guild):
+        super().__init__(timeout=60)
+        self.guild = guild
+
+    @discord.ui.button(label="Yes, delete everything", style=discord.ButtonStyle.danger, emoji="🗑️")
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ Administrators only.", ephemeral=True)
+            return
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(
+            content="⏳ Deleting pasted channels, categories, and roles… this may take a minute.",
+            view=self
+        )
+        try:
+            async def progress(msg):
+                try:
+                    await interaction.edit_original_response(content=f"⏳ {msg}")
+                except Exception:
+                    pass
+
+            summary = await template_mod.delete_pasted(self.guild, progress_callback=progress)
+
+            log = template_mod.load_paste_log(self.guild.id)  # already cleared, use summary
+            embed = discord.Embed(
+                title="🗑️ Template Deleted",
+                description=f"Everything pasted by Sentinel has been removed from **{self.guild.name}**.",
+                color=0xe74c3c
+            )
+            embed.add_field(name="🎭 Roles Deleted",          value=str(summary["roles"]),         inline=True)
+            embed.add_field(name="📁 Categories Deleted",     value=str(summary["categories"]),    inline=True)
+            embed.add_field(name="💬 Text Channels Deleted",  value=str(summary["text_channels"]), inline=True)
+            embed.add_field(name="🔊 Voice Channels Deleted", value=str(summary["voice_channels"]),inline=True)
+            if summary["failed"]:
+                embed.add_field(name="⚠️ Failed (already gone or no permission)",
+                                value=str(summary["failed"]), inline=True)
+            embed.set_footer(text="Sentinel OS — Server Template • Paste log cleared")
+            await interaction.edit_original_response(content=None, embed=embed, view=None)
+            dlog("🗑️ DELETE-TEMPLATE", f"{interaction.user} deleted pasted template from {self.guild.name}")
+        except FileNotFoundError:
+            await interaction.edit_original_response(
+                content="❌ No paste log found — either `/paste` was never run here, or it was already deleted.",
+                view=None
+            )
+        except Exception as e:
+            print(f"/delete-template error: {e}")
+            await interaction.edit_original_response(content=f"❌ An error occurred: `{e}`", view=None)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="✖️")
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(content="✅ Cancelled. Nothing was deleted.", view=self)
+
 @bot.tree.command(name="paste", description="Recreate a copied server template in this server (adds channels & roles)")
 async def slash_paste(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.administrator:
@@ -1487,6 +1545,39 @@ async def slash_paste(interaction: discord.Interaction):
     except Exception as e:
         print(f"/paste error: {e}")
         await interaction.edit_original_response(content=f"❌ An error occurred: `{e}`")
+
+@bot.tree.command(name="delete-template", description="Delete all channels, categories and roles that were added by /paste")
+async def slash_delete_template(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ Administrator permission required.", ephemeral=True)
+        return
+    log = template_mod.load_paste_log(interaction.guild.id)
+    if not log:
+        await interaction.response.send_message(
+            "❌ No paste log found for this server. Either `/paste` was never run here, "
+            "or the log was already cleared.",
+            ephemeral=True
+        )
+        return
+    # Show what will be deleted and ask for confirmation
+    pasted_at = log.get("pasted_at", "Unknown")[:19].replace("T", " ")
+    embed = discord.Embed(
+        title="⚠️ Confirm Deletion",
+        description=(
+            f"This will **permanently delete** everything Sentinel created with `/paste` "
+            f"on **{pasted_at} UTC** from the **{log.get('source','Unknown')}** template.\n\n"
+            f"**🎭 Roles:** {len(log.get('role_ids', []))}\n"
+            f"**📁 Categories:** {len(log.get('category_ids', []))}\n"
+            f"**💬 Text Channels:** {len(log.get('text_channel_ids', []))}\n"
+            f"**🔊 Voice Channels:** {len(log.get('voice_channel_ids', []))}\n\n"
+            f"⚡ Items that were already manually deleted will be skipped.\n"
+            f"This action **cannot be undone**."
+        ),
+        color=0xe74c3c
+    )
+    embed.set_footer(text="Sentinel OS — Server Template • You have 60 seconds to decide")
+    view = DeleteTemplateConfirmView(interaction.guild)
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 # ---------------- SECURITY COMMANDS ----------------
 @bot.command()

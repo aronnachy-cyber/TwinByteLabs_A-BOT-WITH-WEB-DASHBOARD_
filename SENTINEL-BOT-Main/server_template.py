@@ -4,7 +4,33 @@ import os
 import asyncio
 from datetime import datetime
 
-TEMPLATE_FILE = "server_template.json"
+TEMPLATE_FILE  = "server_template.json"
+_PASTE_LOG_DIR = "paste_logs"   # one JSON file per guild stores IDs of pasted items
+
+def _paste_log_path(guild_id):
+    os.makedirs(_PASTE_LOG_DIR, exist_ok=True)
+    return os.path.join(_PASTE_LOG_DIR, f"paste_{guild_id}.json")
+
+def save_paste_log(guild_id: int, log: dict):
+    """Persist a record of what IDs were created by /paste for this guild."""
+    with open(_paste_log_path(guild_id), "w") as f:
+        json.dump(log, f, indent=4)
+
+def load_paste_log(guild_id: int) -> dict | None:
+    """Return the paste log for this guild, or None if /paste was never run here."""
+    path = _paste_log_path(guild_id)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def clear_paste_log(guild_id: int):
+    path = _paste_log_path(guild_id)
+    if os.path.exists(path):
+        os.remove(path)
 
 # ---------------------------------------------------------------------------
 # HELPERS
@@ -126,6 +152,7 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
     """
     Recreate the saved template into guild.
     Returns a summary dict with counts of what was created.
+    All created item IDs are saved to a paste log so /delete-template can undo them.
     """
     if not os.path.exists(TEMPLATE_FILE):
         raise FileNotFoundError("No server template found. Run /copy first.")
@@ -134,6 +161,16 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
         template = json.load(f)
 
     summary = {"roles": 0, "categories": 0, "text_channels": 0, "voice_channels": 0, "skipped": 0}
+
+    # Paste log tracks IDs of everything we create so /delete-template can reverse it
+    paste_log = {
+        "source":        template.get("source_guild_name", "Unknown"),
+        "pasted_at":     datetime.utcnow().isoformat(),
+        "role_ids":      [],
+        "category_ids":  [],
+        "text_channel_ids":  [],
+        "voice_channel_ids": [],
+    }
 
     async def _progress(msg):
         if progress_callback:
@@ -158,6 +195,7 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
                 reason="Sentinel /paste"
             )
             role_map[name] = new_role
+            paste_log["role_ids"].append(new_role.id)
             summary["roles"] += 1
             await asyncio.sleep(0.5)
         except Exception as e:
@@ -196,6 +234,7 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
                 reason="Sentinel /paste"
             )
             cat_map[name] = new_cat
+            paste_log["category_ids"].append(new_cat.id)
             summary["categories"] += 1
             await asyncio.sleep(0.5)
         except Exception as e:
@@ -214,7 +253,7 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
         try:
             category  = cat_map.get(ch_data["category"]) if ch_data.get("category") else None
             overwrites = _build_overwrites(ch_data.get("overwrites", []))
-            await guild.create_text_channel(
+            new_ch = await guild.create_text_channel(
                 name=name,
                 topic=ch_data.get("topic") or None,
                 slowmode_delay=ch_data.get("slowmode", 0),
@@ -223,6 +262,7 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
                 overwrites=overwrites,
                 reason="Sentinel /paste"
             )
+            paste_log["text_channel_ids"].append(new_ch.id)
             summary["text_channels"] += 1
             await asyncio.sleep(0.5)
         except Exception as e:
@@ -242,7 +282,7 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
             category  = cat_map.get(ch_data["category"]) if ch_data.get("category") else None
             overwrites = _build_overwrites(ch_data.get("overwrites", []))
             bitrate   = min(ch_data.get("bitrate", 64000), guild.bitrate_limit)
-            await guild.create_voice_channel(
+            new_ch = await guild.create_voice_channel(
                 name=name,
                 bitrate=bitrate,
                 user_limit=ch_data.get("user_limit", 0),
@@ -250,13 +290,95 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
                 overwrites=overwrites,
                 reason="Sentinel /paste"
             )
+            paste_log["voice_channel_ids"].append(new_ch.id)
             summary["voice_channels"] += 1
             await asyncio.sleep(0.5)
         except Exception as e:
             print(f"Voice channel create error ({name}): {e}")
             summary["skipped"] += 1
 
+    # Save the paste log so /delete-template can undo this paste
+    save_paste_log(guild.id, paste_log)
+
     return summary
+
+# ---------------------------------------------------------------------------
+# DELETE PASTED
+# ---------------------------------------------------------------------------
+
+async def delete_pasted(guild: discord.Guild, progress_callback=None) -> dict:
+    """
+    Delete every role, category, and channel that was created by the last /paste
+    in this guild. Uses the saved paste log to identify items by ID — nothing else
+    is touched.
+    Returns a summary dict.
+    """
+    log = load_paste_log(guild.id)
+    if not log:
+        raise FileNotFoundError("No paste log found for this server. Run /paste first.")
+
+    summary = {"roles": 0, "categories": 0, "text_channels": 0, "voice_channels": 0, "failed": 0}
+
+    async def _progress(msg):
+        if progress_callback:
+            await progress_callback(msg)
+
+    # ---- Delete text channels first (must be empty before deleting categories) ----
+    await _progress("🗑️ Deleting text channels…")
+    for ch_id in log.get("text_channel_ids", []):
+        ch = guild.get_channel(ch_id)
+        if ch:
+            try:
+                await ch.delete(reason="Sentinel /delete-template")
+                summary["text_channels"] += 1
+                await asyncio.sleep(0.4)
+            except Exception as e:
+                print(f"Delete text channel {ch_id} error: {e}")
+                summary["failed"] += 1
+
+    # ---- Delete voice channels ----
+    await _progress("🗑️ Deleting voice channels…")
+    for ch_id in log.get("voice_channel_ids", []):
+        ch = guild.get_channel(ch_id)
+        if ch:
+            try:
+                await ch.delete(reason="Sentinel /delete-template")
+                summary["voice_channels"] += 1
+                await asyncio.sleep(0.4)
+            except Exception as e:
+                print(f"Delete voice channel {ch_id} error: {e}")
+                summary["failed"] += 1
+
+    # ---- Delete categories (now empty) ----
+    await _progress("🗑️ Deleting categories…")
+    for cat_id in log.get("category_ids", []):
+        cat = guild.get_channel(cat_id)
+        if cat:
+            try:
+                await cat.delete(reason="Sentinel /delete-template")
+                summary["categories"] += 1
+                await asyncio.sleep(0.4)
+            except Exception as e:
+                print(f"Delete category {cat_id} error: {e}")
+                summary["failed"] += 1
+
+    # ---- Delete roles ----
+    await _progress("🗑️ Deleting roles…")
+    for role_id in log.get("role_ids", []):
+        role = guild.get_role(role_id)
+        if role:
+            try:
+                await role.delete(reason="Sentinel /delete-template")
+                summary["roles"] += 1
+                await asyncio.sleep(0.4)
+            except Exception as e:
+                print(f"Delete role {role_id} error: {e}")
+                summary["failed"] += 1
+
+    # Clear the paste log — nothing left to undo
+    clear_paste_log(guild.id)
+    return summary
+
 
 # ---------------------------------------------------------------------------
 # INFO
