@@ -7,6 +7,7 @@ import secrets
 import threading
 import requests as http_requests
 import smtplib
+import traceback
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
@@ -331,6 +332,17 @@ def generate_session_token(name, users=None):
 def ensure_user_session_tokens(users):
     changed = False
     for u in users:
+        if not u.get('uid'):
+            continue
+        if not u.get('name'):
+            u['name'] = 'User'
+            changed = True
+        if not u.get('status'):
+            u['status'] = 'approved' if u.get('is_admin') else 'pending'
+            changed = True
+        if not u.get('created_at'):
+            u['created_at'] = datetime.now().strftime('%Y-%m-%d')
+            changed = True
         if 'is_admin' not in u:
             u['is_admin'] = False
             changed = True
@@ -353,6 +365,20 @@ def find_user_by_login(login_value):
         if u.get('email', '').lower() == value_lower:
             return u
     return None
+
+@app.errorhandler(500)
+def handle_internal_error(error):
+    print("❌ Dashboard internal server error")
+    traceback.print_exc()
+    session.clear()
+    question, answer = generate_captcha()
+    session['captcha_answer'] = answer
+    return render_template(
+        'login.html',
+        error="Your dashboard session was reset. Please log in again.",
+        captcha_question=question,
+        locked=False
+    ), 200
 
 # ---- BOT RESTART CALLBACK ----
 _bot_restart_callback = None
@@ -722,16 +748,23 @@ def index():
     users = load_users()
     if ensure_user_session_tokens(users):
         save_users(users)
-    pending_users = [u for u in users if u['status'] == 'pending']
+    current_uid = session.get('uid', '')
+    current_user = next((u for u in users if u.get('uid') == current_uid), None)
+    if not current_user:
+        session.clear()
+        return redirect(url_for('login'))
+    session['is_admin'] = current_user.get('is_admin', False)
+    session['user_name'] = current_user.get('name', 'User')
+    session['session_token'] = current_user.get('session_token', '')
+    pending_users = [u for u in users if u.get('status') == 'pending']
     all_users = users
-    current_user = next((u for u in users if u.get('uid') == session.get('uid')), {})
 
     return render_template(
         'index.html',
         config=config,
-        is_admin=session.get('is_admin', False),
-        current_user_name=session.get('user_name', 'User'),
-        current_uid=session.get('uid', ''),
+        is_admin=current_user.get('is_admin', False),
+        current_user_name=current_user.get('name', 'User'),
+        current_uid=current_uid,
         current_session_token=current_user.get('session_token', session.get('session_token', '')),
         pending_users=pending_users,
         all_users=all_users
