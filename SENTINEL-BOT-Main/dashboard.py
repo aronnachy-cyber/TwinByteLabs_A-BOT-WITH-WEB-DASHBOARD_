@@ -100,6 +100,8 @@ DEFAULT_CONFIG = {
     "multi_channel": "",
     "owner_dm_id": "",
     "daily_report": "OFF",
+    "leveling": "OFF",
+    "ticket_category": "",
     # --- Advanced automod ---
     "spam_filter": "OFF",
     "spam_threshold": 5,
@@ -309,6 +311,21 @@ def set_bot_restart_callback(fn):
     global _bot_restart_callback
     _bot_restart_callback = fn
 
+# ---- BOT CONFIG REFRESH CALLBACK ----
+# Called every time settings are saved so the bot picks up changes instantly
+_bot_config_refresh_callback = None
+
+def set_bot_config_refresh_callback(fn):
+    global _bot_config_refresh_callback
+    _bot_config_refresh_callback = fn
+
+def _trigger_bot_config_refresh():
+    if _bot_config_refresh_callback:
+        try:
+            _bot_config_refresh_callback()
+        except Exception as e:
+            print(f"Config refresh callback error: {e}")
+
 # ---- ACTION LOGS ----
 action_logs = []
 
@@ -340,7 +357,7 @@ TOGGLE_KEYS = [
     "temp_lockdown", "discord_alerts", "twitter_alerts", "youtube_alerts",
     "daily_report",
     "spam_filter", "caps_filter", "emoji_filter", "duplicate_filter",
-    "wall_filter", "anti_zalgo", "grad_punish",
+    "wall_filter", "anti_zalgo", "grad_punish", "leveling",
 ]
 
 TEXT_KEYS = [
@@ -348,7 +365,7 @@ TEXT_KEYS = [
     "log_channel", "profanity_level", "mute_role", "auto_role",
     "auto_custom_blacklist", "webhook_log", "banned_words",
     "youtube_channel_link", "youtube_notify_msg", "multi_channel",
-    "owner_dm_id",
+    "owner_dm_id", "ticket_category",
     "spam_threshold", "spam_window", "caps_percent",
     "emoji_limit", "wall_newlines", "wall_length",
 ]
@@ -672,6 +689,7 @@ def update():
     except ValueError:
         config["warning_limit"] = 30
     save_config()
+    _trigger_bot_config_refresh()
     return redirect(url_for('index'))
 
 # ---- API: SAVE SETTINGS ----
@@ -693,6 +711,7 @@ def api_save():
         except ValueError:
             pass
     save_config()
+    _trigger_bot_config_refresh()
     add_dashboard_log("⚙️ SETTINGS", "Configuration updated via dashboard")
     return jsonify({"status": "success", "message": "Settings saved!"})
 

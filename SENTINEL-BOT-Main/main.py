@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 from dashboard import (
     app, config as dash_config, run_dashboard, add_dashboard_log,
-    set_bot_restart_callback,
+    set_bot_restart_callback, set_bot_config_refresh_callback,
     supabase_save_warning, supabase_clear_warnings,
     supabase_save_mod_log, supabase_save_note, supabase_get_notes,
 )
@@ -28,6 +28,7 @@ BOT_START_TIME = datetime.utcnow()
 
 # ---------------- CONFIG LOADER ----------------
 def load_config():
+    """Legacy fallback: read settings.json. Only used if Supabase is unavailable."""
     if not os.path.exists('settings.json'):
         return {}
     with open('settings.json', 'r') as f:
@@ -37,8 +38,15 @@ def load_config():
             return {}
 
 def refresh_config():
+    """Reload config from Supabase (via dashboard module) so bot always has the latest settings."""
     global config
-    config = {**DEFAULT_CONFIG, **load_config()}
+    try:
+        import dashboard as _dash
+        _dash.load_config_from_supabase()   # pulls fresh data from Supabase into dashboard.config
+        config = {**DEFAULT_CONFIG, **_dash.config}
+    except Exception as e:
+        print(f"refresh_config Supabase error, falling back to settings.json: {e}")
+        config = {**DEFAULT_CONFIG, **load_config()}
 
 DEFAULT_CONFIG = {
     "prefix": "!",
@@ -92,7 +100,8 @@ DEFAULT_CONFIG = {
     "grad_punish": "OFF",
 }
 
-config = {**DEFAULT_CONFIG, **load_config()}
+# Bootstrap from the dashboard's Supabase-backed config (already loaded at import time)
+config = {**DEFAULT_CONFIG, **dash_config}
 
 TOKEN         = os.environ.get("DISCORD_TOKEN", "")
 OPENAI_KEY    = os.environ.get("OPENAI_KEY", "")
@@ -748,6 +757,8 @@ async def on_ready():
     refresh_config()
     # Register persistent views so buttons survive bot restarts
     bot.add_view(tickets_mod.TicketCloseView())
+    # Wire up instant config refresh: dashboard save → refresh_config() immediately
+    set_bot_config_refresh_callback(refresh_config)
     s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
     await bot.change_presence(status=s_map.get(config.get("bot_status", "online"), discord.Status.online))
     try:
