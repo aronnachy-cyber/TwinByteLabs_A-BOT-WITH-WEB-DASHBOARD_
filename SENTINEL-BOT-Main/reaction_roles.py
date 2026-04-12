@@ -2,86 +2,193 @@ import discord
 import json
 import os
 
-RR_FILE = "reaction_roles.json"
+_LOCAL_FILE = "reaction_roles.json"
 
-def load_reaction_roles():
-    if os.path.exists(RR_FILE):
-        with open(RR_FILE, "r") as f:
-            try:
-                return json.load(f)
-            except Exception:
-                return {"rules": []}
+def _get_supabase():
+    try:
+        from dashboard import supabase
+        return supabase
+    except Exception:
+        return None
+
+# ── Local JSON fallback (used only if Supabase is unavailable) ──────────────
+
+def _local_load():
+    if os.path.exists(_LOCAL_FILE):
+        try:
+            return json.load(open(_LOCAL_FILE))
+        except Exception:
+            pass
     return {"rules": []}
 
-def save_reaction_roles(data):
-    with open(RR_FILE, "w") as f:
+def _local_save(data):
+    with open(_LOCAL_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
+# ── Public API ───────────────────────────────────────────────────────────────
+
 def add_rule(guild_id, channel_id, message_id, emoji, role_id, role_name):
-    data = load_reaction_roles()
+    """Add or update a reaction-role mapping. Returns True if new, False if updated."""
+    sb = _get_supabase()
+    guild_id   = str(guild_id)
+    channel_id = str(channel_id)
+    message_id = str(message_id)
+    emoji      = str(emoji)
+    role_id    = str(role_id)
+
+    if sb:
+        try:
+            existing = (
+                sb.table("sentinel_reaction_roles")
+                .select("id")
+                .eq("message_id", message_id)
+                .eq("emoji", emoji)
+                .execute()
+            )
+            if existing.data:
+                sb.table("sentinel_reaction_roles").update({
+                    "role_id": role_id, "role_name": role_name
+                }).eq("message_id", message_id).eq("emoji", emoji).execute()
+                return False
+            sb.table("sentinel_reaction_roles").insert({
+                "guild_id":   guild_id,
+                "channel_id": channel_id,
+                "message_id": message_id,
+                "emoji":      emoji,
+                "role_id":    role_id,
+                "role_name":  role_name,
+            }).execute()
+            return True
+        except Exception as e:
+            print(f"[RR] Supabase add_rule error: {e}")
+
+    # fallback
+    data = _local_load()
     for r in data["rules"]:
         if r["message_id"] == message_id and r["emoji"] == emoji:
-            r["role_id"] = role_id
-            r["role_name"] = role_name
-            save_reaction_roles(data)
+            r.update({"role_id": role_id, "role_name": role_name})
+            _local_save(data)
             return False
     data["rules"].append({
-        "guild_id": guild_id,
-        "channel_id": channel_id,
-        "message_id": message_id,
-        "emoji": str(emoji),
-        "role_id": role_id,
-        "role_name": role_name
+        "guild_id": guild_id, "channel_id": channel_id,
+        "message_id": message_id, "emoji": emoji,
+        "role_id": role_id, "role_name": role_name,
     })
-    save_reaction_roles(data)
+    _local_save(data)
     return True
 
-def remove_rule(message_id, emoji):
-    data = load_reaction_roles()
+
+def remove_rule(guild_id, message_id, emoji):
+    """Remove a reaction-role mapping. Returns True if something was deleted."""
+    sb = _get_supabase()
+    message_id = str(message_id)
+    emoji      = str(emoji)
+    guild_id   = str(guild_id)
+
+    if sb:
+        try:
+            res = (
+                sb.table("sentinel_reaction_roles")
+                .delete()
+                .eq("guild_id", guild_id)
+                .eq("message_id", message_id)
+                .eq("emoji", emoji)
+                .execute()
+            )
+            return bool(res.data)
+        except Exception as e:
+            print(f"[RR] Supabase remove_rule error: {e}")
+
+    # fallback
+    data = _local_load()
     before = len(data["rules"])
-    data["rules"] = [r for r in data["rules"] if not (r["message_id"] == message_id and r["emoji"] == str(emoji))]
-    save_reaction_roles(data)
+    data["rules"] = [
+        r for r in data["rules"]
+        if not (r["message_id"] == message_id and r["emoji"] == emoji)
+    ]
+    _local_save(data)
     return len(data["rules"]) < before
 
+
+def get_guild_rules(guild_id):
+    """Return all reaction-role rules for a specific guild."""
+    sb = _get_supabase()
+    guild_id = str(guild_id)
+
+    if sb:
+        try:
+            res = (
+                sb.table("sentinel_reaction_roles")
+                .select("*")
+                .eq("guild_id", guild_id)
+                .execute()
+            )
+            return res.data or []
+        except Exception as e:
+            print(f"[RR] Supabase get_guild_rules error: {e}")
+
+    # fallback
+    return [r for r in _local_load().get("rules", []) if str(r.get("guild_id")) == guild_id]
+
+
 def get_all_rules():
-    return load_reaction_roles().get("rules", [])
+    """Return every reaction-role rule across all guilds."""
+    sb = _get_supabase()
+    if sb:
+        try:
+            res = sb.table("sentinel_reaction_roles").select("*").execute()
+            return res.data or []
+        except Exception as e:
+            print(f"[RR] Supabase get_all_rules error: {e}")
+    return _local_load().get("rules", [])
+
+
+# ── Discord event handlers ───────────────────────────────────────────────────
 
 async def handle_reaction_add(bot, payload):
     if payload.user_id == bot.user.id:
         return
-    data = load_reaction_roles()
-    emoji_str = str(payload.emoji)
-    for rule in data.get("rules", []):
-        if rule["message_id"] == payload.message_id and rule["emoji"] == emoji_str:
+    emoji_str  = str(payload.emoji)
+    message_id = str(payload.message_id)
+    guild_id   = str(payload.guild_id)
+
+    rules = get_all_rules()
+    for rule in rules:
+        if str(rule.get("message_id")) == message_id and rule.get("emoji") == emoji_str:
             guild = bot.get_guild(payload.guild_id)
             if not guild:
                 return
             member = guild.get_member(payload.user_id)
             if not member:
                 return
-            role = guild.get_role(rule["role_id"])
+            role = guild.get_role(int(rule["role_id"]))
             if role:
                 try:
                     await member.add_roles(role, reason="Reaction Role")
                 except Exception as e:
-                    print(f"Reaction role add error: {e}")
+                    print(f"[RR] add_roles error: {e}")
+            return
+
 
 async def handle_reaction_remove(bot, payload):
     if payload.user_id == bot.user.id:
         return
-    data = load_reaction_roles()
-    emoji_str = str(payload.emoji)
-    for rule in data.get("rules", []):
-        if rule["message_id"] == payload.message_id and rule["emoji"] == emoji_str:
+    emoji_str  = str(payload.emoji)
+    message_id = str(payload.message_id)
+
+    rules = get_all_rules()
+    for rule in rules:
+        if str(rule.get("message_id")) == message_id and rule.get("emoji") == emoji_str:
             guild = bot.get_guild(payload.guild_id)
             if not guild:
                 return
             member = guild.get_member(payload.user_id)
             if not member:
                 return
-            role = guild.get_role(rule["role_id"])
+            role = guild.get_role(int(rule["role_id"]))
             if role:
                 try:
                     await member.remove_roles(role, reason="Reaction Role removed")
                 except Exception as e:
-                    print(f"Reaction role remove error: {e}")
+                    print(f"[RR] remove_roles error: {e}")
+            return

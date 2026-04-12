@@ -383,6 +383,8 @@ async def slash_commands(interaction: discord.Interaction):
         "`/ticket [reason]` — Open a support ticket\n"
         "`/ticket-close` — Close current ticket\n"
         "`/setup-reaction-role <msg> <emoji> <role>` — Link emoji to role\n"
+        "`/remove-reaction-role <msg> <emoji>` — Remove a reaction-role link\n"
+        "`/list-reaction-roles` — Show all active reaction roles\n"
         "`/autorespond add <trigger> <response>` — Add auto-reply\n"
         "`/autorespond remove <trigger>` — Remove auto-reply\n"
         "`/autorespond list` — Show all auto-replies\n"
@@ -579,8 +581,8 @@ async def slash_ticket_close(interaction: discord.Interaction):
     await tickets_mod.close_ticket(interaction.channel, interaction.user)
     dlog("🔒 TICKET-CLOSE", f"{interaction.user} closed ticket #{ticket_data.get('id', '?')}")
 
-@bot.tree.command(name="setup-reaction-role", description="Link a message emoji to a role")
-@app_commands.describe(message_id="Message ID to watch", emoji="Emoji to react with", role="Role to assign")
+@bot.tree.command(name="setup-reaction-role", description="Link an emoji on a message to a role — users get the role when they react")
+@app_commands.describe(message_id="ID of the message to watch", emoji="The emoji to react with", role="Role to assign on reaction")
 async def slash_setup_rr(interaction: discord.Interaction, message_id: str, emoji: str, role: discord.Role):
     if not interaction.user.guild_permissions.manage_roles:
         await interaction.response.send_message("❌ You need Manage Roles permission.", ephemeral=True)
@@ -588,11 +590,78 @@ async def slash_setup_rr(interaction: discord.Interaction, message_id: str, emoj
     try:
         mid = int(message_id)
     except ValueError:
-        await interaction.response.send_message("❌ Invalid message ID.", ephemeral=True)
+        await interaction.response.send_message("❌ That doesn't look like a valid message ID.", ephemeral=True)
         return
-    rr_mod.add_rule(interaction.guild.id, interaction.channel.id, mid, emoji, role.id, role.name)
-    await interaction.response.send_message(f"✅ Reaction role set! React with {emoji} on message `{message_id}` to get **{role.name}**.", ephemeral=True)
-    dlog("🎭 REACTION-ROLE", f"{interaction.user} linked {emoji} → {role.name} on msg {message_id}")
+    # Verify the message actually exists in this channel
+    try:
+        await interaction.channel.fetch_message(mid)
+    except discord.NotFound:
+        await interaction.response.send_message(
+            "❌ Message not found in this channel. Make sure you copy the message ID from **this** channel.",
+            ephemeral=True
+        )
+        return
+    except Exception:
+        pass
+
+    is_new = rr_mod.add_rule(interaction.guild.id, interaction.channel.id, mid, emoji, role.id, role.name)
+    action = "linked" if is_new else "updated"
+    embed = discord.Embed(
+        title="✅ Reaction Role Set",
+        description=(
+            f"**Emoji:** {emoji}\n"
+            f"**Role:** {role.mention}\n"
+            f"**Message ID:** `{message_id}`\n\n"
+            f"Users who react with {emoji} on that message will automatically receive **{role.name}**. "
+            f"Removing the reaction removes the role."
+        ),
+        color=0x2ecc71
+    )
+    embed.set_footer(text=f"Sentinel OS • Reaction Roles — {action}")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+    dlog("🎭 REACTION-ROLE", f"{interaction.user} {action} {emoji} → {role.name} on msg {message_id}")
+
+@bot.tree.command(name="remove-reaction-role", description="Remove a reaction-role link from a message")
+@app_commands.describe(message_id="Message ID the rule is on", emoji="The emoji to unlink")
+async def slash_remove_rr(interaction: discord.Interaction, message_id: str, emoji: str):
+    if not interaction.user.guild_permissions.manage_roles:
+        await interaction.response.send_message("❌ You need Manage Roles permission.", ephemeral=True)
+        return
+    removed = rr_mod.remove_rule(interaction.guild.id, message_id, emoji)
+    if removed:
+        await interaction.response.send_message(
+            f"✅ Removed reaction role: {emoji} on message `{message_id}`.", ephemeral=True
+        )
+        dlog("🎭 REACTION-ROLE REMOVE", f"{interaction.user} removed {emoji} on msg {message_id}")
+    else:
+        await interaction.response.send_message(
+            f"❌ No rule found for {emoji} on message `{message_id}`.", ephemeral=True
+        )
+
+@bot.tree.command(name="list-reaction-roles", description="Show all active reaction roles in this server")
+async def slash_list_rr(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.manage_roles:
+        await interaction.response.send_message("❌ You need Manage Roles permission.", ephemeral=True)
+        return
+    rules = rr_mod.get_guild_rules(interaction.guild.id)
+    if not rules:
+        await interaction.response.send_message(
+            "No reaction roles set up yet. Use `/setup-reaction-role` to add one.", ephemeral=True
+        )
+        return
+    embed = discord.Embed(
+        title=f"🎭 Reaction Roles — {interaction.guild.name}",
+        color=0x3a8fff
+    )
+    lines = []
+    for r in rules[:25]:
+        mid  = r.get("message_id", "?")
+        emo  = r.get("emoji", "?")
+        rname = r.get("role_name", "Unknown Role")
+        lines.append(f"{emo} → **{rname}** (msg `{mid}`)")
+    embed.description = "\n".join(lines)
+    embed.set_footer(text=f"{len(rules)} rule(s) active • Use /remove-reaction-role to delete one")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 autorespond_group = app_commands.Group(name="autorespond", description="Manage auto-responder rules")
 
@@ -638,13 +707,25 @@ bot.tree.add_command(autorespond_group)
 @app_commands.describe(member="Member to check (default: yourself)")
 async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
     target = member or interaction.user
-    data = leveling_mod.get_member_xp(interaction.guild.id, target.id)
-    level = leveling_mod.get_level_from_xp(data.get("xp", 0))
-    embed = discord.Embed(title=f"⭐ {target.display_name}'s Rank", color=0xf1c40f)
+    data   = leveling_mod.get_member_xp(interaction.guild.id, target.id)
+    total_xp = data.get("xp", 0)
+    level, xp_in, xp_needed = leveling_mod.get_xp_progress(total_xp)
+    bar = leveling_mod.make_progress_bar(xp_in, xp_needed)
+
+    embed = discord.Embed(
+        title=f"⭐ {target.display_name}",
+        color=0xf1c40f
+    )
     embed.set_thumbnail(url=target.display_avatar.url)
-    embed.add_field(name="Level",    value=str(level),                  inline=True)
-    embed.add_field(name="Total XP", value=str(data.get("xp", 0)),     inline=True)
-    embed.add_field(name="Messages", value=str(data.get("messages",0)), inline=True)
+    embed.add_field(name="🏅 Level",    value=f"**{level}**",            inline=True)
+    embed.add_field(name="✨ Total XP", value=f"**{total_xp:,}**",       inline=True)
+    embed.add_field(name="💬 Messages", value=f"**{data.get('messages', 0):,}**", inline=True)
+    embed.add_field(
+        name=f"Progress to Level {level + 1}",
+        value=f"{bar}\n`{xp_in:,} / {xp_needed:,} XP`",
+        inline=False
+    )
+    embed.set_footer(text=f"Sentinel OS • Leveling System")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="leaderboard", description="Show the XP leaderboard for this server")
