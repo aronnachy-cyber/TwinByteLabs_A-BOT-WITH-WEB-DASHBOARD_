@@ -1,8 +1,8 @@
 import openai
 import asyncio
+import os
 
-# --- Use your OpenAI key ---
-openai.api_key = "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"
+openai.api_key = os.environ.get("OPENAI_KEY", "")
 
 async def handle_message_ai(message, add_warning):
     """

@@ -44,6 +44,11 @@ General | Moderation | Automod | Security | Social Notifier | Live Warnings | Ac
 - Level-up announcements use the configurable `level_up_message` template with `{user}` and `{level}` placeholders.
 - The dashboard Leveling / XP tab shows tracked members, total messages, total XP, and leaderboard data from Supabase when configured or `xp.json` fallback.
 
+## Profanity / AI Moderation
+- `automod.py` includes an always-on strict Bangla/English profanity filter for severe abusive words and obfuscated variants.
+- OpenAI moderation is optional via `OPENAI_KEY`; the bot still deletes configured strict profanity without AI credentials.
+- When dashboard and bot run as separate Render services, set `DASHBOARD_URL` on the worker to the public dashboard URL so prefix/config changes are fetched by the bot.
+
 ## Slash Commands (V2.5.0)
 - `/bot` — Bot stats, uptime, active features (everyone)
 - `/dashboard` — Mini admin dashboard embed (admin only)

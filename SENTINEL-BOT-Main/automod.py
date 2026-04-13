@@ -8,6 +8,15 @@ from collections import defaultdict, deque
 # --- Profanity word lists by level ---
 PROFANITY_MEDIUM = ["damn", "crap", "hell", "ass", "piss"]
 PROFANITY_HIGH   = PROFANITY_MEDIUM + ["shit", "bitch", "bastard", "cunt", "fuck", "dick", "cock", "pussy"]
+STRICT_PROFANITY = [
+    "fuck", "fucker", "fuckyou", "motherfucker", "mf", "shit", "bitch", "bastard", "cunt",
+    "dick", "cock", "pussy", "sex", "s!x", "slut", "whore",
+    "madari", "madarchod", "madarchud", "maderchod", "maderchud", "madar chod", "madar chud",
+    "mader chod", "mader chud", "maadar chod", "maadar chud", "chod", "chud", "choda",
+    "chudi", "chutia", "chutiya", "chutmarani", "bhenchod", "behenchod", "banchod",
+    "bokachoda", "bokachuda", "khankir", "khanki", "magi",
+    "চুদ", "চোদ", "চুদি", "চোদা", "মাদারচোদ", "মাদারচুদ", "মাগী", "খানকির", "বোকাচোদা"
+]
 
 # --- Leet-speak / symbol substitutions ---
 _LEET = {'@': 'a', '0': 'o', '1': 'i', '3': 'e', '$': 's',
@@ -18,10 +27,14 @@ _spam_tracker     = defaultdict(lambda: defaultdict(deque))
 _duplicate_cache  = defaultdict(lambda: defaultdict(str))   # last message per user
 
 def _normalize(text):
-    t = text.lower()
+    t = unicodedata.normalize("NFKC", text).lower()
     for k, v in _LEET.items():
         t = t.replace(k, v)
+    t = t.replace("!", "i")
     return t
+
+def _compact(text):
+    return re.sub(r'[^a-z0-9\u0980-\u09ff]+', '', _normalize(text))
 
 def _contains_word(content, word):
     escaped = re.escape(word)
@@ -47,6 +60,19 @@ def _contains_word(content, word):
 def _message_contains_bad_word(content, word_list):
     normalized = _normalize(content)
     return any(_contains_word(normalized, w) for w in word_list)
+
+def _message_contains_strict_profanity(content):
+    normalized = _normalize(content)
+    compact = _compact(content)
+    for word in STRICT_PROFANITY:
+        target = _compact(word)
+        if not target:
+            continue
+        if _contains_word(normalized, word.lower()) or target in compact:
+            return True
+    if re.search(r'\bs[\W_]*[!1i|e3][\W_]*x\b', content, re.IGNORECASE):
+        return True
+    return False
 
 def _is_zalgo(text):
     """Detect zalgo/unicode abuse — excessive combining characters."""
@@ -232,7 +258,15 @@ async def handle_message(message, config, add_warning_fn=None):
                 f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Reason:** Banned/blacklisted word"
             )
 
-    # 2. Profanity filter
+    # 2. Always-on strict profanity filter
+    if _message_contains_strict_profanity(content):
+        return await _punish(
+            "Strict profanity",
+            "🤬 Strict Profanity Detected",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Reason:** Bangla/English abusive profanity"
+        )
+
+    # 3. Profanity filter
     level = config.get("profanity_level", "low")
     profanity_list = PROFANITY_HIGH if level == "high" else (PROFANITY_MEDIUM if level == "medium" else [])
     if profanity_list and _message_contains_bad_word(content, profanity_list):
@@ -242,7 +276,7 @@ async def handle_message(message, config, add_warning_fn=None):
             f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Level:** {level}"
         )
 
-    # 3. Block Discord invites
+    # 4. Block Discord invites
     if config.get("auto_block_invites") == "ON":
         if "discord.gg/" in content.lower() or "discord.com/invite/" in content.lower():
             return await _punish(
@@ -251,7 +285,7 @@ async def handle_message(message, config, add_warning_fn=None):
                 f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}"
             )
 
-    # 4. Block links
+    # 5. Block links
     if config.get("auto_block_links") == "ON" or config.get("mod_block_links") == "ON":
         if re.search(r'https?://\S+', content):
             return await _punish(
@@ -260,7 +294,7 @@ async def handle_message(message, config, add_warning_fn=None):
                 f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}"
             )
 
-    # 5. Block mass mentions
+    # 6. Block mass mentions
     if config.get("auto_block_mentions") == "ON" or config.get("mod_block_mentions") == "ON":
         if len(message.mentions) > 3 or message.mention_everyone:
             return await _punish(
@@ -269,7 +303,7 @@ async def handle_message(message, config, add_warning_fn=None):
                 f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Mentions:** {len(message.mentions)}"
             )
 
-    # 6. Spam detection
+    # 7. Spam detection
     if await check_spam(message, config):
         return await _punish(
             "Message spam",
@@ -277,7 +311,7 @@ async def handle_message(message, config, add_warning_fn=None):
             f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Threshold:** {config.get('spam_threshold', 5)} msgs/{config.get('spam_window', 5)}s"
         )
 
-    # 7. Caps filter
+    # 8. Caps filter
     if await check_caps(message, config):
         return await _punish(
             "Excessive caps",
@@ -285,7 +319,7 @@ async def handle_message(message, config, add_warning_fn=None):
             f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Threshold:** {config.get('caps_percent', 70)}%"
         )
 
-    # 8. Emoji spam
+    # 9. Emoji spam
     if await check_emoji_spam(message, config):
         return await _punish(
             "Emoji spam",
@@ -293,7 +327,7 @@ async def handle_message(message, config, add_warning_fn=None):
             f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Emojis:** {_emoji_count(content)}"
         )
 
-    # 9. Duplicate messages
+    # 10. Duplicate messages
     if await check_duplicate(message, config):
         return await _punish(
             "Duplicate message",
@@ -301,7 +335,7 @@ async def handle_message(message, config, add_warning_fn=None):
             f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}"
         )
 
-    # 10. Wall of text
+    # 11. Wall of text
     if await check_wall_of_text(message, config):
         return await _punish(
             "Wall of text",
@@ -309,7 +343,7 @@ async def handle_message(message, config, add_warning_fn=None):
             f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Length:** {len(content)} chars"
         )
 
-    # 11. Zalgo text
+    # 12. Zalgo text
     if await check_zalgo(message, config):
         return await _punish(
             "Zalgo/unicode abuse",

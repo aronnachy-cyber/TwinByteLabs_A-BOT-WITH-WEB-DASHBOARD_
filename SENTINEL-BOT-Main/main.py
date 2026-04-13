@@ -28,7 +28,16 @@ BOT_START_TIME = datetime.utcnow()
 
 # ---------------- CONFIG LOADER ----------------
 def load_config():
-    """Legacy fallback: read settings.json. Only used if Supabase is unavailable."""
+    dashboard_url = os.environ.get("DASHBOARD_URL", "").strip().rstrip("/")
+    if dashboard_url:
+        try:
+            res = requests.get(f"{dashboard_url}/api/bot_config", timeout=5)
+            if res.ok:
+                data = res.json()
+                if isinstance(data, dict):
+                    return data
+        except Exception as e:
+            print(f"Dashboard config fetch error: {e}")
     if not os.path.exists('settings.json'):
         return {}
     with open('settings.json', 'r') as f:
@@ -42,8 +51,11 @@ def refresh_config():
     global config
     try:
         import dashboard as _dash
-        _dash.load_config_from_supabase()   # pulls fresh data from Supabase into dashboard.config
-        config = {**DEFAULT_CONFIG, **_dash.config}
+        if _dash.supabase:
+            _dash.load_config_from_supabase()
+            config = {**DEFAULT_CONFIG, **_dash.config}
+        else:
+            config = {**DEFAULT_CONFIG, **load_config()}
     except Exception as e:
         print(f"refresh_config Supabase error, falling back to settings.json: {e}")
         config = {**DEFAULT_CONFIG, **load_config()}
@@ -112,7 +124,8 @@ DASHBOARD_URL = f"http://127.0.0.1:{_PORT}"
 intents = discord.Intents.all()
 bot = commands.Bot(
     command_prefix=lambda b, m: config.get('prefix', '!') or '!',
-    intents=intents
+    intents=intents,
+    help_command=None
 )
 
 def dlog(event_type, description):
@@ -350,66 +363,64 @@ async def daily_report_task():
         print(f"Daily report error: {e}")
 
 # ---------------- SLASH COMMANDS ----------------
+def build_help_embed(prefix):
+    embed = discord.Embed(
+        title="🛡️ Sentinel OS Help",
+        description=(
+            f"Current prefix: `{prefix}`\n"
+            "Use the sections below to find moderation, utility, leveling, ticket, giveaway, and setup commands."
+        ),
+        color=0x4f8ef7
+    )
+    embed.add_field(name="⚖️ Moderation", inline=False, value=(
+        f"`{prefix}warn @user [reason]` — warn a member\n"
+        f"`{prefix}warnings @user` — show warning history\n"
+        f"`{prefix}clearwarnings @user` — clear warnings\n"
+        f"`{prefix}kick @user [reason]` — kick a member\n"
+        f"`{prefix}ban @user [reason]` — ban a member\n"
+        f"`{prefix}tempban @user <duration> [reason]` — temporary ban\n"
+        f"`{prefix}timeout @user <duration> [reason]` — Discord timeout\n"
+        f"`{prefix}untimeout @user` — remove timeout"
+    ))
+    embed.add_field(name="🧹 Channel Control", inline=False, value=(
+        f"`{prefix}purge <1-200>` — bulk delete messages\n"
+        f"`{prefix}slowmode <seconds>` — set slowmode\n"
+        f"`{prefix}lockdown` — lock text channels\n"
+        f"`{prefix}unlockdown` — unlock text channels"
+    ))
+    embed.add_field(name="📌 Logs & Notes", inline=False, value=(
+        f"`{prefix}note @user <note>` — add private mod note\n"
+        f"`{prefix}notes @user` — view mod notes\n"
+        f"`{prefix}modlogs @user` — view moderation history\n"
+        f"`{prefix}userinfo @user` — member information"
+    ))
+    embed.add_field(name="⭐ Leveling / XP", inline=False, value=(
+        "`/rank [@user]` — check XP and level\n"
+        "`/leaderboard` — server XP leaderboard"
+    ))
+    embed.add_field(name="🎉 Giveaways, Tickets & Roles", inline=False, value=(
+        "`/giveaway <duration> <prize>` — start giveaway\n"
+        "`/giveaway-end <message_id>` — end giveaway\n"
+        "`/giveaway-reroll <message_id>` — reroll winner\n"
+        "`/ticket [reason]` — open support ticket\n"
+        "`/ticket-close` — close ticket\n"
+        "`/setup-reaction-role <message_id> <emoji> <role>` — add reaction role"
+    ))
+    embed.add_field(name="🤖 Bot / Setup", inline=False, value=(
+        f"`{prefix}refresh` — reload dashboard config\n"
+        f"`{prefix}help` — show this menu\n"
+        "`/bot` — bot stats\n"
+        "`/dashboard` — dashboard link\n"
+        "`/commands` — slash version of this command list"
+    ))
+    embed.set_footer(text="Tip: if you change the prefix from the dashboard, run the bot with DASHBOARD_URL set to your dashboard URL when using a separate worker.")
+    return embed
+
 @bot.tree.command(name="commands", description="List all Sentinel OS commands")
 async def slash_commands(interaction: discord.Interaction):
+    refresh_config()
     p = config.get('prefix', '!')
-    embed = discord.Embed(title="🛡️ Sentinel OS — Command List", description=f"Prefix: `{p}`", color=0x4f8ef7)
-    embed.add_field(name="⚖️ Moderation", inline=False, value=(
-        f"`{p}warn @user [reason]` — Warn a member\n"
-        f"`{p}warnings @user` — Show warning count + full history\n"
-        f"`{p}clearwarnings @user` — Clear all warnings\n"
-        f"`{p}modlogs @user` — Full mod log (warnings + notes)\n"
-        f"`{p}note @user <note>` — Add a private mod note\n"
-        f"`{p}notes @user` — View all mod notes\n"
-        f"`{p}timeout @user <dur> [reason]` — Timeout (e.g. `10m`, `2h`, `7d`)\n"
-        f"`{p}untimeout @user` — Remove timeout\n"
-        f"`{p}kick @user [reason]` — Kick a member\n"
-        f"`{p}ban @user [reason]` — Permanent ban\n"
-        f"`{p}unban <user_id> [reason]` — Unban by ID\n"
-        f"`{p}tempban @user <dur> [reason]` — Temp ban (e.g. `1h`, `2d`, `7d`)\n"
-        f"`{p}mute @user [duration]` — Mute a member (e.g. `30m`, `2h`)\n"
-        f"`{p}unmute @user` — Unmute a member\n"
-        f"`{p}purge [1-200]` — Bulk delete messages\n"
-        f"`{p}slowmode [0-21600]` — Set channel slowmode (0 = off)"
-    ))
-    embed.add_field(name="🔍 Info", inline=False, value=(
-        f"`{p}userinfo @user` — Detailed member info\n"
-        f"`{p}warnings @user` — Warning history with reasons"
-    ))
-    embed.add_field(name="🔒 Security", inline=False, value=(
-        f"`{p}lockdown` — Lock all text channels\n"
-        f"`{p}unlockdown` — Unlock all channels\n"
-        f"`{p}refresh` — Reload config from dashboard"
-    ))
-    embed.add_field(name="💫 Slash Commands", inline=False, value=(
-        "`/bot` — Bot stats & uptime\n"
-        "`/dashboard` — Mini admin dashboard (admin only)\n"
-        "`/commands` — This list\n"
-        "`/serverinfo` — Server statistics\n"
-        "`/giveaway <duration> <prize>` — Start a giveaway\n"
-        "`/giveaway-end <msg_id>` — End giveaway early\n"
-        "`/giveaway-reroll <msg_id>` — Reroll giveaway winner\n"
-        "`/poll <question> <opt1> <opt2>` — Create a vote poll\n"
-        "`/ticket [reason]` — Open a support ticket\n"
-        "`/ticket-close` — Close current ticket\n"
-        "`/setup-reaction-role <msg> <emoji> <role>` — Link emoji to role\n"
-        "`/remove-reaction-role <msg> <emoji>` — Remove a reaction-role link\n"
-        "`/list-reaction-roles` — Show all active reaction roles\n"
-        "`/autorespond add <trigger> <response>` — Add auto-reply\n"
-        "`/autorespond remove <trigger>` — Remove auto-reply\n"
-        "`/autorespond list` — Show all auto-replies\n"
-        "`/rank [@user]` — Check XP and level\n"
-        "`/leaderboard` — Server XP leaderboard"
-    ))
-    embed.add_field(name="🗂️ Server Templates", inline=False, value=(
-        "`/copy` — Snapshot this server's channels, roles & permissions\n"
-        "`/paste` — Recreate a copied template into this server\n"
-        "`/delete-template` — Remove everything /paste created (with confirmation)"
-    ))
-    embed.add_field(name="📬 Owner DM (via DM only)", inline=False, value=(
-        f"`!approve ban <id>` / `!approve kick <id>` / `!approve ignore <id>`"
-    ))
-    embed.set_footer(text="Sentinel OS V2.5.0 • AI-Powered Moderation")
+    embed = build_help_embed(p)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="serverinfo", description="Show server information")
@@ -424,6 +435,11 @@ async def slash_serverinfo(interaction: discord.Interaction):
         embed.set_thumbnail(url=guild.icon.url)
     embed.set_footer(text="Sentinel OS V2.0.4")
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.command(name="help", aliases=["commands", "cmds"])
+async def prefix_help(ctx):
+    refresh_config()
+    await ctx.send(embed=build_help_embed(config.get("prefix", "!")))
 
 @bot.tree.command(name="bot", description="Show Sentinel OS bot details and status")
 async def slash_bot(interaction: discord.Interaction):

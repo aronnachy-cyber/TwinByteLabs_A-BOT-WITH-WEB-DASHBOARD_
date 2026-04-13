@@ -492,6 +492,8 @@ TEXT_KEYS = [
     "emoji_limit", "wall_newlines", "wall_length",
 ]
 
+PUBLIC_BOT_CONFIG_KEYS = set(TOGGLE_KEYS + TEXT_KEYS + ["warning_limit"])
+
 def save_config():
     if supabase:
         try:
@@ -902,6 +904,10 @@ def api_config():
     if not session.get('logged_in'):
         return jsonify({"error": "Unauthorized"}), 401
     return jsonify(config)
+
+@app.route('/api/bot_config')
+def api_bot_config():
+    return jsonify({key: config.get(key) for key in PUBLIC_BOT_CONFIG_KEYS})
 
 # ---- API: LOGS ----
 @app.route('/api/logs')
