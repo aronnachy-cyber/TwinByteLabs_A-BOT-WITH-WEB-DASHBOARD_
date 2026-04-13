@@ -1,4 +1,5 @@
 import threading
+import os
 from dashboard import app
 
 def _start_bot():
@@ -9,4 +10,5 @@ def _start_bot():
     except Exception as e:
         print(f"[WSGI] Bot start error: {e}")
 
-threading.Thread(target=_start_bot, daemon=True).start()
+if os.environ.get("START_BOT_IN_WEB", "true").lower() in {"1", "true", "yes", "on"}:
+    threading.Thread(target=_start_bot, daemon=True).start()

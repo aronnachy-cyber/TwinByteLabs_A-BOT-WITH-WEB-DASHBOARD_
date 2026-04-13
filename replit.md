@@ -91,6 +91,16 @@ warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, purge, 
 ## Running the App on Replit
 **Workflow command:** `cd SENTINEL-BOT-Main && python3 -m gunicorn --bind 0.0.0.0:5000 --workers 1 --timeout 120 wsgi:app`
 
+## Render Deployment
+- Web service root directory: `SENTINEL-BOT-Main`
+- Web service build command: `pip install -r requirements.txt`
+- Web service start command: `gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 wsgi:app`
+- Set `START_BOT_IN_WEB=false` on the Render web service when using a separate worker.
+- Background worker root directory: `SENTINEL-BOT-Main`
+- Background worker build command: `pip install -r requirements.txt`
+- Background worker start command: `python bot_worker.py`
+- Set `DISCORD_TOKEN` on the worker service. Keep only one service connected to Discord at a time.
+
 ## Environment Variables
 - `DISCORD_TOKEN` - Discord bot token (required for Discord connection)
 - `OPENAI_KEY` - OpenAI API key (optional, AI moderation)
