@@ -129,7 +129,13 @@ def load_config_from_supabase():
             res = supabase.table("sentinel_config").select("*").eq("id", 1).execute()
             if res.data:
                 stored = res.data[0].get("data", {})
-                config.update(stored)
+                if isinstance(stored, str):
+                    try:
+                        stored = json.loads(stored)
+                    except Exception:
+                        stored = {}
+                if isinstance(stored, dict):
+                    config.update(stored)
                 print("📁 Settings loaded from Supabase!")
                 return
         except Exception as e:
@@ -137,7 +143,9 @@ def load_config_from_supabase():
     if os.path.exists('settings.json'):
         with open('settings.json', 'r') as f:
             try:
-                config.update(json.load(f))
+                stored = json.load(f)
+                if isinstance(stored, dict):
+                    config.update(stored)
                 print("📁 Settings loaded from settings.json")
             except Exception:
                 pass
@@ -240,7 +248,7 @@ def load_users():
     if supabase:
         try:
             res = supabase.table("sentinel_users").select("*").execute()
-            users = res.data or []
+            users = sanitize_user_records(res.data or [])
             if ensure_user_session_tokens(users):
                 save_users(users)
             return users
@@ -249,7 +257,9 @@ def load_users():
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, 'r') as f:
             try:
-                users = json.load(f).get('users', [])
+                stored = json.load(f)
+                users = stored.get('users', []) if isinstance(stored, dict) else stored
+                users = sanitize_user_records(users)
                 if ensure_user_session_tokens(users):
                     with open(USERS_FILE, 'w') as out:
                         json.dump({'users': users}, out, indent=4)
@@ -259,9 +269,12 @@ def load_users():
     return []
 
 def save_users(users):
+    users = sanitize_user_records(users)
     if supabase:
         try:
             for u in users:
+                if not isinstance(u, dict) or not u.get("uid"):
+                    continue
                 existing = supabase.table("sentinel_users").select("uid").eq("uid", u["uid"]).execute()
                 if existing.data:
                     supabase.table("sentinel_users").update(u).eq("uid", u["uid"]).execute()
@@ -274,6 +287,9 @@ def save_users(users):
         json.dump({'users': users}, f, indent=4)
 
 def save_single_user(u):
+    if not isinstance(u, dict) or not u.get("uid"):
+        return
+    normalize_user_record(u)
     if supabase:
         try:
             existing = supabase.table("sentinel_users").select("uid").eq("uid", u["uid"]).execute()
@@ -286,7 +302,7 @@ def save_single_user(u):
             print(f"⚠️ Supabase save_single_user error: {e}")
     users = load_users()
     for i, existing in enumerate(users):
-        if existing["uid"] == u["uid"]:
+        if isinstance(existing, dict) and existing.get("uid") == u["uid"]:
             users[i] = u
             break
     else:
@@ -303,7 +319,7 @@ def find_user_by_uid(uid):
         except Exception as e:
             print(f"⚠️ Supabase find_user_by_uid error: {e}")
     for u in load_users():
-        if u.get('uid', '').upper() == uid.upper():
+        if isinstance(u, dict) and str(u.get('uid', '')).upper() == str(uid).upper():
             return u
     return None
 
@@ -319,9 +335,9 @@ SESSION_WORDS = [
 ]
 
 def generate_session_token(name, users=None):
-    clean = ''.join(c for c in name.upper() if c.isalpha())[:5] or "USER"
+    clean = ''.join(c for c in str(name).upper() if c.isalpha())[:5] or "USER"
     clean = clean.ljust(5, "X")
-    existing = {u.get('session_token', '').upper() for u in (users or [])}
+    existing = {str(u.get('session_token', '')).upper() for u in (users or []) if isinstance(u, dict)}
     for _ in range(50):
         word = random.choice(SESSION_WORDS)
         code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
@@ -351,10 +367,25 @@ def normalize_user_record(u, users=None):
         changed = True
     return changed
 
+def sanitize_user_records(users):
+    if isinstance(users, dict):
+        users = users.get('users', [])
+    if not isinstance(users, list):
+        return []
+    sanitized = []
+    for u in users:
+        if not isinstance(u, dict) or not u.get('uid'):
+            continue
+        normalize_user_record(u, users)
+        sanitized.append(u)
+    return sanitized
+
 def ensure_user_session_tokens(users):
+    if not isinstance(users, list):
+        return False
     changed = False
     for u in users:
-        if normalize_user_record(u, users):
+        if isinstance(u, dict) and normalize_user_record(u, users):
             changed = True
     return changed
 
@@ -367,11 +398,13 @@ def find_user_by_login(login_value):
     users = load_users()
     ensure_user_session_tokens(users)
     for u in users:
-        if u.get('uid', '').upper() == value_upper:
+        if not isinstance(u, dict):
+            continue
+        if str(u.get('uid', '')).upper() == value_upper:
             return u
-        if u.get('session_token', '').upper() == value_upper:
+        if str(u.get('session_token', '')).upper() == value_upper:
             return u
-        if u.get('email', '').lower() == value_lower:
+        if str(u.get('email', '')).lower() == value_lower:
             return u
     return None
 
@@ -627,7 +660,7 @@ def auth_discord_callback():
     discord_global   = discord_user.get('global_name') or discord_username
 
     users = load_users()
-    existing = next((u for u in users if u.get('discord_id') == discord_id), None)
+    existing = next((u for u in users if isinstance(u, dict) and str(u.get('discord_id', '')) == str(discord_id)), None)
 
     if existing:
         if existing.get('status') == 'approved':
@@ -635,19 +668,19 @@ def auth_discord_callback():
                 existing['session_token'] = generate_session_token(existing.get('name', 'User'), users)
                 save_single_user(existing)
             session['logged_in']  = True
-            session['user_name']  = existing['name']
-            session['uid']        = existing['uid']
+            session['user_name']  = existing.get('name', 'User')
+            session['uid']        = existing.get('uid', '')
             session['is_admin']   = existing.get('is_admin', False)
             session['session_token'] = existing.get('session_token', '')
-            add_dashboard_log("✅ LOGIN", f"{existing['name']} logged in via Discord")
+            add_dashboard_log("✅ LOGIN", f"{existing.get('name', 'User')} logged in via Discord")
             return redirect(url_for('index'))
         elif existing.get('status') == 'rejected':
             return _login_error("Your account has been rejected. Contact the administrator.")
         else:
-            return _login_error(f"Your account is pending admin approval. Your UID is: {existing['uid']}")
+            return _login_error(f"Your account is pending admin approval. Your UID is: {existing.get('uid', 'Unknown')}")
 
     uid = generate_uid(discord_global)
-    while any(u['uid'] == uid for u in users):
+    while any(isinstance(u, dict) and u.get('uid') == uid for u in users):
         uid = generate_uid(discord_global)
 
     new_user = {
@@ -682,10 +715,10 @@ def register():
 
         uid = generate_uid(name)
         users = load_users()
-        while any(u['uid'] == uid for u in users):
+        while any(isinstance(u, dict) and u.get('uid') == uid for u in users):
             uid = generate_uid(name)
 
-        if email and any(u.get('email','').lower() == email for u in users):
+        if email and any(isinstance(u, dict) and str(u.get('email','')).lower() == email for u in users):
             return render_template('register.html', error="That email is already registered.")
 
         users.append({
@@ -731,7 +764,7 @@ def forgot_password():
             return render_template('forgot_password.html', error="Please enter your email address.")
 
         users = load_users()
-        user = next((u for u in users if u.get('email', '').lower() == email), None)
+        user = next((u for u in users if isinstance(u, dict) and str(u.get('email', '')).lower() == email), None)
 
         if not user:
             return render_template('forgot_password.html',
@@ -740,9 +773,9 @@ def forgot_password():
         recovery_body = f"""
             <div style="background:#07101f;color:#e8f0ff;font-family:sans-serif;padding:40px;border-radius:12px;max-width:480px;margin:auto;">
               <h2 style="color:#3a8fff;">🛡️ Sentinel OS — UID Recovery</h2>
-              <p>Hi <strong>{user['name']}</strong>, here is your UID:</p>
+              <p>Hi <strong>{user.get('name', 'User')}</strong>, here is your UID:</p>
               <div style="background:#0d1a33;border:1px solid #1e3a6e;border-radius:8px;padding:14px 20px;font-size:1.3rem;letter-spacing:3px;color:#3a8fff;text-align:center;margin:16px 0;">
-                {user['uid']}
+                {user.get('uid', '')}
               </div>
               <p style="color:#7a93b8;font-size:0.88rem;">Use this UID to log in to your Sentinel OS dashboard.</p>
               <p style="color:#7a93b8;font-size:0.8rem;margin-top:24px;">If you did not request this, please ignore this email.</p>
@@ -768,15 +801,15 @@ def index():
         except Exception as e:
             print(f"⚠️ Could not persist normalized users: {e}")
     current_uid = session.get('uid', '')
-    current_user = next((u for u in users if u.get('uid') == current_uid), None)
+    current_user = next((u for u in users if isinstance(u, dict) and u.get('uid') == current_uid), None)
     if not current_user:
         session.clear()
         return redirect(url_for('login'))
     session['is_admin'] = current_user.get('is_admin', False)
     session['user_name'] = current_user.get('name', 'User')
     session['session_token'] = current_user.get('session_token', '')
-    pending_users = [u for u in users if u.get('status') == 'pending']
-    all_users = users
+    pending_users = [u for u in users if isinstance(u, dict) and u.get('status') == 'pending']
+    all_users = [u for u in users if isinstance(u, dict)]
 
     try:
         return render_template(
@@ -989,11 +1022,11 @@ def approve_user():
     uid = data.get('uid', '').upper()
     users = load_users()
     for u in users:
-        if u['uid'].upper() == uid:
+        if isinstance(u, dict) and str(u.get('uid', '')).upper() == uid:
             u['status'] = 'approved'
             if not u.get('session_token'):
                 u['session_token'] = generate_session_token(u.get('name', 'User'), users)
-            add_dashboard_log("✅ APPROVED", f"User {u['name']} ({uid}) approved")
+            add_dashboard_log("✅ APPROVED", f"User {u.get('name', 'User')} ({uid}) approved")
             break
     save_users(users)
     return jsonify({"status": "success"})
@@ -1006,13 +1039,13 @@ def grant_admin():
     uid = data.get('uid', '').upper()
     users = load_users()
     for u in users:
-        if u['uid'].upper() == uid:
+        if isinstance(u, dict) and str(u.get('uid', '')).upper() == uid:
             u['is_admin'] = True
             u['status'] = 'approved'
             if not u.get('session_token'):
                 u['session_token'] = generate_session_token(u.get('name', 'User'), users)
             save_users(users)
-            add_dashboard_log("🛡️ ADMIN", f"Admin access granted to {u['name']} ({uid})")
+            add_dashboard_log("🛡️ ADMIN", f"Admin access granted to {u.get('name', 'User')} ({uid})")
             return jsonify({"status": "success", "session_token": u.get('session_token', '')})
     return jsonify({"error": "User not found"}), 404
 
@@ -1025,14 +1058,14 @@ def revoke_admin():
     if uid == session.get('uid', '').upper():
         return jsonify({"error": "You cannot remove your own admin access while logged in."}), 400
     users = load_users()
-    admin_count = sum(1 for u in users if u.get('is_admin'))
+    admin_count = sum(1 for u in users if isinstance(u, dict) and u.get('is_admin'))
     if admin_count <= 1:
         return jsonify({"error": "At least one admin must remain."}), 400
     for u in users:
-        if u['uid'].upper() == uid:
+        if isinstance(u, dict) and str(u.get('uid', '')).upper() == uid:
             u['is_admin'] = False
             save_users(users)
-            add_dashboard_log("🛡️ ADMIN", f"Admin access revoked from {u['name']} ({uid})")
+            add_dashboard_log("🛡️ ADMIN", f"Admin access revoked from {u.get('name', 'User')} ({uid})")
             return jsonify({"status": "success"})
     return jsonify({"error": "User not found"}), 404
 
@@ -1044,9 +1077,9 @@ def reject_user():
     uid = data.get('uid', '').upper()
     users = load_users()
     for u in users:
-        if u['uid'].upper() == uid:
+        if isinstance(u, dict) and str(u.get('uid', '')).upper() == uid:
             u['status'] = 'rejected'
-            add_dashboard_log("❌ REJECTED", f"User {u['name']} ({uid}) rejected")
+            add_dashboard_log("❌ REJECTED", f"User {u.get('name', 'User')} ({uid}) rejected")
             break
     save_users(users)
     return jsonify({"status": "success"})
@@ -1058,7 +1091,7 @@ def delete_user():
     data = request.get_json() or {}
     uid = data.get('uid', '').upper()
     users = load_users()
-    users = [u for u in users if u['uid'].upper() != uid or u.get('is_admin')]
+    users = [u for u in users if isinstance(u, dict) and (str(u.get('uid', '')).upper() != uid or u.get('is_admin'))]
     save_users(users)
     add_dashboard_log("🗑️ DELETED", f"User {uid} removed")
     return jsonify({"status": "success"})
