@@ -82,7 +82,8 @@ DEFAULT_CONFIG = {
     "multi_channel": "",
     "owner_dm_id": "",
     "daily_report": "OFF",
-    "leveling": "OFF",
+    "leveling": "ON",
+    "level_up_message": "{user} You have reached a milestone.upgraded to {level} discord.gg",
     "ticket_category": "",
     # Advanced automod
     "spam_filter": "OFF",

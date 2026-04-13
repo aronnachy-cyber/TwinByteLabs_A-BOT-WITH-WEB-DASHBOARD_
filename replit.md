@@ -38,6 +38,12 @@ Sentinel OS is a feature-rich AI-powered Discord bot (V2.5.0) with a web-based a
 ## Dashboard Tabs
 General | Moderation | Automod | Security | Social Notifier | Live Warnings | Action Logs | Giveaways | Tickets | Auto-Responder | Reaction Roles | Leveling/XP | Users (admin) | Account
 
+## Leveling / XP
+- Leveling is enabled by the `leveling` config key.
+- Members earn 15-25 XP per counted message with a 60 second per-user cooldown.
+- Level-up announcements use the configurable `level_up_message` template with `{user}` and `{level}` placeholders.
+- The dashboard Leveling / XP tab shows tracked members, total messages, total XP, and leaderboard data from Supabase when configured or `xp.json` fallback.
+
 ## Slash Commands (V2.5.0)
 - `/bot` — Bot stats, uptime, active features (everyone)
 - `/dashboard` — Mini admin dashboard embed (admin only)

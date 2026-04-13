@@ -102,7 +102,8 @@ DEFAULT_CONFIG = {
     "multi_channel": "",
     "owner_dm_id": "",
     "daily_report": "OFF",
-    "leveling": "OFF",
+    "leveling": "ON",
+    "level_up_message": "{user} You have reached a milestone.upgraded to {level} discord.gg",
     "ticket_category": "",
     # --- Advanced automod ---
     "spam_filter": "OFF",
@@ -486,7 +487,7 @@ TEXT_KEYS = [
     "log_channel", "profanity_level", "mute_role", "auto_role",
     "auto_custom_blacklist", "webhook_log", "banned_words",
     "youtube_channel_link", "youtube_notify_msg", "multi_channel",
-    "owner_dm_id", "ticket_category",
+    "owner_dm_id", "ticket_category", "level_up_message",
     "spam_threshold", "spam_window", "caps_percent",
     "emoji_limit", "wall_newlines", "wall_length",
 ]
@@ -1194,23 +1195,21 @@ def api_xp_leaderboard():
         return jsonify({"error": "Unauthorized"}), 401
     try:
         import leveling as lev_mod
-        import json, os
-        if not os.path.exists('xp.json'):
-            return jsonify([])
-        with open('xp.json') as f:
-            xp_data = json.load(f)
         result = []
-        for guild_id, members in xp_data.items():
-            for uid, data in members.items():
-                result.append({
-                    "user_id": uid,
-                    "username": data.get("username", uid),
-                    "xp": data.get("xp", 0),
-                    "level": lev_mod.get_level_from_xp(data.get("xp", 0)),
-                    "messages": data.get("messages", 0)
-                })
-        result.sort(key=lambda x: x["xp"], reverse=True)
-        return jsonify(result[:20])
+        for uid, data in lev_mod.get_all_leaderboard(50):
+            total_xp = data.get("xp", 0)
+            level, xp_in, xp_needed = lev_mod.get_xp_progress(total_xp)
+            result.append({
+                "guild_id": data.get("guild_id", ""),
+                "user_id": uid,
+                "username": data.get("username", uid),
+                "xp": total_xp,
+                "level": level,
+                "messages": data.get("messages", 0),
+                "xp_in": xp_in,
+                "xp_needed": xp_needed
+            })
+        return jsonify(result)
     except Exception as e:
         return jsonify([])
 

@@ -128,10 +128,59 @@ def get_leaderboard(guild_id, limit=10):
     sorted_members = sorted(guild_data.items(), key=lambda x: x[1].get("xp", 0), reverse=True)
     return sorted_members[:limit]
 
+def get_all_leaderboard(limit=50):
+    sb = _get_supabase()
+    if sb:
+        try:
+            res = (
+                sb.table("sentinel_xp")
+                .select("*")
+                .order("xp", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return [(r.get("user_id"), r) for r in (res.data or [])]
+        except Exception as e:
+            print(f"[XP] all leaderboard error: {e}")
+    data = _local_load()
+    rows = []
+    for guild_id, members in data.items():
+        for user_id, record in members.items():
+            row = dict(record)
+            row["guild_id"] = guild_id
+            rows.append((user_id, row))
+    rows.sort(key=lambda x: x[1].get("xp", 0), reverse=True)
+    return rows[:limit]
+
+def _record_message_only(guild_id, user_id, username):
+    sb = _get_supabase()
+    if sb:
+        row = _sb_get(guild_id, user_id)
+        if row:
+            xp = row.get("xp", 0)
+            level = row.get("level", get_level_from_xp(xp))
+            messages = row.get("messages", 0) + 1
+        else:
+            xp = 0
+            level = 0
+            messages = 1
+        _sb_upsert(guild_id, user_id, username, xp, level, messages)
+        return
+    data = _local_load()
+    if guild_id not in data:
+        data[guild_id] = {}
+    entry = data[guild_id].get(user_id, {"xp": 0, "level": 0, "messages": 0, "username": username})
+    entry["username"] = username
+    entry["messages"] = entry.get("messages", 0) + 1
+    entry["level"] = get_level_from_xp(entry.get("xp", 0))
+    data[guild_id][user_id] = entry
+    _local_save(data)
 
 async def process_message_xp(bot, message, config):
     """Award XP for a message. Returns True on level-up."""
     if config.get("leveling", "OFF") != "ON":
+        return False
+    if not message.guild:
         return False
 
     guild_id = str(message.guild.id)
@@ -140,6 +189,7 @@ async def process_message_xp(bot, message, config):
     now      = time.time()
 
     if now - XP_COOLDOWN.get(key, 0) < 60:
+        _record_message_only(guild_id, user_id, str(message.author))
         return False
     XP_COOLDOWN[key] = now
 
@@ -181,25 +231,19 @@ async def process_message_xp(bot, message, config):
 
 
 async def _announce_level_up(bot, message, new_level, config):
-    embed = discord.Embed(
-        title="⭐ Level Up!",
-        description=f"{message.author.mention} just reached **Level {new_level}**! Keep it up 🔥",
-        color=0xf1c40f
-    )
-    embed.set_thumbnail(url=message.author.display_avatar.url)
+    template = config.get("level_up_message") or "{user} You have reached a milestone.upgraded to {level} discord.gg"
+    text = template.replace("{user}", message.author.mention).replace("{level}", str(new_level))
 
-    # Post in the channel where the message was sent
     try:
-        await message.channel.send(embed=embed)
+        await message.channel.send(text)
     except Exception:
         pass
 
-    # Also post in log channel if configured and different
     log_channel_id = config.get("log_channel", "").strip()
     if log_channel_id:
         try:
             ch = bot.get_channel(int(log_channel_id))
             if ch and ch.id != message.channel.id:
-                await ch.send(embed=embed)
+                await ch.send(text)
         except Exception:
             pass

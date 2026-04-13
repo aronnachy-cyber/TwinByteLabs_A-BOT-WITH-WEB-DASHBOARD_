@@ -32,5 +32,7 @@
     "multi_channel": "",
     "owner_dm_id": "1251882015574327318",
     "daily_report": "ON",
+    "leveling": "ON",
+    "level_up_message": "{user} You have reached a milestone.upgraded to {level} discord.gg",
     "server_lang": "en"
 }
