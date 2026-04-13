@@ -117,7 +117,7 @@ DEFAULT_CONFIG = {
 config = {**DEFAULT_CONFIG, **dash_config}
 
 TOKEN         = os.environ.get("DISCORD_TOKEN", "")
-OPENAI_KEY    = os.environ.get("OPENAI_KEY", "")
+GEMINI_KEY    = os.environ.get("GEMINI_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
 _PORT         = int(os.environ.get("PORT", 5000))
 DASHBOARD_URL = f"http://127.0.0.1:{_PORT}"
 
@@ -283,24 +283,48 @@ async def add_warning(member, reason="Violation"):
 
 # ---------------- AI MODERATION ----------------
 async def handle_ai_moderation(message):
-    if not OPENAI_KEY:
+    if not GEMINI_KEY:
         return
     try:
-        import openai
-        client = openai.OpenAI(api_key=OPENAI_KEY)
-        response = client.moderations.create(input=message.content)
-        result   = response.results[0]
-        if result.flagged:
-            categories = [k for k, v in result.categories.__dict__.items() if v]
+        prompt = (
+            "You are a Discord moderation classifier. Flag messages containing abusive profanity, "
+            "sexual profanity, harassment, hate, threats, or Bangla/English slurs, including obfuscated spellings. "
+            "Return only JSON like {\"flagged\": true, \"reason\": \"short reason\"} or "
+            "{\"flagged\": false, \"reason\": \"safe\"}.\n\n"
+            f"Message: {message.content}"
+        )
+        res = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}",
+            json={"contents": [{"parts": [{"text": prompt}]}]},
+            timeout=8
+        )
+        if not res.ok:
+            print(f"Gemini moderation error: HTTP {res.status_code}")
+            return
+        data = res.json()
+        text = (
+            data.get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+            .strip()
+        )
+        cleaned = text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        try:
+            result = json.loads(cleaned)
+        except Exception:
+            result = {"flagged": '"flagged": true' in text.lower() or "flagged: true" in text.lower(), "reason": text[:120]}
+        if result.get("flagged"):
+            reason = result.get("reason", "Gemini moderation violation")
             await message.delete()
-            await add_warning(message.author, reason=f"AI Moderation: {', '.join(categories)}")
+            await add_warning(message.author, reason=f"Gemini Moderation: {reason}")
             await message.channel.send(
                 f"⚠️ {message.author.mention}, your message was removed by AI moderation.",
                 delete_after=7
             )
-            dlog("🤖 AI-MOD", f"{message.author} flagged — {', '.join(categories)}")
+            dlog("🤖 GEMINI-MOD", f"{message.author} flagged — {reason}")
     except Exception as e:
-        print(f"AI moderation error (ignored): {e}")
+        print(f"Gemini moderation error (ignored): {e}")
 
 # ---------------- BACKGROUND TASKS ----------------
 _last_avatar_url = ""
@@ -502,7 +526,7 @@ async def slash_dashboard(interaction: discord.Interaction):
     embed.add_field(name="🔰 Prefix",          value=f"`{config.get('prefix','!')}`",           inline=True)
     embed.add_field(name="🔴 Profanity Filter", value=config.get("profanity_level","low").upper(), inline=True)
     embed.add_field(name="🛡️ Anti-Raid",       value=config.get("anti_raid","OFF"),             inline=True)
-    embed.add_field(name="🤖 AI Moderation",   value="ON" if OPENAI_KEY else "OFF",             inline=True)
+    embed.add_field(name="🤖 AI Moderation",   value="ON" if GEMINI_KEY else "OFF",             inline=True)
     embed.set_footer(text="Full dashboard available at your web dashboard URL")
     embed.timestamp = datetime.utcnow()
     await interaction.response.send_message(embed=embed, ephemeral=True)

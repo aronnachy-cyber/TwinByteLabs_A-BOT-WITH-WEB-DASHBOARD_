@@ -10,7 +10,7 @@ services:
     envVars:
       - key: FLASK_SECRET_KEY
         sync: false
-      - key: OPENAI_KEY
+      - key: GEMINI_KEY
         sync: false
       - key: DASHBOARD_URL
         sync: false
@@ -36,5 +36,5 @@ services:
         sync: false
       - key: FLASK_SECRET_KEY
         sync: false
-      - key: OPENAI_KEY
+      - key: GEMINI_KEY
         sync: false

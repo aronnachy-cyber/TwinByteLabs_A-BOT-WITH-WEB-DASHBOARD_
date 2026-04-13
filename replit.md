@@ -46,7 +46,7 @@ General | Moderation | Automod | Security | Social Notifier | Live Warnings | Ac
 
 ## Profanity / AI Moderation
 - `automod.py` includes an always-on strict Bangla/English profanity filter for severe abusive words and obfuscated variants.
-- OpenAI moderation is optional via `OPENAI_KEY`; the bot still deletes configured strict profanity without AI credentials.
+- Gemini moderation is optional via `GEMINI_KEY`; the bot still deletes configured strict profanity without AI credentials.
 - When dashboard and bot run as separate Render services, set `DASHBOARD_URL` on the worker to the public dashboard URL so prefix/config changes are fetched by the bot.
 
 ## Slash Commands (V2.5.0)
@@ -114,7 +114,7 @@ warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, purge, 
 
 ## Environment Variables
 - `DISCORD_TOKEN` - Discord bot token (required for Discord connection)
-- `OPENAI_KEY` - OpenAI API key (optional, AI moderation)
+- `GEMINI_KEY` - Gemini API key (optional, AI moderation)
 - `FLASK_SECRET_KEY` - Flask session secret key (set as shared env var)
 
 ## Design System
