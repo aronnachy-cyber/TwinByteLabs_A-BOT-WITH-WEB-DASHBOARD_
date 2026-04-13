@@ -10,6 +10,7 @@ import smtplib
 import traceback
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from html import escape as html_escape
 from datetime import datetime, timedelta
 from supabase import create_client, Client as SupabaseClient
 
@@ -364,8 +365,7 @@ def find_user_by_login(login_value):
     value_upper = value.upper()
     value_lower = value.lower()
     users = load_users()
-    if ensure_user_session_tokens(users):
-        save_users(users)
+    ensure_user_session_tokens(users)
     for u in users:
         if u.get('uid', '').upper() == value_upper:
             return u
@@ -378,13 +378,16 @@ def find_user_by_login(login_value):
 @app.errorhandler(500)
 def handle_internal_error(error):
     print("❌ Dashboard internal server error")
-    traceback.print_exc()
-    session.clear()
+    original = getattr(error, "original_exception", None)
+    if original:
+        traceback.print_exception(type(original), original, original.__traceback__)
+    else:
+        traceback.print_exc()
     question, answer = generate_captcha()
     session['captcha_answer'] = answer
     return render_template(
         'login.html',
-        error="Your dashboard session was reset. Please log in again.",
+        error="The dashboard hit a server error. Your session was kept; try Dashboard again or log in fresh.",
         captcha_question=question,
         locked=False
     ), 200
@@ -514,25 +517,26 @@ def login():
                 else:
                     left = MAX_ATTEMPTS - count
                     error = f"❌ Invalid UID. {left} attempt(s) left."
-            status = user.get('status', 'pending')
-            if status == 'pending':
-                error = "⏳ Your registration is pending admin approval. Please wait."
-            elif status == 'rejected':
-                error = "❌ Your registration was rejected. Contact the admin."
-            elif status == 'approved':
-                if not user.get('session_token'):
-                    user['session_token'] = generate_session_token(user.get('name', 'User'), load_users())
-                    save_single_user(user)
-                session['logged_in'] = True
-                session['uid'] = user.get('uid', '')
-                session['is_admin'] = user.get('is_admin', False)
-                session['user_name'] = user.get('name', 'User')
-                session['session_token'] = user.get('session_token', '')
-                login_attempts.pop(ip, None)
-                add_dashboard_log("🔑 LOGIN", f"{user.get('name', 'User')} ({user.get('uid', 'Unknown')}) logged in from {ip}")
-                return redirect(url_for('index'))
             else:
-                error = "❌ This account has an invalid status. Ask an admin to approve it again."
+                status = user.get('status', 'pending')
+                if status == 'pending':
+                    error = "⏳ Your registration is pending admin approval. Please wait."
+                elif status == 'rejected':
+                    error = "❌ Your registration was rejected. Contact the admin."
+                elif status == 'approved':
+                    if not user.get('session_token'):
+                        user['session_token'] = generate_session_token(user.get('name', 'User'), load_users())
+                        save_single_user(user)
+                    session['logged_in'] = True
+                    session['uid'] = user.get('uid', '')
+                    session['is_admin'] = user.get('is_admin', False)
+                    session['user_name'] = user.get('name', 'User')
+                    session['session_token'] = user.get('session_token', '')
+                    login_attempts.pop(ip, None)
+                    add_dashboard_log("🔑 LOGIN", f"{user.get('name', 'User')} ({user.get('uid', 'Unknown')}) logged in from {ip}")
+                    return redirect(url_for('index'))
+                else:
+                    error = "❌ This account has an invalid status. Ask an admin to approve it again."
 
     question, answer = generate_captcha()
     session['captcha_answer'] = answer
@@ -759,7 +763,10 @@ def index():
 
     users = load_users()
     if ensure_user_session_tokens(users):
-        save_users(users)
+        try:
+            save_users(users)
+        except Exception as e:
+            print(f"⚠️ Could not persist normalized users: {e}")
     current_uid = session.get('uid', '')
     current_user = next((u for u in users if u.get('uid') == current_uid), None)
     if not current_user:
@@ -771,16 +778,47 @@ def index():
     pending_users = [u for u in users if u.get('status') == 'pending']
     all_users = users
 
-    return render_template(
-        'index.html',
-        config=config,
-        is_admin=current_user.get('is_admin', False),
-        current_user_name=current_user.get('name', 'User'),
-        current_uid=current_uid,
-        current_session_token=current_user.get('session_token', session.get('session_token', '')),
-        pending_users=pending_users,
-        all_users=all_users
-    )
+    try:
+        return render_template(
+            'index.html',
+            config=config,
+            is_admin=current_user.get('is_admin', False),
+            current_user_name=current_user.get('name', 'User'),
+            current_uid=current_uid,
+            current_session_token=current_user.get('session_token', session.get('session_token', '')),
+            pending_users=pending_users,
+            all_users=all_users
+        )
+    except Exception as e:
+        print(f"❌ Dashboard template render error: {e}")
+        traceback.print_exc()
+        safe_name = html_escape(str(current_user.get('name', 'User')))
+        safe_uid = html_escape(str(current_uid))
+        safe_token = html_escape(str(current_user.get('session_token', '')))
+        return f"""
+        <!doctype html>
+        <html>
+        <head>
+            <title>Sentinel Dashboard</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; background:#07101f; color:#e8f0ff; padding:40px; }}
+                .card {{ max-width:720px; margin:auto; background:#0f1d38; border:1px solid rgba(58,143,255,.25); border-radius:14px; padding:28px; }}
+                a {{ color:#5ab4ff; }}
+                code {{ background:#07101f; color:#5ab4ff; padding:3px 7px; border-radius:6px; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Sentinel Dashboard</h1>
+                <p>You are logged in as <strong>{safe_name}</strong>.</p>
+                <p>UID: <code>{safe_uid}</code></p>
+                <p>Session token: <code>{safe_token}</code></p>
+                <p>The full dashboard template hit a render error, but your login session is working. Check the server logs for the template error details.</p>
+                <p><a href="/dashboard">Retry dashboard</a> · <a href="/logout">Logout</a></p>
+            </div>
+        </body>
+        </html>
+        """
 
 # ---- UPDATE SETTINGS ----
 @app.route('/update', methods=['POST'])
