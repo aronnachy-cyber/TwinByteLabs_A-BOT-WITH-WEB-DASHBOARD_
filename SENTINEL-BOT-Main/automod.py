@@ -14,13 +14,15 @@ STRICT_PROFANITY = [
     "madari", "madarchod", "madarchud", "maderchod", "maderchud", "madar chod", "madar chud",
     "mader chod", "mader chud", "maadar chod", "maadar chud", "chod", "chud", "choda",
     "chudi", "chutia", "chutiya", "chutmarani", "bhenchod", "behenchod", "banchod",
+    "shala", "sala", "shalay", "salar", "harami", "kutta", "kutti",
     "bokachoda", "bokachuda", "khankir", "khanki", "magi",
-    "চুদ", "চোদ", "চুদি", "চোদা", "মাদারচোদ", "মাদারচুদ", "মাগী", "খানকির", "বোকাচোদা"
+    "চুদ", "চোদ", "চুদি", "চোদা", "মাদারচোদ", "মাদারচুদ", "মাগী", "খানকির", "বোকাচোদা",
+    "শালা", "সালা", "হারামি", "কুত্তা", "কুত্তি"
 ]
 
 # --- Leet-speak / symbol substitutions ---
 _LEET = {'@': 'a', '0': 'o', '1': 'i', '3': 'e', '$': 's',
-         '4': 'a', '5': 's', '!': 'i', '+': 't', '7': 't', '9': 'g'}
+         '4': 'a', '5': 's', '!': 'i', '+': 't', '7': 't', '9': 'g', '*': ''}
 
 # --- Per-user spam tracking: {guild_id: {user_id: deque of timestamps}} ---
 _spam_tracker     = defaultdict(lambda: defaultdict(deque))

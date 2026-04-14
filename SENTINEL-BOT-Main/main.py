@@ -287,15 +287,19 @@ async def handle_ai_moderation(message):
         return
     try:
         prompt = (
-            "You are a Discord moderation classifier. Flag messages containing abusive profanity, "
-            "sexual profanity, harassment, hate, threats, or Bangla/English slurs, including obfuscated spellings. "
-            "Return only JSON like {\"flagged\": true, \"reason\": \"short reason\"} or "
-            "{\"flagged\": false, \"reason\": \"safe\"}.\n\n"
+            "You are a strict Discord moderation classifier for Bangla, Banglish, Hindi/Urdu slang, and English. "
+            "Read the whole message and decide if it is abusive slang/profanity or normal conversation. "
+            "Flag abusive words, sexual profanity, harassment, hate, threats, and obfuscated spellings such as f*uck, fu ck, s!x, madarchod, maderchud, shala, sala. "
+            "Do not flag harmless normal sentences just because they contain friendly teasing or ordinary words. "
+            "Return only valid JSON: {\"flagged\": true, \"reason\": \"short reason\"} or {\"flagged\": false, \"reason\": \"safe\"}.\n\n"
             f"Message: {message.content}"
         )
         res = requests.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}",
-            json={"contents": [{"parts": [{"text": prompt}]}]},
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}
+            },
             timeout=8
         )
         if not res.ok:
@@ -310,6 +314,8 @@ async def handle_ai_moderation(message):
             .strip()
         )
         cleaned = text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        if "{" in cleaned and "}" in cleaned:
+            cleaned = cleaned[cleaned.find("{"):cleaned.rfind("}") + 1]
         try:
             result = json.loads(cleaned)
         except Exception:

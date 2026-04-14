@@ -14,19 +14,26 @@ async def handle_message_ai(message, add_warning):
         if not GEMINI_KEY:
             return
         prompt = (
-            "You are a Discord moderation classifier. Flag abusive profanity, sexual profanity, "
-            "harassment, hate, threats, or Bangla/English slurs. Return only JSON with flagged and reason.\n\n"
+            "You are a strict Discord moderation classifier for Bangla, Banglish, Hindi/Urdu slang, and English. "
+            "Read the whole message and decide if it is abusive slang/profanity or normal conversation. "
+            "Flag abusive words, sexual profanity, harassment, hate, threats, and obfuscated spellings such as f*uck, fu ck, s!x, madarchod, maderchud, shala, sala. "
+            "Return only valid JSON with flagged and reason.\n\n"
             f"Message: {message.content}"
         )
         response = requests.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}",
-            json={"contents": [{"parts": [{"text": prompt}]}]},
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}
+            },
             timeout=8
         )
         if not response.ok:
             return
         text = response.json().get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
         cleaned = text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        if "{" in cleaned and "}" in cleaned:
+            cleaned = cleaned[cleaned.find("{"):cleaned.rfind("}") + 1]
         try:
             result = json.loads(cleaned)
         except Exception:

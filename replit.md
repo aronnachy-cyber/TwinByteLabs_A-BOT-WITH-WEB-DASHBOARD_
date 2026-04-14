@@ -48,6 +48,7 @@ General | Moderation | Automod | Security | Social Notifier | Live Warnings | Ac
 - `automod.py` includes an always-on strict Bangla/English profanity filter for severe abusive words and obfuscated variants.
 - Gemini moderation is optional via `GEMINI_KEY`; the bot still deletes configured strict profanity without AI credentials.
 - When dashboard and bot run as separate Render services, set `DASHBOARD_URL` on the worker to the public dashboard URL so prefix/config changes are fetched by the bot.
+- `START_BOT_IN_WEB` defaults to false so the dashboard web service does not start a second Discord bot connection. Only the worker should run the bot unless explicitly running a one-service deployment.
 
 ## Slash Commands (V2.5.0)
 - `/bot` — Bot stats, uptime, active features (everyone)
