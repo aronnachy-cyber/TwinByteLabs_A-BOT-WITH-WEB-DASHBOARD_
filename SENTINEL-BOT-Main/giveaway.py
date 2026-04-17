@@ -118,6 +118,26 @@ async def end_giveaway(bot, message_id, channel_id, force=False):
         save_giveaways(data)
         return None
 
+def force_set_winner(message_id, winner_name):
+    """Manually force a winner on an active giveaway. Returns the giveaway dict or None."""
+    data = load_giveaways()
+    try:
+        mid = int(message_id)
+    except (TypeError, ValueError):
+        mid = message_id
+    giveaway = next(
+        (g for g in data["giveaways"] if g.get("message_id") == mid and not g.get("ended")),
+        None
+    )
+    if not giveaway:
+        return None
+    giveaway["winner_names"] = winner_name
+    giveaway["forced_winner"] = True
+    giveaway["ended"] = True
+    giveaway["ended_at"] = datetime.utcnow().isoformat()
+    save_giveaways(data)
+    return giveaway
+
 async def reroll_giveaway(bot, message_id, channel_id):
     data = load_giveaways()
     giveaway = next((g for g in data["giveaways"] if g["message_id"] == message_id), None)

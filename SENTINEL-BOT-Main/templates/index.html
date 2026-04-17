@@ -422,6 +422,38 @@ input:checked + .slider:before { transform: translateX(22px); }
   </div>
 </div>
 
+<!-- Set Giveaway Winner Modal (Admin Only) -->
+<div id="set-winner-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;align-items:center;justify-content:center;" onclick="if(event.target===this)closeSetWinnerModal()">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px 28px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.4rem;">👑</span>
+        <span style="font-size:1.05rem;font-weight:700;color:var(--text);">Set Manual Winner</span>
+      </div>
+      <button onclick="closeSetWinnerModal()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <div style="background:rgba(79,142,247,.07);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:20px;">
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:2px;">GIVEAWAY PRIZE</div>
+      <div id="sw-prize-label" style="font-weight:700;color:var(--accent);font-size:0.95rem;">—</div>
+    </div>
+    <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:6px;">WINNER'S DISCORD USERNAME</label>
+    <input id="sw-winner-input" type="text" placeholder="e.g. username#0001 or @username"
+      style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:0.9rem;margin-bottom:6px;box-sizing:border-box;"
+      onkeydown="if(event.key==='Enter')submitManualWinner()">
+    <div id="sw-error" style="color:var(--red);font-size:0.78rem;min-height:18px;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button id="sw-submit-btn" onclick="submitManualWinner()"
+        style="flex:1;background:linear-gradient(135deg,#6c3fc5,#3a8fff);color:#fff;border:none;padding:10px 0;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;">
+        Set as Winner
+      </button>
+      <button onclick="closeSetWinnerModal()"
+        style="flex:1;background:var(--input-bg);color:var(--muted);border:1px solid var(--border);padding:10px 0;border-radius:8px;font-weight:600;font-size:0.9rem;cursor:pointer;">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Byte Ai Coming Soon Modal -->
 <div id="byteai-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
   <div style="background: linear-gradient(145deg, #1a1f2e, #212736); border: 1px solid #6c3fc5; border-radius: 18px; padding: 48px 40px; text-align:center; max-width:420px; width:90%; box-shadow: 0 0 60px rgba(108,63,197,0.4);">
@@ -804,7 +836,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       </div>
     </div>
     <table class="warnings-table">
-      <thead><tr><th>Prize</th><th>Hosted By</th><th>Winners</th><th>Status</th><th>Created</th></tr></thead>
+      <thead><tr><th>Prize</th><th>Hosted By</th><th>Winners</th><th>Status</th><th>Created</th><th id="ga-actions-th" style="display:none;">Actions</th></tr></thead>
       <tbody id="giveaway-table-body">
         <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Loading...</td></tr>
       </tbody>
@@ -960,6 +992,7 @@ input:checked + .slider:before { transform: translateX(22px); }
 <div id="toast"></div>
 
 <script>
+const IS_ADMIN = {{ is_admin | tojson }};
 // ---- NAV ----
 const tabTitles = {
   general: 'General Settings', moderation: 'Moderation Settings',
@@ -1421,21 +1454,78 @@ async function loadGiveaways() {
     document.getElementById('ga-active').textContent = active.length;
     document.getElementById('ga-ended').textContent = ended.length;
     document.getElementById('ga-total').textContent = list.length;
+    const actTh = document.getElementById('ga-actions-th');
+    if (actTh) actTh.style.display = IS_ADMIN ? '' : 'none';
+    const colSpan = IS_ADMIN ? 6 : 5;
     const tbody = document.getElementById('giveaway-table-body');
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">No giveaways yet. Use /giveaway in Discord.</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;color:var(--muted);padding:20px;">No giveaways yet. Use /giveaway in Discord.</td></tr>`;
       return;
     }
-    tbody.innerHTML = list.slice().reverse().map(g => `
+    tbody.innerHTML = list.slice().reverse().map(g => {
+      const msgId = g.message_id || g.id || '';
+      const prize = (g.prize || '—').replace(/'/g, "\\'");
+      let actionCell = '';
+      if (IS_ADMIN) {
+        if (!g.ended) {
+          actionCell = `<td><button class="btn btn-sm" style="background:linear-gradient(135deg,#6c3fc5,#3a8fff);color:#fff;font-size:0.78rem;padding:4px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:600;" onclick="openSetWinnerModal('${msgId}','${prize}')">👑 Set Winner</button></td>`;
+        } else {
+          const forced = g.forced_winner ? ' <span style="font-size:0.7rem;background:rgba(108,63,197,.2);color:#c39af7;padding:1px 6px;border-radius:6px;margin-left:4px;">Manual</span>' : '';
+          const winnerText = g.winner_names ? `<span style="font-size:0.78rem;color:var(--green);">👑 ${g.winner_names}</span>${forced}` : '—';
+          actionCell = `<td>${winnerText}</td>`;
+        }
+      }
+      return `
       <tr>
         <td style="font-weight:600;">${g.prize || '—'}</td>
         <td style="color:var(--muted);font-size:0.82rem;">${g.host_name || g.host_id || '—'}</td>
         <td>${g.winners || 1}</td>
         <td><span style="padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;background:${g.ended ? 'rgba(46,204,113,.12)' : 'rgba(79,142,247,.12)'};color:${g.ended ? 'var(--green)' : 'var(--accent)'};">${g.ended ? '✅ Ended' : '🎉 Active'}</span></td>
         <td style="color:var(--muted);font-size:0.8rem;">${(g.created_at||'').slice(0,16)}</td>
-      </tr>`).join('');
+        ${actionCell}
+      </tr>`;
+    }).join('');
   } catch(e) {
     document.getElementById('giveaway-table-body').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">Failed to load</td></tr>';
+  }
+}
+
+// ---- SET WINNER MODAL ----
+let _swMessageId = null;
+function openSetWinnerModal(messageId, prize) {
+  _swMessageId = messageId;
+  document.getElementById('sw-prize-label').textContent = prize;
+  document.getElementById('sw-winner-input').value = '';
+  document.getElementById('sw-error').textContent = '';
+  document.getElementById('set-winner-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('sw-winner-input').focus(), 80);
+}
+function closeSetWinnerModal() {
+  document.getElementById('set-winner-modal').style.display = 'none';
+  _swMessageId = null;
+}
+async function submitManualWinner() {
+  const winnerName = document.getElementById('sw-winner-input').value.trim();
+  if (!winnerName) { document.getElementById('sw-error').textContent = 'Please enter a Discord username.'; return; }
+  const btn = document.getElementById('sw-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/giveaway/set_winner', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ message_id: _swMessageId, winner_name: winnerName })
+    });
+    const data = await res.json();
+    if (!res.ok) { document.getElementById('sw-error').textContent = data.error || 'Failed to set winner.'; return; }
+    closeSetWinnerModal();
+    showToast(`👑 Winner set: ${winnerName} won "${data.prize}"!`);
+    loadGiveaways();
+  } catch(e) {
+    document.getElementById('sw-error').textContent = 'Network error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Set as Winner';
   }
 }
 

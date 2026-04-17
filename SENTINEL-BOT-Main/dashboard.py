@@ -1128,6 +1128,44 @@ def api_giveaways():
     except Exception as e:
         return jsonify([])
 
+@app.route('/api/giveaway/set_winner', methods=['POST'])
+def api_giveaway_set_winner():
+    if not session.get('logged_in') or not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    message_id = data.get('message_id')
+    winner_name = (data.get('winner_name') or '').strip()
+    if not message_id or not winner_name:
+        return jsonify({"error": "message_id and winner_name are required"}), 400
+    try:
+        import giveaway as giveaway_mod
+        giveaway = giveaway_mod.force_set_winner(message_id, winner_name)
+        if not giveaway:
+            return jsonify({"error": "No active giveaway found with that ID"}), 404
+        prize = giveaway.get('prize', 'Unknown')
+        add_dashboard_log("👑 MANUAL WINNER", f"Giveaway '{prize}' — winner manually set to: {winner_name}")
+        # Announce in Discord if the bot is running in the same process
+        try:
+            import main as bot_main
+            import asyncio
+            if hasattr(bot_main, 'bot') and bot_main.bot.is_ready():
+                channel_id = giveaway.get('channel_id')
+                async def _announce():
+                    ch = bot_main.bot.get_channel(int(channel_id))
+                    if ch:
+                        await ch.send(
+                            f"🎉 **Giveaway Winner!** 👑 **{winner_name}** has been manually selected "
+                            f"as the winner of **{prize}**!"
+                        )
+                loop = bot_main.bot.loop
+                if loop and loop.is_running():
+                    asyncio.run_coroutine_threadsafe(_announce(), loop)
+        except Exception as disc_err:
+            print(f"⚠️ Discord giveaway announce error: {disc_err}")
+        return jsonify({"status": "success", "prize": prize, "winner": winner_name})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # ---- API: TICKETS ----
 @app.route('/api/tickets')
 def api_tickets():
