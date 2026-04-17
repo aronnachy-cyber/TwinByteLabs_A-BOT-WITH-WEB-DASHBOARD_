@@ -273,6 +273,12 @@ def save_users(users):
     users = sanitize_user_records(users)
     if supabase:
         try:
+            keep_uids = {str(u["uid"]).upper() for u in users if isinstance(u, dict) and u.get("uid")}
+            existing_res = supabase.table("sentinel_users").select("uid").execute()
+            for row in (existing_res.data or []):
+                row_uid = str(row.get("uid", "")).upper()
+                if row_uid and row_uid not in keep_uids:
+                    supabase.table("sentinel_users").delete().eq("uid", row["uid"]).execute()
             for u in users:
                 if not isinstance(u, dict) or not u.get("uid"):
                     continue
@@ -1097,9 +1103,17 @@ def delete_user():
         return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json() or {}
     uid = data.get('uid', '').upper()
+    if not uid:
+        return jsonify({"error": "No UID provided"}), 400
+    if supabase:
+        try:
+            supabase.table("sentinel_users").delete().ilike("uid", uid).execute()
+        except Exception as e:
+            print(f"⚠️ Supabase delete_user error: {e}")
     users = load_users()
     users = [u for u in users if isinstance(u, dict) and (str(u.get('uid', '')).upper() != uid or u.get('is_admin'))]
-    save_users(users)
+    with open(USERS_FILE, 'w') as f:
+        json.dump({'users': users}, f, indent=4)
     add_dashboard_log("🗑️ DELETED", f"User {uid} removed")
     return jsonify({"status": "success"})
 

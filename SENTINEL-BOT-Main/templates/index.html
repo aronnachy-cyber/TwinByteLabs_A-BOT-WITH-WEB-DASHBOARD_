@@ -1270,11 +1270,13 @@ function exportReport() {
 // ---- USER MANAGEMENT ----
 async function approveUser(uid, name) {
   try {
-    await fetch('/api/approve_user', {
+    const res = await fetch('/api/approve_user', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({uid})
     });
+    const data = await res.json();
+    if (!res.ok) { showToast('❌ ' + (data.error || 'Failed to approve user.'), true); return; }
     showToast(`✅ ${name} approved!`);
     const row = document.getElementById('pending-' + uid);
     if (row) row.remove();
@@ -1298,11 +1300,13 @@ async function approveUser(uid, name) {
 async function rejectUser(uid, name) {
   if (!confirm(`Reject ${name}'s registration?`)) return;
   try {
-    await fetch('/api/reject_user', {
+    const res = await fetch('/api/reject_user', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({uid})
     });
+    const data = await res.json();
+    if (!res.ok) { showToast('❌ ' + (data.error || 'Failed to reject user.'), true); return; }
     showToast(`❌ ${name} rejected.`, true);
     const row = document.getElementById('pending-' + uid);
     if (row) row.remove();
@@ -1324,14 +1328,25 @@ async function rejectUser(uid, name) {
 async function deleteUser(uid, name) {
   if (!confirm(`Permanently delete ${name}?`)) return;
   try {
-    await fetch('/api/delete_user', {
+    const res = await fetch('/api/delete_user', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({uid})
     });
+    const data = await res.json();
+    if (!res.ok) { showToast('❌ ' + (data.error || 'Failed to delete user.'), true); return; }
     showToast(`🗑️ ${name} deleted.`);
     const userRow = document.getElementById('user-row-' + uid);
     if (userRow) userRow.remove();
+    const pendingRow = document.getElementById('pending-' + uid);
+    if (pendingRow) {
+      pendingRow.remove();
+      const badge = document.getElementById('pending-badge');
+      if (badge) {
+        const cur = parseInt(badge.textContent) || 1;
+        badge.textContent = Math.max(0, cur - 1) + ' pending';
+      }
+    }
   } catch(e) {
     showToast('❌ Error: ' + e.message, true);
   }
