@@ -247,7 +247,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       {% if is_admin %}<span style="font-size:0.68rem;background:rgba(79,142,247,0.2);color:var(--accent);padding:1px 7px;border-radius:6px;margin-left:5px;font-weight:600;">Admin</span>{% endif %}<br>
       <span style="font-size:0.68rem;color:var(--muted);font-family:'Courier New',monospace;">{{ current_uid }}</span>
     </div>
-    <span><span class="status-dot dot-green"></span>Bot Online</span>&nbsp;&nbsp;
+    <span id="bot-status-label"><span class="status-dot" id="bot-status-dot" style="background:var(--muted);"></span><span id="bot-status-text" style="color:var(--muted);">Checking…</span></span>&nbsp;&nbsp;
     <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
   </div>
 </div>
@@ -409,6 +409,14 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="row-label"><strong>Welcome Message</strong></div>
       <div class="input-wrap-full" style="margin-top:8px;">
         <textarea id="welcome_msg">{{ config.get('welcome_msg','') }}</textarea>
+      </div>
+    </div>
+
+    <!-- Service Connections Card -->
+    <div class="card" id="connections-card">
+      <div class="card-title"><i class="fas fa-plug"></i> Service Connections</div>
+      <div id="conn-rows">
+        <div class="row" style="padding:18px 0;justify-content:center;"><span style="color:var(--muted);font-size:0.85rem;">Loading…</span></div>
       </div>
     </div>
 
@@ -1016,6 +1024,7 @@ function showTab(id, el) {
   if (id === 'autoresponder') loadAutoResponder();
   if (id === 'reactionroles') loadReactionRoles();
   if (id === 'leveling') loadLeaderboard();
+  if (id === 'general') loadConnectionStatus();
 }
 
 function getLevelingEnabled() {
@@ -1120,6 +1129,64 @@ function collectData() {
     level_up_message: getText('level_up_message') || '{user} You have reached a milestone.upgraded to {level} discord.gg',
     ticket_category: getText('ticket_category')
   };
+}
+
+async function checkBotStatus() {
+  const dot  = document.getElementById('bot-status-dot');
+  const text = document.getElementById('bot-status-text');
+  try {
+    const res  = await fetch('/api/bot_status');
+    if (!res.ok) throw new Error('not ok');
+    const data = await res.json();
+    const alive = data.restart_available;
+    if (dot && text) {
+      dot.style.background  = alive ? 'var(--green)' : 'var(--red)';
+      text.style.color      = alive ? 'var(--text)'  : 'var(--red)';
+      text.textContent      = alive ? 'Bot Online'   : 'Bot Offline';
+    }
+  } catch(e) {
+    if (dot && text) {
+      dot.style.background = 'var(--orange)';
+      text.style.color     = 'var(--orange)';
+      text.textContent     = 'Status Unknown';
+    }
+  }
+}
+
+async function loadConnectionStatus() {
+  const container = document.getElementById('conn-rows');
+  if (!container) return;
+  try {
+    const res  = await fetch('/api/connection_status');
+    if (!res.ok) throw new Error('Unauthorized');
+    const d    = await res.json();
+
+    const row = (icon, label, ok, note) => {
+      const color = ok ? 'var(--green)' : 'var(--red)';
+      const badge = ok
+        ? `<span style="background:rgba(46,204,113,.15);color:var(--green);border:1px solid rgba(46,204,113,.3);font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:8px;">CONNECTED</span>`
+        : `<span style="background:rgba(231,76,60,.13);color:var(--red);border:1px solid rgba(231,76,60,.25);font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:8px;">NOT SET</span>`;
+      const hint = note ? `<span style="font-size:.71rem;color:var(--muted);margin-left:6px;">${note}</span>` : '';
+      return `<div class="row">
+        <div class="row-label" style="display:flex;align-items:center;gap:8px;">
+          <i class="${icon}" style="width:16px;text-align:center;color:${color};"></i>
+          <strong style="font-size:.88rem;">${label}</strong>${hint}
+        </div>
+        ${badge}
+      </div>`;
+    };
+
+    container.innerHTML =
+      row('fab fa-discord', 'Discord Bot Token',  d.discord_bot,   d.discord_bot  ? 'DISCORD_TOKEN' : 'Set DISCORD_TOKEN secret') +
+      row('fas fa-sign-in-alt', 'Discord OAuth Login', d.discord_oauth, d.discord_oauth ? 'CLIENT_ID + SECRET' : 'Set DISCORD_CLIENT_ID & DISCORD_CLIENT_SECRET') +
+      row('fas fa-database', 'Supabase Database', d.supabase,      d.supabase     ? 'Live' : 'Using JSON fallback (SUPABASE_URL / SUPABASE_KEY)') +
+      row('fas fa-brain',    'Gemini AI Mod',     d.gemini,        d.gemini       ? 'AI automod active' : 'Set GEMINI_KEY secret') +
+      row('fas fa-envelope', 'Email / SMTP',      d.email,         d.email        ? (d.smtp_host || 'Configured') : (d.smtp_host ? `Host: ${d.smtp_host} — set SMTP_PASS` : 'Set SMTP_USER & SMTP_PASS')) +
+      row('fas fa-lock',     'Session Security',  d.session_stable,'FLASK_SECRET_KEY');
+
+  } catch(e) {
+    container.innerHTML = `<div class="row"><div class="row-label" style="color:var(--muted);font-size:.85rem;">Could not load connection status.</div></div>`;
+  }
 }
 
 async function restartBot() {
@@ -1701,15 +1768,19 @@ function copySessionToken() {
 
 // ---- AUTO REFRESH ----
 setInterval(loadWarnings, 5000);
+setInterval(checkBotStatus, 30000);
 setInterval(() => {
   const active = document.querySelector('.tab-content.active');
   if (!active) return;
   if (active.id === 'logs') loadLogs();
   if (active.id === 'giveaways') loadGiveaways();
   if (active.id === 'tickets') loadTickets();
+  if (active.id === 'general') loadConnectionStatus();
 }, 10000);
 
 loadWarnings();
+checkBotStatus();
+loadConnectionStatus();
 </script>
 </body>
 </html>

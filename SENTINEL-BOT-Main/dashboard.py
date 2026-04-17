@@ -29,36 +29,57 @@ else:
     print("⚠️  Supabase not configured — falling back to local JSON files")
 
 def send_email(to_address, subject, html_body):
-    gmail_user     = os.environ.get("GMAIL_USER") or os.environ.get("SMTP_EMAIL", "")
-    gmail_password = (os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD", "")).replace(" ", "")
-    smtp_host      = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    smtp_port      = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+
+    # Determine SMTP login username: explicit SMTP_USER > GMAIL_USER > SMTP_EMAIL
+    # For Resend SMTP the login user is always "resend"
+    smtp_login_user = (
+        os.environ.get("SMTP_USER")
+        or os.environ.get("GMAIL_USER")
+        or os.environ.get("SMTP_EMAIL", "")
+    )
+
+    # Determine SMTP password
+    smtp_password = (
+        os.environ.get("GMAIL_APP_PASSWORD")
+        or os.environ.get("SMTP_PASS")
+        or os.environ.get("SMTP_PASSWORD", "")
+    ).replace(" ", "")
+
+    # Determine the "From" display address
+    smtp_from = (
+        os.environ.get("SMTP_FROM")
+        or os.environ.get("GMAIL_USER")
+        or os.environ.get("SMTP_EMAIL", "")
+        or smtp_login_user
+    )
 
     # If using Gmail explicitly, force correct host/port
-    if os.environ.get("GMAIL_USER"):
+    if os.environ.get("GMAIL_USER") and not os.environ.get("SMTP_HOST"):
         smtp_host = "smtp.gmail.com"
         smtp_port = 587
 
-    if not gmail_user or not gmail_password:
+    if not smtp_login_user or not smtp_password:
         print("⚠️  Email credentials not set — email not sent.")
         return False
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"]    = f"Sentinel OS <{gmail_user}>"
+        msg["From"]    = f"Sentinel OS <{smtp_from}>"
         msg["To"]      = to_address
         msg.attach(MIMEText(html_body, "html"))
-        print(f"📧 Sending to {to_address} via {smtp_host}:{smtp_port}")
+        print(f"📧 Sending to {to_address} via {smtp_host}:{smtp_port} (user={smtp_login_user})")
         if smtp_port == 465:
             with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
-                server.login(gmail_user, gmail_password)
-                server.sendmail(gmail_user, to_address, msg.as_string())
+                server.login(smtp_login_user, smtp_password)
+                server.sendmail(smtp_from, to_address, msg.as_string())
         else:
             with smtplib.SMTP(smtp_host, smtp_port) as server:
                 server.ehlo()
                 server.starttls()
-                server.login(gmail_user, gmail_password)
-                server.sendmail(gmail_user, to_address, msg.as_string())
+                server.login(smtp_login_user, smtp_password)
+                server.sendmail(smtp_from, to_address, msg.as_string())
         print(f"✅ Email sent to {to_address}")
         return True
     except Exception as e:
@@ -1005,6 +1026,47 @@ def bot_status():
         return jsonify({"error": "Unauthorized"}), 401
     alive = _bot_restart_callback is not None
     return jsonify({"status": "ok", "restart_available": alive})
+
+@app.route('/api/connection_status')
+def connection_status():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    discord_token  = bool(os.environ.get("DISCORD_TOKEN", "").strip())
+    client_id      = bool(os.environ.get("DISCORD_CLIENT_ID", "").strip())
+    client_secret  = bool(os.environ.get("DISCORD_CLIENT_SECRET", "").strip())
+    supabase_ok    = _sb_client is not None
+    gemini_ok      = bool(os.environ.get("GEMINI_KEY", "").strip() or os.environ.get("GOOGLE_API_KEY", "").strip())
+
+    # Email: need a login user AND a password
+    smtp_login_user = (
+        os.environ.get("SMTP_USER", "").strip()
+        or os.environ.get("GMAIL_USER", "").strip()
+        or os.environ.get("SMTP_EMAIL", "").strip()
+    )
+    smtp_password = (
+        os.environ.get("GMAIL_APP_PASSWORD", "")
+        or os.environ.get("SMTP_PASS", "")
+        or os.environ.get("SMTP_PASSWORD", "")
+    ).strip()
+    email_ok  = bool(smtp_login_user and smtp_password)
+    smtp_host = os.environ.get("SMTP_HOST", "")
+
+    session_ok = bool(os.environ.get("FLASK_SECRET_KEY", "").strip() or os.environ.get("SESSION_SECRET", "").strip())
+
+    redirect_uri = os.environ.get("DISCORD_REDIRECT_URI", "").strip()
+
+    return jsonify({
+        "discord_bot":    discord_token,
+        "discord_oauth":  client_id and client_secret,
+        "discord_redirect": bool(redirect_uri),
+        "supabase":       supabase_ok,
+        "gemini":         gemini_ok,
+        "email":          email_ok,
+        "smtp_host":      smtp_host or None,
+        "session_stable": session_ok,
+        "bot_in_process": _bot_restart_callback is not None,
+    })
 
 @app.route('/api/restart_bot', methods=['POST'])
 def restart_bot():
