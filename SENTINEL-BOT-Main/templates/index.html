@@ -230,9 +230,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       {% if is_admin %}
       <div class="nav-item" onclick="showTab('users',this)" data-tab="users">
         <i class="fas fa-users"></i> Users
-        {% if pending_users|length > 0 %}
-        <span style="margin-left:auto;background:var(--red);color:#fff;font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px;">{{ pending_users|length }}</span>
-        {% endif %}
+        <span id="pending-nav-badge" style="margin-left:auto;background:var(--red);color:#fff;font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px;display:{% if pending_users|length > 0 %}inline{% else %}none{% endif %}">{{ pending_users|length }}</span>
       </div>
       {% endif %}
       <div class="nav-item" onclick="showTab('account',this)" data-tab="account">
@@ -269,6 +267,22 @@ input:checked + .slider:before { transform: translateX(22px); }
     </button>
   </div>
 </div>
+
+{% if is_admin %}
+<!-- Pending Registration Notification Banner (admin only, shown/hidden by JS) -->
+<div id="pending-banner" style="display:none;position:fixed;top:60px;left:260px;right:0;z-index:49;background:linear-gradient(90deg,#8b1a1a,#c0392b);border-bottom:2px solid rgba(231,76,60,.5);padding:10px 28px;display:none;align-items:center;justify-content:space-between;gap:12px;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <i class="fas fa-user-clock" style="color:#ffc;font-size:1rem;"></i>
+    <span id="pending-banner-text" style="color:#fff;font-size:0.88rem;font-weight:600;"></span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button onclick="showTab('users',document.querySelector('[data-tab=users]'))" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.35);border-radius:6px;padding:5px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+      <i class="fas fa-arrow-right"></i> Review Now
+    </button>
+    <button onclick="document.getElementById('pending-banner').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,0.7);font-size:1rem;cursor:pointer;padding:2px 6px;">&times;</button>
+  </div>
+</div>
+{% endif %}
 
 <div class="main">
 
@@ -739,6 +753,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     <div class="card-title">
       <i class="fas fa-user-clock"></i> Pending Approvals
       <span class="badge badge-off" id="pending-badge">{{ pending_users|length }} pending</span>
+      <button onclick="loadPendingList()" style="margin-left:auto;background:rgba(79,142,247,.15);color:var(--accent);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:0.78rem;cursor:pointer;font-weight:600;"><i class="fas fa-sync-alt"></i> Refresh</button>
     </div>
     <div id="pending-list">
       {% if pending_users %}
@@ -1025,6 +1040,7 @@ function showTab(id, el) {
   if (id === 'reactionroles') loadReactionRoles();
   if (id === 'leveling') loadLeaderboard();
   if (id === 'general') loadConnectionStatus();
+  if (id === 'users') { {% if is_admin %}pollPendingUsers(); loadPendingList();{% endif %} }
 }
 
 function getLevelingEnabled() {
@@ -1130,6 +1146,81 @@ function collectData() {
     ticket_category: getText('ticket_category')
   };
 }
+
+// ---- PENDING USERS POLLING (admin only) ----
+{% if is_admin %}
+let _lastPendingCount = {{ pending_users|length }};
+
+async function pollPendingUsers() {
+  try {
+    const res = await fetch('/api/pending_count');
+    if (!res.ok) return;
+    const data = await res.json();
+    const count = data.count || 0;
+
+    // Update nav badge
+    const badge = document.getElementById('pending-nav-badge');
+    if (badge) {
+      badge.textContent = count;
+      badge.style.display = count > 0 ? 'inline' : 'none';
+    }
+    // Update pending section badge
+    const pb = document.getElementById('pending-badge');
+    if (pb) pb.textContent = count + ' pending';
+
+    // Show banner if newly arrived registrations
+    if (count > _lastPendingCount) {
+      const banner = document.getElementById('pending-banner');
+      const bannerText = document.getElementById('pending-banner-text');
+      if (banner && bannerText) {
+        const diff = count - _lastPendingCount;
+        bannerText.textContent = `${diff} new registration request${diff > 1 ? 's' : ''} waiting for approval! (${count} total pending)`;
+        banner.style.display = 'flex';
+      }
+      // Reload the pending list if admin is already on Users tab
+      const usersTab = document.getElementById('users');
+      if (usersTab && usersTab.classList.contains('active')) {
+        loadPendingList(data.users || []);
+      }
+    }
+    _lastPendingCount = count;
+  } catch(e) {}
+}
+
+function loadPendingList(pendingUsers) {
+  const container = document.getElementById('pending-list');
+  if (!container) return;
+
+  const renderFromData = (users) => {
+    if (!users.length) {
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-check-circle" style="color:var(--green)"></i> No pending requests.</div>';
+      return;
+    }
+    container.innerHTML = users.map(u => `
+      <div class="row" id="pending-${u.uid}">
+        <div class="row-label">
+          <strong>${u.name}</strong>
+          <span style="font-family:'Courier New',monospace;font-size:0.8rem;color:var(--accent);margin-left:8px;">${u.uid}</span>
+          <span style="display:block;font-size:0.75rem;color:var(--muted);margin-top:2px;">Registered: ${u.created_at || '—'}</span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-success btn-sm" onclick="approveUser('${u.uid}','${u.name.replace(/'/g,"\\'")}')">
+            <i class="fas fa-check"></i> Approve
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="rejectUser('${u.uid}','${u.name.replace(/'/g,"\\'")}')">
+            <i class="fas fa-times"></i> Reject
+          </button>
+        </div>
+      </div>`).join('');
+  };
+
+  if (pendingUsers) {
+    renderFromData(pendingUsers);
+  } else {
+    fetch('/api/pending_count').then(r => r.json()).then(d => renderFromData(d.users || [])).catch(() => {});
+  }
+}
+{% endif %}
 
 async function checkBotStatus() {
   const dot  = document.getElementById('bot-status-dot');
@@ -1532,21 +1623,36 @@ async function loadGiveaways() {
     tbody.innerHTML = list.slice().reverse().map(g => {
       const msgId = g.message_id || g.id || '';
       const prize = (g.prize || '—').replace(/'/g, "\\'");
+
+      // Winner display — visible to ALL users
+      let winnersCell = '';
+      if (g.ended) {
+        if (g.winner_names) {
+          const forced = g.forced_winner ? ' <span style="font-size:0.68rem;background:rgba(108,63,197,.2);color:#c39af7;padding:1px 6px;border-radius:6px;margin-left:4px;">Manual</span>' : '';
+          winnersCell = `<td><span style="color:var(--green);font-weight:700;">👑 ${g.winner_names}</span>${forced}</td>`;
+        } else {
+          winnersCell = `<td><span style="color:var(--muted);font-size:0.82rem;">No winner set</span></td>`;
+        }
+      } else {
+        const n = g.winners || 1;
+        winnersCell = `<td><span style="color:var(--muted);font-size:0.82rem;">${n} winner${n !== 1 ? 's' : ''} to pick</span></td>`;
+      }
+
+      // Admin-only actions column
       let actionCell = '';
       if (IS_ADMIN) {
         if (!g.ended) {
           actionCell = `<td><button class="btn btn-sm" style="background:linear-gradient(135deg,#6c3fc5,#3a8fff);color:#fff;font-size:0.78rem;padding:4px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:600;" onclick="openSetWinnerModal('${msgId}','${prize}')">👑 Set Winner</button></td>`;
         } else {
-          const forced = g.forced_winner ? ' <span style="font-size:0.7rem;background:rgba(108,63,197,.2);color:#c39af7;padding:1px 6px;border-radius:6px;margin-left:4px;">Manual</span>' : '';
-          const winnerText = g.winner_names ? `<span style="font-size:0.78rem;color:var(--green);">👑 ${g.winner_names}</span>${forced}` : '—';
-          actionCell = `<td>${winnerText}</td>`;
+          actionCell = `<td><span style="color:var(--muted);font-size:0.78rem;">Ended</span></td>`;
         }
       }
+
       return `
       <tr>
         <td style="font-weight:600;">${g.prize || '—'}</td>
         <td style="color:var(--muted);font-size:0.82rem;">${g.host_name || g.host_id || '—'}</td>
-        <td>${g.winners || 1}</td>
+        ${winnersCell}
         <td><span style="padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;background:${g.ended ? 'rgba(46,204,113,.12)' : 'rgba(79,142,247,.12)'};color:${g.ended ? 'var(--green)' : 'var(--accent)'};">${g.ended ? '✅ Ended' : '🎉 Active'}</span></td>
         <td style="color:var(--muted);font-size:0.8rem;">${(g.created_at||'').slice(0,16)}</td>
         ${actionCell}
@@ -1769,6 +1875,7 @@ function copySessionToken() {
 // ---- AUTO REFRESH ----
 setInterval(loadWarnings, 5000);
 setInterval(checkBotStatus, 30000);
+{% if is_admin %}setInterval(pollPendingUsers, 30000);{% endif %}
 setInterval(() => {
   const active = document.querySelector('.tab-content.active');
   if (!active) return;
@@ -1781,6 +1888,21 @@ setInterval(() => {
 loadWarnings();
 checkBotStatus();
 loadConnectionStatus();
+{% if is_admin %}
+pollPendingUsers();
+// Show banner immediately if pending users existed at page load
+(function() {
+  const initCount = {{ pending_users|length }};
+  if (initCount > 0) {
+    const banner = document.getElementById('pending-banner');
+    const bannerText = document.getElementById('pending-banner-text');
+    if (banner && bannerText) {
+      bannerText.textContent = `${initCount} registration request${initCount > 1 ? 's' : ''} waiting for your approval.`;
+      banner.style.display = 'flex';
+    }
+  }
+})();
+{% endif %}
 </script>
 </body>
 </html>

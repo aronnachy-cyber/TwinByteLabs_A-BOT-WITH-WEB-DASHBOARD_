@@ -1089,6 +1089,17 @@ def api_users():
         save_users(users)
     return jsonify(users)
 
+@app.route('/api/pending_count')
+def pending_count():
+    if not session.get('logged_in') or not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 401
+    users = load_users()
+    pending = [u for u in users if isinstance(u, dict) and u.get('status') == 'pending']
+    return jsonify({
+        "count": len(pending),
+        "users": [{"uid": u.get("uid",""), "name": u.get("name","Unknown"), "created_at": u.get("created_at","")} for u in pending]
+    })
+
 @app.route('/api/approve_user', methods=['POST'])
 def approve_user():
     if not session.get('logged_in') or not session.get('is_admin'):
