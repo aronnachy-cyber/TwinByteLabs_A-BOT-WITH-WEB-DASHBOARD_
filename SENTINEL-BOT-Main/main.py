@@ -816,6 +816,13 @@ async def on_ready():
         print(f"Slash command sync error: {e}")
     sync_bot_settings.start()
     daily_report_task.start()
+    # Re-schedule any giveaways that were active when the bot was last restarted.
+    # Without this, giveaway timers are lost on every restart and "active" giveaways
+    # never roll over into "completed".
+    try:
+        await giveaway_mod.resume_pending(bot)
+    except Exception as e:
+        print(f"[GIVEAWAY] resume_pending error: {e}")
     dlog("✅ BOT-START", f"SP4RK online as {bot.user}")
     print(f"✅ SP4RK Online! Logged in as {bot.user}")
 

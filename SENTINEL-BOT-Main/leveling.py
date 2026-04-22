@@ -53,8 +53,10 @@ def _local_load():
     return {}
 
 def _local_save(data):
-    with open(_LOCAL_FILE, "w") as f:
+    tmp = _LOCAL_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(data, f, indent=4)
+    os.replace(tmp, _LOCAL_FILE)
 
 # ── Supabase helpers ─────────────────────────────────────────────────────────
 

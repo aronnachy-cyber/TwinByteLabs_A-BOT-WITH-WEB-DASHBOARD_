@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 
 GIVEAWAY_FILE = "giveaways.json"
 
+# Track scheduled end-tasks so we don't double-schedule the same giveaway
+_SCHEDULED = set()
+
 def load_giveaways():
     if os.path.exists(GIVEAWAY_FILE):
         with open(GIVEAWAY_FILE, "r") as f:
@@ -17,8 +20,11 @@ def load_giveaways():
     return {"giveaways": []}
 
 def save_giveaways(data):
-    with open(GIVEAWAY_FILE, "w") as f:
+    # Atomic write so a crash mid-write can't corrupt the JSON
+    tmp = GIVEAWAY_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(data, f, indent=4)
+    os.replace(tmp, GIVEAWAY_FILE)
 
 def get_all_giveaways():
     return load_giveaways().get("giveaways", [])
@@ -57,22 +63,76 @@ async def start_giveaway(bot, channel, duration_seconds, prize, host, winners=1)
     data["giveaways"].append(giveaway)
     save_giveaways(data)
 
-    asyncio.create_task(_schedule_end(bot, msg.id, channel.id, duration_seconds))
+    _schedule(bot, msg.id, channel.id, duration_seconds)
     return giveaway
 
+def _schedule(bot, message_id, channel_id, delay):
+    """Schedule a giveaway to end after `delay` seconds. Idempotent per message_id."""
+    if message_id in _SCHEDULED:
+        return
+    _SCHEDULED.add(message_id)
+    asyncio.create_task(_schedule_end(bot, message_id, channel_id, max(0, delay)))
+
 async def _schedule_end(bot, message_id, channel_id, delay):
-    await asyncio.sleep(delay)
-    await end_giveaway(bot, message_id, channel_id)
+    try:
+        await asyncio.sleep(delay)
+        await end_giveaway(bot, message_id, channel_id)
+    finally:
+        _SCHEDULED.discard(message_id)
+
+async def resume_pending(bot):
+    """
+    Re-schedule (or immediately end) every giveaway that was active before the bot restarted.
+    Without this, `asyncio.create_task(_schedule_end)` is lost on every restart and giveaways
+    stay marked active forever, so completed-counts on the dashboard never go up.
+    """
+    data = load_giveaways()
+    now = datetime.utcnow()
+    resumed = 0
+    ended_immediately = 0
+    for g in data.get("giveaways", []):
+        if g.get("ended"):
+            continue
+        ends_at_str = g.get("ends_at")
+        if not ends_at_str:
+            continue
+        try:
+            ends_at = datetime.fromisoformat(ends_at_str)
+        except Exception:
+            continue
+        delay = (ends_at - now).total_seconds()
+        try:
+            mid = int(g.get("message_id"))
+            cid = int(g.get("channel_id"))
+        except (TypeError, ValueError):
+            continue
+        if delay <= 0:
+            # Was supposed to end while bot was offline — end it now
+            asyncio.create_task(end_giveaway(bot, mid, cid))
+            ended_immediately += 1
+        else:
+            _schedule(bot, mid, cid, delay)
+            resumed += 1
+    if resumed or ended_immediately:
+        print(f"[GIVEAWAY] Resume on startup: {resumed} re-scheduled, {ended_immediately} ended immediately.")
 
 async def end_giveaway(bot, message_id, channel_id, force=False):
     data = load_giveaways()
-    giveaway = next((g for g in data["giveaways"] if g["message_id"] == message_id), None)
+    try:
+        mid = int(message_id)
+    except (TypeError, ValueError):
+        mid = message_id
+    giveaway = next(
+        (g for g in data["giveaways"]
+         if str(g.get("message_id")) == str(mid)),
+        None
+    )
     if not giveaway or giveaway.get("ended"):
         return None
 
     try:
-        channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
-        message = await channel.fetch_message(message_id)
+        channel = bot.get_channel(int(channel_id)) or await bot.fetch_channel(int(channel_id))
+        message = await channel.fetch_message(int(mid))
         reaction = discord.utils.get(message.reactions, emoji="🎉")
         entries = []
         if reaction:
@@ -140,12 +200,20 @@ def force_set_winner(message_id, winner_name):
 
 async def reroll_giveaway(bot, message_id, channel_id):
     data = load_giveaways()
-    giveaway = next((g for g in data["giveaways"] if g["message_id"] == message_id), None)
+    try:
+        mid = int(message_id)
+    except (TypeError, ValueError):
+        mid = message_id
+    giveaway = next(
+        (g for g in data["giveaways"]
+         if str(g.get("message_id")) == str(mid)),
+        None
+    )
     if not giveaway or not giveaway.get("ended"):
         return None
     try:
-        channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
-        message = await channel.fetch_message(message_id)
+        channel = bot.get_channel(int(channel_id)) or await bot.fetch_channel(int(channel_id))
+        message = await channel.fetch_message(int(mid))
         reaction = discord.utils.get(message.reactions, emoji="🎉")
         entries = []
         if reaction:
