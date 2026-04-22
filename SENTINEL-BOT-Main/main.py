@@ -205,7 +205,7 @@ async def dm_owner(action, target, reason, moderator):
     if not get_owner_ids():
         return
     msg = (
-        f"🔔 **Sentinel OS — Action Performed**\n"
+        f"🔔 **SP4RK — Action Performed**\n"
         f"**Action:** {action.upper()}\n"
         f"**Target:** {target}\n"
         f"**Reason:** {reason}\n"
@@ -238,7 +238,7 @@ async def notify_owners_warning(member, count):
     }
 
     msg = (
-        f"⚠️ **Sentinel OS — Approval Required**\n"
+        f"⚠️ **SP4RK — Approval Required**\n"
         f"**Server:** {member.guild.name}\n"
         f"**Member:** {member} (`{member.id}`)\n"
         f"**Warnings:** {count} (limit reached!)\n\n"
@@ -386,7 +386,7 @@ async def daily_report_task():
             ),
             color=0x4f8ef7
         )
-        embed.set_footer(text="Sentinel OS — Automated Daily Report")
+        embed.set_footer(text="SP4RK — Automated Daily Report")
         await channel.send(embed=embed)
         dlog("📊 DAILY-REPORT", "Daily report posted to log channel")
     except Exception as e:
@@ -395,7 +395,7 @@ async def daily_report_task():
 # ---------------- SLASH COMMANDS ----------------
 def build_help_embed(prefix):
     embed = discord.Embed(
-        title="🛡️ Sentinel OS Help",
+        title="🛡️ SP4RK Help",
         description=(
             f"Current prefix: `{prefix}`\n"
             "Use the sections below to find moderation, utility, leveling, ticket, giveaway, and setup commands."
@@ -446,7 +446,7 @@ def build_help_embed(prefix):
     embed.set_footer(text="Tip: if you change the prefix from the dashboard, run the bot with DASHBOARD_URL set to your dashboard URL when using a separate worker.")
     return embed
 
-@bot.tree.command(name="commands", description="List all Sentinel OS commands")
+@bot.tree.command(name="commands", description="List all SP4RK commands")
 async def slash_commands(interaction: discord.Interaction):
     refresh_config()
     p = config.get('prefix', '!')
@@ -463,7 +463,7 @@ async def slash_serverinfo(interaction: discord.Interaction):
     embed.add_field(name="Created",  value=guild.created_at.strftime("%Y-%m-%d"))
     if guild.icon:
         embed.set_thumbnail(url=guild.icon.url)
-    embed.set_footer(text="Sentinel OS V2.0.4")
+    embed.set_footer(text="SP4RK V2.0.4")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.command(name="help", aliases=["commands", "cmds"])
@@ -471,7 +471,7 @@ async def prefix_help(ctx):
     refresh_config()
     await ctx.send(embed=build_help_embed(config.get("prefix", "!")))
 
-@bot.tree.command(name="bot", description="Show Sentinel OS bot details and status")
+@bot.tree.command(name="bot", description="Show SP4RK bot details and status")
 async def slash_bot(interaction: discord.Interaction):
     uptime = datetime.utcnow() - BOT_START_TIME
     hours, rem = divmod(int(uptime.total_seconds()), 3600)
@@ -485,7 +485,7 @@ async def slash_bot(interaction: discord.Interaction):
     ar_count = len(autoresponder_mod.get_all_responses())
     rr_count = len(rr_mod.get_all_rules())
     embed = discord.Embed(
-        title="🛡️ Sentinel OS — Bot Details",
+        title="🛡️ SP4RK — Bot Details",
         description="AI-Powered Discord Moderation & Management",
         color=0x3a8fff
     )
@@ -498,7 +498,7 @@ async def slash_bot(interaction: discord.Interaction):
     embed.add_field(name="🤖 Auto-Responders", value=str(ar_count),          inline=True)
     embed.add_field(name="🎭 Reaction Roles", value=str(rr_count),           inline=True)
     embed.add_field(name="🔢 Version",        value="V2.5.0",                inline=True)
-    embed.set_footer(text="Sentinel OS — Your Server's Guardian")
+    embed.set_footer(text="SP4RK — Your Server's Guardian")
     embed.timestamp = datetime.utcnow()
     await interaction.response.send_message(embed=embed)
 
@@ -520,7 +520,7 @@ async def slash_dashboard(interaction: discord.Interaction):
     hours, rem = divmod(int(uptime.total_seconds()), 3600)
     minutes = rem // 60
     embed = discord.Embed(
-        title="🖥️ Sentinel OS — Admin Dashboard",
+        title="🖥️ SP4RK — Admin Dashboard",
         description=f"Quick overview for **{guild.name}**",
         color=0x3a8fff
     )
@@ -674,7 +674,7 @@ async def slash_setup_rr(interaction: discord.Interaction, message_id: str, emoj
         ),
         color=0x2ecc71
     )
-    embed.set_footer(text=f"Sentinel OS • Reaction Roles — {action}")
+    embed.set_footer(text=f"SP4RK • Reaction Roles — {action}")
     await interaction.response.send_message(embed=embed, ephemeral=True)
     dlog("🎭 REACTION-ROLE", f"{interaction.user} {action} {emoji} → {role.name} on msg {message_id}")
 
@@ -782,7 +782,7 @@ async def slash_rank(interaction: discord.Interaction, member: discord.Member = 
         value=f"{bar}\n`{xp_in:,} / {xp_needed:,} XP`",
         inline=False
     )
-    embed.set_footer(text=f"Sentinel OS • Leveling System")
+    embed.set_footer(text=f"SP4RK • Leveling System")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="leaderboard", description="Show the XP leaderboard for this server")
@@ -816,8 +816,8 @@ async def on_ready():
         print(f"Slash command sync error: {e}")
     sync_bot_settings.start()
     daily_report_task.start()
-    dlog("✅ BOT-START", f"Sentinel OS online as {bot.user}")
-    print(f"✅ Sentinel OS Online! Logged in as {bot.user}")
+    dlog("✅ BOT-START", f"SP4RK online as {bot.user}")
+    print(f"✅ SP4RK Online! Logged in as {bot.user}")
 
 @bot.event
 async def on_member_join(member):
@@ -1481,7 +1481,7 @@ async def slash_copy(interaction: discord.Interaction):
         embed.add_field(name="📁 Categories",      value=str(info["categories"]),     inline=True)
         embed.add_field(name="💬 Text Channels",   value=str(info["text_channels"]),  inline=True)
         embed.add_field(name="🔊 Voice Channels",  value=str(info["voice_channels"]), inline=True)
-        embed.set_footer(text="Sentinel OS — Server Template")
+        embed.set_footer(text="SP4RK — Server Template")
         await interaction.edit_original_response(content=None, embed=embed)
         dlog("📸 COPY", f"{interaction.user} copied server template from {interaction.guild.name}")
     except Exception as e:
@@ -1517,7 +1517,7 @@ class DeleteTemplateConfirmView(discord.ui.View):
             log = template_mod.load_paste_log(self.guild.id)  # already cleared, use summary
             embed = discord.Embed(
                 title="🗑️ Template Deleted",
-                description=f"Everything pasted by Sentinel has been removed from **{self.guild.name}**.",
+                description=f"Everything pasted by SP4RK has been removed from **{self.guild.name}**.",
                 color=0xe74c3c
             )
             embed.add_field(name="🎭 Roles Deleted",          value=str(summary["roles"]),         inline=True)
@@ -1527,7 +1527,7 @@ class DeleteTemplateConfirmView(discord.ui.View):
             if summary["failed"]:
                 embed.add_field(name="⚠️ Failed (already gone or no permission)",
                                 value=str(summary["failed"]), inline=True)
-            embed.set_footer(text="Sentinel OS — Server Template • Paste log cleared")
+            embed.set_footer(text="SP4RK — Server Template • Paste log cleared")
             await interaction.edit_original_response(content=None, embed=embed, view=None)
             dlog("🗑️ DELETE-TEMPLATE", f"{interaction.user} deleted pasted template from {self.guild.name}")
         except FileNotFoundError:
@@ -1584,7 +1584,7 @@ async def slash_paste(interaction: discord.Interaction):
         embed.add_field(name="💬 Text Channels Created", value=str(summary["text_channels"]), inline=True)
         embed.add_field(name="🔊 Voice Channels Created",value=str(summary["voice_channels"]),inline=True)
         embed.add_field(name="⏭️ Skipped (already exist)", value=str(summary["skipped"]),    inline=True)
-        embed.set_footer(text="Sentinel OS — Server Template • Existing channels/roles were not duplicated")
+        embed.set_footer(text="SP4RK — Server Template • Existing channels/roles were not duplicated")
         await interaction.edit_original_response(content=None, embed=embed)
         dlog("📋 PASTE", f"{interaction.user} pasted server template into {interaction.guild.name}")
     except FileNotFoundError:
@@ -1611,7 +1611,7 @@ async def slash_delete_template(interaction: discord.Interaction):
     embed = discord.Embed(
         title="⚠️ Confirm Deletion",
         description=(
-            f"This will **permanently delete** everything Sentinel created with `/paste` "
+            f"This will **permanently delete** everything SP4RK created with `/paste` "
             f"on **{pasted_at} UTC** from the **{log.get('source','Unknown')}** template.\n\n"
             f"**🎭 Roles:** {len(log.get('role_ids', []))}\n"
             f"**📁 Categories:** {len(log.get('category_ids', []))}\n"
@@ -1622,7 +1622,7 @@ async def slash_delete_template(interaction: discord.Interaction):
         ),
         color=0xe74c3c
     )
-    embed.set_footer(text="Sentinel OS — Server Template • You have 60 seconds to decide")
+    embed.set_footer(text="SP4RK — Server Template • You have 60 seconds to decide")
     view = DeleteTemplateConfirmView(interaction.guild)
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
@@ -1677,7 +1677,7 @@ def run_bot():
     import time
     retry_delay = 5
     while True:
-        print("🤖 Starting Sentinel OS Bot V2.0.4...")
+        print("🤖 Starting SP4RK Bot V2.0.4...")
         try:
             bot.run(TOKEN, reconnect=True)
         except discord.errors.LoginFailure:

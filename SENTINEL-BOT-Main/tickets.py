@@ -72,7 +72,7 @@ async def create_ticket(guild, member, config, reason="General Support"):
         color=0x3a8fff,
         timestamp=datetime.utcnow()
     )
-    embed.set_footer(text="Sentinel Ticket System")
+    embed.set_footer(text="SP4RK Ticket System")
     close_btn_view = TicketCloseView()
     await channel.send(embed=embed, view=close_btn_view)
 

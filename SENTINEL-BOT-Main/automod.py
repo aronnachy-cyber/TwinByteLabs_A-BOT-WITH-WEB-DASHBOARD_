@@ -109,7 +109,7 @@ async def send_webhook_log(config, title, description, color=0xff6b6b):
 async def auto_dm_warning_user(member, reason, guild_name):
     try:
         await member.send(
-            f"⚠️ Sentinel Alert: Chill. That behavior ain't it. Fix it before this escalates."
+            f"⚠️ SP4RK Alert: Chill. That behavior ain't it. Fix it before this escalates."
         )
     except Exception:
         pass
@@ -124,27 +124,27 @@ async def apply_graduated_punishment(message, config, count, add_warning_fn):
 
     try:
         if count >= 10:
-            await member.ban(reason=f"Sentinel: Auto-ban ({count} warnings)")
+            await member.ban(reason=f"SP4RK: Auto-ban ({count} warnings)")
             await message.channel.send(
                 f"⛔ {member.mention} has been **banned** after accumulating {count} warnings.",
                 delete_after=10
             )
         elif count >= 8:
-            await member.kick(reason=f"Sentinel: Auto-kick ({count} warnings)")
+            await member.kick(reason=f"SP4RK: Auto-kick ({count} warnings)")
             await message.channel.send(
                 f"👢 {member.mention} has been **kicked** after {count} warnings.",
                 delete_after=10
             )
         elif count >= 5:
             duration = discord.utils.utcnow() + discord.timedelta(hours=1)
-            await member.timeout(duration, reason=f"Sentinel: Auto-timeout ({count} warnings)")
+            await member.timeout(duration, reason=f"SP4RK: Auto-timeout ({count} warnings)")
             await message.channel.send(
                 f"⏱️ {member.mention} has been **timed out for 1 hour** ({count} warnings).",
                 delete_after=10
             )
         elif count >= 3:
             duration = discord.utils.utcnow() + discord.timedelta(minutes=10)
-            await member.timeout(duration, reason=f"Sentinel: Auto-timeout ({count} warnings)")
+            await member.timeout(duration, reason=f"SP4RK: Auto-timeout ({count} warnings)")
             await message.channel.send(
                 f"⏱️ {member.mention} has been **timed out for 10 minutes** ({count} warnings).",
                 delete_after=10

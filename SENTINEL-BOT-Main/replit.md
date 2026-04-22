@@ -1,7 +1,7 @@
-# Sentinel OS Discord Bot
+# SP4RK OS Discord Bot
 
 ## Overview
-Sentinel OS is a feature-rich Discord bot with a web-based admin dashboard. It provides moderation, auto-moderation, role management, security features, social alerts, and logging for Discord servers.
+SP4RK OS is a feature-rich Discord bot with a web-based admin dashboard. It provides moderation, auto-moderation, role management, security features, social alerts, and logging for Discord servers.
 
 ## Architecture
 - **main.py** - Discord bot entry point. Starts the Flask dashboard in a background thread, then runs the Discord bot.

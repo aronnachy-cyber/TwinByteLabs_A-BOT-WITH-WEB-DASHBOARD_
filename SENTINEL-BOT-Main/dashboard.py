@@ -510,7 +510,7 @@ def index():
         <!doctype html>
         <html>
         <head>
-            <title>Sentinel Dashboard</title>
+            <title>SP4RK Dashboard</title>
             <style>
                 body {{ font-family: Arial, sans-serif; background:#07101f; color:#e8f0ff; padding:40px; }}
                 .card {{ max-width:720px; margin:auto; background:#0f1d38; border:1px solid rgba(58,143,255,.25); border-radius:14px; padding:28px; }}
@@ -520,7 +520,7 @@ def index():
         </head>
         <body>
             <div class="card">
-                <h1>Sentinel Dashboard</h1>
+                <h1>SP4RK Dashboard</h1>
                 <p>You are logged in as <strong>{safe_name}</strong>.</p>
                 <p>UID: <code>{safe_uid}</code></p>
                 <p>Session token: <code>{safe_token}</code></p>

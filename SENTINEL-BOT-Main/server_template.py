@@ -192,7 +192,7 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
                 hoist=role_data["hoist"],
                 mentionable=role_data["mentionable"],
                 permissions=discord.Permissions(role_data["permissions"]),
-                reason="Sentinel /paste"
+                reason="SP4RK /paste"
             )
             role_map[name] = new_role
             paste_log["role_ids"].append(new_role.id)
@@ -231,7 +231,7 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
             new_cat = await guild.create_category(
                 name=name,
                 overwrites=overwrites,
-                reason="Sentinel /paste"
+                reason="SP4RK /paste"
             )
             cat_map[name] = new_cat
             paste_log["category_ids"].append(new_cat.id)
@@ -260,7 +260,7 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
                 nsfw=ch_data.get("nsfw", False),
                 category=category,
                 overwrites=overwrites,
-                reason="Sentinel /paste"
+                reason="SP4RK /paste"
             )
             paste_log["text_channel_ids"].append(new_ch.id)
             summary["text_channels"] += 1
@@ -288,7 +288,7 @@ async def paste_server(guild: discord.Guild, progress_callback=None) -> dict:
                 user_limit=ch_data.get("user_limit", 0),
                 category=category,
                 overwrites=overwrites,
-                reason="Sentinel /paste"
+                reason="SP4RK /paste"
             )
             paste_log["voice_channel_ids"].append(new_ch.id)
             summary["voice_channels"] += 1
@@ -329,7 +329,7 @@ async def delete_pasted(guild: discord.Guild, progress_callback=None) -> dict:
         ch = guild.get_channel(ch_id)
         if ch:
             try:
-                await ch.delete(reason="Sentinel /delete-template")
+                await ch.delete(reason="SP4RK /delete-template")
                 summary["text_channels"] += 1
                 await asyncio.sleep(0.4)
             except Exception as e:
@@ -342,7 +342,7 @@ async def delete_pasted(guild: discord.Guild, progress_callback=None) -> dict:
         ch = guild.get_channel(ch_id)
         if ch:
             try:
-                await ch.delete(reason="Sentinel /delete-template")
+                await ch.delete(reason="SP4RK /delete-template")
                 summary["voice_channels"] += 1
                 await asyncio.sleep(0.4)
             except Exception as e:
@@ -355,7 +355,7 @@ async def delete_pasted(guild: discord.Guild, progress_callback=None) -> dict:
         cat = guild.get_channel(cat_id)
         if cat:
             try:
-                await cat.delete(reason="Sentinel /delete-template")
+                await cat.delete(reason="SP4RK /delete-template")
                 summary["categories"] += 1
                 await asyncio.sleep(0.4)
             except Exception as e:
@@ -368,7 +368,7 @@ async def delete_pasted(guild: discord.Guild, progress_callback=None) -> dict:
         role = guild.get_role(role_id)
         if role:
             try:
-                await role.delete(reason="Sentinel /delete-template")
+                await role.delete(reason="SP4RK /delete-template")
                 summary["roles"] += 1
                 await asyncio.sleep(0.4)
             except Exception as e:
