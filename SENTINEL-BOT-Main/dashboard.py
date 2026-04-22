@@ -1,17 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response
 import os
 import json
-import random
-import string
 import secrets
-import threading
 import requests as http_requests
-import smtplib
 import traceback
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from html import escape as html_escape
-from datetime import datetime, timedelta
+from datetime import datetime
 from supabase import create_client, Client as SupabaseClient
 
 DISCORD_CLIENT_ID     = os.environ.get("DISCORD_CLIENT_ID", "")
@@ -27,64 +21,6 @@ if supabase:
     print("✅ Supabase connected")
 else:
     print("⚠️  Supabase not configured — falling back to local JSON files")
-
-def send_email(to_address, subject, html_body):
-    smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-
-    # Determine SMTP login username: explicit SMTP_USER > GMAIL_USER > SMTP_EMAIL
-    # For Resend SMTP the login user is always "resend"
-    smtp_login_user = (
-        os.environ.get("SMTP_USER")
-        or os.environ.get("GMAIL_USER")
-        or os.environ.get("SMTP_EMAIL", "")
-    )
-
-    # Determine SMTP password
-    smtp_password = (
-        os.environ.get("GMAIL_APP_PASSWORD")
-        or os.environ.get("SMTP_PASS")
-        or os.environ.get("SMTP_PASSWORD", "")
-    ).replace(" ", "")
-
-    # Determine the "From" display address
-    smtp_from = (
-        os.environ.get("SMTP_FROM")
-        or os.environ.get("GMAIL_USER")
-        or os.environ.get("SMTP_EMAIL", "")
-        or smtp_login_user
-    )
-
-    # If using Gmail explicitly, force correct host/port
-    if os.environ.get("GMAIL_USER") and not os.environ.get("SMTP_HOST"):
-        smtp_host = "smtp.gmail.com"
-        smtp_port = 587
-
-    if not smtp_login_user or not smtp_password:
-        print("⚠️  Email credentials not set — email not sent.")
-        return False
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = f"Sentinel OS <{smtp_from}>"
-        msg["To"]      = to_address
-        msg.attach(MIMEText(html_body, "html"))
-        print(f"📧 Sending to {to_address} via {smtp_host}:{smtp_port} (user={smtp_login_user})")
-        if smtp_port == 465:
-            with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
-                server.login(smtp_login_user, smtp_password)
-                server.sendmail(smtp_from, to_address, msg.as_string())
-        else:
-            with smtplib.SMTP(smtp_host, smtp_port) as server:
-                server.ehlo()
-                server.starttls()
-                server.login(smtp_login_user, smtp_password)
-                server.sendmail(smtp_from, to_address, msg.as_string())
-        print(f"✅ Email sent to {to_address}")
-        return True
-    except Exception as e:
-        print(f"❌ Email send error: {e}")
-        return False
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
@@ -263,17 +199,24 @@ def supabase_get_notes(guild_id, member_id):
         print(f"⚠️ Supabase get_notes error: {e}")
         return []
 
-# ---- USERS MANAGEMENT (Supabase-backed, JSON fallback) ----
+# ---- USERS MANAGEMENT (Discord-only, Supabase-backed with JSON fallback) ----
 USERS_FILE = 'users.json'
+
+def _normalize_user(u):
+    if not isinstance(u, dict) or not u.get('discord_id'):
+        return None
+    u['discord_id'] = str(u['discord_id'])
+    if not u.get('name'):
+        u['name'] = u.get('discord_username') or 'User'
+    if not u.get('created_at'):
+        u['created_at'] = datetime.now().strftime('%Y-%m-%d')
+    return u
 
 def load_users():
     if supabase:
         try:
             res = supabase.table("sentinel_users").select("*").execute()
-            users = sanitize_user_records(res.data or [])
-            if ensure_user_session_tokens(users):
-                save_users(users)
-            return users
+            return [u for u in (res.data or []) if _normalize_user(u)]
         except Exception as e:
             print(f"⚠️ Supabase load_users error: {e}")
     if os.path.exists(USERS_FILE):
@@ -281,48 +224,19 @@ def load_users():
             try:
                 stored = json.load(f)
                 users = stored.get('users', []) if isinstance(stored, dict) else stored
-                users = sanitize_user_records(users)
-                if ensure_user_session_tokens(users):
-                    with open(USERS_FILE, 'w') as out:
-                        json.dump({'users': users}, out, indent=4)
-                return users
+                return [u for u in users if _normalize_user(u)]
             except Exception:
                 return []
     return []
 
-def save_users(users):
-    users = sanitize_user_records(users)
-    if supabase:
-        try:
-            keep_uids = {str(u["uid"]).upper() for u in users if isinstance(u, dict) and u.get("uid")}
-            existing_res = supabase.table("sentinel_users").select("uid").execute()
-            for row in (existing_res.data or []):
-                row_uid = str(row.get("uid", "")).upper()
-                if row_uid and row_uid not in keep_uids:
-                    supabase.table("sentinel_users").delete().eq("uid", row["uid"]).execute()
-            for u in users:
-                if not isinstance(u, dict) or not u.get("uid"):
-                    continue
-                existing = supabase.table("sentinel_users").select("uid").eq("uid", u["uid"]).execute()
-                if existing.data:
-                    supabase.table("sentinel_users").update(u).eq("uid", u["uid"]).execute()
-                else:
-                    supabase.table("sentinel_users").insert(u).execute()
-            return
-        except Exception as e:
-            print(f"⚠️ Supabase save_users error: {e}")
-    with open(USERS_FILE, 'w') as f:
-        json.dump({'users': users}, f, indent=4)
-
 def save_single_user(u):
-    if not isinstance(u, dict) or not u.get("uid"):
+    if not _normalize_user(u):
         return
-    normalize_user_record(u)
     if supabase:
         try:
-            existing = supabase.table("sentinel_users").select("uid").eq("uid", u["uid"]).execute()
+            existing = supabase.table("sentinel_users").select("discord_id").eq("discord_id", u["discord_id"]).execute()
             if existing.data:
-                supabase.table("sentinel_users").update(u).eq("uid", u["uid"]).execute()
+                supabase.table("sentinel_users").update(u).eq("discord_id", u["discord_id"]).execute()
             else:
                 supabase.table("sentinel_users").insert(u).execute()
             return
@@ -330,7 +244,7 @@ def save_single_user(u):
             print(f"⚠️ Supabase save_single_user error: {e}")
     users = load_users()
     for i, existing in enumerate(users):
-        if isinstance(existing, dict) and existing.get("uid") == u["uid"]:
+        if str(existing.get("discord_id")) == u["discord_id"]:
             users[i] = u
             break
     else:
@@ -338,101 +252,10 @@ def save_single_user(u):
     with open(USERS_FILE, 'w') as f:
         json.dump({'users': users}, f, indent=4)
 
-def find_user_by_uid(uid):
-    if supabase:
-        try:
-            res = supabase.table("sentinel_users").select("*").ilike("uid", uid).execute()
-            if res.data:
-                return res.data[0]
-        except Exception as e:
-            print(f"⚠️ Supabase find_user_by_uid error: {e}")
+def find_user_by_discord_id(discord_id):
+    discord_id = str(discord_id)
     for u in load_users():
-        if isinstance(u, dict) and str(u.get('uid', '')).upper() == str(uid).upper():
-            return u
-    return None
-
-def generate_uid(name):
-    clean = ''.join(c for c in name.upper() if c.isalpha())[:4]
-    clean = clean.ljust(4, 'X')
-    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-    return f"TBLS-{clean}-{code}"
-
-SESSION_WORDS = [
-    "SHIELD", "CASTLE", "RIVER", "FALCON", "NOVA", "EMBER", "ORBIT", "ANCHOR",
-    "CROWN", "BEACON", "FORGE", "SUMMIT", "HAVEN", "VALOR", "SPARK", "GATE"
-]
-
-def generate_session_token(name, users=None):
-    clean = ''.join(c for c in str(name).upper() if c.isalpha())[:5] or "USER"
-    clean = clean.ljust(5, "X")
-    existing = {str(u.get('session_token', '')).upper() for u in (users or []) if isinstance(u, dict)}
-    for _ in range(50):
-        word = random.choice(SESSION_WORDS)
-        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-        token = f"SENTINEL-{clean}-{word}-{code}"
-        if token.upper() not in existing:
-            return token
-    return f"SENTINEL-{clean}-{secrets.token_hex(3).upper()}"
-
-def normalize_user_record(u, users=None):
-    changed = False
-    if not isinstance(u, dict) or not u.get('uid'):
-        return False
-    if not u.get('name'):
-        u['name'] = 'User'
-        changed = True
-    if not u.get('status'):
-        u['status'] = 'approved' if u.get('is_admin') else 'pending'
-        changed = True
-    if not u.get('created_at'):
-        u['created_at'] = datetime.now().strftime('%Y-%m-%d')
-        changed = True
-    if 'is_admin' not in u:
-        u['is_admin'] = False
-        changed = True
-    if not u.get('session_token'):
-        u['session_token'] = generate_session_token(u.get('name', 'User'), users or [])
-        changed = True
-    return changed
-
-def sanitize_user_records(users):
-    if isinstance(users, dict):
-        users = users.get('users', [])
-    if not isinstance(users, list):
-        return []
-    sanitized = []
-    for u in users:
-        if not isinstance(u, dict) or not u.get('uid'):
-            continue
-        normalize_user_record(u, users)
-        sanitized.append(u)
-    return sanitized
-
-def ensure_user_session_tokens(users):
-    if not isinstance(users, list):
-        return False
-    changed = False
-    for u in users:
-        if isinstance(u, dict) and normalize_user_record(u, users):
-            changed = True
-    return changed
-
-def find_user_by_login(login_value):
-    value = (login_value or "").strip()
-    if not value:
-        return None
-    value_upper = value.upper()
-    value_lower = value.lower()
-    users = load_users()
-    ensure_user_session_tokens(users)
-    for u in users:
-        if not isinstance(u, dict):
-            continue
-        if str(u.get('uid', '')).upper() == value_upper:
-            return u
-        if str(u.get('session_token', '')).upper() == value_upper:
-            return u
-        if str(u.get('email', '')).lower() == value_lower:
+        if str(u.get('discord_id')) == discord_id:
             return u
     return None
 
@@ -444,13 +267,10 @@ def handle_internal_error(error):
         traceback.print_exception(type(original), original, original.__traceback__)
     else:
         traceback.print_exc()
-    question, answer = generate_captcha()
-    session['captcha_answer'] = answer
     return render_template(
         'login.html',
-        error="The dashboard hit a server error. Your session was kept; try Dashboard again or log in fresh.",
-        captcha_question=question,
-        locked=False
+        error="The dashboard hit a server error. Please try logging in again.",
+        discord_configured=bool(DISCORD_CLIENT_ID),
     ), 200
 
 # ---- BOT RESTART CALLBACK ----
@@ -486,17 +306,6 @@ def add_dashboard_log(event_type, description):
     })
     if len(action_logs) > 300:
         action_logs.pop()
-
-# ---- CAPTCHA ----
-def generate_captcha():
-    a = random.randint(1, 15)
-    b = random.randint(1, 15)
-    return f"{a} + {b}", a + b
-
-# ---- LOGIN ATTEMPT TRACKING ----
-login_attempts = {}
-MAX_ATTEMPTS = 3
-LOCKOUT_MINS = 5
 
 TOGGLE_KEYS = [
     "mod_block_links", "mod_block_mentions",
@@ -542,68 +351,14 @@ def save_config():
 def landing():
     return render_template('landing.html')
 
-# ---- AUTH: LOGIN (UID-based) ----
-@app.route('/login', methods=['GET', 'POST'])
+# ---- AUTH: LOGIN (Discord-only) ----
+@app.route('/login')
 def login():
-    error = None
-    ip = request.remote_addr or "unknown"
-
-    if ip in login_attempts:
-        attempt = login_attempts[ip]
-        if attempt.get('locked_until') and datetime.now() < attempt['locked_until']:
-            secs = (attempt['locked_until'] - datetime.now()).seconds
-            mins = max(1, (secs // 60) + 1)
-            question, answer = generate_captcha()
-            session['captcha_answer'] = answer
-            return render_template('login.html',
-                error=f"🔒 Too many failed attempts. Try again in {mins} minute(s).",
-                captcha_question=question, locked=True)
-
-    if request.method == 'POST':
-        captcha_input = request.form.get('captcha_answer', '').strip()
-        expected = str(session.get('captcha_answer', ''))
-
-        if captcha_input != expected:
-            error = "❌ Wrong captcha answer!"
-        else:
-            login_value = request.form.get('uid', '').strip()
-            user = find_user_by_login(login_value)
-
-            if not user:
-                if ip not in login_attempts:
-                    login_attempts[ip] = {"count": 0, "locked_until": None}
-                login_attempts[ip]["count"] += 1
-                count = login_attempts[ip]["count"]
-                if count >= MAX_ATTEMPTS:
-                    login_attempts[ip]["locked_until"] = datetime.now() + timedelta(minutes=LOCKOUT_MINS)
-                    error = f"🔒 Too many failed attempts! Locked for {LOCKOUT_MINS} minutes."
-                else:
-                    left = MAX_ATTEMPTS - count
-                    error = f"❌ Invalid UID. {left} attempt(s) left."
-            else:
-                status = user.get('status', 'pending')
-                if status == 'pending':
-                    error = "⏳ Your registration is pending admin approval. Please wait."
-                elif status == 'rejected':
-                    error = "❌ Your registration was rejected. Contact the admin."
-                elif status == 'approved':
-                    if not user.get('session_token'):
-                        user['session_token'] = generate_session_token(user.get('name', 'User'), load_users())
-                        save_single_user(user)
-                    session['logged_in'] = True
-                    session['uid'] = user.get('uid', '')
-                    session['is_admin'] = user.get('is_admin', False)
-                    session['user_name'] = user.get('name', 'User')
-                    session['session_token'] = user.get('session_token', '')
-                    login_attempts.pop(ip, None)
-                    add_dashboard_log("🔑 LOGIN", f"{user.get('name', 'User')} ({user.get('uid', 'Unknown')}) logged in from {ip}")
-                    return redirect(url_for('index'))
-                else:
-                    error = "❌ This account has an invalid status. Ask an admin to approve it again."
-
-    question, answer = generate_captcha()
-    session['captcha_answer'] = answer
-    return render_template('login.html', error=error, captcha_question=question, locked=False)
+    return render_template(
+        'login.html',
+        error=None,
+        discord_configured=bool(DISCORD_CLIENT_ID),
+    )
 
 @app.route('/logout')
 def logout():
@@ -614,10 +369,12 @@ def logout():
 
 # ---- DISCORD OAUTH2 ----
 def _login_error(msg):
-    """Helper: render login page with an error and fresh captcha."""
-    question, answer = generate_captcha()
-    session['captcha_answer'] = answer
-    return render_template('login.html', error=msg, captcha_question=question, locked=False)
+    """Helper: render login page with an error."""
+    return render_template(
+        'login.html',
+        error=msg,
+        discord_configured=bool(DISCORD_CLIENT_ID),
+    )
 
 @app.route('/auth/discord')
 def auth_discord():
@@ -685,138 +442,39 @@ def auth_discord_callback():
     except Exception as e:
         return _login_error(f"Could not fetch Discord profile: {e}")
 
-    discord_id       = discord_user.get('id', '')
+    discord_id       = str(discord_user.get('id', ''))
     discord_username = discord_user.get('username', 'Unknown')
     discord_global   = discord_user.get('global_name') or discord_username
 
-    users = load_users()
-    existing = next((u for u in users if isinstance(u, dict) and str(u.get('discord_id', '')) == str(discord_id)), None)
+    if not discord_id:
+        return _login_error("Could not read Discord profile. Try again.")
 
-    if existing:
-        if existing.get('status') == 'approved':
-            if not existing.get('session_token'):
-                existing['session_token'] = generate_session_token(existing.get('name', 'User'), users)
-                save_single_user(existing)
-            session['logged_in']  = True
-            session['user_name']  = existing.get('name', 'User')
-            session['uid']        = existing.get('uid', '')
-            session['is_admin']   = existing.get('is_admin', False)
-            session['session_token'] = existing.get('session_token', '')
-            add_dashboard_log("✅ LOGIN", f"{existing.get('name', 'User')} logged in via Discord")
-            return redirect(url_for('index'))
-        elif existing.get('status') == 'rejected':
-            return _login_error("Your account has been rejected. Contact the administrator.")
-        else:
-            return _login_error(f"Your account is pending admin approval. Your UID is: {existing.get('uid', 'Unknown')}")
+    user = find_user_by_discord_id(discord_id)
+    if not user:
+        user = {
+            'discord_id':       discord_id,
+            'discord_username': discord_username,
+            'name':             discord_global,
+            'created_at':       datetime.now().strftime('%Y-%m-%d'),
+        }
+        save_single_user(user)
+        add_dashboard_log("📝 DISCORD-REGISTER", f"New Discord login: {discord_global} ({discord_id})")
+    else:
+        user['discord_username'] = discord_username
+        user['name'] = discord_global
+        save_single_user(user)
 
-    uid = generate_uid(discord_global)
-    while any(isinstance(u, dict) and u.get('uid') == uid for u in users):
-        uid = generate_uid(discord_global)
+    session['logged_in'] = True
+    session['discord_id'] = discord_id
+    session['user_name'] = discord_global
+    add_dashboard_log("✅ LOGIN", f"{discord_global} logged in via Discord")
+    return redirect(url_for('index'))
 
-    new_user = {
-        'uid':              uid,
-        'name':             discord_global,
-        'discord_id':       discord_id,
-        'discord_username': discord_username,
-        'status':           'pending',
-        'is_admin':         False,
-        'session_token':    generate_session_token(discord_global, users),
-        'created_at':       datetime.now().strftime('%Y-%m-%d')
-    }
-    users.append(new_user)
-    save_users(users)
-    add_dashboard_log("📝 DISCORD-REGISTER", f"New Discord login: {discord_global} ({uid}) — pending approval")
-
-    return _login_error(
-        f"Welcome {discord_global}! Your account has been created and is pending admin approval. "
-        f"Your UID is: {uid}"
-    )
-
-# ---- REGISTER ----
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        name  = request.form.get('name', '').strip()
-        email = request.form.get('email', '').strip().lower()
-        if not name or len(name) < 2:
-            return render_template('register.html', error="Please enter a valid name (at least 2 characters).")
-        if not email:
-            return render_template('register.html', error="Please enter your email address.")
-
-        uid = generate_uid(name)
-        users = load_users()
-        while any(isinstance(u, dict) and u.get('uid') == uid for u in users):
-            uid = generate_uid(name)
-
-        if email and any(isinstance(u, dict) and str(u.get('email','')).lower() == email for u in users):
-            return render_template('register.html', error="That email is already registered.")
-
-        users.append({
-            'uid':        uid,
-            'name':       name,
-            'email':      email,
-            'status':     'pending',
-            'is_admin':   False,
-            'session_token': generate_session_token(name, users),
-            'created_at': datetime.now().strftime('%Y-%m-%d')
-        })
-        save_users(users)
-        add_dashboard_log("📝 REGISTER", f"New registration: {name} ({uid}) — pending approval")
-
-        if email:
-            email_body = f"""
-                <div style="background:#07101f;color:#e8f0ff;font-family:sans-serif;padding:40px;border-radius:12px;max-width:520px;margin:auto;">
-                  <h1 style="color:#3a8fff;font-size:2rem;margin-bottom:4px;letter-spacing:2px;">WELCOME!</h1>
-                  <hr style="border:1px solid #1e3a6e;margin:16px 0;">
-                  <p style="font-size:1rem;line-height:1.7;">Welcome to our web dashboard. You can control bot's features A-Z from here. But don't be impatient. If you are the right person our Admin will receive your request and accept your registration. Then you can control Sentinel.</p>
-                  <p style="color:#7a93b8;font-size:0.9rem;margin-top:8px;">By <strong style="color:#3a8fff;">TwinByteLabs.co</strong></p>
-                  <hr style="border:1px solid #1e3a6e;margin:20px 0;">
-                  <p style="margin:0;font-size:0.95rem;">Hi <strong>{name}</strong>, your UID is:</p>
-                  <div style="background:#0d1a33;border:1px solid #1e3a6e;border-radius:8px;padding:14px 20px;font-size:1.3rem;letter-spacing:3px;color:#3a8fff;text-align:center;margin:16px 0;">
-                    {uid}
-                  </div>
-                  <p style="color:#7a93b8;font-size:0.85rem;">Keep this UID safe — you will use it to log in once your account is approved.</p>
-                  <p style="color:#7a93b8;font-size:0.78rem;margin-top:24px;">Sentinel OS — Your Server's Guardian</p>
-                </div>
-                """
-            threading.Thread(target=send_email, args=(email, "Welcome to Sentinel OS — Registration Received", email_body), daemon=True).start()
-
-        return render_template('register.html', success=True, uid=uid, name=name)
-
-    return render_template('register.html')
-
-# ---- FORGOT PASSWORD ----
-@app.route('/forgot-password', methods=['GET', 'POST'])
-def forgot_password():
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-        if not email:
-            return render_template('forgot_password.html', error="Please enter your email address.")
-
-        users = load_users()
-        user = next((u for u in users if isinstance(u, dict) and str(u.get('email', '')).lower() == email), None)
-
-        if not user:
-            return render_template('forgot_password.html',
-                error="No account found with that email address.")
-
-        recovery_body = f"""
-            <div style="background:#07101f;color:#e8f0ff;font-family:sans-serif;padding:40px;border-radius:12px;max-width:480px;margin:auto;">
-              <h2 style="color:#3a8fff;">🛡️ Sentinel OS — UID Recovery</h2>
-              <p>Hi <strong>{user.get('name', 'User')}</strong>, here is your UID:</p>
-              <div style="background:#0d1a33;border:1px solid #1e3a6e;border-radius:8px;padding:14px 20px;font-size:1.3rem;letter-spacing:3px;color:#3a8fff;text-align:center;margin:16px 0;">
-                {user.get('uid', '')}
-              </div>
-              <p style="color:#7a93b8;font-size:0.88rem;">Use this UID to log in to your Sentinel OS dashboard.</p>
-              <p style="color:#7a93b8;font-size:0.8rem;margin-top:24px;">If you did not request this, please ignore this email.</p>
-              <p style="color:#7a93b8;font-size:0.8rem;">Sentinel OS — Your Server's Guardian</p>
-            </div>
-            """
-        threading.Thread(target=send_email, args=(email, "Sentinel OS — Your UID", recovery_body), daemon=True).start()
-        add_dashboard_log("📧 UID-RECOVERY", f"UID recovery requested for {email} ({user['name']})")
-        return render_template('forgot_password.html', success=True)
-
-    return render_template('forgot_password.html')
+# ---- REMOVED: UID-based register/forgot-password (Discord-only auth) ----
+@app.route('/register')
+@app.route('/forgot-password')
+def _legacy_auth_redirect():
+    return redirect(url_for('login'))
 
 # ---- MAIN DASHBOARD ----
 @app.route('/dashboard')
@@ -824,40 +482,30 @@ def index():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    users = load_users()
-    if ensure_user_session_tokens(users):
-        try:
-            save_users(users)
-        except Exception as e:
-            print(f"⚠️ Could not persist normalized users: {e}")
-    current_uid = session.get('uid', '')
-    current_user = next((u for u in users if isinstance(u, dict) and u.get('uid') == current_uid), None)
+    discord_id = session.get('discord_id', '')
+    current_user = find_user_by_discord_id(discord_id) if discord_id else None
     if not current_user:
         session.clear()
         return redirect(url_for('login'))
-    session['is_admin'] = current_user.get('is_admin', False)
     session['user_name'] = current_user.get('name', 'User')
-    session['session_token'] = current_user.get('session_token', '')
-    pending_users = [u for u in users if isinstance(u, dict) and u.get('status') == 'pending']
-    all_users = [u for u in users if isinstance(u, dict)]
 
     try:
         return render_template(
             'index.html',
             config=config,
-            is_admin=current_user.get('is_admin', False),
+            is_admin=False,
             current_user_name=current_user.get('name', 'User'),
-            current_uid=current_uid,
-            current_session_token=current_user.get('session_token', session.get('session_token', '')),
-            pending_users=pending_users,
-            all_users=all_users
+            current_uid='',
+            current_session_token='',
+            pending_users=[],
+            all_users=[],
         )
     except Exception as e:
         print(f"❌ Dashboard template render error: {e}")
         traceback.print_exc()
         safe_name = html_escape(str(current_user.get('name', 'User')))
-        safe_uid = html_escape(str(current_uid))
-        safe_token = html_escape(str(current_user.get('session_token', '')))
+        safe_uid = ''
+        safe_token = ''
         return f"""
         <!doctype html>
         <html>
@@ -1035,7 +683,7 @@ def connection_status():
     discord_token  = bool(os.environ.get("DISCORD_TOKEN", "").strip())
     client_id      = bool(os.environ.get("DISCORD_CLIENT_ID", "").strip())
     client_secret  = bool(os.environ.get("DISCORD_CLIENT_SECRET", "").strip())
-    supabase_ok    = _sb_client is not None
+    supabase_ok    = supabase is not None
     gemini_ok      = bool(os.environ.get("GEMINI_KEY", "").strip() or os.environ.get("GOOGLE_API_KEY", "").strip())
 
     # Email: need a login user AND a password
@@ -1079,117 +727,6 @@ def restart_bot():
         return jsonify({"status": "success", "message": msg})
     return jsonify({"status": "error", "message": "Restart not available."}), 503
 
-# ---- API: USER MANAGEMENT (admin only) ----
-@app.route('/api/users')
-def api_users():
-    if not session.get('logged_in') or not session.get('is_admin'):
-        return jsonify({"error": "Unauthorized"}), 401
-    users = load_users()
-    if ensure_user_session_tokens(users):
-        save_users(users)
-    return jsonify(users)
-
-@app.route('/api/pending_count')
-def pending_count():
-    if not session.get('logged_in') or not session.get('is_admin'):
-        return jsonify({"error": "Unauthorized"}), 401
-    users = load_users()
-    pending = [u for u in users if isinstance(u, dict) and u.get('status') == 'pending']
-    return jsonify({
-        "count": len(pending),
-        "users": [{"uid": u.get("uid",""), "name": u.get("name","Unknown"), "created_at": u.get("created_at","")} for u in pending]
-    })
-
-@app.route('/api/approve_user', methods=['POST'])
-def approve_user():
-    if not session.get('logged_in') or not session.get('is_admin'):
-        return jsonify({"error": "Unauthorized"}), 401
-    data = request.get_json() or {}
-    uid = data.get('uid', '').upper()
-    users = load_users()
-    for u in users:
-        if isinstance(u, dict) and str(u.get('uid', '')).upper() == uid:
-            u['status'] = 'approved'
-            if not u.get('session_token'):
-                u['session_token'] = generate_session_token(u.get('name', 'User'), users)
-            add_dashboard_log("✅ APPROVED", f"User {u.get('name', 'User')} ({uid}) approved")
-            break
-    save_users(users)
-    return jsonify({"status": "success"})
-
-@app.route('/api/grant_admin', methods=['POST'])
-def grant_admin():
-    if not session.get('logged_in') or not session.get('is_admin'):
-        return jsonify({"error": "Unauthorized"}), 401
-    data = request.get_json() or {}
-    uid = data.get('uid', '').upper()
-    users = load_users()
-    for u in users:
-        if isinstance(u, dict) and str(u.get('uid', '')).upper() == uid:
-            u['is_admin'] = True
-            u['status'] = 'approved'
-            if not u.get('session_token'):
-                u['session_token'] = generate_session_token(u.get('name', 'User'), users)
-            save_users(users)
-            add_dashboard_log("🛡️ ADMIN", f"Admin access granted to {u.get('name', 'User')} ({uid})")
-            return jsonify({"status": "success", "session_token": u.get('session_token', '')})
-    return jsonify({"error": "User not found"}), 404
-
-@app.route('/api/revoke_admin', methods=['POST'])
-def revoke_admin():
-    if not session.get('logged_in') or not session.get('is_admin'):
-        return jsonify({"error": "Unauthorized"}), 401
-    data = request.get_json() or {}
-    uid = data.get('uid', '').upper()
-    if uid == session.get('uid', '').upper():
-        return jsonify({"error": "You cannot remove your own admin access while logged in."}), 400
-    users = load_users()
-    admin_count = sum(1 for u in users if isinstance(u, dict) and u.get('is_admin'))
-    if admin_count <= 1:
-        return jsonify({"error": "At least one admin must remain."}), 400
-    for u in users:
-        if isinstance(u, dict) and str(u.get('uid', '')).upper() == uid:
-            u['is_admin'] = False
-            save_users(users)
-            add_dashboard_log("🛡️ ADMIN", f"Admin access revoked from {u.get('name', 'User')} ({uid})")
-            return jsonify({"status": "success"})
-    return jsonify({"error": "User not found"}), 404
-
-@app.route('/api/reject_user', methods=['POST'])
-def reject_user():
-    if not session.get('logged_in') or not session.get('is_admin'):
-        return jsonify({"error": "Unauthorized"}), 401
-    data = request.get_json() or {}
-    uid = data.get('uid', '').upper()
-    users = load_users()
-    for u in users:
-        if isinstance(u, dict) and str(u.get('uid', '')).upper() == uid:
-            u['status'] = 'rejected'
-            add_dashboard_log("❌ REJECTED", f"User {u.get('name', 'User')} ({uid}) rejected")
-            break
-    save_users(users)
-    return jsonify({"status": "success"})
-
-@app.route('/api/delete_user', methods=['POST'])
-def delete_user():
-    if not session.get('logged_in') or not session.get('is_admin'):
-        return jsonify({"error": "Unauthorized"}), 401
-    data = request.get_json() or {}
-    uid = data.get('uid', '').upper()
-    if not uid:
-        return jsonify({"error": "No UID provided"}), 400
-    if supabase:
-        try:
-            supabase.table("sentinel_users").delete().ilike("uid", uid).execute()
-        except Exception as e:
-            print(f"⚠️ Supabase delete_user error: {e}")
-    users = load_users()
-    users = [u for u in users if isinstance(u, dict) and (str(u.get('uid', '')).upper() != uid or u.get('is_admin'))]
-    with open(USERS_FILE, 'w') as f:
-        json.dump({'users': users}, f, indent=4)
-    add_dashboard_log("🗑️ DELETED", f"User {uid} removed")
-    return jsonify({"status": "success"})
-
 # ---- API: GIVEAWAYS ----
 @app.route('/api/giveaways')
 def api_giveaways():
@@ -1203,7 +740,7 @@ def api_giveaways():
 
 @app.route('/api/giveaway/set_winner', methods=['POST'])
 def api_giveaway_set_winner():
-    if not session.get('logged_in') or not session.get('is_admin'):
+    if not session.get("logged_in"):
         return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json() or {}
     message_id = data.get('message_id')
@@ -1307,7 +844,7 @@ def api_reaction_roles():
 
 @app.route('/api/reaction_roles/remove', methods=['POST'])
 def api_reaction_roles_remove():
-    if not session.get('logged_in') or not session.get('is_admin'):
+    if not session.get("logged_in"):
         return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json() or {}
     message_id = data.get('message_id')

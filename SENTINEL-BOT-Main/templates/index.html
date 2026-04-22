@@ -242,8 +242,6 @@ input:checked + .slider:before { transform: translateX(22px); }
   <div class="sidebar-footer">
     <div style="margin-bottom:10px;">
       <span style="font-size:0.78rem;color:var(--text);font-weight:600;">{{ current_user_name }}</span>
-      {% if is_admin %}<span style="font-size:0.68rem;background:rgba(79,142,247,0.2);color:var(--accent);padding:1px 7px;border-radius:6px;margin-left:5px;font-weight:600;">Admin</span>{% endif %}<br>
-      <span style="font-size:0.68rem;color:var(--muted);font-family:'Courier New',monospace;">{{ current_uid }}</span>
     </div>
     <span id="bot-status-label"><span class="status-dot" id="bot-status-dot" style="background:var(--muted);"></span><span id="bot-status-text" style="color:var(--muted);">Checking…</span></span>&nbsp;&nbsp;
     <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -987,21 +985,7 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
         <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Logged in as</div>
         <div style="font-size:1.1rem;font-weight:700;color:var(--text);">{{ current_user_name }}</div>
-        <div style="font-size:0.8rem;color:var(--muted);margin-top:4px;">Role: <span style="color:{% if is_admin %}var(--accent){% else %}var(--text){% endif %};">{% if is_admin %}Administrator{% else %}Member{% endif %}</span></div>
-      </div>
-      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
-        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Your UID</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <code style="background:var(--bg);padding:8px 14px;border-radius:8px;font-size:0.95rem;color:var(--accent);letter-spacing:2px;flex:1;">{{ session.get('uid', 'N/A') }}</code>
-          <button onclick="copyUID()" style="background:rgba(79,142,247,.15);color:var(--accent);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.82rem;"><i class="fas fa-copy"></i> Copy</button>
-        </div>
-      </div>
-      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
-        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Your Session Token</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <code class="session-token-code" style="background:var(--bg);padding:8px 14px;border-radius:8px;font-size:0.82rem;color:var(--accent2);letter-spacing:1px;flex:1;word-break:break-all;">{{ current_session_token or 'N/A' }}</code>
-          <button onclick="copySessionToken()" style="background:rgba(79,142,247,.15);color:var(--accent);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.82rem;"><i class="fas fa-copy"></i> Copy</button>
-        </div>
+        <div style="font-size:0.8rem;color:var(--muted);margin-top:4px;">Signed in via Discord</div>
       </div>
       <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
         <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Quick Actions</div>

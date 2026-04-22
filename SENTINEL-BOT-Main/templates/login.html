@@ -2,384 +2,123 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sentinel — Login</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-:root{
-  --accent:#3a8fff;
-  --accent2:#5ab4ff;
-  --text:#e8f0ff;
-  --muted:#7a93b8;
-  --border:rgba(58,143,255,0.22);
-  --input-bg:rgba(5,14,35,0.7);
-  --card-bg:rgba(8,18,42,0.88);
-}
-body{
-  font-family:'Segoe UI',system-ui,sans-serif;
-  background:#07101f;
-  color:var(--text);
-  min-height:100vh;
-  display:flex;flex-direction:column;
-  overflow-x:hidden;
-}
-
-/* Background */
-body::before{
-  content:'';
-  position:fixed;inset:0;
-  background:
-    radial-gradient(ellipse at 30% 50%,rgba(0,40,120,0.25) 0%,transparent 60%),
-    radial-gradient(ellipse at 80% 40%,rgba(10,50,150,0.2) 0%,transparent 55%),
-    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%230f2348' stroke-width='0.5'%3E%3Cpath d='M0 30h15m30 0h15M30 0v15m0 30v15'/%3E%3Ccircle cx='30' cy='30' r='2' stroke='%23122850'/%3E%3C/g%3E%3C/svg%3E");
-  background-size:auto,auto,60px 60px;
-  pointer-events:none;z-index:0;
-}
-body>*{position:relative;z-index:1;}
-
-/* PAGE LAYOUT */
-.page{
-  flex:1;display:flex;align-items:stretch;
-  min-height:100vh;
-}
-
-/* LEFT PANEL — circuits */
-.left-panel{
-  flex:0 0 38%;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:flex-start;
-  padding:60px 30px 30px;
-  position:relative;overflow:hidden;
-}
-.circuit-svg{
-  position:absolute;inset:0;width:100%;height:100%;
-  opacity:0.55;
-}
-.logo-block{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:14px;}
-.logo-block svg{filter:drop-shadow(0 0 16px rgba(58,143,255,0.5));}
-.logo-name{font-size:1.5rem;font-weight:800;letter-spacing:1px;}
-
-/* RIGHT PANEL — castle art */
-.right-panel{
-  flex:0 0 40%;
-  display:flex;align-items:center;justify-content:center;
-  overflow:hidden;
-  position:relative;
-}
-.castle-art{
-  width:100%;height:100%;
-  display:flex;align-items:center;justify-content:center;
-  padding:40px;
-}
-.castle-art svg{width:100%;max-width:340px;filter:drop-shadow(0 0 35px rgba(58,143,255,0.4));}
-
-/* CENTER — login card */
-.center-panel{
-  flex:1;
-  display:flex;align-items:center;justify-content:center;
-  padding:30px 20px;
-}
-.login-card{
-  width:100%;max-width:400px;
-  background:var(--card-bg);
-  border:1px solid rgba(58,143,255,0.3);
-  border-radius:12px;
-  padding:38px 32px 32px;
-  box-shadow:0 0 60px rgba(0,0,0,0.6),0 0 0 1px rgba(58,143,255,0.08) inset;
-  backdrop-filter:blur(16px);
-  position:relative;
-}
-.login-card::before{
-  content:'';position:absolute;
-  top:0;left:50%;transform:translateX(-50%);
-  width:60%;height:1px;
-  background:linear-gradient(90deg,transparent,var(--accent),transparent);
-}
-.card-title{
-  font-size:1.5rem;font-weight:800;
-  text-align:center;letter-spacing:1.5px;
-  margin-bottom:24px;color:var(--text);
-}
-.field{margin-bottom:16px;}
-.field-label{font-size:0.8rem;color:var(--muted);margin-bottom:6px;font-weight:500;}
-.input-wrap{
-  position:relative;display:flex;align-items:center;
-  background:var(--input-bg);
-  border:1px solid rgba(58,143,255,0.25);
-  border-radius:8px;
-  transition:border-color .2s;
-}
-.input-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px rgba(58,143,255,0.12);}
-.input-wrap i.prefix-icon{
-  position:absolute;left:12px;
-  color:var(--muted);font-size:0.85rem;pointer-events:none;
-}
-.input-wrap input{
-  width:100%;padding:11px 12px 11px 36px;
-  background:transparent;border:none;outline:none;
-  color:var(--text);font-size:0.9rem;font-family:inherit;
-}
-.input-wrap input::placeholder{color:rgba(122,147,184,0.55);font-size:0.85rem;}
-.show-btn{
-  background:none;border:none;color:var(--muted);
-  padding:0 12px;cursor:pointer;font-size:0.8rem;font-weight:600;
-  transition:color .2s;white-space:nowrap;
-}
-.show-btn:hover{color:var(--accent2);}
-
-/* Captcha row */
-.captcha-row{
-  display:flex;align-items:center;gap:12px;
-  background:var(--input-bg);
-  border:1px solid rgba(58,143,255,0.25);
-  border-radius:8px;
-  padding:10px 14px;
-}
-.captcha-q{font-size:1.05rem;font-weight:700;color:var(--accent);min-width:90px;letter-spacing:.5px;}
-.captcha-input{
-  flex:1;background:transparent;border:none;outline:none;
-  color:var(--text);font-size:0.95rem;font-weight:700;
-  font-family:inherit;text-align:center;max-width:90px;
-}
-
-/* Check row */
-.check-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;font-size:0.82rem;}
-.check-row label{display:flex;align-items:center;gap:7px;color:var(--muted);cursor:pointer;}
-.check-row a{color:var(--accent2);text-decoration:none;}
-.check-row a:hover{text-decoration:underline;}
-
-/* Buttons */
-.btn-login{
-  width:100%;padding:12px;
-  background:linear-gradient(90deg,#2a7eff,#4aa8ff);
-  border:none;color:#fff;
-  border-radius:8px;font-size:1rem;font-weight:700;
-  cursor:pointer;letter-spacing:1.5px;
-  transition:opacity .2s,transform .1s;
-  box-shadow:0 4px 20px rgba(42,126,255,0.35);
-}
-.btn-login:hover{opacity:0.9;transform:translateY(-1px);}
-.divider-text{
-  text-align:center;font-size:0.78rem;color:var(--muted);
-  margin:16px 0;position:relative;
-}
-.divider-text::before,.divider-text::after{
-  content:'';position:absolute;top:50%;width:38%;height:1px;
-  background:rgba(58,143,255,0.15);
-}
-.divider-text::before{left:0;}
-.divider-text::after{right:0;}
-.btn-discord{
-  width:100%;padding:11px;
-  background:rgba(88,101,242,0.15);
-  border:1px solid rgba(88,101,242,0.4);
-  color:var(--text);border-radius:8px;font-size:0.9rem;font-weight:600;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;
-  transition:background .2s,border-color .2s;
-  text-decoration:none;
-}
-.btn-discord:hover{background:rgba(88,101,242,0.28);border-color:rgba(88,101,242,0.65);}
-.register-hint{text-align:center;font-size:0.82rem;color:var(--muted);margin-top:16px;}
-.register-hint a{color:var(--accent2);text-decoration:none;}
-.register-hint a:hover{text-decoration:underline;}
-
-/* Alert */
-.alert-error{
-  background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.3);
-  color:#ff7b7b;border-radius:8px;padding:10px 14px;font-size:0.84rem;
-  margin-bottom:16px;display:flex;align-items:center;gap:8px;
-}
-.locked-state{text-align:center;padding:10px 0;}
-.lock-icon{font-size:2.4rem;margin-bottom:12px;}
-
-/* FOOTER */
-footer{
-  background:rgba(7,16,31,0.9);border-top:1px solid var(--border);
-  padding:14px 40px;
-  display:flex;align-items:center;justify-content:space-between;
-  font-size:0.8rem;color:var(--muted);
-}
-.footer-logo-sm{display:flex;align-items:center;gap:8px;}
-.footer-logo-sm span{font-weight:700;font-size:0.9rem;color:var(--text);}
-
-@media(max-width:900px){
-  .left-panel,.right-panel{display:none;}
-  .center-panel{padding:20px;}
-}
-@media(max-width:480px){
-  .login-card{padding:28px 20px 24px;}
-}
+  :root{
+    --bg:#07101f;
+    --panel:#0f1d38;
+    --accent:#3a8fff;
+    --accent2:#5ab4ff;
+    --text:#e8f0ff;
+    --muted:#7a93b8;
+    --border:rgba(58,143,255,.25);
+    --discord:#5865F2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Segoe UI',sans-serif;
+    background:radial-gradient(ellipse at top,#0d2245 0%,#07101f 70%);
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .card{
+    width:100%;
+    max-width:420px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:40px 32px;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
+    text-align:center;
+  }
+  .logo{
+    width:64px;height:72px;
+    margin:0 auto 18px;
+  }
+  h1{
+    font-size:1.6rem;
+    letter-spacing:2px;
+    color:var(--accent);
+    margin-bottom:8px;
+  }
+  p.lead{
+    color:var(--muted);
+    font-size:0.92rem;
+    margin-bottom:28px;
+    line-height:1.5;
+  }
+  .btn-discord{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    width:100%;
+    padding:14px 18px;
+    background:var(--discord);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    font-size:1rem;
+    font-weight:600;
+    text-decoration:none;
+    cursor:pointer;
+    transition:opacity .15s,transform .15s;
+  }
+  .btn-discord:hover{opacity:.9;transform:translateY(-1px);}
+  .btn-discord i{font-size:1.3rem;}
+  .alert{
+    background:rgba(231,76,60,.12);
+    border:1px solid rgba(231,76,60,.35);
+    color:#ffb3a8;
+    padding:12px 14px;
+    border-radius:10px;
+    font-size:.88rem;
+    margin-bottom:18px;
+    text-align:left;
+  }
+  .home-link{
+    display:inline-block;
+    margin-top:22px;
+    color:var(--accent2);
+    font-size:0.85rem;
+    text-decoration:none;
+  }
+  .home-link:hover{text-decoration:underline;}
+  .disabled-note{
+    margin-top:14px;
+    font-size:0.8rem;
+    color:var(--muted);
+  }
 </style>
 </head>
 <body>
-
-<div class="page">
-
-  <!-- LEFT — circuits -->
-  <div class="left-panel">
-    <svg class="circuit-svg" viewBox="0 0 300 700" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <line x1="150" y1="0" x2="150" y2="700" stroke="#1a3870" stroke-width="1"/>
-      <line x1="80" y1="0" x2="80" y2="700" stroke="#0f2550" stroke-width="0.7"/>
-      <line x1="220" y1="0" x2="220" y2="700" stroke="#0f2550" stroke-width="0.7"/>
-      <line x1="0" y1="100" x2="300" y2="100" stroke="#1a3870" stroke-width="0.7"/>
-      <line x1="0" y1="250" x2="300" y2="250" stroke="#1a3870" stroke-width="0.7"/>
-      <line x1="0" y1="400" x2="300" y2="400" stroke="#1a3870" stroke-width="0.7"/>
-      <line x1="0" y1="550" x2="300" y2="550" stroke="#1a3870" stroke-width="0.7"/>
-      <circle cx="150" cy="100" r="4" fill="#3a8fff" opacity="0.7"/>
-      <circle cx="80" cy="250" r="3" fill="#3a8fff" opacity="0.5"/>
-      <circle cx="220" cy="400" r="3" fill="#3a8fff" opacity="0.5"/>
-      <circle cx="150" cy="550" r="4" fill="#3a8fff" opacity="0.6"/>
-      <circle cx="80" cy="100" r="2" fill="#5ab4ff" opacity="0.4"/>
-      <circle cx="220" cy="250" r="2" fill="#5ab4ff" opacity="0.4"/>
-      <rect x="130" y="88" width="40" height="8" rx="2" fill="none" stroke="#3a8fff" stroke-width="0.7" opacity="0.6"/>
-      <rect x="60" y="238" width="40" height="8" rx="2" fill="none" stroke="#3a8fff" stroke-width="0.7" opacity="0.5"/>
-      <rect x="200" y="388" width="40" height="8" rx="2" fill="none" stroke="#3a8fff" stroke-width="0.7" opacity="0.5"/>
-      <path d="M150 100 L80 250" stroke="#3a8fff" stroke-width="0.5" stroke-dasharray="4,6" opacity="0.4"/>
-      <path d="M80 250 L220 400" stroke="#3a8fff" stroke-width="0.5" stroke-dasharray="4,6" opacity="0.4"/>
-      <path d="M220 400 L150 550" stroke="#3a8fff" stroke-width="0.5" stroke-dasharray="4,6" opacity="0.4"/>
-    </svg>
-    <div class="logo-block">
-      <svg width="60" height="68" viewBox="0 0 40 46" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20 3L4 10.5V22C4 32.5 11.5 42.2 20 45C28.5 42.2 36 32.5 36 22V10.5L20 3Z" fill="#0d2245" stroke="#3a8fff" stroke-width="2"/>
-        <text x="20" y="31" text-anchor="middle" fill="#3a8fff" font-size="18" font-weight="bold" font-family="Arial,sans-serif">S</text>
-      </svg>
-    </div>
-  </div>
-
-  <!-- CENTER — login card -->
-  <div class="center-panel">
-    <div class="login-card">
-      <div class="card-title">LOGIN</div>
-
-      {% if error %}
-      <div class="alert-error"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
-      {% endif %}
-
-      {% if locked %}
-      <div class="locked-state">
-        <div class="lock-icon">🔒</div>
-        <p style="color:var(--muted);font-size:0.88rem;">Too many failed attempts. Please wait before trying again.</p>
-        <div style="margin-top:16px;"><a href="/" style="color:var(--accent2);font-size:0.85rem;text-decoration:none;">← Back to Home</a></div>
-      </div>
-      {% else %}
-
-      <form method="POST" autocomplete="off">
-        <div class="field">
-          <div class="field-label">UID, Session Token, or Email</div>
-          <div class="input-wrap">
-            <i class="fas fa-user prefix-icon"></i>
-            <input type="text" name="uid" placeholder="TBLS-NAME-XXXX or SENTINEL-NAME-WORD-1234" required autofocus
-                   maxlength="80" style="text-transform:uppercase;"
-                   oninput="this.value=this.value.toUpperCase()">
-          </div>
-        </div>
-
-        <div class="field">
-          <div class="field-label">Security Check (Captcha)</div>
-          <div class="captcha-row">
-            <span class="captcha-q">{{ captcha_question }} =</span>
-            <input class="captcha-input" type="number" name="captcha_answer"
-                   placeholder="?" required min="0" max="99" autocomplete="off">
-          </div>
-        </div>
-
-        <div class="check-row">
-          <label><input type="checkbox" style="accent-color:var(--accent);"> Remember Me</label>
-          <a href="/forgot-password">Forgot UID?</a>
-        </div>
-
-        <button class="btn-login" type="submit">LOGIN</button>
-      </form>
-
-      <div class="divider-text">or continue with</div>
-
-      <a class="btn-discord" href="/auth/discord">
-        <i class="fab fa-discord" style="font-size:1.1rem;color:#7289da;"></i> Continue with Discord
-      </a>
-
-      <div class="register-hint">
-        New to the Kingdom? <a href="/register">Register Here</a>
-      </div>
-
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- RIGHT — castle art -->
-  <div class="right-panel">
-    <div class="castle-art">
-      <svg viewBox="0 0 320 420" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <radialGradient id="castleglow" cx="50%" cy="70%" r="50%">
-            <stop offset="0%" stop-color="#1a4fa0" stop-opacity="0.5"/>
-            <stop offset="100%" stop-color="#07101f" stop-opacity="0"/>
-          </radialGradient>
-          <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#1e3f7a"/>
-            <stop offset="100%" stop-color="#0a1e45"/>
-          </linearGradient>
-        </defs>
-        <ellipse cx="160" cy="380" rx="140" ry="30" fill="url(#castleglow)"/>
-        <!-- Main tower -->
-        <rect x="130" y="100" width="60" height="240" fill="url(#wg)" stroke="#2255a0" stroke-width="1.2"/>
-        <rect x="127" y="82" width="14" height="22" fill="url(#wg)" stroke="#2255a0" stroke-width="1"/>
-        <rect x="145" y="82" width="14" height="22" fill="url(#wg)" stroke="#2255a0" stroke-width="1"/>
-        <rect x="163" y="82" width="14" height="22" fill="url(#wg)" stroke="#2255a0" stroke-width="1"/>
-        <rect x="181" y="82" width="14" height="22" fill="url(#wg)" stroke="#2255a0" stroke-width="1"/>
-        <!-- Left tower -->
-        <rect x="65" y="170" width="50" height="170" fill="url(#wg)" stroke="#1e4a90" stroke-width="1"/>
-        <rect x="62" y="157" width="12" height="17" fill="url(#wg)" stroke="#1e4a90" stroke-width="1"/>
-        <rect x="76" y="157" width="12" height="17" fill="url(#wg)" stroke="#1e4a90" stroke-width="1"/>
-        <rect x="90" y="157" width="12" height="17" fill="url(#wg)" stroke="#1e4a90" stroke-width="1"/>
-        <rect x="104" y="157" width="12" height="17" fill="url(#wg)" stroke="#1e4a90" stroke-width="1"/>
-        <!-- Right tower -->
-        <rect x="205" y="170" width="50" height="170" fill="url(#wg)" stroke="#1e4a90" stroke-width="1"/>
-        <rect x="203" y="157" width="12" height="17" fill="url(#wg)" stroke="#1e4a90" stroke-width="1"/>
-        <rect x="217" y="157" width="12" height="17" fill="url(#wg)" stroke="#1e4a90" stroke-width="1"/>
-        <rect x="231" y="157" width="12" height="17" fill="url(#wg)" stroke="#1e4a90" stroke-width="1"/>
-        <rect x="245" y="157" width="12" height="17" fill="url(#wg)" stroke="#1e4a90" stroke-width="1"/>
-        <!-- Outer walls -->
-        <rect x="20" y="250" width="45" height="90" fill="url(#wg)" stroke="#1a4080" stroke-width="1"/>
-        <rect x="255" y="250" width="45" height="90" fill="url(#wg)" stroke="#1a4080" stroke-width="1"/>
-        <!-- Gate arch -->
-        <rect x="143" y="280" width="34" height="60" rx="17" fill="#060f22" stroke="#1a4080" stroke-width="1"/>
-        <!-- Glowing windows -->
-        <rect x="147" y="120" width="12" height="18" rx="6" fill="rgba(58,143,255,0.55)"/>
-        <rect x="163" y="120" width="12" height="18" rx="6" fill="rgba(58,143,255,0.45)"/>
-        <rect x="75" y="190" width="10" height="14" rx="5" fill="rgba(58,143,255,0.45)"/>
-        <rect x="90" y="190" width="10" height="14" rx="5" fill="rgba(58,143,255,0.35)"/>
-        <rect x="215" y="190" width="10" height="14" rx="5" fill="rgba(58,143,255,0.45)"/>
-        <rect x="230" y="190" width="10" height="14" rx="5" fill="rgba(58,143,255,0.35)"/>
-        <!-- Shield crest -->
-        <path d="M160 30L145 38V50C145 58 152 65 160 67.5C168 65 175 58 175 50V38L160 30Z" fill="#0d2245" stroke="#3a8fff" stroke-width="1.8"/>
-        <text x="160" y="55" text-anchor="middle" fill="#3a8fff" font-size="14" font-weight="bold" font-family="Arial">S</text>
-        <!-- Network dots -->
-        <circle cx="30" cy="140" r="4" fill="#3a8fff" opacity="0.6"/>
-        <circle cx="290" cy="120" r="4" fill="#3a8fff" opacity="0.6"/>
-        <circle cx="10" cy="280" r="3" fill="#5ab4ff" opacity="0.4"/>
-        <circle cx="310" cy="300" r="3" fill="#5ab4ff" opacity="0.4"/>
-        <line x1="30" y1="140" x2="65" y2="200" stroke="#3a8fff" stroke-width="0.6" stroke-dasharray="4,5" opacity="0.4"/>
-        <line x1="290" y1="120" x2="255" y2="200" stroke="#3a8fff" stroke-width="0.6" stroke-dasharray="4,5" opacity="0.4"/>
-        <!-- Sparkle -->
-        <path d="M295 370L297 364L299 370L305 372L299 374L297 380L295 374L289 372Z" fill="#5ab4ff" opacity="0.8"/>
-      </svg>
-    </div>
-  </div>
-
-</div>
-
-<!-- FOOTER -->
-<footer>
-  <div class="footer-logo-sm">
-    <svg width="24" height="28" viewBox="0 0 40 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <div class="card">
+    <svg class="logo" viewBox="0 0 40 46" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M20 3L4 10.5V22C4 32.5 11.5 42.2 20 45C28.5 42.2 36 32.5 36 22V10.5L20 3Z" fill="#0d2245" stroke="#3a8fff" stroke-width="2"/>
       <text x="20" y="31" text-anchor="middle" fill="#3a8fff" font-size="18" font-weight="bold" font-family="Arial,sans-serif">S</text>
     </svg>
-    <span>Sentinel</span>
-  </div>
-  <span>Sentinel — Login Page</span>
-</footer>
+    <h1>SENTINEL</h1>
+    <p class="lead">Sign in with your Discord account to access the dashboard.</p>
 
+    {% if error %}
+      <div class="alert"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
+    {% endif %}
+
+    {% if discord_configured %}
+      <a class="btn-discord" href="/auth/discord">
+        <i class="fab fa-discord"></i> Continue with Discord
+      </a>
+    {% else %}
+      <div class="alert">Discord login is not configured. Please contact the administrator.</div>
+    {% endif %}
+
+    <a class="home-link" href="/">← Back to Home</a>
+  </div>
 </body>
 </html>
