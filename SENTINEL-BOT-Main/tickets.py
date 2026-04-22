@@ -5,27 +5,161 @@ import re
 from datetime import datetime
 
 TICKETS_FILE = "tickets.json"
+_TABLE = "sentinel_tickets"
 
-def load_tickets():
+
+def _get_supabase():
+    try:
+        from dashboard import supabase
+        return supabase
+    except Exception:
+        return None
+
+
+# ── Local JSON fallback ──────────────────────────────────────────────────────
+
+def _local_load():
     if os.path.exists(TICKETS_FILE):
-        with open(TICKETS_FILE, "r") as f:
-            try:
+        try:
+            with open(TICKETS_FILE, "r") as f:
                 return json.load(f)
-            except Exception:
-                return {"tickets": [], "counter": 0}
+        except Exception:
+            return {"tickets": [], "counter": 0}
     return {"tickets": [], "counter": 0}
 
-def save_tickets(data):
-    with open(TICKETS_FILE, "w") as f:
+
+def _local_save(data):
+    tmp = TICKETS_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(data, f, indent=4)
+    os.replace(tmp, TICKETS_FILE)
+
+
+def _row_to_dict(row):
+    if not row:
+        return None
+    out = dict(row)
+    if "ticket_num" in out and out["ticket_num"] is not None:
+        out["id"] = out["ticket_num"]
+    for k in ("channel_id", "guild_id", "user_id"):
+        if out.get(k) is not None:
+            try:
+                out[k] = int(out[k])
+            except (TypeError, ValueError):
+                pass
+    return out
+
+
+# ── Public read API ──────────────────────────────────────────────────────────
+
+def load_tickets():
+    sb = _get_supabase()
+    if sb:
+        try:
+            res = sb.table(_TABLE).select("*").order("created_at", desc=False).execute()
+            tickets = [_row_to_dict(r) for r in (res.data or [])]
+            counter = max([t.get("ticket_num", 0) for t in tickets] or [0])
+            return {"tickets": tickets, "counter": counter}
+        except Exception as e:
+            print(f"[TICKET] Supabase load error: {e}")
+    return _local_load()
+
+
+def save_tickets(data):
+    """Local-only JSON save (used as fallback)."""
+    _local_save(data)
+
 
 def get_all_tickets():
     return load_tickets().get("tickets", [])
 
-async def create_ticket(guild, member, config, reason="General Support"):
-    data = load_tickets()
+
+def _next_counter(guild_id):
+    """Return the next ticket number for a guild."""
+    sb = _get_supabase()
+    if sb:
+        try:
+            res = (
+                sb.table(_TABLE)
+                .select("ticket_num")
+                .eq("guild_id", str(guild_id))
+                .order("ticket_num", desc=True)
+                .limit(1)
+                .execute()
+            )
+            highest = (res.data[0]["ticket_num"] if res.data else 0) or 0
+            return int(highest) + 1
+        except Exception as e:
+            print(f"[TICKET] Supabase counter error: {e}")
+    data = _local_load()
     data["counter"] = data.get("counter", 0) + 1
-    ticket_num = data["counter"]
+    _local_save(data)
+    return data["counter"]
+
+
+def _insert_ticket(record):
+    sb = _get_supabase()
+    payload = {
+        "ticket_num": int(record["id"]),
+        "channel_id": str(record["channel_id"]),
+        "guild_id":   str(record["guild_id"]),
+        "user_id":    str(record["user_id"]),
+        "user_name":  record.get("user_name", ""),
+        "reason":     record.get("reason", ""),
+        "status":     record.get("status", "open"),
+        "created_at": record.get("created_at"),
+        "closed_at":  record.get("closed_at"),
+        "closed_by":  record.get("closed_by"),
+    }
+    if sb:
+        try:
+            sb.table(_TABLE).insert(payload).execute()
+            return
+        except Exception as e:
+            print(f"[TICKET] Supabase insert error: {e}")
+    data = _local_load()
+    data.setdefault("tickets", []).append(record)
+    _local_save(data)
+
+
+def _update_ticket_by_channel(channel_id, fields):
+    sb = _get_supabase()
+    if sb:
+        try:
+            sb.table(_TABLE).update(fields).eq("channel_id", str(channel_id)).execute()
+            return True
+        except Exception as e:
+            print(f"[TICKET] Supabase update error: {e}")
+    data = _local_load()
+    updated = False
+    for t in data.get("tickets", []):
+        if str(t.get("channel_id")) == str(channel_id):
+            t.update(fields)
+            updated = True
+    if updated:
+        _local_save(data)
+    return updated
+
+
+def _find_by_channel(channel_id):
+    sb = _get_supabase()
+    if sb:
+        try:
+            res = sb.table(_TABLE).select("*").eq("channel_id", str(channel_id)).execute()
+            if res.data:
+                return _row_to_dict(res.data[0])
+        except Exception as e:
+            print(f"[TICKET] Supabase find error: {e}")
+    for t in _local_load().get("tickets", []):
+        if str(t.get("channel_id")) == str(channel_id):
+            return t
+    return None
+
+
+# ── Public write API ─────────────────────────────────────────────────────────
+
+async def create_ticket(guild, member, config, reason="General Support"):
+    ticket_num = _next_counter(guild.id)
 
     category_id = config.get("ticket_category", "").strip()
     category = None
@@ -34,7 +168,6 @@ async def create_ticket(guild, member, config, reason="General Support"):
         if isinstance(ch, discord.CategoryChannel):
             category = ch
 
-    # Clean channel name — Discord allows only lowercase letters, numbers, hyphens
     safe_name = re.sub(r'[^a-z0-9]', '', member.name.lower())[:12] or "user"
     channel_name = f"ticket-{ticket_num:04d}-{safe_name}"
 
@@ -85,29 +218,29 @@ async def create_ticket(guild, member, config, reason="General Support"):
         "reason": reason,
         "status": "open",
         "created_at": datetime.utcnow().isoformat(),
-        "closed_at": None
+        "closed_at": None,
     }
-    data["tickets"].append(ticket)
-    save_tickets(data)
+    _insert_ticket(ticket)
     return channel, ticket
 
+
 async def close_ticket(channel, closer, transcript=True):
-    data = load_tickets()
-    ticket = next((t for t in data["tickets"] if t["channel_id"] == channel.id), None)
+    ticket = _find_by_channel(channel.id)
     if not ticket:
         return False
 
     embed = discord.Embed(
         title="🔒 Ticket Closing",
         description=f"This ticket is being closed by {closer.mention}.\nChannel will be deleted in 5 seconds.",
-        color=0xe74c3c
+        color=0xe74c3c,
     )
     await channel.send(embed=embed)
 
-    ticket["status"] = "closed"
-    ticket["closed_at"] = datetime.utcnow().isoformat()
-    ticket["closed_by"] = str(closer)
-    save_tickets(data)
+    _update_ticket_by_channel(channel.id, {
+        "status":    "closed",
+        "closed_at": datetime.utcnow().isoformat(),
+        "closed_by": str(closer),
+    })
 
     import asyncio
     await asyncio.sleep(5)
@@ -116,6 +249,7 @@ async def close_ticket(channel, closer, transcript=True):
     except Exception as e:
         print(f"Ticket delete error: {e}")
     return True
+
 
 class TicketCloseView(discord.ui.View):
     def __init__(self):
