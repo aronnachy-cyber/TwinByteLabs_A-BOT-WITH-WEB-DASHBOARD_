@@ -37,12 +37,12 @@ body{
 }
 #maintenance-screen.active{ display:flex; }
 
-/* ===== MODE TOGGLE (corner) ===== */
+/* ===== MODE TOGGLE (corner — hidden from regular users) ===== */
 .mode-toggle{
   position:fixed;
   bottom:18px;
   right:18px;
-  display:flex;
+  display:none;                /* hidden by default; only shown for admins */
   align-items:center;
   gap:10px;
   padding:8px 12px;
@@ -57,6 +57,7 @@ body{
   color:var(--text);
   transition:border-color .2s, box-shadow .2s;
 }
+.mode-toggle.visible{ display:flex; }
 .mode-toggle:hover{
   border-color:var(--accent);
   box-shadow:0 4px 18px rgba(58,143,255,0.35);
@@ -614,10 +615,37 @@ footer{
   const toggle = document.getElementById("mode-toggle");
   const screen = document.getElementById("maintenance-screen");
   const label  = toggle.querySelector(".label");
-  const STORAGE_KEY = "sp4rk_mode";
+  const MODE_KEY  = "sp4rk_mode";
+  const ADMIN_KEY = "sp4rk_admin";
 
+  // ---- Admin gating ----
+  // Visiting /?admin=1 unlocks the toggle; /?admin=0 hides it again.
+  // Or press Ctrl+Shift+M anywhere to toggle visibility for this browser.
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if(params.get("admin") === "1") localStorage.setItem(ADMIN_KEY, "1");
+    if(params.get("admin") === "0") localStorage.removeItem(ADMIN_KEY);
+  } catch(e){}
+
+  let isAdmin = false;
+  try { isAdmin = localStorage.getItem(ADMIN_KEY) === "1"; } catch(e){}
+  if(isAdmin) toggle.classList.add("visible");
+
+  document.addEventListener("keydown", function(e){
+    if(e.ctrlKey && e.shiftKey && (e.key === "M" || e.key === "m")){
+      e.preventDefault();
+      const nowAdmin = !toggle.classList.contains("visible");
+      toggle.classList.toggle("visible", nowAdmin);
+      try {
+        if(nowAdmin) localStorage.setItem(ADMIN_KEY, "1");
+        else localStorage.removeItem(ADMIN_KEY);
+      } catch(_){}
+    }
+  });
+
+  // ---- Mode application (only takes effect for admins; regular users always see landing) ----
   function apply(mode){
-    if(mode === "maintenance"){
+    if(mode === "maintenance" && (isAdmin || toggle.classList.contains("visible"))){
       screen.classList.add("active");
       toggle.classList.add("maintenance");
       label.textContent = "Maintenance Mode";
@@ -626,11 +654,11 @@ footer{
       toggle.classList.remove("maintenance");
       label.textContent = "Developing Mode";
     }
-    try { localStorage.setItem(STORAGE_KEY, mode); } catch(e){}
+    try { localStorage.setItem(MODE_KEY, mode); } catch(e){}
   }
 
   let saved = "developing";
-  try { saved = localStorage.getItem(STORAGE_KEY) || "developing"; } catch(e){}
+  try { saved = localStorage.getItem(MODE_KEY) || "developing"; } catch(e){}
   apply(saved);
 
   toggle.addEventListener("click", function(){
