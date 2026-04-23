@@ -290,29 +290,140 @@ nav{
   border-radius:8px;
   color:white;
   text-decoration:none;
+  font-weight:600;
+  transition:transform .15s, box-shadow .15s;
 }
+.btn-getstarted:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(58,143,255,0.35); }
+
+.btn-ghost{
+  display:inline-block;
+  padding:11px 22px;
+  border-radius:8px;
+  color:var(--text);
+  text-decoration:none;
+  border:1px solid var(--border);
+  font-weight:600;
+  margin-left:10px;
+  transition:border-color .15s, color .15s;
+}
+.btn-ghost:hover{ border-color:var(--accent); color:var(--accent); }
 
 /* HERO */
 .hero{
-  padding:80px 48px;
+  padding:90px 48px 70px;
+  max-width:1100px;
+  margin:0 auto;
+  text-align:left;
 }
 .hero h1{
-  font-size:2.5rem;
+  font-size:2.7rem;
   font-weight:900;
+  line-height:1.15;
+  margin:0 0 18px;
 }
 .hero span{color:var(--accent);}
+.hero .lede{
+  color:var(--muted);
+  font-size:1.05rem;
+  max-width:640px;
+  margin:0 0 28px;
+  line-height:1.6;
+}
+.hero-cta{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+.hero-cta .btn-getstarted{ padding:12px 26px; }
 
 /* FEATURES */
 .features{
-  padding:60px 48px;
+  padding:60px 48px 80px;
+  max-width:1100px;
+  margin:0 auto;
 }
+.features h2{
+  font-size:1.8rem;
+  font-weight:800;
+  margin:0 0 8px;
+}
+.features .subtitle{
+  color:var(--muted);
+  margin:0 0 36px;
+}
+.feature-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+  gap:18px;
+}
+.feature-card{
+  background:rgba(10,22,44,0.7);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:22px;
+  transition:transform .15s, border-color .15s, box-shadow .15s;
+}
+.feature-card:hover{
+  transform:translateY(-3px);
+  border-color:var(--accent);
+  box-shadow:0 10px 26px rgba(58,143,255,0.18);
+}
+.feature-icon{
+  width:38px;
+  height:38px;
+  border-radius:9px;
+  background:rgba(58,143,255,0.15);
+  color:var(--accent);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.05rem;
+  margin-bottom:14px;
+}
+.feature-card h3{
+  font-size:1.05rem;
+  margin:0 0 6px;
+  color:var(--text);
+}
+.feature-card p{
+  font-size:0.9rem;
+  color:var(--muted);
+  margin:0;
+  line-height:1.55;
+}
+
+/* CTA STRIP */
+.cta-strip{
+  padding:50px 48px;
+  background:linear-gradient(135deg, rgba(58,143,255,0.12), rgba(58,143,255,0.02));
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  text-align:center;
+}
+.cta-strip h2{ margin:0 0 10px; font-size:1.6rem; }
+.cta-strip p{ margin:0 0 22px; color:var(--muted); }
 
 /* FOOTER */
 footer{
-  padding:20px 48px;
+  padding:24px 48px;
   border-top:1px solid var(--border);
   display:flex;
   justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:14px;
+}
+
+.footer-socials a{
+  color:var(--muted);
+  margin-right:14px;
+  font-size:1.1rem;
+  transition:color .15s;
+}
+.footer-socials a:hover{ color:var(--accent); }
+
+@media (max-width:640px){
+  nav{ padding:12px 20px; }
+  .hero{ padding:60px 24px 40px; }
+  .hero h1{ font-size:2rem; }
+  .features{ padding:40px 24px 60px; }
+  footer{ padding:18px 24px; }
 }
 
 .footer-socials a{
@@ -378,18 +489,110 @@ footer{
     <span class="nav-logo-name">SP4RK</span>
   </a>
 
-  <a class="btn-getstarted" href="/login">Get Started</a>
+  <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
 </nav>
 
 <!-- HERO -->
 <section class="hero">
   <h1>YOUR SERVER. YOUR KINGDOM.<br>
   <span>SENTINEL CONTROLS EVERYTHING.</span></h1>
+  <p class="lede">
+    SP4RK is an all-in-one Discord moderation, security and engagement bot — automod with AI, anti-raid,
+    tickets, leveling, giveaways, social alerts and a full web dashboard to control every setting in real time.
+  </p>
+  <div class="hero-cta">
+    <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
+    <a class="btn-ghost" href="#features">See Features</a>
+  </div>
 </section>
 
 <!-- FEATURES -->
-<section class="features">
-  <h2>Features still exist… just locked 😭</h2>
+<section class="features" id="features">
+  <h2>Everything your server needs, in one bot.</h2>
+  <p class="subtitle">Built-in modules — toggle each one from the dashboard.</p>
+
+  <div class="feature-grid">
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-shield-halved"></i></div>
+      <h3>Smart AutoMod</h3>
+      <p>Block links, invites, mass mentions, profanity and custom blacklist words — with AI-powered context filtering.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-user-shield"></i></div>
+      <h3>Anti-Raid &amp; Security</h3>
+      <p>Detect raids on join, prevent mass bans/kicks, monitor role changes and trigger lockdowns automatically.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-gavel"></i></div>
+      <h3>Moderation Toolkit</h3>
+      <p>Warns, mutes, kicks, bans and a full warning system with configurable limits and owner approval.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-ticket"></i></div>
+      <h3>Ticket System</h3>
+      <p>Let members open private support tickets — fully managed with categories, transcripts and staff control.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
+      <h3>XP &amp; Leveling</h3>
+      <p>Reward active members with levels, custom level-up messages and milestone announcements.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-gift"></i></div>
+      <h3>Giveaways</h3>
+      <p>Run timed giveaways with one command — automatic winner picks and re-rolls included.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-face-smile"></i></div>
+      <h3>Reaction Roles</h3>
+      <p>Self-assignable roles via reactions — set them up in seconds from the dashboard.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-robot"></i></div>
+      <h3>Auto-Responder</h3>
+      <p>Trigger custom replies on keywords or patterns to handle FAQs and bring your server to life.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-bell"></i></div>
+      <h3>Social Alerts</h3>
+      <p>Get notified when new YouTube videos, Twitter posts or Discord events go live in your server.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-hand-sparkles"></i></div>
+      <h3>Welcome &amp; Auto-Roles</h3>
+      <p>Personalised welcome messages and auto-assigned roles for every new member who joins.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-clipboard-list"></i></div>
+      <h3>Full Logging</h3>
+      <p>Track joins, leaves, edits, deletes, role changes and mod actions to a webhook or channel.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fas fa-sliders"></i></div>
+      <h3>Web Dashboard</h3>
+      <p>Configure every module live, with Discord OAuth login — no commands or config files required.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- CTA STRIP -->
+<section class="cta-strip">
+  <h2>Ready to take control of your server?</h2>
+  <p>Sign in with Discord to open your dashboard.</p>
+  <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
 </section>
 
 <!-- FOOTER -->
