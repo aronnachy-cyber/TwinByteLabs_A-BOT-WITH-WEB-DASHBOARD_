@@ -1,6 +1,7 @@
 modules = ["python-3.11", "web"]
 [agent]
 expertMode = true
+stack = "FLASK_VANILLA_JS"
 
 [nix]
 channel = "stable-25_05"
@@ -27,7 +28,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd SENTINEL-BOT-Main && gunicorn --bind 0.0.0.0:5000 --reuse-port --reload wsgi:app"
+args = "gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app"
 waitForPort = 5000
 
 [[ports]]
