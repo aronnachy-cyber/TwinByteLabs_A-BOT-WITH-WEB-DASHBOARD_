@@ -364,7 +364,17 @@ def save_config():
 # ---- LANDING PAGE ----
 @app.route('/')
 def landing():
-    return render_template('landing.html')
+    # Recommended permissions for the bot (Administrator). Override with DISCORD_BOT_PERMISSIONS env var.
+    bot_permissions = os.environ.get("DISCORD_BOT_PERMISSIONS", "8")
+    invite_url = ""
+    if DISCORD_CLIENT_ID:
+        invite_url = (
+            f"https://discord.com/oauth2/authorize"
+            f"?client_id={DISCORD_CLIENT_ID}"
+            f"&scope=bot+applications.commands"
+            f"&permissions={bot_permissions}"
+        )
+    return render_template('landing.html', invite_url=invite_url)
 
 # ---- AUTH: LOGIN (Discord-only) ----
 @app.route('/login')

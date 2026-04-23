@@ -503,6 +503,11 @@ footer{
   </p>
   <div class="hero-cta">
     <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
+    {% if invite_url %}
+    <a class="btn-discord" href="{{ invite_url }}" target="_blank" rel="noopener">
+      <i class="fab fa-discord"></i> Add to Discord
+    </a>
+    {% endif %}
     <a class="btn-ghost" href="#features">See Features</a>
   </div>
 </section>
