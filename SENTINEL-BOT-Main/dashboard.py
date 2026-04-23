@@ -5,8 +5,9 @@ import secrets
 import requests as http_requests
 import traceback
 from html import escape as html_escape
-from datetime import datetime
+from datetime import datetime, timedelta
 from supabase import create_client, Client as SupabaseClient
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 DISCORD_CLIENT_ID     = os.environ.get("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
@@ -24,6 +25,20 @@ else:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
+# Trust the reverse proxy (Render/Replit) so request.scheme/host_url reflect HTTPS
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+# Persistent, cross-redirect-safe session cookies for the Discord OAuth round-trip
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+)
+
+
+@app.before_request
+def _make_session_permanent():
+    session.permanent = True
 
 DEFAULT_CONFIG = {
     "prefix": "!",
@@ -381,9 +396,11 @@ def auth_discord():
     if not DISCORD_CLIENT_ID:
         return _login_error("Discord login is not configured. Contact the administrator.")
 
-    redirect_uri = DISCORD_REDIRECT_URI or request.host_url.rstrip('/') + '/auth/discord/callback'
+    redirect_uri = DISCORD_REDIRECT_URI or url_for('auth_discord_callback', _external=True)
     state = secrets.token_urlsafe(16)
+    session.permanent = True
     session['oauth_state'] = state
+    session.modified = True
 
     oauth_url = (
         f"https://discord.com/api/oauth2/authorize"
@@ -409,7 +426,7 @@ def auth_discord_callback():
 
     session.pop('oauth_state', None)
 
-    redirect_uri = DISCORD_REDIRECT_URI or request.host_url.rstrip('/') + '/auth/discord/callback'
+    redirect_uri = DISCORD_REDIRECT_URI or url_for('auth_discord_callback', _external=True)
 
     try:
         token_res = http_requests.post(
@@ -464,9 +481,11 @@ def auth_discord_callback():
         user['name'] = discord_global
         save_single_user(user)
 
+    session.permanent = True
     session['logged_in'] = True
     session['discord_id'] = discord_id
     session['user_name'] = discord_global
+    session.modified = True
     add_dashboard_log("✅ LOGIN", f"{discord_global} logged in via Discord")
     return redirect(url_for('index'))
 
