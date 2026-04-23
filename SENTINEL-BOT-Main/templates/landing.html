@@ -48,68 +48,202 @@ body{
 /* ===== CRANE ===== */
 .construction{
   position:relative;
-  width:220px;
-  height:180px;
+  width:280px;
+  height:230px;
   margin:0 auto 25px;
 }
-.tower{
+/* Ground line */
+.ground{
   position:absolute;
-  bottom:0;
-  left:50px;
-  width:22px;
-  height:130px;
-  background:var(--accent);
+  left:0;
+  right:0;
+  bottom:14px;
+  height:2px;
+  background:linear-gradient(90deg,transparent,var(--border) 20%,var(--border) 80%,transparent);
 }
-.arm{
+/* Concrete base */
+.base{
   position:absolute;
-  top:25px;
-  left:70px;
-  width:130px;
+  bottom:6px;
+  left:50%;
+  transform:translateX(-50%);
+  width:80px;
+  height:10px;
+  background:#5a6473;
+  border-radius:2px;
+  box-shadow:0 2px 0 rgba(0,0,0,0.25);
+}
+/* Vertical mast (lattice look via repeating gradient) */
+.mast{
+  position:absolute;
+  bottom:16px;
+  left:50%;
+  transform:translateX(-50%);
+  width:18px;
+  height:150px;
+  background:
+    linear-gradient(var(--accent),var(--accent)) center/3px 100% no-repeat,
+    repeating-linear-gradient(45deg, var(--accent) 0 2px, transparent 2px 10px),
+    repeating-linear-gradient(-45deg, var(--accent) 0 2px, transparent 2px 10px);
+  border-left:2px solid var(--accent);
+  border-right:2px solid var(--accent);
+}
+/* Operator cab */
+.cab{
+  position:absolute;
+  top:16px;
+  left:50%;
+  transform:translateX(-50%);
+  width:22px;
+  height:14px;
+  background:#f5c542;
+  border:1px solid #b8932a;
+  border-radius:2px;
+  z-index:2;
+}
+/* Whole rotating top assembly (jib + counter-jib + trolley + load) swings as one unit */
+.top{
+  position:absolute;
+  top:24px;
+  left:50%;
+  width:0;
+  height:0;
+  transform-origin:0 0;
+  animation:slew 8s ease-in-out infinite;
+}
+/* Main horizontal jib (right side) */
+.jib{
+  position:absolute;
+  top:0;
+  left:0;
+  width:120px;
+  height:8px;
+  background:var(--accent2);
+  border-top:1px solid rgba(255,255,255,0.25);
+  border-bottom:1px solid rgba(0,0,0,0.3);
+}
+/* Diagonal tie-bars on jib */
+.jib::before,
+.jib::after{
+  content:"";
+  position:absolute;
+  height:1.5px;
+  background:var(--accent2);
+  top:-14px;
+}
+.jib::before{ left:0; width:60px; transform-origin:left; transform:rotate(13deg); }
+.jib::after{ left:0; width:120px; transform-origin:left; transform:rotate(6deg); }
+/* Counter-jib (left side) with counterweight */
+.counter-jib{
+  position:absolute;
+  top:0;
+  right:0;
+  left:-45px;
   height:6px;
   background:var(--accent2);
-  transform-origin:left;
-  animation:swing 3s infinite ease-in-out;
 }
+.counterweight{
+  position:absolute;
+  top:-6px;
+  left:-52px;
+  width:18px;
+  height:18px;
+  background:#3a4756;
+  border:1px solid #1f2730;
+  border-radius:2px;
+}
+/* Trolley travels along the jib */
+.trolley{
+  position:absolute;
+  top:-3px;
+  left:30px;
+  width:14px;
+  height:6px;
+  background:#cfd6e0;
+  border-radius:2px;
+  animation:trolley 8s ease-in-out infinite;
+}
+/* Cable hangs from the trolley and stretches as the hook lowers */
 .cable{
   position:absolute;
   top:6px;
-  left:100px;
+  left:6px;
   width:2px;
-  height:60px;
-  background:#ccc;
-  animation:lift 3s infinite ease-in-out;
+  height:30px;
+  background:#cfd6e0;
+  transform-origin:top center;
+  animation:cable 8s ease-in-out infinite;
 }
+/* Hook tracks the bottom of the cable */
 .hook{
   position:absolute;
-  top:65px;
-  left:95px;
-  width:12px;
-  height:12px;
+  top:34px;
+  left:0;
+  width:14px;
+  height:10px;
   background:#f39c12;
-  border-radius:3px;
-  animation:lift 3s infinite ease-in-out;
+  border-radius:2px;
+  box-shadow:0 2px 0 #b87208;
+  animation:hook 8s ease-in-out infinite;
 }
+/* The load (cargo block) — attached to hook for half the cycle, sits on ground for the other half */
 .block{
   position:absolute;
-  bottom:0;
-  left:120px;
-  width:45px;
-  height:22px;
-  background:#2ecc71;
-  animation:moveBlock 3s infinite ease-in-out;
+  top:42px;
+  left:-7px;
+  width:28px;
+  height:18px;
+  background:linear-gradient(180deg,#2ecc71,#27ae60);
+  border:1px solid #1e8449;
+  border-radius:2px;
+  animation:block 8s ease-in-out infinite;
 }
 
-@keyframes swing{
-  0%,100%{transform:rotate(-6deg);}
-  50%{transform:rotate(6deg);}
+/* === KEYFRAMES ===
+   8s cycle:
+   0–10%   : idle at right (load on ground)
+   10–25%  : hook lowers / picks up
+   25–40%  : hook lifts load
+   40–60%  : trolley travels left (slew + trolley together)
+   60–75%  : hook lowers load
+   75–85%  : hook releases & lifts empty
+   85–100% : trolley returns to right
+*/
+@keyframes slew{
+  0%,40%   { transform:rotate(0deg); }
+  50%,70%  { transform:rotate(-12deg); }
+  100%     { transform:rotate(0deg); }
 }
-@keyframes lift{
-  0%,100%{transform:translateY(0);}
-  50%{transform:translateY(-25px);}
+@keyframes trolley{
+  0%,10%   { left:90px; }
+  25%,40%  { left:90px; }
+  55%,70%  { left:25px; }
+  100%     { left:90px; }
 }
-@keyframes moveBlock{
-  0%,100%{transform:translateX(0);}
-  50%{transform:translateX(-25px);}
+@keyframes cable{
+  0%,10%   { height:160px; }  /* down at load on ground */
+  25%      { height:160px; }
+  35%,55%  { height:22px; }   /* lifted up near jib */
+  70%      { height:160px; }  /* lowered to drop */
+  80%      { height:22px; }   /* lifted empty */
+  100%     { height:160px; }
+}
+@keyframes hook{
+  0%,10%   { top:166px; }
+  25%      { top:166px; }
+  35%,55%  { top:28px; }
+  70%      { top:166px; }
+  80%      { top:28px; }
+  100%     { top:166px; }
+}
+@keyframes block{
+  /* Stays on ground until 25%, follows hook 25%–70%, then sits on ground at drop point */
+  0%,10%   { top:172px; left:83px; }
+  25%      { top:172px; left:83px; }
+  35%      { top:36px;  left:83px; }      /* lifted with hook */
+  55%      { top:36px;  left:18px; }      /* travels with trolley */
+  70%      { top:172px; left:18px; }      /* set down */
+  85%,100% { top:172px; left:18px; }      /* stays where it was placed */
 }
 
 /* ===== YOUR ORIGINAL UI (kept) ===== */
@@ -175,11 +309,19 @@ footer{
   <div class="maintenance-card">
 
     <div class="construction">
-      <div class="tower"></div>
-      <div class="arm"></div>
-      <div class="cable"></div>
-      <div class="hook"></div>
-      <div class="block"></div>
+      <div class="ground"></div>
+      <div class="base"></div>
+      <div class="mast"></div>
+      <div class="cab"></div>
+      <div class="top">
+        <div class="counter-jib"></div>
+        <div class="counterweight"></div>
+        <div class="jib"></div>
+        <div class="trolley"></div>
+        <div class="cable"></div>
+        <div class="hook"></div>
+        <div class="block"></div>
+      </div>
     </div>
 
     <h1>SP4RK is under maintenance</h1>
