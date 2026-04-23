@@ -101,15 +101,13 @@ body{
   border-radius:2px;
   z-index:2;
 }
-/* Whole rotating top assembly (jib + counter-jib + trolley + load) swings as one unit */
+/* Top assembly (jib + counter-jib + trolley + load) — anchored to top of mast */
 .top{
   position:absolute;
   top:24px;
   left:50%;
   width:0;
   height:0;
-  transform-origin:0 0;
-  animation:slew 8s ease-in-out infinite;
 }
 /* Main horizontal jib (right side) */
 .jib{
@@ -152,98 +150,81 @@ body{
   border:1px solid #1f2730;
   border-radius:2px;
 }
-/* Trolley travels along the jib */
+/* Trolley travels along the jib (parent of cable + hook + load) */
 .trolley{
   position:absolute;
   top:-3px;
-  left:30px;
+  left:90px;
   width:14px;
   height:6px;
   background:#cfd6e0;
   border-radius:2px;
-  animation:trolley 8s ease-in-out infinite;
+  animation:trolley 6s ease-in-out infinite;
 }
-/* Cable hangs from the trolley and stretches as the hook lowers */
+/* Cable hangs from the trolley centerline and stretches as the hook lowers */
 .cable{
   position:absolute;
   top:6px;
-  left:6px;
+  left:50%;
   width:2px;
-  height:30px;
+  height:60px;
+  margin-left:-1px;
   background:#cfd6e0;
-  transform-origin:top center;
-  animation:cable 8s ease-in-out infinite;
+  animation:cable 6s ease-in-out infinite;
 }
-/* Hook tracks the bottom of the cable */
+/* Hook sits at the bottom of the cable. Centered under trolley, moves with cable height. */
 .hook{
   position:absolute;
-  top:34px;
-  left:0;
+  top:66px;
+  left:50%;
   width:14px;
   height:10px;
+  margin-left:-7px;
   background:#f39c12;
   border-radius:2px;
   box-shadow:0 2px 0 #b87208;
-  animation:hook 8s ease-in-out infinite;
+  animation:hook 6s ease-in-out infinite;
 }
-/* The load (cargo block) — attached to hook for half the cycle, sits on ground for the other half */
+/* The load — child of hook, so it ALWAYS hangs with the hook */
 .block{
   position:absolute;
-  top:42px;
-  left:-7px;
+  top:10px;            /* sits just below the hook */
+  left:50%;
   width:28px;
   height:18px;
+  margin-left:-14px;
   background:linear-gradient(180deg,#2ecc71,#27ae60);
   border:1px solid #1e8449;
   border-radius:2px;
-  animation:block 8s ease-in-out infinite;
+  box-shadow:0 2px 0 rgba(0,0,0,0.25);
 }
 
 /* === KEYFRAMES ===
-   8s cycle:
-   0–10%   : idle at right (load on ground)
-   10–25%  : hook lowers / picks up
-   25–40%  : hook lifts load
-   40–60%  : trolley travels left (slew + trolley together)
-   60–75%  : hook lowers load
-   75–85%  : hook releases & lifts empty
-   85–100% : trolley returns to right
+   Simple, coherent 6s cycle:
+   0%   : trolley right, hook fully lowered (load on ground)
+   25%  : hook lifts up to jib
+   50%  : trolley travels left (load lifted, traveling)
+   75%  : hook lowers to ground on left
+   100% : returns to start
 */
-@keyframes slew{
-  0%,40%   { transform:rotate(0deg); }
-  50%,70%  { transform:rotate(-12deg); }
-  100%     { transform:rotate(0deg); }
-}
 @keyframes trolley{
-  0%,10%   { left:90px; }
-  25%,40%  { left:90px; }
-  55%,70%  { left:25px; }
-  100%     { left:90px; }
+  0%,15%   { left:90px; }       /* parked right, lifting */
+  35%,65%  { left:25px; }       /* traveling left */
+  85%,100% { left:90px; }       /* returning right */
 }
 @keyframes cable{
-  0%,10%   { height:160px; }  /* down at load on ground */
-  25%      { height:160px; }
-  35%,55%  { height:22px; }   /* lifted up near jib */
-  70%      { height:160px; }  /* lowered to drop */
-  80%      { height:22px; }   /* lifted empty */
-  100%     { height:160px; }
+  0%,5%    { height:158px; }    /* down on right */
+  25%,45%  { height:22px; }     /* lifted (during travel) */
+  65%      { height:158px; }    /* down on left */
+  80%      { height:22px; }     /* lifted again to return */
+  100%     { height:158px; }
 }
 @keyframes hook{
-  0%,10%   { top:166px; }
-  25%      { top:166px; }
-  35%,55%  { top:28px; }
-  70%      { top:166px; }
+  0%,5%    { top:164px; }
+  25%,45%  { top:28px; }
+  65%      { top:164px; }
   80%      { top:28px; }
-  100%     { top:166px; }
-}
-@keyframes block{
-  /* Stays on ground until 25%, follows hook 25%–70%, then sits on ground at drop point */
-  0%,10%   { top:172px; left:83px; }
-  25%      { top:172px; left:83px; }
-  35%      { top:36px;  left:83px; }      /* lifted with hook */
-  55%      { top:36px;  left:18px; }      /* travels with trolley */
-  70%      { top:172px; left:18px; }      /* set down */
-  85%,100% { top:172px; left:18px; }      /* stays where it was placed */
+  100%     { top:164px; }
 }
 
 /* ===== YOUR ORIGINAL UI (kept) ===== */
@@ -317,10 +298,12 @@ footer{
         <div class="counter-jib"></div>
         <div class="counterweight"></div>
         <div class="jib"></div>
-        <div class="trolley"></div>
-        <div class="cable"></div>
-        <div class="hook"></div>
-        <div class="block"></div>
+        <div class="trolley">
+          <div class="cable"></div>
+          <div class="hook">
+            <div class="block"></div>
+          </div>
+        </div>
       </div>
     </div>
 
