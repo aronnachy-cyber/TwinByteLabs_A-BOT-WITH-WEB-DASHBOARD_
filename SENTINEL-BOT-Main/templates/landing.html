@@ -30,10 +30,54 @@ body{
   position:fixed;
   inset:0;
   background:rgba(5,10,25,0.97);
-  display:flex;
+  display:none;                 /* hidden by default; toggle controls it */
   justify-content:center;
   align-items:center;
   z-index:9999;
+}
+#maintenance-screen.active{ display:flex; }
+
+/* ===== MODE TOGGLE (corner) ===== */
+.mode-toggle{
+  position:fixed;
+  bottom:18px;
+  right:18px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 12px;
+  background:rgba(10,22,44,0.9);
+  border:1px solid var(--border);
+  border-radius:30px;
+  box-shadow:0 4px 14px rgba(0,0,0,0.35);
+  cursor:pointer;
+  user-select:none;
+  z-index:10000;
+  font-size:0.82rem;
+  color:var(--text);
+  transition:border-color .2s, box-shadow .2s;
+}
+.mode-toggle:hover{
+  border-color:var(--accent);
+  box-shadow:0 4px 18px rgba(58,143,255,0.35);
+}
+.mode-toggle .dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#2ecc71;                        /* dev = green */
+  box-shadow:0 0 8px rgba(46,204,113,0.7);
+  transition:background .2s, box-shadow .2s;
+}
+.mode-toggle.maintenance .dot{
+  background:#f39c12;                        /* maintenance = orange */
+  box-shadow:0 0 10px rgba(243,156,18,0.8);
+  animation:pulse 1.4s ease-in-out infinite;
+}
+.mode-toggle .label{ font-weight:600; letter-spacing:.3px; }
+@keyframes pulse{
+  0%,100%{ transform:scale(1); opacity:1; }
+  50%    { transform:scale(1.25); opacity:.75; }
 }
 
 .maintenance-card{
@@ -285,6 +329,12 @@ footer{
 
 <body>
 
+<!-- ===== MODE TOGGLE ===== -->
+<div id="mode-toggle" class="mode-toggle" title="Click to toggle">
+  <span class="dot"></span>
+  <span class="label">Developing Mode</span>
+</div>
+
 <!-- ===== MAINTENANCE OVERLAY ===== -->
 <div id="maintenance-screen">
   <div class="maintenance-card">
@@ -357,11 +407,34 @@ footer{
 </footer>
 
 <script>
-const MAINTENANCE_MODE = true;
+(function(){
+  const toggle = document.getElementById("mode-toggle");
+  const screen = document.getElementById("maintenance-screen");
+  const label  = toggle.querySelector(".label");
+  const STORAGE_KEY = "sp4rk_mode";
 
-if(!MAINTENANCE_MODE){
-  document.getElementById("maintenance-screen").style.display = "none";
-}
+  function apply(mode){
+    if(mode === "maintenance"){
+      screen.classList.add("active");
+      toggle.classList.add("maintenance");
+      label.textContent = "Maintenance Mode";
+    } else {
+      screen.classList.remove("active");
+      toggle.classList.remove("maintenance");
+      label.textContent = "Developing Mode";
+    }
+    try { localStorage.setItem(STORAGE_KEY, mode); } catch(e){}
+  }
+
+  let saved = "developing";
+  try { saved = localStorage.getItem(STORAGE_KEY) || "developing"; } catch(e){}
+  apply(saved);
+
+  toggle.addEventListener("click", function(){
+    const next = toggle.classList.contains("maintenance") ? "developing" : "maintenance";
+    apply(next);
+  });
+})();
 </script>
 
 </body>
