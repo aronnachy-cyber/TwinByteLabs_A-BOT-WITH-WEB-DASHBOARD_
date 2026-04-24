@@ -512,10 +512,27 @@ def index():
         return redirect(url_for('login'))
 
     discord_id = session.get('discord_id', '')
-    current_user = find_user_by_discord_id(discord_id) if discord_id else None
-    if not current_user:
+    if not discord_id:
         session.clear()
         return redirect(url_for('login'))
+
+    current_user = find_user_by_discord_id(discord_id)
+    if not current_user:
+        # The OAuth callback already authenticated this user and stored their
+        # identity in the session. If the persisted record can't be read back
+        # (ephemeral filesystem on Render, transient Supabase error, etc.),
+        # rebuild it from the session instead of silently logging the user out.
+        session_name = session.get('user_name', 'User')
+        current_user = {
+            'discord_id':       discord_id,
+            'discord_username': session_name,
+            'name':             session_name,
+            'created_at':       datetime.now().strftime('%Y-%m-%d'),
+        }
+        try:
+            save_single_user(current_user)
+        except Exception as e:
+            print(f"⚠️ Re-saving user from session failed: {e}")
     session['user_name'] = current_user.get('name', 'User')
 
     try:
