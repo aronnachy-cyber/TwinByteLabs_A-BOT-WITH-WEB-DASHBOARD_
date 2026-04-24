@@ -26,69 +26,6 @@ body{
 }
 
 /* ===== MAINTENANCE OVERLAY ===== */
-#maintenance-screen{
-  position:fixed;
-  inset:0;
-  background:rgba(5,10,25,0.97);
-  display:none;                 /* hidden by default; toggle controls it */
-  justify-content:center;
-  align-items:center;
-  z-index:9999;
-}
-#maintenance-screen.active{ display:flex; }
-
-/* ===== MODE TOGGLE (corner — hidden from regular users) ===== */
-.mode-toggle{
-  position:fixed;
-  bottom:18px;
-  right:18px;
-  display:none;                /* hidden by default; only shown for admins */
-  align-items:center;
-  gap:10px;
-  padding:8px 12px;
-  background:rgba(10,22,44,0.9);
-  border:1px solid var(--border);
-  border-radius:30px;
-  box-shadow:0 4px 14px rgba(0,0,0,0.35);
-  cursor:pointer;
-  user-select:none;
-  z-index:10000;
-  font-size:0.82rem;
-  color:var(--text);
-  transition:border-color .2s, box-shadow .2s;
-}
-.mode-toggle.visible{ display:flex; }
-.mode-toggle:hover{
-  border-color:var(--accent);
-  box-shadow:0 4px 18px rgba(58,143,255,0.35);
-}
-.mode-toggle .dot{
-  width:10px;
-  height:10px;
-  border-radius:50%;
-  background:#2ecc71;                        /* dev = green */
-  box-shadow:0 0 8px rgba(46,204,113,0.7);
-  transition:background .2s, box-shadow .2s;
-}
-.mode-toggle.maintenance .dot{
-  background:#f39c12;                        /* maintenance = orange */
-  box-shadow:0 0 10px rgba(243,156,18,0.8);
-  animation:pulse 1.4s ease-in-out infinite;
-}
-.mode-toggle .label{ font-weight:600; letter-spacing:.3px; }
-@keyframes pulse{
-  0%,100%{ transform:scale(1); opacity:1; }
-  50%    { transform:scale(1.25); opacity:.75; }
-}
-
-.maintenance-card{
-  text-align:center;
-  padding:50px;
-  border-radius:14px;
-  border:1px solid var(--border);
-  background:rgba(10,22,44,0.9);
-  box-shadow:0 0 40px rgba(58,143,255,0.2);
-}
 
 /* ===== CRANE ===== */
 .construction{
@@ -799,44 +736,6 @@ footer{
 
 <body>
 
-<!-- ===== MODE TOGGLE ===== -->
-<div id="mode-toggle" class="mode-toggle" title="Click to toggle">
-  <span class="dot"></span>
-  <span class="label">Developing Mode</span>
-</div>
-
-<!-- ===== MAINTENANCE OVERLAY ===== -->
-<div id="maintenance-screen">
-  <div class="maintenance-card">
-
-    <div class="construction">
-      <div class="ground"></div>
-      <div class="base"></div>
-      <div class="mast"></div>
-      <div class="cab"></div>
-      <div class="top">
-        <div class="counter-jib"></div>
-        <div class="counterweight"></div>
-        <div class="jib"></div>
-        <div class="trolley">
-          <div class="cable"></div>
-          <div class="hook">
-            <div class="block"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <h1>SP4RK is under maintenance</h1>
-    <p>
-      System upgrade in progress.<br>
-      Please wait <b>42–72 hours</b>.<br><br>
-      yeah… backend crying rn 💀
-    </p>
-
-  </div>
-</div>
-
 <!-- ===== NAV ===== -->
 <nav>
   <a class="nav-logo" href="/" id="navLogo">
@@ -944,20 +843,20 @@ footer{
   }
 
   /* ===== Hidden developer menu =====
-     Unlock by tapping the SP4RK logo 7 times within 3 seconds,
-     OR by long-pressing the logo for ~1.5 seconds.
+     Unlock methods (no logo interaction at all):
+       1. Type the secret word "spark" anywhere on the page (desktop).
+       2. Visit the URL with ?dev=1 (works on any device, incl. mobile).
+       3. Press Ctrl + Shift + D to toggle on/off.
+     Use ?dev=0 in the URL to lock again.
      State is saved in localStorage so devs only have to do it once
-     per device. Regular users have no visible affordance for it. */
-  const TAP_TARGET     = 7;
-  const TAP_WINDOW_MS  = 3000;
-  const LONGPRESS_MS   = 1500;
+     per device. Regular users see nothing. */
   const STORAGE_KEY    = 'sp4rk_dev_unlocked_v1';
+  const SECRET_WORD    = 'spark';
 
   const devMenu     = document.getElementById('devMenu');
   const devKebab    = document.getElementById('devKebabBtn');
   const devDropdown = document.getElementById('devDropdown');
   const devToast    = document.getElementById('devToast');
-  const navLogo     = document.getElementById('navLogo');
 
   function isUnlocked(){
     try { return localStorage.getItem(STORAGE_KEY) === '1'; }
@@ -994,53 +893,38 @@ footer{
     devDropdown.classList.contains('open') ? closeDevMenu() : openDevMenu();
   }
 
+  /* --- URL-param unlock (?dev=1 unlocks, ?dev=0 locks) --- */
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('dev') === '1') unlockDevMenu(true);
+    if (params.get('dev') === '0') lockDevMenu();
+  } catch(e){}
+
   if(isUnlocked()) showDevMenu();
 
-  /* --- Tap counter on the logo --- */
-  let tapCount = 0;
-  let firstTapAt = 0;
-  navLogo.addEventListener('click', function(e){
-    // Don't navigate while the user is mashing the logo to unlock.
-    // Only block when accumulating taps (always allow the very first
-    // navigation if they aren't trying to unlock).
-    const now = Date.now();
-    if(now - firstTapAt > TAP_WINDOW_MS){
-      tapCount = 0;
-      firstTapAt = now;
-    }
-    tapCount++;
-    navLogo.classList.remove('tap-pulse');
-    void navLogo.offsetWidth; // restart animation
-    navLogo.classList.add('tap-pulse');
-
-    if(tapCount >= 2){
-      // Block navigation once they've started tapping repeatedly.
-      e.preventDefault();
-    }
-    if(tapCount >= TAP_TARGET){
-      tapCount = 0;
-      unlockDevMenu(true);
+  /* --- Type-the-secret-word unlock (rolling buffer) --- */
+  let typedBuffer = '';
+  document.addEventListener('keydown', function(e){
+    // Ignore typing inside form fields.
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    // Only single printable characters.
+    if (e.key && e.key.length === 1) {
+      typedBuffer = (typedBuffer + e.key.toLowerCase()).slice(-SECRET_WORD.length);
+      if (typedBuffer === SECRET_WORD) {
+        typedBuffer = '';
+        unlockDevMenu(true);
+      }
     }
   });
 
-  /* --- Long-press alternative (great for mobile) --- */
-  let pressTimer = null;
-  function startPress(e){
-    clearTimeout(pressTimer);
-    pressTimer = setTimeout(() => {
-      unlockDevMenu(true);
-    }, LONGPRESS_MS);
-  }
-  function cancelPress(){
-    clearTimeout(pressTimer);
-    pressTimer = null;
-  }
-  navLogo.addEventListener('touchstart', startPress, { passive:true });
-  navLogo.addEventListener('touchend',   cancelPress);
-  navLogo.addEventListener('touchmove',  cancelPress);
-  navLogo.addEventListener('mousedown',  startPress);
-  navLogo.addEventListener('mouseup',    cancelPress);
-  navLogo.addEventListener('mouseleave', cancelPress);
+  /* --- Ctrl+Shift+D toggle (handy desktop shortcut) --- */
+  document.addEventListener('keydown', function(e){
+    if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+      e.preventDefault();
+      isUnlocked() ? lockDevMenu() : unlockDevMenu(true);
+    }
+  });
 
   /* --- Kebab + dropdown wiring --- */
   devKebab.addEventListener('click', function(e){
@@ -1162,64 +1046,6 @@ footer{
     &copy; 2024 SP4RK Controls Inc.
   </div>
 </footer>
-
-<script>
-(function(){
-  const toggle = document.getElementById("mode-toggle");
-  const screen = document.getElementById("maintenance-screen");
-  const label  = toggle.querySelector(".label");
-  const MODE_KEY  = "sp4rk_mode";
-  const ADMIN_KEY = "sp4rk_admin";
-
-  // ---- Admin gating ----
-  // Visiting /?admin=1 unlocks the toggle; /?admin=0 hides it again.
-  // Or press Ctrl+Shift+M anywhere to toggle visibility for this browser.
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if(params.get("admin") === "1") localStorage.setItem(ADMIN_KEY, "1");
-    if(params.get("admin") === "0") localStorage.removeItem(ADMIN_KEY);
-  } catch(e){}
-
-  let isAdmin = false;
-  try { isAdmin = localStorage.getItem(ADMIN_KEY) === "1"; } catch(e){}
-  if(isAdmin) toggle.classList.add("visible");
-
-  document.addEventListener("keydown", function(e){
-    if(e.ctrlKey && e.shiftKey && (e.key === "M" || e.key === "m")){
-      e.preventDefault();
-      const nowAdmin = !toggle.classList.contains("visible");
-      toggle.classList.toggle("visible", nowAdmin);
-      try {
-        if(nowAdmin) localStorage.setItem(ADMIN_KEY, "1");
-        else localStorage.removeItem(ADMIN_KEY);
-      } catch(_){}
-    }
-  });
-
-  // ---- Mode application (only takes effect for admins; regular users always see landing) ----
-  function apply(mode){
-    if(mode === "maintenance" && (isAdmin || toggle.classList.contains("visible"))){
-      screen.classList.add("active");
-      toggle.classList.add("maintenance");
-      label.textContent = "Maintenance Mode";
-    } else {
-      screen.classList.remove("active");
-      toggle.classList.remove("maintenance");
-      label.textContent = "Developing Mode";
-    }
-    try { localStorage.setItem(MODE_KEY, mode); } catch(e){}
-  }
-
-  let saved = "developing";
-  try { saved = localStorage.getItem(MODE_KEY) || "developing"; } catch(e){}
-  apply(saved);
-
-  toggle.addEventListener("click", function(){
-    const next = toggle.classList.contains("maintenance") ? "developing" : "maintenance";
-    apply(next);
-  });
-})();
-</script>
 
 </body>
 </html>
