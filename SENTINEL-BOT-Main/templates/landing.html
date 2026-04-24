@@ -309,6 +309,204 @@ nav{
 }
 .btn-ghost:hover{ border-color:var(--accent); color:var(--accent); }
 
+/* Beautiful "Add to Discord" invite button */
+.btn-discord{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:13px 28px;
+  border-radius:12px;
+  color:#fff;
+  font-weight:700;
+  letter-spacing:.3px;
+  text-decoration:none;
+  background:linear-gradient(135deg,#5865F2 0%,#7C5CFF 50%,#3A8FFF 100%);
+  background-size:200% 200%;
+  box-shadow:
+    0 8px 24px rgba(88,101,242,.45),
+    inset 0 1px 0 rgba(255,255,255,.18);
+  overflow:hidden;
+  transition:transform .2s ease, box-shadow .2s ease, background-position .6s ease;
+  animation:btnGradientShift 6s ease-in-out infinite;
+}
+.btn-discord i{ font-size:1.05rem; }
+.btn-discord::before{
+  content:"";
+  position:absolute;
+  top:0; left:-75%;
+  width:50%; height:100%;
+  background:linear-gradient(120deg, transparent, rgba(255,255,255,.35), transparent);
+  transform:skewX(-20deg);
+  transition:left .6s ease;
+}
+.btn-discord:hover{
+  transform:translateY(-2px);
+  box-shadow:
+    0 12px 32px rgba(88,101,242,.6),
+    0 0 0 2px rgba(124,92,255,.35),
+    inset 0 1px 0 rgba(255,255,255,.25);
+  background-position:100% 50%;
+}
+.btn-discord:hover::before{ left:130%; }
+.btn-discord:active{ transform:translateY(0); }
+
+@keyframes btnGradientShift{
+  0%,100%{ background-position:0% 50%; }
+  50%   { background-position:100% 50%; }
+}
+
+/* "Ask for a Bot" button (opens maintenance modal) */
+.btn-ask{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:13px 28px;
+  border-radius:12px;
+  color:#ffd76a;
+  font-weight:700;
+  text-decoration:none;
+  background:rgba(255,193,7,.08);
+  border:1px solid rgba(255,193,7,.45);
+  cursor:pointer;
+  transition:transform .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+}
+.btn-ask i{ font-size:1.05rem; }
+.btn-ask:hover{
+  transform:translateY(-2px);
+  background:rgba(255,193,7,.16);
+  color:#fff;
+  box-shadow:0 10px 26px rgba(255,193,7,.25);
+}
+
+/* ---- Maintenance modal ---- */
+.maint-overlay{
+  position:fixed; inset:0;
+  background:rgba(3,8,20,.78);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  animation:fadeIn .25s ease;
+}
+.maint-overlay.open{ display:flex; }
+
+.maint-card{
+  position:relative;
+  width:min(440px, 92vw);
+  background:linear-gradient(180deg,#0f1d38 0%, #0b1426 100%);
+  border:1px solid rgba(58,143,255,.28);
+  border-radius:18px;
+  padding:36px 28px 30px;
+  text-align:center;
+  box-shadow:0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04) inset;
+  animation:popIn .35s cubic-bezier(.2,.9,.3,1.2);
+}
+
+.maint-close{
+  position:absolute;
+  top:10px; right:14px;
+  background:transparent;
+  border:none;
+  color:#9aa7c2;
+  font-size:1.2rem;
+  cursor:pointer;
+  padding:6px 10px;
+  border-radius:8px;
+  transition:color .15s, background .15s;
+}
+.maint-close:hover{ color:#fff; background:rgba(255,255,255,.06); }
+
+.gears{
+  position:relative;
+  width:120px; height:120px;
+  margin:6px auto 18px;
+}
+.gears i{
+  position:absolute;
+  color:#ffc107;
+  filter:drop-shadow(0 0 14px rgba(255,193,7,.45));
+}
+.gears .gear-big{
+  font-size:5rem;
+  top:0; left:10px;
+  animation:spin 4s linear infinite;
+}
+.gears .gear-small{
+  font-size:2.6rem;
+  bottom:6px; right:6px;
+  color:#5ab4ff;
+  filter:drop-shadow(0 0 12px rgba(90,180,255,.5));
+  animation:spinReverse 3s linear infinite;
+}
+
+.maint-card h3{
+  margin:0 0 10px;
+  font-size:1.4rem;
+  background:linear-gradient(90deg,#ffd76a,#5ab4ff);
+  -webkit-background-clip:text;
+          background-clip:text;
+  color:transparent;
+  animation:pulseText 2.4s ease-in-out infinite;
+}
+.maint-card p{
+  margin:0 0 20px;
+  color:#9aa7c2;
+  font-size:.98rem;
+  line-height:1.55;
+}
+
+.maint-bar{
+  position:relative;
+  height:6px;
+  border-radius:99px;
+  background:rgba(255,255,255,.06);
+  overflow:hidden;
+  margin:0 auto 18px;
+  width:80%;
+}
+.maint-bar::before{
+  content:"";
+  position:absolute;
+  top:0; left:-40%;
+  width:40%; height:100%;
+  background:linear-gradient(90deg, transparent, #5ab4ff, #ffc107, transparent);
+  border-radius:99px;
+  animation:slide 1.6s ease-in-out infinite;
+}
+
+.maint-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 12px;
+  border-radius:99px;
+  background:rgba(255,193,7,.1);
+  border:1px solid rgba(255,193,7,.35);
+  color:#ffd76a;
+  font-size:.78rem;
+  font-weight:700;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+}
+.maint-tag .dot{
+  width:8px; height:8px; border-radius:50%;
+  background:#ffc107;
+  box-shadow:0 0 10px #ffc107;
+  animation:blink 1s ease-in-out infinite;
+}
+
+@keyframes spin       { from{ transform:rotate(0); } to{ transform:rotate(360deg); } }
+@keyframes spinReverse{ from{ transform:rotate(0); } to{ transform:rotate(-360deg);} }
+@keyframes slide      { 0%{ left:-40%; } 100%{ left:100%; } }
+@keyframes pulseText  { 0%,100%{ opacity:1; } 50%{ opacity:.7; } }
+@keyframes blink      { 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+@keyframes fadeIn     { from{ opacity:0; } to{ opacity:1; } }
+@keyframes popIn      { from{ transform:scale(.85); opacity:0; } to{ transform:scale(1); opacity:1; } }
+
 /* HERO */
 .hero{
   padding:90px 48px 70px;
@@ -508,9 +706,43 @@ footer{
       <i class="fab fa-discord"></i> Add to Discord
     </a>
     {% endif %}
+    <button type="button" class="btn-ask" onclick="openMaintenance()">
+      <i class="fas fa-robot"></i> Ask for a Bot
+    </button>
     <a class="btn-ghost" href="#features">See Features</a>
   </div>
 </section>
+
+<!-- Maintenance modal for "Ask for a Bot" -->
+<div class="maint-overlay" id="maintOverlay" role="dialog" aria-modal="true" aria-labelledby="maintTitle" onclick="if(event.target===this)closeMaintenance()">
+  <div class="maint-card">
+    <button type="button" class="maint-close" aria-label="Close" onclick="closeMaintenance()">
+      <i class="fas fa-xmark"></i>
+    </button>
+    <div class="gears" aria-hidden="true">
+      <i class="fas fa-gear gear-big"></i>
+      <i class="fas fa-cog gear-small"></i>
+    </div>
+    <span class="maint-tag"><span class="dot"></span> Under Development</span>
+    <h3 id="maintTitle">We're building this feature</h3>
+    <p>Custom bot requests are not available yet. Our engineers are crafting it — check back soon!</p>
+    <div class="maint-bar" aria-hidden="true"></div>
+  </div>
+</div>
+
+<script>
+  function openMaintenance(){
+    document.getElementById('maintOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMaintenance(){
+    document.getElementById('maintOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') closeMaintenance();
+  });
+</script>
 
 <!-- FEATURES -->
 <section class="features" id="features">
