@@ -875,9 +875,9 @@ footer{
   /* ===== Hidden developer menu =====
      Unlock methods (no logo interaction at all):
        1. Type the secret word "spark" anywhere on the page (desktop).
-       2. Visit the URL with ?dev=1 (works on any device, incl. mobile).
-       3. Press Ctrl + Shift + D to toggle on/off.
-     Use ?dev=0 in the URL to lock again.
+       2. Triple-tap the footer copyright text (mobile-friendly).
+       3. Press Ctrl + Shift + D to toggle on/off (desktop).
+     Use the "Lock dev menu" item inside the dropdown to lock it again.
      State is saved in localStorage so devs only have to do it once
      per device. Regular users see nothing. */
   const STORAGE_KEY    = 'sp4rk_dev_unlocked_v1';
@@ -923,14 +923,37 @@ footer{
     devDropdown.classList.contains('open') ? closeDevMenu() : openDevMenu();
   }
 
-  /* --- URL-param unlock (?dev=1 unlocks, ?dev=0 locks) --- */
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('dev') === '1') unlockDevMenu(true);
-    if (params.get('dev') === '0') lockDevMenu();
-  } catch(e){}
-
   if(isUnlocked()) showDevMenu();
+
+  /* --- Triple-tap on the footer copyright (mobile-friendly) --- */
+  const footerCopy = document.querySelector('.footer-copy');
+  if (footerCopy) {
+    footerCopy.style.cursor = 'default';
+    footerCopy.style.userSelect = 'none';
+    footerCopy.style.webkitUserSelect = 'none';
+    footerCopy.style.webkitTapHighlightColor = 'transparent';
+
+    let copyTaps = 0;
+    let copyFirstAt = 0;
+    const COPY_TAP_TARGET = 3;
+    const COPY_TAP_WINDOW = 1500;
+
+    function copyTap(e){
+      const now = Date.now();
+      if (now - copyFirstAt > COPY_TAP_WINDOW) {
+        copyTaps = 0;
+        copyFirstAt = now;
+      }
+      copyTaps++;
+      if (copyTaps >= COPY_TAP_TARGET) {
+        copyTaps = 0;
+        if (e && e.preventDefault) e.preventDefault();
+        isUnlocked() ? lockDevMenu() : unlockDevMenu(true);
+      }
+    }
+    footerCopy.addEventListener('click', copyTap);
+    footerCopy.addEventListener('touchend', copyTap);
+  }
 
   /* --- Type-the-secret-word unlock (rolling buffer) --- */
   let typedBuffer = '';
