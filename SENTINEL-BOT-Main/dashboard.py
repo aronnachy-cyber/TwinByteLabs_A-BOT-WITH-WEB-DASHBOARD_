@@ -217,21 +217,58 @@ def supabase_get_notes(guild_id, member_id):
 # ---- USERS MANAGEMENT (Discord-only, Supabase-backed with JSON fallback) ----
 USERS_FILE = 'users.json'
 
+# The Supabase `sentinel_users` table schema is:
+#   discord_id text primary key, username text, avatar_url text,
+#   email text, created_at timestamptz, last_login timestamptz
+# The application code internally uses `name` (display name) and
+# `discord_username` (raw Discord username). The helpers below translate
+# between the two representations so we can persist everything in Supabase.
+
 def _normalize_user(u):
     if not isinstance(u, dict) or not u.get('discord_id'):
         return None
     u['discord_id'] = str(u['discord_id'])
     if not u.get('name'):
-        u['name'] = u.get('discord_username') or 'User'
+        u['name'] = u.get('discord_username') or u.get('username') or 'User'
+    if not u.get('discord_username'):
+        u['discord_username'] = u.get('username') or u['name']
     if not u.get('created_at'):
         u['created_at'] = datetime.now().strftime('%Y-%m-%d')
     return u
+
+def _to_db_row(u):
+    """Convert an in-memory user dict to a Supabase `sentinel_users` row."""
+    row = {
+        'discord_id': str(u['discord_id']),
+        'username':   u.get('name') or u.get('discord_username') or 'User',
+        'last_login': datetime.utcnow().isoformat(),
+    }
+    if u.get('avatar_url'):
+        row['avatar_url'] = u['avatar_url']
+    if u.get('email'):
+        row['email'] = u['email']
+    return row
+
+def _from_db_row(r):
+    """Convert a Supabase `sentinel_users` row back to the app's user dict."""
+    if not isinstance(r, dict) or not r.get('discord_id'):
+        return None
+    username = r.get('username') or 'User'
+    return _normalize_user({
+        'discord_id':       str(r['discord_id']),
+        'discord_username': username,
+        'name':             username,
+        'avatar_url':       r.get('avatar_url') or '',
+        'email':            r.get('email') or '',
+        'created_at':       r.get('created_at') or datetime.now().strftime('%Y-%m-%d'),
+        'last_login':       r.get('last_login') or '',
+    })
 
 def load_users():
     if supabase:
         try:
             res = supabase.table("sentinel_users").select("*").execute()
-            return [u for u in (res.data or []) if _normalize_user(u)]
+            return [u for u in (_from_db_row(r) for r in (res.data or [])) if u]
         except Exception as e:
             print(f"⚠️ Supabase load_users error: {e}")
     if os.path.exists(USERS_FILE):
@@ -249,11 +286,12 @@ def save_single_user(u):
         return
     if supabase:
         try:
-            existing = supabase.table("sentinel_users").select("discord_id").eq("discord_id", u["discord_id"]).execute()
-            if existing.data:
-                supabase.table("sentinel_users").update(u).eq("discord_id", u["discord_id"]).execute()
-            else:
-                supabase.table("sentinel_users").insert(u).execute()
+            row = _to_db_row(u)
+            # Upsert keeps it idempotent: insert on first login, update on every
+            # subsequent login (refreshes username + last_login).
+            supabase.table("sentinel_users").upsert(
+                row, on_conflict="discord_id"
+            ).execute()
             return
         except Exception as e:
             print(f"⚠️ Supabase save_single_user error: {e}")
@@ -269,6 +307,19 @@ def save_single_user(u):
 
 def find_user_by_discord_id(discord_id):
     discord_id = str(discord_id)
+    if supabase:
+        try:
+            res = (
+                supabase.table("sentinel_users")
+                .select("*")
+                .eq("discord_id", discord_id)
+                .limit(1)
+                .execute()
+            )
+            if res.data:
+                return _from_db_row(res.data[0])
+        except Exception as e:
+            print(f"⚠️ Supabase find_user_by_discord_id error: {e}")
     for u in load_users():
         if str(u.get('discord_id')) == discord_id:
             return u
@@ -472,24 +523,37 @@ def auth_discord_callback():
     discord_id       = str(discord_user.get('id', ''))
     discord_username = discord_user.get('username', 'Unknown')
     discord_global   = discord_user.get('global_name') or discord_username
+    discord_avatar   = discord_user.get('avatar') or ''
+    avatar_url = (
+        f"https://cdn.discordapp.com/avatars/{discord_id}/{discord_avatar}.png"
+        if discord_avatar else ''
+    )
+    discord_email    = discord_user.get('email') or ''
 
     if not discord_id:
         return _login_error("Could not read Discord profile. Try again.")
 
     user = find_user_by_discord_id(discord_id)
-    if not user:
+    is_new = user is None
+    if is_new:
         user = {
             'discord_id':       discord_id,
             'discord_username': discord_username,
             'name':             discord_global,
+            'avatar_url':       avatar_url,
+            'email':            discord_email,
             'created_at':       datetime.now().strftime('%Y-%m-%d'),
         }
-        save_single_user(user)
-        add_dashboard_log("📝 DISCORD-REGISTER", f"New Discord login: {discord_global} ({discord_id})")
     else:
         user['discord_username'] = discord_username
         user['name'] = discord_global
-        save_single_user(user)
+        if avatar_url:
+            user['avatar_url'] = avatar_url
+        if discord_email:
+            user['email'] = discord_email
+    save_single_user(user)
+    if is_new:
+        add_dashboard_log("📝 DISCORD-REGISTER", f"New Discord login: {discord_global} ({discord_id})")
 
     session.permanent = True
     session['logged_in'] = True
