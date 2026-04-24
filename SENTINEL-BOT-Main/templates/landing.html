@@ -585,6 +585,33 @@ nav{
 .hero-cta{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
 .hero-cta .btn-getstarted{ padding:12px 26px; }
 
+/* "Ask for a Bot" button — warm flame theme */
+.btn-askbot{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:12px 22px;
+  margin-left:6px;
+  background:linear-gradient(90deg,#ff8a1f,#ff3b1d);
+  background-size:200% 100%;
+  color:#fff;
+  font-weight:700;
+  border:none;
+  border-radius:8px;
+  text-decoration:none;
+  cursor:pointer;
+  font-size:0.95rem;
+  box-shadow:0 6px 18px rgba(255,80,30,.35);
+  transition:transform .15s, box-shadow .2s, background-position .4s;
+}
+.btn-askbot:hover{
+  background-position:100% 50%;
+  transform:translateY(-1px);
+  box-shadow:0 10px 22px rgba(255,80,30,.5);
+}
+.btn-askbot:active{ transform:translateY(0); }
+.btn-askbot i{ font-size:0.95rem; }
+
 /* Floating embers */
 .embers{
   position:absolute;
@@ -805,6 +832,9 @@ footer{
       <i class="fab fa-discord"></i> Add to Discord
     </a>
     {% endif %}
+    <button type="button" class="btn-askbot" onclick="openMaintenance()">
+      <i class="fas fa-robot"></i> Ask for a Bot
+    </button>
     <a class="btn-ghost" href="#features">See Features</a>
   </div>
 </section>
