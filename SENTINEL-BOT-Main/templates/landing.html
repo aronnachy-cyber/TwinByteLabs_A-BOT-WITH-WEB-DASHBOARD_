@@ -874,14 +874,17 @@ footer{
 
   /* ===== Hidden developer menu =====
      Unlock methods (no logo interaction at all):
-       1. Type the secret word "spark" anywhere on the page (desktop).
-       2. Triple-tap the footer copyright text (mobile-friendly).
+       1. Press and hold ANYWHERE on the page for 5 seconds
+          (works on mobile and desktop).
+       2. Type the secret word "spark" (desktop keyboard).
        3. Press Ctrl + Shift + D to toggle on/off (desktop).
      Use the "Lock dev menu" item inside the dropdown to lock it again.
      State is saved in localStorage so devs only have to do it once
      per device. Regular users see nothing. */
   const STORAGE_KEY    = 'sp4rk_dev_unlocked_v1';
   const SECRET_WORD    = 'spark';
+  const HOLD_MS        = 5000;
+  const HOLD_MOVE_TOL  = 14;   // px of finger drift allowed before cancel
 
   const devMenu     = document.getElementById('devMenu');
   const devKebab    = document.getElementById('devKebabBtn');
@@ -925,35 +928,69 @@ footer{
 
   if(isUnlocked()) showDevMenu();
 
-  /* --- Triple-tap on the footer copyright (mobile-friendly) --- */
-  const footerCopy = document.querySelector('.footer-copy');
-  if (footerCopy) {
-    footerCopy.style.cursor = 'default';
-    footerCopy.style.userSelect = 'none';
-    footerCopy.style.webkitUserSelect = 'none';
-    footerCopy.style.webkitTapHighlightColor = 'transparent';
+  /* --- Long-press anywhere on the page for 5 seconds --- */
+  let holdTimer = null;
+  let holdStartX = 0;
+  let holdStartY = 0;
 
-    let copyTaps = 0;
-    let copyFirstAt = 0;
-    const COPY_TAP_TARGET = 3;
-    const COPY_TAP_WINDOW = 1500;
-
-    function copyTap(e){
-      const now = Date.now();
-      if (now - copyFirstAt > COPY_TAP_WINDOW) {
-        copyTaps = 0;
-        copyFirstAt = now;
+  function isInteractive(el){
+    // Don't hijack normal interaction with buttons, links, inputs, etc.
+    while (el && el !== document.body) {
+      const tag = el.tagName;
+      if (tag === 'A' || tag === 'BUTTON' || tag === 'INPUT' ||
+          tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'LABEL' ||
+          el.isContentEditable) {
+        return true;
       }
-      copyTaps++;
-      if (copyTaps >= COPY_TAP_TARGET) {
-        copyTaps = 0;
-        if (e && e.preventDefault) e.preventDefault();
-        isUnlocked() ? lockDevMenu() : unlockDevMenu(true);
-      }
+      el = el.parentElement;
     }
-    footerCopy.addEventListener('click', copyTap);
-    footerCopy.addEventListener('touchend', copyTap);
+    return false;
   }
+
+  function startHold(x, y, target){
+    cancelHold();
+    if (isInteractive(target)) return;
+    holdStartX = x;
+    holdStartY = y;
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      isUnlocked() ? lockDevMenu() : unlockDevMenu(true);
+    }, HOLD_MS);
+  }
+  function cancelHold(){
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+  }
+  function checkMove(x, y){
+    if (!holdTimer) return;
+    if (Math.abs(x - holdStartX) > HOLD_MOVE_TOL ||
+        Math.abs(y - holdStartY) > HOLD_MOVE_TOL) {
+      cancelHold();
+    }
+  }
+
+  // Mouse (desktop)
+  document.addEventListener('mousedown', (e) => startHold(e.clientX, e.clientY, e.target));
+  document.addEventListener('mousemove', (e) => checkMove(e.clientX, e.clientY));
+  document.addEventListener('mouseup',   cancelHold);
+  document.addEventListener('mouseleave', cancelHold);
+
+  // Touch (mobile)
+  document.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    if (t) startHold(t.clientX, t.clientY, e.target);
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    if (t) checkMove(t.clientX, t.clientY);
+  }, { passive: true });
+  document.addEventListener('touchend',    cancelHold);
+  document.addEventListener('touchcancel', cancelHold);
+
+  // Cancel if the user scrolls — they're not trying to unlock
+  window.addEventListener('scroll', cancelHold, { passive: true });
 
   /* --- Type-the-secret-word unlock (rolling buffer) --- */
   let typedBuffer = '';
