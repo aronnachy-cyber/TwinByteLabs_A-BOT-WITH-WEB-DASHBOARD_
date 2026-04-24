@@ -356,28 +356,111 @@ nav{
   50%   { background-position:100% 50%; }
 }
 
-/* "Ask for a Bot" button (opens maintenance modal) */
-.btn-ask{
-  position:relative;
+/* Right-aligned nav cluster (Get Started + hidden dev kebab) */
+.nav-right{ display:flex; align-items:center; gap:10px; }
+
+/* Dev-only kebab menu (hidden by default; unlocked via secret gesture) */
+.dev-menu{ position:relative; }
+.dev-menu[hidden]{ display:none !important; }
+
+.dev-kebab{
+  width:38px; height:38px;
   display:inline-flex;
   align-items:center;
-  gap:10px;
-  padding:13px 28px;
-  border-radius:12px;
-  color:#ffd76a;
-  font-weight:700;
-  text-decoration:none;
-  background:rgba(255,193,7,.08);
-  border:1px solid rgba(255,193,7,.45);
+  justify-content:center;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  color:#cfd9ee;
+  border-radius:10px;
   cursor:pointer;
-  transition:transform .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+  transition:background .15s, border-color .15s, color .15s, transform .15s;
 }
-.btn-ask i{ font-size:1.05rem; }
-.btn-ask:hover{
-  transform:translateY(-2px);
-  background:rgba(255,193,7,.16);
+.dev-kebab:hover,
+.dev-kebab[aria-expanded="true"]{
+  background:rgba(58,143,255,.12);
+  border-color:rgba(58,143,255,.45);
   color:#fff;
-  box-shadow:0 10px 26px rgba(255,193,7,.25);
+}
+.dev-kebab:active{ transform:scale(.95); }
+
+.dev-dropdown{
+  position:absolute;
+  top:calc(100% + 8px);
+  right:0;
+  min-width:220px;
+  background:linear-gradient(180deg,#0f1d38 0%,#0b1426 100%);
+  border:1px solid rgba(58,143,255,.28);
+  border-radius:12px;
+  box-shadow:0 18px 40px rgba(0,0,0,.55);
+  padding:8px;
+  display:none;
+  z-index:1000;
+  transform-origin:top right;
+  animation:popIn .18s ease;
+}
+.dev-dropdown.open{ display:block; }
+
+.dev-dropdown-head{
+  display:flex; align-items:center; gap:8px;
+  padding:8px 12px 10px;
+  font-size:.78rem;
+  text-transform:uppercase;
+  letter-spacing:.7px;
+  color:#7fb6ff;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  margin-bottom:6px;
+}
+
+.dev-item{
+  display:flex; align-items:center; gap:10px;
+  width:100%;
+  padding:10px 12px;
+  background:transparent;
+  border:none;
+  color:#e8f0ff;
+  font-size:.95rem;
+  font-weight:600;
+  text-align:left;
+  border-radius:8px;
+  cursor:pointer;
+  transition:background .12s, color .12s;
+}
+.dev-item:hover{ background:rgba(58,143,255,.14); color:#fff; }
+.dev-item i{ width:18px; text-align:center; color:#5ab4ff; }
+.dev-item-danger{ color:#ff9a9a; }
+.dev-item-danger i{ color:#ff8585; }
+.dev-item-danger:hover{ background:rgba(255,80,80,.12); color:#fff; }
+
+/* Tap-to-unlock visual feedback on the logo (subtle, only shows progress) */
+.nav-logo{ position:relative; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent; }
+.nav-logo.tap-pulse{ animation:logoTap .25s ease; }
+@keyframes logoTap{
+  0%{ transform:scale(1); }
+  50%{ transform:scale(.92); }
+  100%{ transform:scale(1); }
+}
+
+/* Brief "unlocked" toast */
+.dev-toast{
+  position:fixed;
+  bottom:24px;
+  left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:linear-gradient(135deg,#10b981,#059669);
+  color:#fff;
+  padding:10px 18px;
+  border-radius:99px;
+  font-size:.9rem;
+  font-weight:700;
+  box-shadow:0 10px 30px rgba(16,185,129,.4);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease, transform .25s ease;
+  z-index:10000;
+}
+.dev-toast.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
 }
 
 /* ---- Maintenance modal ---- */
@@ -679,7 +762,7 @@ footer{
 
 <!-- ===== NAV ===== -->
 <nav>
-  <a class="nav-logo" href="/">
+  <a class="nav-logo" href="/" id="navLogo">
     <svg width="30" height="34" viewBox="0 0 40 46">
       <path d="M20 3L4 10.5V22C4 32.5 11.5 42.2 20 45C28.5 42.2 36 32.5 36 22V10.5L20 3Z"
         fill="#0d2245" stroke="#3a8fff" stroke-width="1.8"/>
@@ -688,7 +771,31 @@ footer{
     <span class="nav-logo-name">SP4RK</span>
   </a>
 
-  <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
+  <div class="nav-right">
+    <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
+
+    <!-- Dev-only kebab menu. Hidden until unlocked via secret gesture
+         (tap the SP4RK logo 7 times within 3 seconds, OR long-press it
+         for ~1.5 seconds). State persists in localStorage. -->
+    <div class="dev-menu" id="devMenu" hidden>
+      <button type="button" class="dev-kebab" id="devKebabBtn"
+              aria-label="Developer menu" aria-haspopup="true" aria-expanded="false">
+        <i class="fas fa-ellipsis-vertical"></i>
+      </button>
+      <div class="dev-dropdown" id="devDropdown" role="menu">
+        <div class="dev-dropdown-head">
+          <i class="fas fa-user-shield"></i>
+          <span>Developer Tools</span>
+        </div>
+        <button type="button" class="dev-item" role="menuitem" onclick="openMaintenance(); closeDevMenu();">
+          <i class="fas fa-robot"></i> Ask for a Bot
+        </button>
+        <button type="button" class="dev-item dev-item-danger" role="menuitem" onclick="lockDevMenu()">
+          <i class="fas fa-lock"></i> Lock dev menu
+        </button>
+      </div>
+    </div>
+  </div>
 </nav>
 
 <!-- HERO -->
@@ -706,9 +813,6 @@ footer{
       <i class="fab fa-discord"></i> Add to Discord
     </a>
     {% endif %}
-    <button type="button" class="btn-ask" onclick="openMaintenance()">
-      <i class="fas fa-robot"></i> Ask for a Bot
-    </button>
     <a class="btn-ghost" href="#features">See Features</a>
   </div>
 </section>
@@ -730,7 +834,13 @@ footer{
   </div>
 </div>
 
+<!-- "Unlocked" toast -->
+<div class="dev-toast" id="devToast" role="status" aria-live="polite">
+  <i class="fas fa-unlock"></i> Developer menu unlocked
+</div>
+
 <script>
+  /* ===== Maintenance modal ===== */
   function openMaintenance(){
     document.getElementById('maintOverlay').classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -739,8 +849,121 @@ footer{
     document.getElementById('maintOverlay').classList.remove('open');
     document.body.style.overflow = '';
   }
+
+  /* ===== Hidden developer menu =====
+     Unlock by tapping the SP4RK logo 7 times within 3 seconds,
+     OR by long-pressing the logo for ~1.5 seconds.
+     State is saved in localStorage so devs only have to do it once
+     per device. Regular users have no visible affordance for it. */
+  const TAP_TARGET     = 7;
+  const TAP_WINDOW_MS  = 3000;
+  const LONGPRESS_MS   = 1500;
+  const STORAGE_KEY    = 'sp4rk_dev_unlocked_v1';
+
+  const devMenu     = document.getElementById('devMenu');
+  const devKebab    = document.getElementById('devKebabBtn');
+  const devDropdown = document.getElementById('devDropdown');
+  const devToast    = document.getElementById('devToast');
+  const navLogo     = document.getElementById('navLogo');
+
+  function isUnlocked(){
+    try { return localStorage.getItem(STORAGE_KEY) === '1'; }
+    catch(e){ return false; }
+  }
+  function showDevMenu(){
+    devMenu.hidden = false;
+  }
+  function hideDevMenu(){
+    devMenu.hidden = true;
+    closeDevMenu();
+  }
+  function unlockDevMenu(showToast){
+    try { localStorage.setItem(STORAGE_KEY, '1'); } catch(e){}
+    showDevMenu();
+    if(showToast){
+      devToast.classList.add('show');
+      setTimeout(() => devToast.classList.remove('show'), 1800);
+    }
+  }
+  function lockDevMenu(){
+    try { localStorage.removeItem(STORAGE_KEY); } catch(e){}
+    hideDevMenu();
+  }
+  function openDevMenu(){
+    devDropdown.classList.add('open');
+    devKebab.setAttribute('aria-expanded', 'true');
+  }
+  function closeDevMenu(){
+    devDropdown.classList.remove('open');
+    devKebab.setAttribute('aria-expanded', 'false');
+  }
+  function toggleDevMenu(){
+    devDropdown.classList.contains('open') ? closeDevMenu() : openDevMenu();
+  }
+
+  if(isUnlocked()) showDevMenu();
+
+  /* --- Tap counter on the logo --- */
+  let tapCount = 0;
+  let firstTapAt = 0;
+  navLogo.addEventListener('click', function(e){
+    // Don't navigate while the user is mashing the logo to unlock.
+    // Only block when accumulating taps (always allow the very first
+    // navigation if they aren't trying to unlock).
+    const now = Date.now();
+    if(now - firstTapAt > TAP_WINDOW_MS){
+      tapCount = 0;
+      firstTapAt = now;
+    }
+    tapCount++;
+    navLogo.classList.remove('tap-pulse');
+    void navLogo.offsetWidth; // restart animation
+    navLogo.classList.add('tap-pulse');
+
+    if(tapCount >= 2){
+      // Block navigation once they've started tapping repeatedly.
+      e.preventDefault();
+    }
+    if(tapCount >= TAP_TARGET){
+      tapCount = 0;
+      unlockDevMenu(true);
+    }
+  });
+
+  /* --- Long-press alternative (great for mobile) --- */
+  let pressTimer = null;
+  function startPress(e){
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      unlockDevMenu(true);
+    }, LONGPRESS_MS);
+  }
+  function cancelPress(){
+    clearTimeout(pressTimer);
+    pressTimer = null;
+  }
+  navLogo.addEventListener('touchstart', startPress, { passive:true });
+  navLogo.addEventListener('touchend',   cancelPress);
+  navLogo.addEventListener('touchmove',  cancelPress);
+  navLogo.addEventListener('mousedown',  startPress);
+  navLogo.addEventListener('mouseup',    cancelPress);
+  navLogo.addEventListener('mouseleave', cancelPress);
+
+  /* --- Kebab + dropdown wiring --- */
+  devKebab.addEventListener('click', function(e){
+    e.stopPropagation();
+    toggleDevMenu();
+  });
+  document.addEventListener('click', function(e){
+    if(!devMenu.contains(e.target)) closeDevMenu();
+  });
+
+  /* --- Global Escape --- */
   document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape') closeMaintenance();
+    if(e.key === 'Escape'){
+      closeMaintenance();
+      closeDevMenu();
+    }
   });
 </script>
 
