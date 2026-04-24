@@ -15,6 +15,7 @@ from dashboard import (
     set_bot_restart_callback, set_bot_config_refresh_callback,
     supabase_save_warning, supabase_clear_warnings,
     supabase_save_mod_log, supabase_save_note, supabase_get_notes,
+    supabase_load_all_warnings,
 )
 import moderation, automod, roles, logs, social, security
 import giveaway as giveaway_mod
@@ -139,6 +140,24 @@ def dlog(event_type, description):
 warnings_file = "warnings.json"
 
 def load_warnings():
+    """
+    Load warnings from Supabase first (source of truth across restarts /
+    Render deploys). Fall back to the local JSON cache only when Supabase
+    is unavailable, so a wiped container disk never loses warning history.
+    """
+    try:
+        sb_data = supabase_load_all_warnings()
+    except Exception as e:
+        print(f"[WARN] Supabase warning load failed: {e}")
+        sb_data = {}
+    if sb_data:
+        # Refresh the JSON cache so the next quick read is fast.
+        try:
+            with open(warnings_file, "w") as f:
+                json.dump(sb_data, f, indent=4)
+        except Exception:
+            pass
+        return sb_data
     if os.path.exists(warnings_file):
         with open(warnings_file, "r") as f:
             try:
@@ -148,6 +167,8 @@ def load_warnings():
     return {}
 
 def save_warnings():
+    # JSON acts as a fast in-memory mirror; the authoritative copy lives
+    # in Supabase via supabase_save_warning() at every call site.
     with open(warnings_file, "w") as f:
         json.dump(warnings_db, f, indent=4)
 

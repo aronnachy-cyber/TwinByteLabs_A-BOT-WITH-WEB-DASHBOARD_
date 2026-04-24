@@ -169,6 +169,49 @@ def supabase_get_warnings(guild_id, member_id):
         print(f"⚠️ Supabase get_warnings error: {e}")
         return []
 
+def supabase_load_all_warnings():
+    """
+    Load every warning row from Supabase and group them into the
+    in-memory shape used by the bot:
+        { guild_id: { member_id: { "count": int, "history": [ {reason, time} ] } } }
+    Returns {} if Supabase is unavailable so callers can fall back to the
+    local JSON cache.
+    """
+    if not supabase:
+        return {}
+    try:
+        res = (
+            supabase.table("sentinel_warnings")
+            .select("*")
+            .order("timestamp", desc=False)
+            .execute()
+        )
+        rows = res.data or []
+    except Exception as e:
+        print(f"⚠️ Supabase load_all_warnings error: {e}")
+        return {}
+
+    out = {}
+    for r in rows:
+        gid = str(r.get("guild_id") or "")
+        mid = str(r.get("member_id") or "")
+        if not gid or not mid:
+            continue
+        guild = out.setdefault(gid, {})
+        entry = guild.setdefault(mid, {"count": 0, "history": []})
+        # Each row is one warning event; count the events and keep history.
+        entry["count"] = max(int(r.get("count") or 0), entry["count"] + 1)
+        entry["history"].append({
+            "reason": r.get("reason") or "",
+            "time":   r.get("timestamp") or "",
+        })
+    # Re-derive count as the length of history so it can never disagree
+    # with the stored history list.
+    for guild in out.values():
+        for entry in guild.values():
+            entry["count"] = len(entry["history"])
+    return out
+
 def supabase_save_mod_log(guild_id, action, target, moderator, reason, timestamp):
     if not supabase:
         return
