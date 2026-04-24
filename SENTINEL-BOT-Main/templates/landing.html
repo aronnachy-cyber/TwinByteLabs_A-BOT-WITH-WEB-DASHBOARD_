@@ -676,16 +676,43 @@ nav{
   gap:18px;
 }
 .feature-card{
+  position:relative;
   background:rgba(10,22,44,0.7);
   border:1px solid var(--border);
   border-radius:12px;
   padding:22px;
   transition:transform .15s, border-color .15s, box-shadow .15s;
+  overflow:hidden;
 }
 .feature-card:hover{
   transform:translateY(-3px);
   border-color:var(--accent);
   box-shadow:0 10px 26px rgba(58,143,255,0.18);
+}
+/* Visual hint while a hidden long-press unlock is in progress */
+.feature-card::after{
+  content:"";
+  position:absolute;
+  left:0; right:0; bottom:0;
+  height:3px;
+  width:0%;
+  background:linear-gradient(90deg,#ff8a1f,#ff3b1d);
+  box-shadow:0 0 10px rgba(255,90,30,.55);
+  opacity:0;
+  transition:opacity .2s;
+  pointer-events:none;
+}
+.feature-card.feature-card-holding{
+  border-color:#ff8a1f;
+  box-shadow:0 10px 26px rgba(255,120,40,.18);
+}
+.feature-card.feature-card-holding::after{
+  opacity:1;
+  animation:holdProgress 7s linear forwards;
+}
+@keyframes holdProgress{
+  from{ width:0%; }
+  to  { width:100%; }
 }
 .feature-icon{
   width:38px;
@@ -874,7 +901,7 @@ footer{
 
   /* ===== Hidden developer menu =====
      Unlock methods (no logo interaction at all):
-       1. Press and hold ANYWHERE on the page for 5 seconds
+       1. Press and hold any feature card for 7 seconds
           (works on mobile and desktop).
        2. Type the secret word "spark" (desktop keyboard).
        3. Press Ctrl + Shift + D to toggle on/off (desktop).
@@ -883,7 +910,7 @@ footer{
      per device. Regular users see nothing. */
   const STORAGE_KEY    = 'sp4rk_dev_unlocked_v1';
   const SECRET_WORD    = 'spark';
-  const HOLD_MS        = 5000;
+  const HOLD_MS        = 7000;
   const HOLD_MOVE_TOL  = 14;   // px of finger drift allowed before cancel
 
   const devMenu     = document.getElementById('devMenu');
@@ -928,32 +955,34 @@ footer{
 
   if(isUnlocked()) showDevMenu();
 
-  /* --- Long-press anywhere on the page for 5 seconds --- */
+  /* --- Long-press any feature card for 7 seconds --- */
   let holdTimer = null;
   let holdStartX = 0;
   let holdStartY = 0;
+  let holdCard   = null;
 
-  function isInteractive(el){
-    // Don't hijack normal interaction with buttons, links, inputs, etc.
+  function findFeatureCard(el){
     while (el && el !== document.body) {
-      const tag = el.tagName;
-      if (tag === 'A' || tag === 'BUTTON' || tag === 'INPUT' ||
-          tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'LABEL' ||
-          el.isContentEditable) {
-        return true;
-      }
+      if (el.classList && el.classList.contains('feature-card')) return el;
       el = el.parentElement;
     }
-    return false;
+    return null;
   }
 
   function startHold(x, y, target){
     cancelHold();
-    if (isInteractive(target)) return;
+    const card = findFeatureCard(target);
+    if (!card) return;
     holdStartX = x;
     holdStartY = y;
+    holdCard   = card;
+    card.classList.add('feature-card-holding');
     holdTimer = setTimeout(() => {
       holdTimer = null;
+      if (holdCard) {
+        holdCard.classList.remove('feature-card-holding');
+        holdCard = null;
+      }
       isUnlocked() ? lockDevMenu() : unlockDevMenu(true);
     }, HOLD_MS);
   }
@@ -961,6 +990,10 @@ footer{
     if (holdTimer) {
       clearTimeout(holdTimer);
       holdTimer = null;
+    }
+    if (holdCard) {
+      holdCard.classList.remove('feature-card-holding');
+      holdCard = null;
     }
   }
   function checkMove(x, y){
