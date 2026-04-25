@@ -6,6 +6,7 @@ import requests as http_requests
 import traceback
 from html import escape as html_escape
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 from supabase import create_client, Client as SupabaseClient
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -500,20 +501,22 @@ def auth_discord():
     if not DISCORD_CLIENT_ID:
         return _login_error("Discord login is not configured. Contact the administrator.")
 
-    redirect_uri = DISCORD_REDIRECT_URI or url_for('auth_discord_callback', _external=True)
+    redirect_uri = (DISCORD_REDIRECT_URI or url_for('auth_discord_callback', _external=True)).strip()
     state = secrets.token_urlsafe(16)
     session.permanent = True
     session['oauth_state'] = state
     session.modified = True
 
-    oauth_url = (
-        f"https://discord.com/api/oauth2/authorize"
-        f"?client_id={DISCORD_CLIENT_ID}"
-        f"&redirect_uri={redirect_uri}"
-        f"&response_type=code"
-        f"&scope=identify"
-        f"&state={state}"
-    )
+    # Build the authorize URL with proper percent-encoding so Discord
+    # doesn't reject `redirect_uri` as "Not a well formed URL."
+    params = {
+        "client_id":     DISCORD_CLIENT_ID,
+        "redirect_uri":  redirect_uri,
+        "response_type": "code",
+        "scope":         "identify",
+        "state":         state,
+    }
+    oauth_url = "https://discord.com/api/oauth2/authorize?" + urlencode(params)
     return redirect(oauth_url)
 
 @app.route('/auth/discord/callback')
