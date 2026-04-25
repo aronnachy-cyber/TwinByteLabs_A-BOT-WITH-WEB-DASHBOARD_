@@ -2,6 +2,7 @@ import asyncio
 import os
 import json
 import requests
+from permissions import safe_delete
 
 GEMINI_KEY = os.environ.get("GEMINI_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
 
@@ -40,7 +41,7 @@ async def handle_message_ai(message, add_warning):
             result = {"flagged": '"flagged": true' in text.lower(), "reason": text[:120]}
 
         if result.get("flagged"):
-            await message.delete()
+            await safe_delete(message)
             await add_warning(message.author, reason=f"Gemini Moderation: {result.get('reason', 'violation')}")
             await message.channel.send(
                 f"⚠️ {message.author.mention}, your message was removed by AI moderation."

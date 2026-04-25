@@ -343,7 +343,8 @@ async def handle_ai_moderation(message):
             result = {"flagged": '"flagged": true' in text.lower() or "flagged: true" in text.lower(), "reason": text[:120]}
         if result.get("flagged"):
             reason = result.get("reason", "Gemini moderation violation")
-            await message.delete()
+            from permissions import safe_delete
+            await safe_delete(message)
             await add_warning(message.author, reason=f"Gemini Moderation: {reason}")
             await message.channel.send(
                 f"⚠️ {message.author.mention}, your message was removed by AI moderation.",

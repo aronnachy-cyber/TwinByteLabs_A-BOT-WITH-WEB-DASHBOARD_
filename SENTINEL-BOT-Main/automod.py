@@ -5,6 +5,7 @@ import time
 import unicodedata
 from collections import defaultdict, deque, Counter
 from datetime import timedelta
+from permissions import safe_delete
 
 # How long an auto-mute lasts (minutes) for repeated-word spam / flood spam.
 AUTOMUTE_MINUTES = 30
@@ -158,17 +159,11 @@ async def _instant_mute(message, reason, minutes=AUTOMUTE_MINUTES):
     now = time.time()
     last = _recent_mutes.get((guild_id, user_id), 0)
     if now - last < 30:
-        try:
-            await message.delete()
-        except Exception:
-            pass
+        await safe_delete(message)
         return True
     _recent_mutes[(guild_id, user_id)] = now
 
-    try:
-        await message.delete()
-    except Exception:
-        pass
+    await safe_delete(message)
 
     try:
         until = discord.utils.utcnow() + timedelta(minutes=minutes)
@@ -322,7 +317,7 @@ async def handle_message(message, config, add_warning_fn=None):
     channel = message.channel
 
     async def _punish(reason, log_title, log_desc, dm=True):
-        await message.delete()
+        await safe_delete(message)
         if dm and config.get("auto_dm_warning") == "ON":
             await auto_dm_warning_user(author, reason, message.guild.name)
         await channel.send(
