@@ -1149,6 +1149,173 @@ footer{
   </div>
 </section>
 
+<!-- PLANS / TIERS -->
+<style>
+.plans{
+  padding:80px 24px 60px;
+  text-align:center;
+  background:linear-gradient(180deg, transparent 0%, rgba(58,143,255,.04) 100%);
+}
+.plans h2{ font-size:2.2rem; margin:0 0 8px; }
+.plans .subtitle{ color:#9fb1cc; margin:0 auto 40px; max-width:560px; }
+.plans-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(270px, 1fr));
+  gap:22px;
+  max-width:1100px;
+  margin:0 auto;
+}
+.plan-card{
+  position:relative;
+  background:rgba(11,22,40,.85);
+  border:1px solid rgba(58,143,255,.18);
+  border-radius:16px;
+  padding:34px 26px 30px;
+  text-align:left;
+  transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+.plan-card:hover{
+  transform:translateY(-4px);
+  border-color:var(--accent);
+  box-shadow:0 14px 38px rgba(58,143,255,.18);
+}
+.plan-card.featured{
+  border:1px solid #ff7a18;
+  background:linear-gradient(180deg, rgba(255,122,24,.08), rgba(11,22,40,.9));
+  box-shadow:0 10px 30px rgba(255,122,24,.18);
+}
+.plan-card.featured:hover{ box-shadow:0 16px 44px rgba(255,122,24,.28); }
+.plan-tag{
+  position:absolute;
+  top:14px; right:14px;
+  font-size:.68rem;
+  font-weight:700;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  padding:4px 10px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#ff7a18,#ffb347);
+  color:#fff;
+}
+.plan-name{
+  font-size:1.35rem;
+  font-weight:700;
+  margin:0 0 4px;
+  color:#fff;
+}
+.plan-target{
+  font-size:.82rem;
+  color:#9fb1cc;
+  margin:0 0 18px;
+}
+.plan-price{
+  font-size:1.6rem;
+  font-weight:700;
+  color:var(--accent2);
+  margin:0 0 18px;
+}
+.plan-card.featured .plan-price{
+  background:linear-gradient(90deg,#ff7a18,#ffd76a);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.plan-features{
+  list-style:none;
+  padding:0; margin:0 0 22px;
+}
+.plan-features li{
+  font-size:.92rem;
+  color:#cfd8e6;
+  padding:7px 0 7px 24px;
+  position:relative;
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.plan-features li:last-child{ border-bottom:none; }
+.plan-features li::before{
+  content:"✓";
+  position:absolute;
+  left:0; top:7px;
+  color:var(--accent);
+  font-weight:700;
+}
+.plan-card.featured .plan-features li::before{ color:#ff9a3c; }
+.plan-cta{
+  display:block;
+  text-align:center;
+  padding:11px 16px;
+  border-radius:10px;
+  font-weight:600;
+  font-size:.95rem;
+  text-decoration:none;
+  border:1px solid var(--accent);
+  color:var(--accent);
+  background:transparent;
+  transition:all .2s ease;
+}
+.plan-cta:hover{
+  background:var(--accent);
+  color:#fff;
+}
+.plan-card.featured .plan-cta{
+  background:linear-gradient(90deg,#ff7a18,#ffb347);
+  border-color:transparent;
+  color:#fff;
+}
+.plan-card.featured .plan-cta:hover{ filter:brightness(1.1); }
+</style>
+
+<section class="plans" id="plans">
+  <h2>Pick the SP4RK that fits your server.</h2>
+  <p class="subtitle">Three tiers, one bot. Start small, upgrade anytime.</p>
+
+  <div class="plans-grid">
+
+    <div class="plan-card">
+      <h3 class="plan-name">SP4RK miniO</h3>
+      <p class="plan-target">For small &amp; private servers</p>
+      <p class="plan-price">Free</p>
+      <ul class="plan-features">
+        <li>Core auto-moderation</li>
+        <li>Basic profanity filter</li>
+        <li>Welcome &amp; goodbye messages</li>
+        <li>Up to 25 autoresponder rules</li>
+        <li>Lightweight — minimal load</li>
+      </ul>
+      <a class="plan-cta" href="{{ url_for('login') }}">Get miniO</a>
+    </div>
+
+    <div class="plan-card">
+      <h3 class="plan-name">SP4RK Simple</h3>
+      <p class="plan-target">For big &amp; growing servers</p>
+      <p class="plan-price">Free</p>
+      <ul class="plan-features">
+        <li>Everything in miniO</li>
+        <li>Leveling &amp; XP system</li>
+        <li>Tickets &amp; reaction roles</li>
+        <li>Spam &amp; rate-limit auto-mute</li>
+        <li>Unlimited autoresponder rules</li>
+      </ul>
+      <a class="plan-cta" href="{{ url_for('login') }}">Get Simple</a>
+    </div>
+
+    <div class="plan-card featured">
+      <span class="plan-tag">Free for now</span>
+      <h3 class="plan-name">SP4RK Advance</h3>
+      <p class="plan-target">Premium tier · paid plan coming soon</p>
+      <p class="plan-price">$0 <span style="font-size:.8rem;color:#9fb1cc;font-weight:400;">/ early access</span></p>
+      <ul class="plan-features">
+        <li>Everything in Simple</li>
+        <li>AI moderation (Gemini-powered)</li>
+        <li>AI auto-learning autoresponder</li>
+        <li>Giveaways, social alerts &amp; more</li>
+        <li>Priority support</li>
+      </ul>
+      <a class="plan-cta" href="{{ url_for('login') }}">Try Advance Free</a>
+    </div>
+
+  </div>
+</section>
+
 <!-- CTA STRIP -->
 <section class="cta-strip">
   <h2>Ready to take control of your server?</h2>
