@@ -179,9 +179,11 @@ def _record_message_only(guild_id, user_id, username):
     _local_save(data)
 
 async def process_message_xp(bot, message, config):
-    """Award XP for a message. Returns True on level-up."""
-    if config.get("leveling", "OFF") != "ON":
-        return False
+    """
+    Always count the message in the user's record.
+    Only award XP / fire level-up announcements when leveling is ON.
+    Returns True on level-up.
+    """
     if not message.guild:
         return False
 
@@ -190,6 +192,15 @@ async def process_message_xp(bot, message, config):
     key      = f"{guild_id}:{user_id}"
     now      = time.time()
 
+    leveling_on = (config.get("leveling", "OFF") == "ON")
+
+    # If leveling is OFF, just bump the message counter so the dashboard
+    # still reflects activity, then exit.
+    if not leveling_on:
+        _record_message_only(guild_id, user_id, str(message.author))
+        return False
+
+    # Per-user XP cooldown (1 message per 60s gives XP).
     if now - XP_COOLDOWN.get(key, 0) < 60:
         _record_message_only(guild_id, user_id, str(message.author))
         return False

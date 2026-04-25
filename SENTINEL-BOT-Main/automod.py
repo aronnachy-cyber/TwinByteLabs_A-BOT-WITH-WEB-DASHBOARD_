@@ -3,7 +3,19 @@ import requests
 import re
 import time
 import unicodedata
-from collections import defaultdict, deque
+from collections import defaultdict, deque, Counter
+from datetime import timedelta
+
+# How long an auto-mute lasts (minutes) for repeated-word spam / flood spam.
+AUTOMUTE_MINUTES = 30
+# How many times any single word must appear in one message before we mute.
+REPEAT_WORD_THRESHOLD = 4
+# Always-on rate limit (messages within window) → auto-mute.
+RATE_LIMIT_COUNT  = 5
+RATE_LIMIT_WINDOW = 5  # seconds
+
+# Tracks users we've already auto-muted recently so we don't double-mute.
+_recent_mutes = {}  # (guild_id, user_id) -> timestamp
 
 # --- Profanity word lists by level ---
 PROFANITY_MEDIUM = ["damn", "crap", "hell", "ass", "piss"]
@@ -105,6 +117,81 @@ async def send_webhook_log(config, title, description, color=0xff6b6b):
         requests.post(webhook_url, json=payload, timeout=3)
     except Exception as e:
         print(f"Webhook log error: {e}")
+
+def _has_repeated_word_spam(content, threshold=REPEAT_WORD_THRESHOLD):
+    """
+    Detect a single message where the same word is repeated `threshold`+ times
+    (e.g. "fuck fuck fuck fuck fuck"). Catches both consecutive runs
+    ("a a a a a") and total-count repeats ("a b a c a d a e a").
+    """
+    if not content:
+        return False
+    tokens = re.findall(r'\S+', _normalize(content))
+    if len(tokens) < threshold:
+        return False
+    # Consecutive run check
+    run = 1
+    for i in range(1, len(tokens)):
+        if tokens[i] == tokens[i - 1]:
+            run += 1
+            if run >= threshold:
+                return True
+        else:
+            run = 1
+    # Total-count check
+    counts = Counter(tokens)
+    if counts and counts.most_common(1)[0][1] >= threshold:
+        return True
+    return False
+
+
+async def _instant_mute(message, reason, minutes=AUTOMUTE_MINUTES):
+    """
+    Auto-mute (timeout) the user for `minutes`. NO owner verification.
+    Deletes the offending message and posts a short notice in-channel.
+    """
+    member = message.author
+    guild_id = message.guild.id if message.guild else 0
+    user_id  = member.id
+
+    # Don't double-mute the same person within 30 seconds
+    now = time.time()
+    last = _recent_mutes.get((guild_id, user_id), 0)
+    if now - last < 30:
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        return True
+    _recent_mutes[(guild_id, user_id)] = now
+
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    try:
+        until = discord.utils.utcnow() + timedelta(minutes=minutes)
+        await member.timeout(until, reason=f"SP4RK auto-mute: {reason}")
+        try:
+            await message.channel.send(
+                f"🔇 {member.mention} auto-muted for **{minutes} min** — {reason}",
+                delete_after=10,
+            )
+        except Exception:
+            pass
+    except discord.Forbidden:
+        try:
+            await message.channel.send(
+                f"⚠️ Could not auto-mute {member.mention} — missing permissions.",
+                delete_after=8,
+            )
+        except Exception:
+            pass
+    except Exception as e:
+        print(f"[automod] auto-mute error: {e}")
+    return True
+
 
 async def auto_dm_warning_user(member, reason, guild_name):
     try:
@@ -248,6 +335,38 @@ async def handle_message(message, config, add_warning_fn=None):
         if count and config.get("grad_punish") == "ON":
             await apply_graduated_punishment(message, config, count, add_warning_fn)
         return True
+
+    # 0a. Repeated-word spam in a single message (e.g. "fuck fuck fuck fuck fuck")
+    #     → instant 30-min auto-mute, NO owner approval, no warning bookkeeping.
+    if _has_repeated_word_spam(content):
+        await send_webhook_log(
+            config,
+            "🔇 Repeated-Word Spam Auto-Mute",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n"
+            f"**Action:** {AUTOMUTE_MINUTES}-min mute\n**Message:** {content[:200]}",
+        )
+        return await _instant_mute(message, "Repeated-word spam", AUTOMUTE_MINUTES)
+
+    # 0b. Always-on rate limit (flooding) → instant 30-min auto-mute.
+    guild_id = message.guild.id
+    user_id  = author.id
+    now      = time.time()
+    q = _spam_tracker[guild_id][user_id]
+    q.append(now)
+    while q and now - q[0] > RATE_LIMIT_WINDOW:
+        q.popleft()
+    if len(q) >= RATE_LIMIT_COUNT:
+        q.clear()
+        await send_webhook_log(
+            config,
+            "🔇 Rate-Limit Auto-Mute",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n"
+            f"**Action:** {AUTOMUTE_MINUTES}-min mute\n"
+            f"**Reason:** Sent {RATE_LIMIT_COUNT}+ messages in {RATE_LIMIT_WINDOW}s",
+        )
+        return await _instant_mute(
+            message, f"Flood: {RATE_LIMIT_COUNT}+ msgs / {RATE_LIMIT_WINDOW}s", AUTOMUTE_MINUTES
+        )
 
     # 1. Custom blacklist + banned words
     all_bad = (config.get("banned_words", "") or "") + "," + (config.get("auto_custom_blacklist", "") or "")
