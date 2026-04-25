@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SP4RK — Under Maintenance</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    font-family:'Inter',sans-serif;
+    background:radial-gradient(ellipse at top, #0d2040 0%, #07101f 60%, #04080f 100%);
+    color:#e8eef8;
+    min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+    text-align:center;
+    padding:24px;
+  }
+  .embers{ position:fixed; inset:0; pointer-events:none; }
+  .ember{
+    position:absolute; bottom:-20px; width:6px; height:6px; border-radius:50%;
+    background:radial-gradient(circle, #ffb347 0%, #ff7a18 60%, transparent 80%);
+    opacity:.85; animation:rise linear infinite;
+  }
+  @keyframes rise{
+    0%  { transform:translateY(0) scale(1); opacity:.9; }
+    100%{ transform:translateY(-110vh) scale(.4); opacity:0; }
+  }
+  .card{
+    position:relative; z-index:2;
+    max-width:520px;
+    background:rgba(11,22,40,.7);
+    backdrop-filter:blur(8px);
+    border:1px solid rgba(255,122,24,.25);
+    border-radius:20px;
+    padding:48px 36px;
+    box-shadow:0 20px 60px rgba(255,122,24,.12);
+  }
+  .flame-icon{
+    font-size:3.6rem;
+    background:linear-gradient(180deg,#ffd76a,#ff7a18 60%,#e23e3e);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 0 18px rgba(255,122,24,.35));
+    animation:flicker 1.6s ease-in-out infinite alternate;
+    margin-bottom:16px;
+  }
+  @keyframes flicker{
+    0%  { transform:scale(1) rotate(-2deg); filter:drop-shadow(0 0 14px rgba(255,122,24,.3)); }
+    50% { transform:scale(1.08) rotate(2deg); filter:drop-shadow(0 0 22px rgba(255,180,80,.55)); }
+    100%{ transform:scale(.97) rotate(-1deg); filter:drop-shadow(0 0 16px rgba(255,122,24,.4)); }
+  }
+  h1{
+    font-size:2rem; font-weight:800; margin-bottom:10px;
+    background:linear-gradient(90deg,#ffd76a,#ff7a18);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .tag{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.08em;
+    color:#ffb347;
+    background:rgba(255,122,24,.12);
+    padding:6px 14px; border-radius:999px;
+    margin-bottom:20px;
+  }
+  .tag .dot{
+    width:8px; height:8px; border-radius:50%; background:#ff7a18;
+    box-shadow:0 0 8px #ff7a18;
+    animation:pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{ opacity:.6; transform:scale(1); }
+    50%    { opacity:1;  transform:scale(1.3); }
+  }
+  p{ color:#a8b6c9; line-height:1.6; margin:0 auto 22px; max-width:380px; }
+  .progress{
+    height:4px; background:rgba(255,255,255,.06); border-radius:999px; overflow:hidden;
+    position:relative;
+  }
+  .progress::before{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(90deg,transparent,#ff7a18,#ffd76a,#ff7a18,transparent);
+    animation:sweep 2s linear infinite;
+  }
+  @keyframes sweep{
+    0%  { transform:translateX(-100%); }
+    100%{ transform:translateX(100%); }
+  }
+  .footer{ margin-top:24px; font-size:.78rem; color:#6b7a92; }
+</style>
+</head>
+<body>
+  <div class="embers" aria-hidden="true">
+    <span class="ember" style="left:8%; animation-duration:5.2s; animation-delay:0s;"></span>
+    <span class="ember" style="left:22%;animation-duration:6.4s; animation-delay:.6s;"></span>
+    <span class="ember" style="left:38%;animation-duration:4.8s; animation-delay:1.4s;"></span>
+    <span class="ember" style="left:51%;animation-duration:7.0s; animation-delay:.2s;"></span>
+    <span class="ember" style="left:64%;animation-duration:5.6s; animation-delay:2.0s;"></span>
+    <span class="ember" style="left:78%;animation-duration:6.2s; animation-delay:.9s;"></span>
+    <span class="ember" style="left:91%;animation-duration:5.0s; animation-delay:1.8s;"></span>
+  </div>
+
+  <div class="card">
+    <div class="flame-icon"><i class="fas fa-fire"></i></div>
+    <span class="tag"><span class="dot"></span> Under Maintenance</span>
+    <h1>We're tuning the flame.</h1>
+    <p>SP4RK is undergoing scheduled maintenance. We'll be back shortly — flame brighter than ever.</p>
+    <div class="progress" aria-hidden="true"></div>
+    <div class="footer">SP4RK Controls Inc. · Bot v26.4</div>
+  </div>
+</body>
+</html>

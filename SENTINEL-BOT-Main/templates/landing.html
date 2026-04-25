@@ -807,7 +807,7 @@ footer{
     <!-- Dev-only kebab menu. Hidden until unlocked via secret gesture
          (tap the SP4RK logo 7 times within 3 seconds, OR long-press it
          for ~1.5 seconds). State persists in localStorage. -->
-    <div class="dev-menu" id="devMenu" hidden>
+    <div class="dev-menu" id="devMenu" {% if not dev_unlocked %}hidden{% endif %}>
       <button type="button" class="dev-kebab" id="devKebabBtn"
               aria-label="Developer menu" aria-haspopup="true" aria-expanded="false">
         <i class="fas fa-ellipsis-vertical"></i>
@@ -819,6 +819,13 @@ footer{
         </div>
         <button type="button" class="dev-item" role="menuitem" onclick="openMaintenance(); closeDevMenu();">
           <i class="fas fa-robot"></i> Ask for a Bot
+        </button>
+        <button type="button" class="dev-item" role="menuitem" id="maintToggleBtn" onclick="toggleMaintenanceMode()">
+          <i class="fas fa-tools"></i>
+          <span>Maintenance Mode:</span>
+          <span id="maintToggleLabel" style="margin-left:auto;font-weight:700;color:{% if maintenance_on %}#ff7a18{% else %}#5ab4ff{% endif %};">
+            {% if maintenance_on %}ON{% else %}OFF{% endif %}
+          </span>
         </button>
         <button type="button" class="dev-item dev-item-danger" role="menuitem" onclick="lockDevMenu()">
           <i class="fas fa-lock"></i> Lock dev menu
@@ -888,6 +895,61 @@ footer{
   <i class="fas fa-unlock"></i> Developer menu unlocked
 </div>
 
+<!-- PIN modal: shown when someone triggers the dev unlock gesture -->
+<style>
+  .pin-overlay{
+    position:fixed; inset:0; background:rgba(4,8,16,.78);
+    display:none; align-items:center; justify-content:center;
+    z-index:9999; backdrop-filter:blur(6px);
+  }
+  .pin-overlay.open{ display:flex; }
+  .pin-card{
+    background:#0b1628; border:1px solid rgba(255,122,24,.3);
+    border-radius:16px; padding:32px 28px; width:340px; max-width:92vw;
+    text-align:center; box-shadow:0 20px 60px rgba(255,122,24,.18);
+  }
+  .pin-card .lock-icon{
+    font-size:2.4rem;
+    background:linear-gradient(180deg,#ffd76a,#ff7a18);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+    margin-bottom:10px;
+  }
+  .pin-card h3{ margin:0 0 6px; color:#fff; font-size:1.15rem; }
+  .pin-card p{ color:#9fb1cc; font-size:.85rem; margin:0 0 18px; }
+  .pin-card input{
+    width:100%; padding:12px 14px; font-size:1rem;
+    background:#07101f; color:#fff;
+    border:1px solid rgba(58,143,255,.3); border-radius:10px;
+    text-align:center; letter-spacing:.3em; font-weight:600;
+  }
+  .pin-card input:focus{ outline:none; border-color:#ff7a18; }
+  .pin-error{ color:#ff8585; font-size:.82rem; margin-top:8px; min-height:18px; }
+  .pin-actions{ display:flex; gap:10px; margin-top:16px; }
+  .pin-actions button{
+    flex:1; padding:10px; border-radius:8px; border:none; cursor:pointer;
+    font-weight:600; font-size:.9rem;
+  }
+  .pin-cancel{ background:rgba(255,255,255,.06); color:#cfd8e6; }
+  .pin-submit{
+    background:linear-gradient(90deg,#ff7a18,#ffb347); color:#fff;
+  }
+  .pin-submit:hover{ filter:brightness(1.1); }
+</style>
+<div class="pin-overlay" id="pinOverlay" role="dialog" aria-modal="true">
+  <div class="pin-card">
+    <div class="lock-icon"><i class="fas fa-shield-halved"></i></div>
+    <h3>Developer Access</h3>
+    <p>Enter the dev PIN to unlock developer tools.</p>
+    <input type="password" id="pinInput" maxlength="32" autocomplete="off" inputmode="numeric" placeholder="••••••" />
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-actions">
+      <button type="button" class="pin-cancel" onclick="closePinModal()">Cancel</button>
+      <button type="button" class="pin-submit" onclick="submitPin()">Unlock</button>
+    </div>
+  </div>
+</div>
+
 <script>
   /* ===== Maintenance modal ===== */
   function openMaintenance(){
@@ -899,47 +961,95 @@ footer{
     document.body.style.overflow = '';
   }
 
-  /* ===== Hidden developer menu =====
-     Unlock methods (no logo interaction at all):
-       1. Press and hold any feature card for 7 seconds
-          (works on mobile and desktop).
-       2. Type the secret word "spark" (desktop keyboard).
-       3. Press Ctrl + Shift + D to toggle on/off (desktop).
-     Use the "Lock dev menu" item inside the dropdown to lock it again.
-     State is saved in localStorage so devs only have to do it once
-     per device. Regular users see nothing. */
-  const STORAGE_KEY    = 'sp4rk_dev_unlocked_v1';
+  /* ===== Hidden developer menu (PIN-protected, server-validated) =====
+     Trigger methods all OPEN a PIN prompt — they NEVER auto-unlock:
+       1. Press and hold any feature card for 7 seconds (mobile + desktop)
+       2. Type the secret word "spark" (desktop keyboard)
+       3. Press Ctrl + Shift + D (desktop)
+     Wrong PIN = no access. Correct PIN = server stores an unlock flag in
+     your session, and the dev menu becomes available. Regular visitors
+     who poke around localStorage or the DOM still see nothing. */
   const SECRET_WORD    = 'spark';
   const HOLD_MS        = 7000;
-  const HOLD_MOVE_TOL  = 14;   // px of finger drift allowed before cancel
+  const HOLD_MOVE_TOL  = 14;
 
   const devMenu     = document.getElementById('devMenu');
   const devKebab    = document.getElementById('devKebabBtn');
   const devDropdown = document.getElementById('devDropdown');
   const devToast    = document.getElementById('devToast');
+  const pinOverlay  = document.getElementById('pinOverlay');
+  const pinInput    = document.getElementById('pinInput');
+  const pinError    = document.getElementById('pinError');
 
-  function isUnlocked(){
-    try { return localStorage.getItem(STORAGE_KEY) === '1'; }
-    catch(e){ return false; }
+  /* Server-rendered: is the dev menu currently unlocked? */
+  const SERVER_UNLOCKED = {{ 'true' if dev_unlocked else 'false' }};
+
+  function openPinModal(){
+    if (SERVER_UNLOCKED) return; // already unlocked
+    pinError.textContent = '';
+    pinInput.value = '';
+    pinOverlay.classList.add('open');
+    setTimeout(() => pinInput.focus(), 60);
   }
-  function showDevMenu(){
-    devMenu.hidden = false;
+  function closePinModal(){
+    pinOverlay.classList.remove('open');
   }
-  function hideDevMenu(){
-    devMenu.hidden = true;
-    closeDevMenu();
-  }
-  function unlockDevMenu(showToast){
-    try { localStorage.setItem(STORAGE_KEY, '1'); } catch(e){}
-    showDevMenu();
-    if(showToast){
-      devToast.classList.add('show');
-      setTimeout(() => devToast.classList.remove('show'), 1800);
+  async function submitPin(){
+    const pin = (pinInput.value || '').trim();
+    if (!pin) { pinError.textContent = 'Enter a PIN.'; return; }
+    pinError.textContent = 'Checking…';
+    try {
+      const r = await fetch('/dev/unlock', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pin })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.ok) {
+        pinError.style.color = '#7CFFB2';
+        pinError.textContent = 'Unlocked. Loading…';
+        setTimeout(() => location.reload(), 350);
+      } else {
+        pinError.style.color = '#ff8585';
+        pinError.textContent = data.error || 'Wrong PIN.';
+        pinInput.value = '';
+        pinInput.focus();
+      }
+    } catch (e) {
+      pinError.style.color = '#ff8585';
+      pinError.textContent = 'Network error. Try again.';
     }
   }
-  function lockDevMenu(){
-    try { localStorage.removeItem(STORAGE_KEY); } catch(e){}
-    hideDevMenu();
+  pinInput.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') { e.preventDefault(); submitPin(); }
+    if (e.key === 'Escape') { closePinModal(); }
+  });
+
+  async function lockDevMenu(){
+    try { await fetch('/dev/lock', { method:'POST' }); } catch(e){}
+    location.reload();
+  }
+
+  /* Maintenance toggle (only callable from the unlocked dev menu) */
+  async function toggleMaintenanceMode(){
+    const label = document.getElementById('maintToggleLabel');
+    const currentlyOn = label && label.textContent.trim().toUpperCase() === 'ON';
+    const enable = !currentlyOn;
+    try {
+      const r = await fetch('/dev/maintenance', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ enabled: enable })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.ok) {
+        label.textContent = data.maintenance ? 'ON' : 'OFF';
+        label.style.color = data.maintenance ? '#ff7a18' : '#5ab4ff';
+        devToast.innerHTML = '<i class="fas fa-tools"></i> Maintenance mode ' + (data.maintenance ? 'ENABLED' : 'disabled');
+        devToast.classList.add('show');
+        setTimeout(() => devToast.classList.remove('show'), 2000);
+      }
+    } catch(e){}
   }
   function openDevMenu(){
     devDropdown.classList.add('open');
@@ -953,7 +1063,7 @@ footer{
     devDropdown.classList.contains('open') ? closeDevMenu() : openDevMenu();
   }
 
-  if(isUnlocked()) showDevMenu();
+  /* dev menu visibility is now server-rendered (Jinja `dev_unlocked`) */
 
   /* --- Long-press any feature card for 7 seconds --- */
   let holdTimer = null;
@@ -983,7 +1093,7 @@ footer{
         holdCard.classList.remove('feature-card-holding');
         holdCard = null;
       }
-      isUnlocked() ? lockDevMenu() : unlockDevMenu(true);
+      openPinModal();
     }, HOLD_MS);
   }
   function cancelHold(){
@@ -1036,16 +1146,16 @@ footer{
       typedBuffer = (typedBuffer + e.key.toLowerCase()).slice(-SECRET_WORD.length);
       if (typedBuffer === SECRET_WORD) {
         typedBuffer = '';
-        unlockDevMenu(true);
+        openPinModal();
       }
     }
   });
 
-  /* --- Ctrl+Shift+D toggle (handy desktop shortcut) --- */
+  /* --- Ctrl+Shift+D shortcut → opens PIN modal (or locks if already in) --- */
   document.addEventListener('keydown', function(e){
     if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
       e.preventDefault();
-      isUnlocked() ? lockDevMenu() : unlockDevMenu(true);
+      SERVER_UNLOCKED ? lockDevMenu() : openPinModal();
     }
   });
 

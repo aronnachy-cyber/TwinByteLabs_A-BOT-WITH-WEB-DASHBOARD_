@@ -456,9 +456,41 @@ def save_config():
         json.dump(config, f, indent=4)
     print("💾 Settings saved to settings.json")
 
+# ---- DEV / MAINTENANCE STATE ----
+DEV_PIN = os.environ.get("DEV_PIN", "sp4rk2024")
+_DEV_STATE_FILE = "dev_state.json"
+
+def _load_dev_state():
+    try:
+        if os.path.exists(_DEV_STATE_FILE):
+            with open(_DEV_STATE_FILE) as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {"maintenance": False}
+
+def _save_dev_state(state):
+    try:
+        tmp = _DEV_STATE_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(state, f, indent=2)
+        os.replace(tmp, _DEV_STATE_FILE)
+    except Exception as e:
+        print(f"[dev_state] save error: {e}")
+
+def is_maintenance_mode():
+    return bool(_load_dev_state().get("maintenance", False))
+
+def is_dev_session():
+    return bool(session.get("dev_unlocked"))
+
 # ---- LANDING PAGE ----
 @app.route('/')
 def landing():
+    # Maintenance mode: show a "coming soon" page to everyone EXCEPT the dev.
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html'), 503
+
     # Recommended permissions for the bot (Administrator). Override with DISCORD_BOT_PERMISSIONS env var.
     bot_permissions = os.environ.get("DISCORD_BOT_PERMISSIONS", "8")
     invite_url = ""
@@ -469,7 +501,51 @@ def landing():
             f"&scope=bot+applications.commands"
             f"&permissions={bot_permissions}"
         )
-    return render_template('landing.html', invite_url=invite_url)
+    return render_template(
+        'landing.html',
+        invite_url=invite_url,
+        dev_unlocked=is_dev_session(),
+        maintenance_on=is_maintenance_mode(),
+    )
+
+# ---- DEV ROUTES (PIN-protected) ----
+@app.route('/dev/unlock', methods=['POST'])
+def dev_unlock():
+    """Unlock the dev menu by submitting the correct PIN."""
+    pin = (request.json or {}).get('pin', '').strip() if request.is_json else request.form.get('pin', '').strip()
+    if not pin:
+        return jsonify({"ok": False, "error": "PIN required"}), 400
+    if pin != DEV_PIN:
+        return jsonify({"ok": False, "error": "Wrong PIN"}), 403
+    session.permanent = True
+    session['dev_unlocked'] = True
+    session.modified = True
+    return jsonify({"ok": True})
+
+@app.route('/dev/lock', methods=['POST'])
+def dev_lock():
+    session.pop('dev_unlocked', None)
+    session.modified = True
+    return jsonify({"ok": True})
+
+@app.route('/dev/state', methods=['GET'])
+def dev_state():
+    return jsonify({
+        "dev_unlocked": is_dev_session(),
+        "maintenance":  is_maintenance_mode(),
+    })
+
+@app.route('/dev/maintenance', methods=['POST'])
+def dev_maintenance_toggle():
+    """Turn maintenance mode on/off. Requires unlocked dev session."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    payload = request.json or {}
+    enabled = bool(payload.get('enabled'))
+    state = _load_dev_state()
+    state['maintenance'] = enabled
+    _save_dev_state(state)
+    return jsonify({"ok": True, "maintenance": enabled})
 
 # ---- AUTH: LOGIN (Discord-only) ----
 @app.route('/login')
