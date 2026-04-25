@@ -1,9 +1,20 @@
 import json
 import os
 import re
+import time
+import requests
 
 AUTORESPONDER_FILE = "autoresponder.json"
 _TABLE = "sentinel_autoresponder"
+
+GEMINI_KEY = os.environ.get("GEMINI_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+
+# Per-channel cooldown so the AI doesn't fire on every single short message.
+_AI_COOLDOWN = {}            # channel_id -> last_timestamp
+_AI_COOLDOWN_SECONDS = 20    # min seconds between AI generations per channel
+
+# Skip generating for these (already-handled or noise)
+_AI_SKIP_PREFIXES = ("!", "/", "?", ".", "$", "-", "+", ">", "<")
 
 
 def _get_supabase():
@@ -121,9 +132,73 @@ def get_all_responses():
     return load_responses().get("responses", [])
 
 
+def _is_learnable(message):
+    """Decide whether this message is a candidate for AI auto-learn."""
+    content = (message.content or "").strip()
+    if not content:
+        return False
+    if content.startswith(_AI_SKIP_PREFIXES):
+        return False
+    if len(content) > 30:                       # only short utterances
+        return False
+    if len(content.split()) > 4:                # max 4 words
+        return False
+    if message.attachments or message.mentions: # not media / pings
+        return False
+    if "http://" in content or "https://" in content:
+        return False
+    return True
+
+
+def _ai_generate_reply(trigger):
+    """
+    Ask Gemini for a short, friendly Discord reply for `trigger`.
+    Returns a string, or None on failure / no API key.
+    """
+    if not GEMINI_KEY:
+        return None
+    prompt = (
+        "You are SP4RK, a friendly Discord bot. A user just sent the message below. "
+        "Reply with ONE short, warm, natural reply (max 12 words). "
+        "Do NOT use quotes. Do NOT explain. Just the reply text.\n\n"
+        f"Message: {trigger}"
+    )
+    try:
+        r = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}",
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.8, "maxOutputTokens": 60},
+            },
+            timeout=8,
+        )
+        if not r.ok:
+            return None
+        text = (
+            r.json()
+            .get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+        ).strip().strip('"').strip("'")
+        # Trim to one line
+        text = text.splitlines()[0].strip() if text else ""
+        if not text:
+            return None
+        # Cap length so Gemini can't return paragraphs
+        return text[:200]
+    except Exception as e:
+        print(f"[AR] AI generate error: {e}")
+        return None
+
+
 async def check_message(message):
     data = load_responses()
-    content = message.content.lower().strip()
+    content = (message.content or "").lower().strip()
+    if not content:
+        return False
+
+    # 1. Try existing rules first
     for rule in data.get("responses", []):
         trigger = rule["trigger"].lower()
         match_type = rule.get("match", "contains")
@@ -140,7 +215,41 @@ async def check_message(message):
         else:
             matched = trigger in content
         if matched:
-            response = rule["response"].replace("{user}", message.author.mention).replace("{username}", message.author.display_name)
+            response = (
+                rule["response"]
+                .replace("{user}", message.author.mention)
+                .replace("{username}", message.author.display_name)
+            )
             await message.channel.send(response)
             return True
-    return False
+
+    # 2. No rule matched → ask the AI to learn one (if message is short & friendly)
+    if not _is_learnable(message):
+        return False
+
+    # Per-channel cooldown
+    ch_id = getattr(message.channel, "id", 0)
+    now = time.time()
+    if now - _AI_COOLDOWN.get(ch_id, 0) < _AI_COOLDOWN_SECONDS:
+        return False
+    _AI_COOLDOWN[ch_id] = now
+
+    reply = _ai_generate_reply(content)
+    if not reply:
+        return False
+
+    # Save the learned trigger → response (exact match so we don't over-fire)
+    try:
+        add_response(content, reply, match_type="exact")
+        print(f"[AR] AI learned: '{content}' → '{reply}'")
+    except Exception as e:
+        print(f"[AR] AI save error: {e}")
+
+    try:
+        await message.channel.send(
+            reply.replace("{user}", message.author.mention)
+                 .replace("{username}", message.author.display_name)
+        )
+    except Exception:
+        pass
+    return True
