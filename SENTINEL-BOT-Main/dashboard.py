@@ -488,8 +488,10 @@ def is_dev_session():
 @app.route('/')
 def landing():
     # Maintenance mode: show a "coming soon" page to everyone EXCEPT the dev.
+    # NOTE: returns HTTP 200 (not 503) so external uptime/cron pingers keep
+    # treating the URL as healthy and free-tier hosts don't sleep the service.
     if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html'), 503
+        return render_template('under_maintenance.html'), 200
 
     # Recommended permissions for the bot (Administrator). Override with DISCORD_BOT_PERMISSIONS env var.
     bot_permissions = os.environ.get("DISCORD_BOT_PERMISSIONS", "8")
