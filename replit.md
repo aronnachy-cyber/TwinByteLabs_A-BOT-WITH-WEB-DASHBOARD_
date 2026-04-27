@@ -122,3 +122,9 @@ warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, purge, 
 - Dark navy `#07101f` background, accent `#3a8fff`, text `#e8f0ff`, muted `#7a93b8`
 - Sentinel S-shield SVG logo, circuit board SVG patterns, SVG castle art
 - Glassmorphism cards, "tech fortress" aesthetic throughout
+
+## Byte Labs Expansion (Apr 2026)
+- `/` → Byte Labs landing (templates/bytelabs_landing.html). Hero CTAs: "Our Bots", "Ask for a Bot" (orange flame button → modal), "Learn More".
+- `/bots` → Bot card showcase (templates/bots.html). Cards: Server Official (admin-customizable), SP4RK (live), Tempo & Pulse (coming soon).
+- `/sp4rk` → Original SP4RK landing (templates/landing.html), unchanged design.
+- Server Official card: name + image (URL) + tagline + description stored in `dev_state.json` under key `server_official`. Edit pencil icon shows only when dev session unlocked. Inline editor modal posts to `POST /dev/server-official` (PIN-gated). Public read at `GET /dev/server-official`.

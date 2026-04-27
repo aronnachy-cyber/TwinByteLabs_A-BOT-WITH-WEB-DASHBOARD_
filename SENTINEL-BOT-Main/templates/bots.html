@@ -258,6 +258,265 @@ nav{
 .bot-card.coming .bot-icon{
   background:linear-gradient(135deg, #5b8cff, #8b5cf6);
 }
+/* Server Official card — emerald/teal gradient to differentiate */
+.bot-card.serverofficial .bot-banner{
+  background:linear-gradient(135deg, rgba(34,211,238,0.20), rgba(16,185,129,0.15));
+}
+.bot-card.serverofficial .bot-banner::after{
+  background:radial-gradient(circle, rgba(34,211,238,.4), transparent 60%);
+}
+.bot-card.serverofficial .bot-icon{
+  background:linear-gradient(135deg, #10b981, #06b6d4);
+  box-shadow:0 12px 30px rgba(16,185,129,.4);
+  overflow:hidden;
+}
+.bot-card.serverofficial .bot-icon img{
+  width:100%; height:100%; object-fit:cover; border-radius:inherit;
+}
+.bot-card.serverofficial .bot-tag{ color:#10d9a3; }
+.bot-card.serverofficial .bot-cta{
+  background:linear-gradient(135deg, #10b981, #06b6d4);
+  box-shadow:0 8px 22px rgba(16,185,129,.35);
+  border:none;
+  cursor:pointer;
+  font-family:inherit;
+}
+.bot-card.serverofficial.is-live:hover .bot-cta{
+  box-shadow:0 12px 28px rgba(16,185,129,.5);
+}
+
+/* Edit pencil button (only visible for unlocked devs) */
+.bot-edit-btn{
+  position:absolute;
+  top:18px; left:18px;
+  width:32px; height:32px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:8px;
+  background:rgba(0,0,0,.4);
+  border:1px solid rgba(255,255,255,.15);
+  color:#fff;
+  cursor:pointer;
+  z-index:2;
+  font-size:.8rem;
+  transition:background .15s, border-color .15s, transform .15s;
+}
+.bot-edit-btn:hover{
+  background:rgba(91,140,255,.25);
+  border-color:rgba(91,140,255,.55);
+  transform:scale(1.06);
+}
+
+/* ===== MODAL (shared by editor + request) ===== */
+.modal-overlay{
+  position:fixed; inset:0;
+  background:rgba(3,8,20,.78);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  animation:mfade .2s ease;
+}
+.modal-overlay.open{ display:flex; }
+@keyframes mfade{ from{opacity:0;} to{opacity:1;} }
+
+.modal-card{
+  width:min(480px, 92vw);
+  background:linear-gradient(180deg,#0f1d38,#0a1428);
+  border:1px solid rgba(91,140,255,.3);
+  border-radius:18px;
+  padding:28px 26px 24px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+  position:relative;
+  animation:mpop .25s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes mpop{ from{transform:scale(.9);opacity:0;} to{transform:scale(1);opacity:1;} }
+
+.modal-close{
+  position:absolute;
+  top:12px; right:14px;
+  background:transparent;
+  border:none;
+  color:#9aa7c2;
+  font-size:1.15rem;
+  cursor:pointer;
+  padding:6px 10px;
+  border-radius:8px;
+  transition:color .15s, background .15s;
+}
+.modal-close:hover{ color:#fff; background:rgba(255,255,255,.06); }
+
+.modal-card h3{
+  margin:0 0 6px;
+  font-size:1.25rem;
+  font-weight:800;
+  letter-spacing:-.3px;
+}
+.modal-sub{
+  color:var(--muted);
+  font-size:.9rem;
+  margin:0 0 18px;
+}
+
+.modal-field{ margin-bottom:14px; }
+.modal-field label{
+  display:block;
+  font-size:.78rem;
+  font-weight:700;
+  color:#a5b6d2;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  margin-bottom:6px;
+}
+.modal-field input,
+.modal-field textarea{
+  width:100%;
+  padding:11px 13px;
+  background:#07101f;
+  color:var(--text);
+  border:1px solid rgba(91,140,255,.22);
+  border-radius:10px;
+  font-size:.95rem;
+  font-family:inherit;
+  transition:border-color .15s;
+}
+.modal-field input:focus,
+.modal-field textarea:focus{
+  outline:none;
+  border-color:#5b8cff;
+}
+.modal-field textarea{ resize:vertical; min-height:74px; }
+
+.modal-preview{
+  display:flex; align-items:center; gap:12px;
+  padding:12px;
+  background:rgba(91,140,255,.06);
+  border:1px dashed rgba(91,140,255,.25);
+  border-radius:12px;
+  margin:6px 0 14px;
+}
+.modal-preview .pv-icon{
+  width:48px; height:48px;
+  border-radius:12px;
+  background:linear-gradient(135deg,#10b981,#06b6d4);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff;
+  overflow:hidden;
+}
+.modal-preview .pv-icon img{ width:100%; height:100%; object-fit:cover; }
+.modal-preview .pv-meta{ font-size:.86rem; }
+.modal-preview .pv-meta strong{ display:block; color:var(--text); }
+.modal-preview .pv-meta span{ color:var(--muted); }
+
+.modal-msg{
+  font-size:.82rem;
+  margin:6px 0 0;
+  min-height:18px;
+}
+.modal-msg.err{ color:#ff8585; }
+.modal-msg.ok{ color:#10d9a3; }
+
+.modal-actions{
+  display:flex;
+  gap:10px;
+  margin-top:16px;
+}
+.modal-btn{
+  flex:1;
+  padding:11px;
+  border-radius:10px;
+  border:none;
+  font-weight:700;
+  font-size:.92rem;
+  cursor:pointer;
+  font-family:inherit;
+  transition:transform .15s, box-shadow .15s, background .15s;
+}
+.modal-btn-cancel{
+  background:rgba(255,255,255,.06);
+  color:#cfd8e6;
+}
+.modal-btn-cancel:hover{ background:rgba(255,255,255,.1); }
+.modal-btn-primary{
+  background:linear-gradient(135deg,#10b981,#06b6d4);
+  color:#fff;
+  box-shadow:0 6px 18px rgba(16,185,129,.35);
+}
+.modal-btn-primary:hover{
+  transform:translateY(-1px);
+  box-shadow:0 10px 24px rgba(16,185,129,.5);
+}
+.modal-btn-primary:disabled{ opacity:.6; cursor:not-allowed; transform:none; }
+
+/* "Under Development" gear modal */
+.gears{
+  position:relative;
+  width:90px; height:90px;
+  margin:0 auto 14px;
+}
+.gears i{
+  position:absolute;
+  filter:drop-shadow(0 0 12px rgba(255,193,7,.45));
+}
+.gears .gear-big{
+  font-size:3.6rem;
+  top:0; left:8px;
+  color:#ffc107;
+  animation:gspin 4s linear infinite;
+}
+.gears .gear-small{
+  font-size:2rem;
+  bottom:6px; right:6px;
+  color:#5ab4ff;
+  filter:drop-shadow(0 0 12px rgba(90,180,255,.5));
+  animation:gspinR 3s linear infinite;
+}
+@keyframes gspin { from{transform:rotate(0);} to{transform:rotate(360deg);} }
+@keyframes gspinR{ from{transform:rotate(0);} to{transform:rotate(-360deg);} }
+
+.maint-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 12px;
+  border-radius:99px;
+  background:rgba(255,193,7,.1);
+  border:1px solid rgba(255,193,7,.35);
+  color:#ffd76a;
+  font-size:.74rem;
+  font-weight:700;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+.maint-tag .tagdot{
+  width:7px; height:7px; border-radius:50%;
+  background:#ffc107;
+  box-shadow:0 0 10px #ffc107;
+  animation:blink 1s ease-in-out infinite;
+}
+.maint-bar{
+  position:relative;
+  height:6px;
+  border-radius:99px;
+  background:rgba(255,255,255,.06);
+  overflow:hidden;
+  margin:14px auto 4px;
+  width:80%;
+}
+.maint-bar::before{
+  content:"";
+  position:absolute;
+  top:0; left:-40%;
+  width:40%; height:100%;
+  background:linear-gradient(90deg, transparent, #5ab4ff, #ffc107, transparent);
+  border-radius:99px;
+  animation:slide 1.6s ease-in-out infinite;
+}
+@keyframes slide{ 0%{ left:-40%; } 100%{ left:100%; } }
 
 .bot-status{
   position:absolute;
@@ -436,6 +695,38 @@ footer{
 <!-- ===== CARD GRID ===== -->
 <section class="bot-grid">
 
+  <!-- ===== Server Official (admin-customizable) ===== -->
+  {% set so = server_official %}
+  <div class="bot-card serverofficial is-live" id="soCard">
+    <div class="bot-banner">
+      <div class="bot-icon" id="soIcon">
+        {% if so.image %}
+          <img src="{{ so.image }}" alt="{{ so.name }}">
+        {% else %}
+          <i class="fas fa-shield-halved"></i>
+        {% endif %}
+      </div>
+      <div class="bot-status status-live"><span class="dot"></span> Custom</div>
+      {% if dev_unlocked %}
+      <button type="button" class="bot-edit-btn" onclick="openServerOfficialEditor(event)" aria-label="Edit Server Official">
+        <i class="fas fa-pen"></i>
+      </button>
+      {% endif %}
+    </div>
+    <div class="bot-body">
+      <div class="bot-name" id="soName">{{ so.name }}</div>
+      <div class="bot-tag" id="soTag">{{ so.tagline }}</div>
+      <div class="bot-desc" id="soDesc">{{ so.description }}</div>
+      <div class="bot-tags">
+        <span class="chip">Custom Brand</span>
+        <span class="chip">Editable</span>
+      </div>
+      <button type="button" class="bot-cta" onclick="openServerOfficialAsk()">
+        <i class="fas fa-paper-plane"></i> Request This Bot
+      </button>
+    </div>
+  </div>
+
   <!-- SP4RK card (LIVE) -->
   <a href="{{ url_for('sp4rk_landing') }}" class="bot-card sp4rk is-live">
     <div class="bot-banner">
@@ -521,8 +812,181 @@ footer{
   </div>
 </footer>
 
+<!-- ===== EDITOR MODAL (dev-unlocked only) ===== -->
+{% if dev_unlocked %}
+<div class="modal-overlay" id="soEditorOverlay" role="dialog" aria-modal="true"
+     onclick="if(event.target===this)closeServerOfficialEditor()">
+  <div class="modal-card">
+    <button type="button" class="modal-close" aria-label="Close" onclick="closeServerOfficialEditor()">
+      <i class="fas fa-xmark"></i>
+    </button>
+    <h3><i class="fas fa-pen" style="color:#10d9a3"></i> Customize Server Official</h3>
+    <p class="modal-sub">Update the bot's name, profile picture, tagline, and description. Changes are saved instantly.</p>
+
+    <div class="modal-preview">
+      <div class="pv-icon" id="soPvIcon">
+        {% if so.image %}<img src="{{ so.image }}" alt="">{% else %}<i class="fas fa-shield-halved"></i>{% endif %}
+      </div>
+      <div class="pv-meta">
+        <strong id="soPvName">{{ so.name }}</strong>
+        <span id="soPvTag">{{ so.tagline }}</span>
+      </div>
+    </div>
+
+    <div class="modal-field">
+      <label for="soInputName">Bot Name</label>
+      <input type="text" id="soInputName" maxlength="60" value="{{ so.name }}" placeholder="Server Official">
+    </div>
+    <div class="modal-field">
+      <label for="soInputImage">Profile Picture URL</label>
+      <input type="url" id="soInputImage" maxlength="1000" value="{{ so.image }}"
+             placeholder="https://example.com/avatar.png">
+    </div>
+    <div class="modal-field">
+      <label for="soInputTag">Tagline</label>
+      <input type="text" id="soInputTag" maxlength="120" value="{{ so.tagline }}"
+             placeholder="Your server's signature bot">
+    </div>
+    <div class="modal-field">
+      <label for="soInputDesc">Description</label>
+      <textarea id="soInputDesc" maxlength="400" rows="3" placeholder="What does this bot do?">{{ so.description }}</textarea>
+    </div>
+    <div class="modal-msg" id="soEditorMsg"></div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn modal-btn-cancel" onclick="closeServerOfficialEditor()">Cancel</button>
+      <button type="button" class="modal-btn modal-btn-primary" id="soSaveBtn" onclick="saveServerOfficial()">
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ===== REQUEST / "ASK FOR A BOT" MODAL ===== -->
+<div class="modal-overlay" id="soAskOverlay" role="dialog" aria-modal="true"
+     onclick="if(event.target===this)closeServerOfficialAsk()">
+  <div class="modal-card" style="text-align:center;">
+    <button type="button" class="modal-close" aria-label="Close" onclick="closeServerOfficialAsk()">
+      <i class="fas fa-xmark"></i>
+    </button>
+    <div class="gears" aria-hidden="true">
+      <i class="fas fa-gear gear-big"></i>
+      <i class="fas fa-cog gear-small"></i>
+    </div>
+    <span class="maint-tag"><span class="tagdot"></span> Under Development</span>
+    <h3>We're building this feature</h3>
+    <p class="modal-sub" style="margin-bottom:0;">
+      Custom bot requests are not available yet. Our engineers are crafting it — check back soon!
+    </p>
+    <div class="maint-bar" aria-hidden="true"></div>
+  </div>
+</div>
+
 <script>
   document.getElementById('yr').textContent = new Date().getFullYear();
+
+  /* ===== Server Official: Request modal ===== */
+  function openServerOfficialAsk(){
+    document.getElementById('soAskOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeServerOfficialAsk(){
+    document.getElementById('soAskOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  /* ===== Server Official: Admin editor (only when dev session is unlocked) ===== */
+  {% if dev_unlocked %}
+  function openServerOfficialEditor(ev){
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+    document.getElementById('soEditorOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('soEditorMsg').textContent = '';
+    document.getElementById('soEditorMsg').className = 'modal-msg';
+  }
+  function closeServerOfficialEditor(){
+    document.getElementById('soEditorOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  /* Live preview as the dev types */
+  ['soInputName','soInputImage','soInputTag'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', refreshPreview);
+  });
+  function refreshPreview(){
+    const name  = document.getElementById('soInputName').value || 'Server Official';
+    const tag   = document.getElementById('soInputTag').value  || "Your server's signature bot";
+    const image = document.getElementById('soInputImage').value.trim();
+    document.getElementById('soPvName').textContent = name;
+    document.getElementById('soPvTag').textContent  = tag;
+    const pv = document.getElementById('soPvIcon');
+    if (image) {
+      pv.innerHTML = '<img src="" alt="">';
+      pv.querySelector('img').src = image;
+    } else {
+      pv.innerHTML = '<i class="fas fa-shield-halved"></i>';
+    }
+  }
+
+  async function saveServerOfficial(){
+    const btn = document.getElementById('soSaveBtn');
+    const msg = document.getElementById('soEditorMsg');
+    btn.disabled = true;
+    msg.className = 'modal-msg';
+    msg.textContent = 'Saving…';
+    const payload = {
+      name:        document.getElementById('soInputName').value.trim(),
+      image:       document.getElementById('soInputImage').value.trim(),
+      tagline:     document.getElementById('soInputTag').value.trim(),
+      description: document.getElementById('soInputDesc').value.trim(),
+    };
+    try {
+      const res = await fetch('/dev/server-official', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        msg.className = 'modal-msg err';
+        msg.textContent = data.error || 'Save failed.';
+        btn.disabled = false;
+        return;
+      }
+      // Reflect into the actual card on this page
+      const so = data.data;
+      document.getElementById('soName').textContent = so.name;
+      document.getElementById('soTag').textContent  = so.tagline;
+      document.getElementById('soDesc').textContent = so.description;
+      const cardIcon = document.getElementById('soIcon');
+      if (so.image) {
+        cardIcon.innerHTML = '<img src="" alt="">';
+        cardIcon.querySelector('img').src = so.image;
+        cardIcon.querySelector('img').alt = so.name;
+      } else {
+        cardIcon.innerHTML = '<i class="fas fa-shield-halved"></i>';
+      }
+      msg.className = 'modal-msg ok';
+      msg.textContent = '✓ Saved successfully';
+      setTimeout(() => { closeServerOfficialEditor(); btn.disabled = false; }, 700);
+    } catch (e) {
+      msg.className = 'modal-msg err';
+      msg.textContent = 'Network error. Try again.';
+      btn.disabled = false;
+    }
+  }
+
+  /* Esc closes any open modal */
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeServerOfficialEditor();
+      closeServerOfficialAsk();
+    }
+  });
+  {% endif %}
 </script>
 
 </body>

@@ -254,6 +254,152 @@ nav{
   transform:translateY(-1px);
 }
 
+/* "Ask for a Bot" — warm flame accent */
+.btn-askbot{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:15px 28px;
+  background:linear-gradient(135deg,#ff8a1f,#ff3b1d);
+  background-size:200% 100%;
+  color:#fff;
+  text-decoration:none;
+  border:none;
+  border-radius:12px;
+  font-weight:700;
+  font-size:1rem;
+  font-family:inherit;
+  cursor:pointer;
+  box-shadow:0 10px 30px rgba(255,80,30,.35);
+  transition:transform .15s, box-shadow .2s, background-position .4s;
+}
+.btn-askbot:hover{
+  background-position:100% 50%;
+  transform:translateY(-2px);
+  box-shadow:0 14px 38px rgba(255,80,30,.5);
+}
+.btn-askbot:active{ transform:translateY(0); }
+
+/* "Ask for a Bot" modal */
+.ask-overlay{
+  position:fixed; inset:0;
+  background:rgba(3,8,20,.78);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  animation:askfade .2s ease;
+}
+.ask-overlay.open{ display:flex; }
+@keyframes askfade{ from{opacity:0;} to{opacity:1;} }
+
+.ask-card{
+  width:min(440px, 92vw);
+  background:linear-gradient(180deg,#0f1d38,#0a1428);
+  border:1px solid rgba(91,140,255,.3);
+  border-radius:18px;
+  padding:30px 26px 24px;
+  text-align:center;
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+  position:relative;
+  animation:askpop .25s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes askpop{ from{transform:scale(.9);opacity:0;} to{transform:scale(1);opacity:1;} }
+
+.ask-close{
+  position:absolute;
+  top:12px; right:14px;
+  background:transparent;
+  border:none;
+  color:#9aa7c2;
+  font-size:1.15rem;
+  cursor:pointer;
+  padding:6px 10px;
+  border-radius:8px;
+  transition:color .15s, background .15s;
+}
+.ask-close:hover{ color:#fff; background:rgba(255,255,255,.06); }
+
+.ask-gears{
+  position:relative;
+  width:90px; height:90px;
+  margin:0 auto 14px;
+}
+.ask-gears i{
+  position:absolute;
+  filter:drop-shadow(0 0 12px rgba(255,193,7,.45));
+}
+.ask-gears .gear-big{
+  font-size:3.6rem; top:0; left:8px;
+  color:#ffc107;
+  animation:askgspin 4s linear infinite;
+}
+.ask-gears .gear-small{
+  font-size:2rem; bottom:6px; right:6px;
+  color:#5ab4ff;
+  filter:drop-shadow(0 0 12px rgba(90,180,255,.5));
+  animation:askgspinR 3s linear infinite;
+}
+@keyframes askgspin { from{transform:rotate(0);} to{transform:rotate(360deg);} }
+@keyframes askgspinR{ from{transform:rotate(0);} to{transform:rotate(-360deg);} }
+
+.ask-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 12px;
+  border-radius:99px;
+  background:rgba(255,193,7,.1);
+  border:1px solid rgba(255,193,7,.35);
+  color:#ffd76a;
+  font-size:.74rem;
+  font-weight:700;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+.ask-tag .askdot{
+  width:7px; height:7px; border-radius:50%;
+  background:#ffc107;
+  box-shadow:0 0 10px #ffc107;
+  animation:askblink 1s ease-in-out infinite;
+}
+@keyframes askblink{ 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+.ask-card h3{
+  margin:6px 0 8px;
+  font-size:1.25rem;
+  font-weight:800;
+  letter-spacing:-.3px;
+}
+.ask-card p{
+  color:var(--muted);
+  font-size:.95rem;
+  margin:0;
+  line-height:1.55;
+}
+.ask-bar{
+  position:relative;
+  height:6px;
+  border-radius:99px;
+  background:rgba(255,255,255,.06);
+  overflow:hidden;
+  margin:18px auto 4px;
+  width:80%;
+}
+.ask-bar::before{
+  content:"";
+  position:absolute;
+  top:0; left:-40%;
+  width:40%; height:100%;
+  background:linear-gradient(90deg, transparent, #5ab4ff, #ffc107, transparent);
+  border-radius:99px;
+  animation:askslide 1.6s ease-in-out infinite;
+}
+@keyframes askslide{ 0%{ left:-40%; } 100%{ left:100%; } }
+
 /* ===== STATS BAR ===== */
 .stats{
   position:relative; z-index:5;
@@ -486,11 +632,32 @@ footer{
     <a class="btn-primary" href="{{ url_for('bots_showcase') }}">
       <i class="fas fa-th-large"></i> Our Bots
     </a>
+    <button type="button" class="btn-askbot" onclick="openAskForBot()">
+      <i class="fas fa-robot"></i> Ask for a Bot
+    </button>
     <a class="btn-secondary" href="#what-we-build">
       <i class="fas fa-circle-info"></i> Learn More
     </a>
   </div>
 </section>
+
+<!-- ===== "Ask for a Bot" modal ===== -->
+<div class="ask-overlay" id="askOverlay" role="dialog" aria-modal="true" aria-labelledby="askTitle"
+     onclick="if(event.target===this)closeAskForBot()">
+  <div class="ask-card">
+    <button type="button" class="ask-close" aria-label="Close" onclick="closeAskForBot()">
+      <i class="fas fa-xmark"></i>
+    </button>
+    <div class="ask-gears" aria-hidden="true">
+      <i class="fas fa-gear gear-big"></i>
+      <i class="fas fa-cog gear-small"></i>
+    </div>
+    <span class="ask-tag"><span class="askdot"></span> Under Development</span>
+    <h3 id="askTitle">We're building this feature</h3>
+    <p>Custom bot requests are not available yet. Our engineers are crafting it — check back soon!</p>
+    <div class="ask-bar" aria-hidden="true"></div>
+  </div>
+</div>
 
 <!-- ===== STATS ===== -->
 <div class="stats">
@@ -573,6 +740,19 @@ footer{
 
 <script>
   document.getElementById('yr').textContent = new Date().getFullYear();
+
+  /* "Ask for a Bot" modal */
+  function openAskForBot(){
+    document.getElementById('askOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeAskForBot(){
+    document.getElementById('askOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAskForBot();
+  });
 </script>
 
 </body>

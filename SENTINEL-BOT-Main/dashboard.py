@@ -484,6 +484,33 @@ def is_maintenance_mode():
 def is_dev_session():
     return bool(session.get("dev_unlocked"))
 
+# ---- SERVER-OFFICIAL BOT (admin-customizable card on /bots) ----
+SERVER_OFFICIAL_DEFAULTS = {
+    "name": "Server Official",
+    "tagline": "Your server's signature bot",
+    "image": "",  # URL — empty falls back to icon
+    "description": (
+        "A custom bot crafted for your community. Rename it, set a custom "
+        "profile picture, and make it truly yours."
+    ),
+}
+
+def get_server_official():
+    state = _load_dev_state()
+    cfg = state.get("server_official") or {}
+    merged = {**SERVER_OFFICIAL_DEFAULTS, **{k: v for k, v in cfg.items() if v is not None}}
+    return merged
+
+def save_server_official(updates: dict):
+    state = _load_dev_state()
+    current = state.get("server_official") or {}
+    for key in ("name", "tagline", "image", "description"):
+        if key in updates and updates[key] is not None:
+            current[key] = str(updates[key]).strip()
+    state["server_official"] = current
+    _save_dev_state(state)
+    return get_server_official()
+
 # ---- LANDING PAGES ----
 @app.route('/')
 def landing():
@@ -511,7 +538,40 @@ def bots_showcase():
         'bots.html',
         dev_unlocked=is_dev_session(),
         maintenance_on=is_maintenance_mode(),
+        server_official=get_server_official(),
     )
+
+
+@app.route('/dev/server-official', methods=['GET'])
+def dev_server_official_get():
+    """Read the current Server Official bot card config (public)."""
+    return jsonify({"ok": True, "data": get_server_official()})
+
+
+@app.route('/dev/server-official', methods=['POST'])
+def dev_server_official_set():
+    """Update the Server Official bot card. Requires unlocked dev session."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    payload = request.get_json(silent=True) or {}
+    # Basic length sanity
+    name = (payload.get("name") or "").strip()
+    if name and len(name) > 60:
+        return jsonify({"ok": False, "error": "Name is too long (max 60 chars)"}), 400
+    image = (payload.get("image") or "").strip()
+    if image and len(image) > 1000:
+        return jsonify({"ok": False, "error": "Image URL is too long"}), 400
+    if image and not (image.startswith("http://") or image.startswith("https://") or image.startswith("/")):
+        return jsonify({"ok": False, "error": "Image must be an http(s) URL or a /static path"}), 400
+    tagline = (payload.get("tagline") or "").strip()
+    description = (payload.get("description") or "").strip()
+    saved = save_server_official({
+        "name": name if name else None,
+        "image": image if image is not None else None,
+        "tagline": tagline if tagline else None,
+        "description": description if description else None,
+    })
+    return jsonify({"ok": True, "data": saved})
 
 
 @app.route('/sp4rk')
