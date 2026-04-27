@@ -512,6 +512,22 @@ def save_server_official(updates: dict):
     return get_server_official()
 
 # ---- LANDING PAGES ----
+def _current_user_summary():
+    """Return basic identity info for the navbar (login pill / logout)."""
+    if not session.get('logged_in'):
+        return {"logged_in": False}
+    discord_id = session.get('discord_id', '')
+    user = find_user_by_discord_id(discord_id) if discord_id else None
+    name = (user or {}).get('name') or session.get('user_name', 'User')
+    avatar_url = (user or {}).get('avatar_url', '')
+    return {
+        "logged_in":  True,
+        "user_name":  name,
+        "avatar_url": avatar_url,
+        "discord_id": discord_id,
+    }
+
+
 @app.route('/')
 def landing():
     """Byte Labs parent landing page (the new public homepage).
@@ -526,6 +542,8 @@ def landing():
         'bytelabs_landing.html',
         dev_unlocked=is_dev_session(),
         maintenance_on=is_maintenance_mode(),
+        discord_configured=bool(DISCORD_CLIENT_ID),
+        **_current_user_summary(),
     )
 
 
@@ -540,6 +558,8 @@ def bots_showcase():
         dev_unlocked=is_dev_session(),
         maintenance_on=is_maintenance_mode(),
         server_official=get_server_official(),
+        discord_configured=bool(DISCORD_CLIENT_ID),
+        **_current_user_summary(),
     )
 
 
@@ -632,12 +652,10 @@ def server_official_dashboard():
     """Web dashboard for managing scheduled announcements, giveaways and stats."""
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html'), 200
-    if not is_dev_session():
-        return (
-            "Dashboard locked. Open the dev menu (kebab → PIN) on the home page "
-            "to unlock, then return here.",
-            403,
-        )
+    if not session.get('logged_in'):
+        # Send unauthenticated visitors through Discord login, then back here.
+        session['post_login_redirect'] = url_for('server_official_dashboard')
+        return redirect(url_for('login'))
 
     so = _so_module()
     pending = so.list_scheduled_announcements() if so else []
@@ -659,8 +677,8 @@ def server_official_dashboard():
 
 @app.route('/server-official/api/announcements', methods=['GET'])
 def server_official_api_list_announcements():
-    if not is_dev_session():
-        return jsonify({"ok": False, "error": "Locked"}), 403
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Login required"}), 401
     so = _so_module()
     if not so:
         return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
@@ -669,8 +687,8 @@ def server_official_api_list_announcements():
 
 @app.route('/server-official/api/announcements', methods=['POST'])
 def server_official_api_create_announcement():
-    if not is_dev_session():
-        return jsonify({"ok": False, "error": "Locked"}), 403
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Login required"}), 401
     so = _so_module()
     if not so:
         return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
@@ -712,8 +730,8 @@ def server_official_api_create_announcement():
 
 @app.route('/server-official/api/announcements/<announce_id>', methods=['DELETE'])
 def server_official_api_delete_announcement(announce_id):
-    if not is_dev_session():
-        return jsonify({"ok": False, "error": "Locked"}), 403
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Login required"}), 401
     so = _so_module()
     if not so:
         return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
@@ -931,6 +949,10 @@ def auth_discord_callback():
     session['user_name'] = discord_global
     session.modified = True
     add_dashboard_log("✅ LOGIN", f"{discord_global} logged in via Discord")
+    # Honor a "return to" target set before login (e.g. /server-official/dashboard)
+    next_url = session.pop('post_login_redirect', None)
+    if next_url:
+        return redirect(next_url)
     return redirect(url_for('index'))
 
 # ---- REMOVED: UID-based register/forgot-password (Discord-only auth) ----

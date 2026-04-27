@@ -680,9 +680,30 @@ footer{
     <div class="nav-logo-mark">B/L</div>
     <div class="nav-logo-name">Byte<span>Labs</span></div>
   </a>
-  <a class="nav-back" href="{{ url_for('landing') }}">
-    <i class="fas fa-arrow-left"></i> Back to Byte Labs
-  </a>
+  <div style="display:inline-flex;align-items:center;gap:10px;">
+    {% if logged_in %}
+      <span style="display:inline-flex;align-items:center;gap:10px;padding:6px 12px 6px 6px;border-radius:99px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--text);font-weight:600;font-size:.9rem;">
+        <span style="width:28px;height:28px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:.78rem;overflow:hidden;">
+          {% if avatar_url %}
+            <img src="{{ avatar_url }}" alt="" style="width:100%;height:100%;object-fit:cover;">
+          {% else %}
+            {{ (user_name or 'U')[:1] | upper }}
+          {% endif %}
+        </span>
+        <span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ user_name }}</span>
+      </span>
+      <a href="{{ url_for('logout') }}" title="Log out" style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#cfd9ee;text-decoration:none;">
+        <i class="fas fa-right-from-bracket"></i>
+      </a>
+    {% elif discord_configured %}
+      <a href="{{ url_for('auth_discord') }}" style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:10px;background:#5865F2;color:#fff;text-decoration:none;font-weight:600;font-size:.9rem;box-shadow:0 6px 18px rgba(88,101,242,.35);">
+        <i class="fab fa-discord"></i> Login with Discord
+      </a>
+    {% endif %}
+    <a class="nav-back" href="{{ url_for('landing') }}">
+      <i class="fas fa-arrow-left"></i> Back
+    </a>
+  </div>
 </nav>
 
 <!-- ===== HEADER ===== -->
@@ -721,14 +742,14 @@ footer{
         <span class="chip">Custom Brand</span>
         <span class="chip">Editable</span>
       </div>
-      <a href="{{ url_for('server_official_landing') }}" class="bot-cta" style="text-decoration:none;">
-        Open Server Official <i class="fas fa-arrow-right"></i>
+      <a href="{{ url_for('server_official_dashboard') }}" class="bot-cta" style="text-decoration:none;">
+        Continue to Dashboard <i class="fas fa-arrow-right"></i>
       </a>
     </div>
   </div>
 
   <!-- SP4RK card (LIVE) -->
-  <a href="{{ url_for('sp4rk_landing') }}" class="bot-card sp4rk is-live">
+  <a href="{{ url_for('index') if logged_in else url_for('sp4rk_landing') }}" class="bot-card sp4rk is-live">
     <div class="bot-banner">
       <div class="bot-icon">S</div>
       <div class="bot-status status-live"><span class="dot"></span> Live</div>
@@ -748,7 +769,7 @@ footer{
         <span class="chip">Giveaways</span>
       </div>
       <span class="bot-cta">
-        Open SP4RK <i class="fas fa-arrow-right"></i>
+        {% if logged_in %}Continue to Dashboard{% else %}Open SP4RK{% endif %} <i class="fas fa-arrow-right"></i>
       </span>
     </div>
   </a>
