@@ -165,6 +165,7 @@ def parse_duration(s: str) -> Optional[int]:
 # CONFIG / LOGS HELPERS
 # ============================================================
 DEFAULT_GUILD_CONFIG = {
+    "display_name": "",             # custom display name for the bot in this server's dashboard
     "welcome_role_id": "",
     "welcome_channel_id": "",
     "welcome_message": "👋 Welcome {user} to **{server}**! You are member #{count}.",

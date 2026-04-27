@@ -234,6 +234,15 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
   <!-- ============ MEMBERS ============ -->
   <section class="section" data-section="members">
     <div class="card">
+      <h2><i class="fas fa-signature"></i> Bot Display Name (this server only)</h2>
+      <p class="help">Rename the bot in your server's dashboard view. Only affects the selected server — other servers keep "Server Official".</p>
+      <div class="row">
+        <input id="cfgDisplayName" placeholder="e.g. ByteHelper, Mod Buddy, ServerKit…" class="grow"/>
+        <button class="btn" onclick="saveDisplayName()"><i class="fas fa-save"></i> Save Name</button>
+        <button class="btn btn-ghost" onclick="resetDisplayName()"><i class="fas fa-rotate-left"></i> Reset</button>
+      </div>
+    </div>
+    <div class="card">
       <h2><i class="fas fa-handshake"></i> Welcome / Leave Configuration</h2>
       <div class="row">
         <div><label>Welcome Channel ID</label><input id="cfgWelcomeChan" placeholder="123…" /></div>
@@ -588,11 +597,13 @@ function loadOverviewCharts(){ loadAnalytics(); }
 /* ============ MEMBERS / CONFIG ============ */
 async function loadGuildConfig(){
   if (!currentGuildId){
-    ['cfgWelcomeChan','cfgWelcomeRole','cfgLogChan','cfgWelcomeMsg','cfgLeaveMsg'].forEach(id=>$('#'+id).value='');
+    ['cfgDisplayName','cfgWelcomeChan','cfgWelcomeRole','cfgLogChan','cfgWelcomeMsg','cfgLeaveMsg'].forEach(id=>{ const el=$('#'+id); if(el) el.value=''; });
+    applyDisplayName('');
     return;
   }
   const r = await api('GET', `/server-official/api/config?guild_id=${currentGuildId}`);
   if (!r.ok) return;
+  $('#cfgDisplayName').value = r.data.display_name || '';
   $('#cfgWelcomeChan').value = r.data.welcome_channel_id || '';
   $('#cfgWelcomeRole').value = r.data.welcome_role_id || '';
   $('#cfgLogChan').value = r.data.log_channel_id || '';
@@ -602,6 +613,27 @@ async function loadGuildConfig(){
   $('#autoClean').value = r.data.auto_cleanup_age_days || 0;
   $('#tglLevel').checked = !!r.data.leveling_enabled;
   $('#tglDaily').checked = !!r.data.daily_rewards_enabled;
+  applyDisplayName(r.data.display_name || '');
+}
+function applyDisplayName(name){
+  const real = name && name.trim() ? name.trim() : 'Server Official';
+  document.title = real + ' — Dashboard';
+  const brandEl = document.querySelector('.sb-brand-name');
+  if (brandEl) brandEl.innerHTML = real.length > 14 ? real.replace(/\s+/, '<br>') : real;
+  const crumbEl = document.querySelector('.crumb');
+  if (crumbEl) crumbEl.lastChild.textContent = ' / ' + real;
+}
+async function saveDisplayName(){
+  if (!currentGuildId) return toast('Select a server first','err');
+  const newName = ($('#cfgDisplayName').value || '').trim().slice(0,40);
+  await api('POST','/server-official/api/config',{guild_id:currentGuildId, display_name:newName},'Name saved');
+  applyDisplayName(newName);
+}
+async function resetDisplayName(){
+  if (!currentGuildId) return toast('Select a server first','err');
+  $('#cfgDisplayName').value = '';
+  await api('POST','/server-official/api/config',{guild_id:currentGuildId, display_name:''},'Reset to Server Official');
+  applyDisplayName('');
 }
 async function saveGuildConfig(){
   if (!currentGuildId) return toast('Select a server first','err');
