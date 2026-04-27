@@ -514,10 +514,11 @@ def save_server_official(updates: dict):
 # ---- LANDING PAGES ----
 @app.route('/')
 def landing():
-    """Byte Labs parent landing page (the new public homepage)."""
-    # Maintenance mode: show a "coming soon" page to everyone EXCEPT the dev.
-    # NOTE: returns HTTP 200 (not 503) so external uptime/cron pingers keep
-    # treating the URL as healthy and free-tier hosts don't sleep the service.
+    """Byte Labs parent landing page (the new public homepage).
+
+    Maintenance mode: show a "coming soon" page to everyone EXCEPT the dev.
+    Returns HTTP 200 so external uptime/cron pingers keep the service healthy.
+    """
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html'), 200
 

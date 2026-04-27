@@ -128,3 +128,13 @@ warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, purge, 
 - `/bots` → Bot card showcase (templates/bots.html). Cards: Server Official (admin-customizable), SP4RK (live), Tempo & Pulse (coming soon).
 - `/sp4rk` → Original SP4RK landing (templates/landing.html), unchanged design.
 - Server Official card: name + image (URL) + tagline + description stored in `dev_state.json` under key `server_official`. Edit pencil icon shows only when dev session unlocked. Inline editor modal posts to `POST /dev/server-official` (PIN-gated). Public read at `GET /dev/server-official`.
+
+## Dev Menu (now on both Byte Labs landing & SP4RK landing)
+- Hidden until PIN-unlocked (PIN env var: `DEV_PIN`, defaults `sp4rk2024`).
+- Unlock gestures (all open the PIN modal — none auto-unlock):
+  1. Tap the Byte Labs / SP4RK logo 7 times within 3 seconds
+  2. Long-press any pillar / bot card / feature card for 7 seconds
+  3. Type the secret word `spark`
+  4. Press `Ctrl + Shift + D`
+- Once unlocked: kebab menu appears in nav with: Edit Server Official, Ask for a Bot preview, Maintenance Mode toggle, Lock dev menu.
+- Server endpoints: `POST /dev/unlock` (validate PIN), `POST /dev/lock`, `POST /dev/maintenance`, `GET /dev/state`, `POST /dev/server-official`.

@@ -400,6 +400,171 @@ nav{
 }
 @keyframes askslide{ 0%{ left:-40%; } 100%{ left:100%; } }
 
+/* ===== DEV MENU (kebab in nav, hidden until PIN-unlocked) ===== */
+.dev-menu{ position:relative; }
+.dev-menu[hidden]{ display:none !important; }
+
+.dev-kebab{
+  width:38px; height:38px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  color:#cfd9ee;
+  border-radius:10px;
+  cursor:pointer;
+  transition:background .15s, border-color .15s, color .15s, transform .15s;
+}
+.dev-kebab:hover,
+.dev-kebab[aria-expanded="true"]{
+  background:rgba(91,140,255,.14);
+  border-color:rgba(91,140,255,.5);
+  color:#fff;
+}
+.dev-kebab:active{ transform:scale(.95); }
+
+.dev-dropdown{
+  position:absolute;
+  top:calc(100% + 8px);
+  right:0;
+  min-width:230px;
+  background:linear-gradient(180deg,#0f1d38 0%,#0b1426 100%);
+  border:1px solid rgba(91,140,255,.32);
+  border-radius:12px;
+  box-shadow:0 18px 40px rgba(0,0,0,.55);
+  padding:8px;
+  display:none;
+  z-index:1000;
+  transform-origin:top right;
+  animation:devPopIn .18s ease;
+}
+.dev-dropdown.open{ display:block; }
+@keyframes devPopIn{ from{opacity:0; transform:scale(.95);} to{opacity:1; transform:scale(1);} }
+
+.dev-dropdown-head{
+  display:flex; align-items:center; gap:8px;
+  padding:8px 12px 10px;
+  font-size:.78rem;
+  text-transform:uppercase;
+  letter-spacing:.7px;
+  color:#7fb6ff;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  margin-bottom:6px;
+}
+.dev-item{
+  display:flex; align-items:center; gap:10px;
+  width:100%;
+  padding:10px 12px;
+  background:transparent;
+  border:none;
+  color:#e8f0ff;
+  font-size:.95rem;
+  font-weight:600;
+  font-family:inherit;
+  text-align:left;
+  border-radius:8px;
+  cursor:pointer;
+  text-decoration:none;
+  transition:background .12s, color .12s;
+}
+.dev-item:hover{ background:rgba(91,140,255,.16); color:#fff; }
+.dev-item i{ width:18px; text-align:center; color:#5ab4ff; }
+.dev-item-danger{ color:#ff9a9a; }
+.dev-item-danger i{ color:#ff8585; }
+.dev-item-danger:hover{ background:rgba(255,80,80,.12); color:#fff; }
+
+/* Long-press visual feedback */
+.pillar-holding,
+.bot-card-holding{
+  outline:2px solid rgba(91,140,255,.55);
+  outline-offset:4px;
+  transition:outline .2s;
+}
+
+/* Brief "unlocked" toast */
+.dev-toast{
+  position:fixed;
+  bottom:24px;
+  left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:linear-gradient(135deg,#10b981,#059669);
+  color:#fff;
+  padding:10px 18px;
+  border-radius:99px;
+  font-size:.9rem;
+  font-weight:700;
+  box-shadow:0 10px 30px rgba(16,185,129,.4);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease, transform .25s ease;
+  z-index:10000;
+}
+.dev-toast.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
+
+/* PIN modal */
+.pin-overlay{
+  position:fixed; inset:0;
+  background:rgba(4,8,16,.78);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.pin-overlay.open{ display:flex; }
+.pin-card{
+  background:linear-gradient(180deg,#0f1d38,#0a1428);
+  border:1px solid rgba(91,140,255,.35);
+  border-radius:16px;
+  padding:32px 28px;
+  width:340px; max-width:92vw;
+  text-align:center;
+  box-shadow:0 20px 60px rgba(91,140,255,.18);
+  animation:askpop .25s cubic-bezier(.2,.9,.3,1.2);
+}
+.pin-card .lock-icon{
+  font-size:2.4rem;
+  background:linear-gradient(180deg,#8b5cf6,#5b8cff);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+  margin-bottom:10px;
+}
+.pin-card h3{ margin:0 0 6px; color:#fff; font-size:1.15rem; }
+.pin-card p{ color:var(--muted); font-size:.85rem; margin:0 0 18px; }
+.pin-card input{
+  width:100%; padding:12px 14px; font-size:1rem;
+  background:#07101f; color:#fff;
+  border:1px solid rgba(91,140,255,.3); border-radius:10px;
+  text-align:center; letter-spacing:.3em; font-weight:600;
+  font-family:inherit;
+}
+.pin-card input:focus{ outline:none; border-color:#5b8cff; }
+.pin-error{ color:#ff8585; font-size:.82rem; margin-top:8px; min-height:18px; }
+.pin-actions{ display:flex; gap:10px; margin-top:16px; }
+.pin-actions button{
+  flex:1; padding:10px; border-radius:10px; border:none; cursor:pointer;
+  font-weight:700; font-size:.9rem; font-family:inherit;
+}
+.pin-cancel{ background:rgba(255,255,255,.06); color:#cfd8e6; }
+.pin-submit{
+  background:linear-gradient(135deg,#5b8cff,#8b5cf6); color:#fff;
+}
+.pin-submit:hover{ filter:brightness(1.1); }
+
+/* Subtle logo tap-pulse for visual feedback during 7-tap unlock */
+.nav-logo{ user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent; }
+.nav-logo.tap-pulse .nav-logo-mark{ animation:logoTapBL .25s ease; }
+@keyframes logoTapBL{
+  0%{ transform:scale(1); }
+  50%{ transform:scale(.92); box-shadow:0 0 0 6px rgba(91,140,255,.18); }
+  100%{ transform:scale(1); }
+}
+
 /* ===== STATS BAR ===== */
 .stats{
   position:relative; z-index:5;
@@ -608,6 +773,35 @@ footer{
     <a href="#what-we-build">What We Build</a>
     <a href="#contact">Contact</a>
   </div>
+  <!-- Dev kebab menu (hidden until PIN-unlocked via secret gesture) -->
+  <div class="dev-menu" id="devMenu" {% if not dev_unlocked %}hidden{% endif %} style="margin-right:8px;">
+    <button type="button" class="dev-kebab" id="devKebabBtn"
+            aria-label="Developer menu" aria-haspopup="true" aria-expanded="false">
+      <i class="fas fa-ellipsis-vertical"></i>
+    </button>
+    <div class="dev-dropdown" id="devDropdown" role="menu">
+      <div class="dev-dropdown-head">
+        <i class="fas fa-user-shield"></i>
+        <span>Developer Tools</span>
+      </div>
+      <a class="dev-item" role="menuitem" href="{{ url_for('bots_showcase') }}">
+        <i class="fas fa-pen-to-square"></i> Edit Server Official
+      </a>
+      <button type="button" class="dev-item" role="menuitem" onclick="openAskForBot(); closeDevMenu();">
+        <i class="fas fa-robot"></i> Ask for a Bot (preview)
+      </button>
+      <button type="button" class="dev-item" role="menuitem" id="maintToggleBtn" onclick="toggleMaintenanceMode()">
+        <i class="fas fa-tools"></i>
+        <span>Maintenance Mode:</span>
+        <span id="maintToggleLabel" style="margin-left:auto;font-weight:700;color:{% if maintenance_on %}#ff7a18{% else %}#5ab4ff{% endif %};">
+          {% if maintenance_on %}ON{% else %}OFF{% endif %}
+        </span>
+      </button>
+      <button type="button" class="dev-item dev-item-danger" role="menuitem" onclick="lockDevMenu()">
+        <i class="fas fa-lock"></i> Lock dev menu
+      </button>
+    </div>
+  </div>
   <a class="nav-cta" href="{{ url_for('bots_showcase') }}">
     Explore Bots <i class="fas fa-arrow-right"></i>
   </a>
@@ -738,6 +932,26 @@ footer{
   </div>
 </footer>
 
+<!-- "Unlocked" toast -->
+<div class="dev-toast" id="devToast" role="status" aria-live="polite">
+  <i class="fas fa-unlock"></i> Developer menu unlocked
+</div>
+
+<!-- PIN modal -->
+<div class="pin-overlay" id="pinOverlay" role="dialog" aria-modal="true">
+  <div class="pin-card">
+    <div class="lock-icon"><i class="fas fa-shield-halved"></i></div>
+    <h3>Developer Access</h3>
+    <p>Enter the dev PIN to unlock developer tools.</p>
+    <input type="password" id="pinInput" maxlength="32" autocomplete="off" inputmode="numeric" placeholder="••••••" />
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-actions">
+      <button type="button" class="pin-cancel" onclick="closePinModal()">Cancel</button>
+      <button type="button" class="pin-submit" onclick="submitPin()">Unlock</button>
+    </div>
+  </div>
+</div>
+
 <script>
   document.getElementById('yr').textContent = new Date().getFullYear();
 
@@ -750,8 +964,230 @@ footer{
     document.getElementById('askOverlay').classList.remove('open');
     document.body.style.overflow = '';
   }
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeAskForBot();
+
+  /* ===== Hidden developer menu (PIN-protected, server-validated) =====
+     Trigger methods all OPEN a PIN prompt — they NEVER auto-unlock:
+       1. Tap the Byte Labs logo 7 times within ~3 seconds
+       2. Press and hold any pillar/bot card for 7 seconds
+       3. Type the secret word "spark"
+       4. Press Ctrl + Shift + D
+     Wrong PIN = no access. Correct PIN = server stores an unlock flag in
+     your session, and the dev menu becomes available. */
+  const SECRET_WORD    = 'spark';
+  const HOLD_MS        = 7000;
+  const HOLD_MOVE_TOL  = 14;
+  const TAP_COUNT      = 7;
+  const TAP_WINDOW_MS  = 3000;
+
+  const devMenu     = document.getElementById('devMenu');
+  const devKebab    = document.getElementById('devKebabBtn');
+  const devDropdown = document.getElementById('devDropdown');
+  const devToast    = document.getElementById('devToast');
+  const pinOverlay  = document.getElementById('pinOverlay');
+  const pinInput    = document.getElementById('pinInput');
+  const pinError    = document.getElementById('pinError');
+
+  /* Server-rendered: is the dev menu currently unlocked? */
+  const SERVER_UNLOCKED = {{ 'true' if dev_unlocked else 'false' }};
+
+  function openPinModal(){
+    if (SERVER_UNLOCKED) return;
+    pinError.textContent = '';
+    pinError.style.color = '#ff8585';
+    pinInput.value = '';
+    pinOverlay.classList.add('open');
+    setTimeout(() => pinInput.focus(), 60);
+  }
+  function closePinModal(){
+    pinOverlay.classList.remove('open');
+  }
+  async function submitPin(){
+    const pin = (pinInput.value || '').trim();
+    if (!pin) { pinError.textContent = 'Enter a PIN.'; return; }
+    pinError.style.color = '#ffd76a';
+    pinError.textContent = 'Checking…';
+    try {
+      const r = await fetch('/dev/unlock', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pin })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.ok) {
+        pinError.style.color = '#7CFFB2';
+        pinError.textContent = 'Unlocked. Loading…';
+        setTimeout(() => location.reload(), 350);
+      } else {
+        pinError.style.color = '#ff8585';
+        pinError.textContent = data.error || 'Wrong PIN.';
+        pinInput.value = '';
+        pinInput.focus();
+      }
+    } catch (e) {
+      pinError.style.color = '#ff8585';
+      pinError.textContent = 'Network error. Try again.';
+    }
+  }
+  pinInput.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') { e.preventDefault(); submitPin(); }
+    if (e.key === 'Escape') { closePinModal(); }
+  });
+
+  async function lockDevMenu(){
+    try { await fetch('/dev/lock', { method:'POST' }); } catch(e){}
+    location.reload();
+  }
+
+  /* Maintenance toggle (only callable from the unlocked dev menu) */
+  async function toggleMaintenanceMode(){
+    const label = document.getElementById('maintToggleLabel');
+    const currentlyOn = label && label.textContent.trim().toUpperCase() === 'ON';
+    const enable = !currentlyOn;
+    try {
+      const r = await fetch('/dev/maintenance', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ enabled: enable })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.ok) {
+        label.textContent = data.maintenance ? 'ON' : 'OFF';
+        label.style.color = data.maintenance ? '#ff7a18' : '#5ab4ff';
+        devToast.innerHTML = '<i class="fas fa-tools"></i> Maintenance mode ' + (data.maintenance ? 'ENABLED' : 'disabled');
+        devToast.classList.add('show');
+        setTimeout(() => devToast.classList.remove('show'), 2000);
+      }
+    } catch(e){}
+  }
+
+  /* Kebab dropdown */
+  function openDevMenu(){
+    devDropdown.classList.add('open');
+    devKebab.setAttribute('aria-expanded', 'true');
+  }
+  function closeDevMenu(){
+    devDropdown.classList.remove('open');
+    devKebab.setAttribute('aria-expanded', 'false');
+  }
+  function toggleDevMenu(){
+    devDropdown.classList.contains('open') ? closeDevMenu() : openDevMenu();
+  }
+  if (devKebab) {
+    devKebab.addEventListener('click', function(e){
+      e.stopPropagation();
+      toggleDevMenu();
+    });
+  }
+  document.addEventListener('click', function(e){
+    if (devMenu && !devMenu.contains(e.target)) closeDevMenu();
+  });
+
+  /* --- Logo 7-tap unlock --- */
+  const navLogo = document.querySelector('.nav-logo');
+  let tapTimes = [];
+  if (navLogo) {
+    navLogo.addEventListener('click', function(e){
+      // Allow normal navigation only if no taps recorded recently
+      const now = Date.now();
+      tapTimes = tapTimes.filter(t => now - t < TAP_WINDOW_MS);
+      tapTimes.push(now);
+      navLogo.classList.remove('tap-pulse');
+      void navLogo.offsetWidth;
+      navLogo.classList.add('tap-pulse');
+      if (tapTimes.length >= TAP_COUNT) {
+        e.preventDefault();
+        tapTimes = [];
+        openPinModal();
+      } else if (tapTimes.length >= 2) {
+        // Suppress navigation while a tap sequence is in progress
+        e.preventDefault();
+      }
+    });
+  }
+
+  /* --- Long-press a pillar or bot card for 7 seconds --- */
+  let holdTimer = null;
+  let holdStartX = 0, holdStartY = 0;
+  let holdEl = null;
+
+  function findHoldTarget(el){
+    while (el && el !== document.body) {
+      if (el.classList && (el.classList.contains('pillar') || el.classList.contains('bot-card'))) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+  function startHold(x, y, target){
+    cancelHold();
+    const el = findHoldTarget(target);
+    if (!el) return;
+    holdStartX = x; holdStartY = y; holdEl = el;
+    el.classList.add(el.classList.contains('pillar') ? 'pillar-holding' : 'bot-card-holding');
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      if (holdEl) {
+        holdEl.classList.remove('pillar-holding', 'bot-card-holding');
+        holdEl = null;
+      }
+      openPinModal();
+    }, HOLD_MS);
+  }
+  function cancelHold(){
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    if (holdEl) {
+      holdEl.classList.remove('pillar-holding', 'bot-card-holding');
+      holdEl = null;
+    }
+  }
+  function checkMove(x, y){
+    if (!holdTimer) return;
+    if (Math.abs(x - holdStartX) > HOLD_MOVE_TOL ||
+        Math.abs(y - holdStartY) > HOLD_MOVE_TOL) cancelHold();
+  }
+
+  document.addEventListener('mousedown', (e) => startHold(e.clientX, e.clientY, e.target));
+  document.addEventListener('mousemove', (e) => checkMove(e.clientX, e.clientY));
+  document.addEventListener('mouseup',   cancelHold);
+  document.addEventListener('mouseleave', cancelHold);
+  document.addEventListener('touchstart', (e) => {
+    const t = e.touches[0]; if (t) startHold(t.clientX, t.clientY, e.target);
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    const t = e.touches[0]; if (t) checkMove(t.clientX, t.clientY);
+  }, { passive: true });
+  document.addEventListener('touchend',    cancelHold);
+  document.addEventListener('touchcancel', cancelHold);
+  window.addEventListener('scroll', cancelHold, { passive: true });
+
+  /* --- Type-the-secret-word unlock --- */
+  let typedBuffer = '';
+  document.addEventListener('keydown', function(e){
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (e.key && e.key.length === 1) {
+      typedBuffer = (typedBuffer + e.key.toLowerCase()).slice(-SECRET_WORD.length);
+      if (typedBuffer === SECRET_WORD) {
+        typedBuffer = '';
+        openPinModal();
+      }
+    }
+  });
+
+  /* --- Ctrl+Shift+D shortcut --- */
+  document.addEventListener('keydown', function(e){
+    if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+      e.preventDefault();
+      SERVER_UNLOCKED ? lockDevMenu() : openPinModal();
+    }
+  });
+
+  /* --- Global Escape --- */
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') {
+      closeAskForBot();
+      closeDevMenu();
+      closePinModal();
+    }
   });
 </script>
 
