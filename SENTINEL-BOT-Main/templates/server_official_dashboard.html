@@ -1,601 +1,822 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
 <title>Server Official — Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-  :root{
-    --bg:#040b18;
-    --panel:#0a1629;
-    --panel-2:#0f1d38;
-    --text:#eef5ff;
-    --muted:#8da4c4;
-    --line:rgba(255,255,255,0.07);
-    --accent:#10b981;
-    --accent2:#06b6d4;
-    --gradient: linear-gradient(135deg,#10b981 0%, #06b6d4 50%, #22d3ee 100%);
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  body{
-    font-family:'Inter', system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height:100vh;
-    line-height:1.5;
-  }
-  body::before{
-    content:""; position:fixed; pointer-events:none; z-index:0;
-    width:600px; height:600px; border-radius:50%;
-    filter:blur(120px); opacity:.25;
-    background:radial-gradient(circle,#10b981,transparent 70%);
-    top:-200px; left:-150px;
-  }
-  body::after{
-    content:""; position:fixed; pointer-events:none; z-index:0;
-    width:600px; height:600px; border-radius:50%;
-    filter:blur(120px); opacity:.25;
-    background:radial-gradient(circle,#06b6d4,transparent 70%);
-    bottom:-200px; right:-150px;
-  }
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#050b18; --bg2:#0a1428; --bg3:#0f1d3a;
+  --accent:#5b8cff; --accent2:#8b5cf6; --accent3:#22d3ee;
+  --text:#e8f0ff; --muted:#8295b8;
+  --border:rgba(91,140,255,0.18);
+  --grad:linear-gradient(135deg,#5b8cff 0%,#8b5cf6 50%,#22d3ee 100%);
+  --ok:#10b981; --warn:#f59e0b; --bad:#ef4444;
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
 
-  /* ===== TOP BAR ===== */
-  .topbar{
-    position:relative; z-index:10;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:18px 32px;
-    border-bottom:1px solid var(--line);
-    background: rgba(4,11,24,.65);
-    backdrop-filter: blur(10px);
-  }
-  .topbar-left{ display:flex; align-items:center; gap:14px; }
-  .logo-mark{
-    width:40px; height:40px; border-radius:11px;
-    background: var(--gradient);
-    display:flex; align-items:center; justify-content:center;
-    font-weight:900; color:#fff;
-    box-shadow: 0 8px 20px rgba(16,185,129,.4);
-  }
-  .logo-name{ font-weight:800; font-size:1.05rem; }
-  .logo-name span{
-    background: var(--gradient);
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent;
-  }
-  .nav-back{
-    color: var(--muted); text-decoration:none; font-weight:600;
-    display:inline-flex; align-items:center; gap:8px;
-    padding:8px 14px; border-radius:9px;
-    transition: color .15s, background .15s;
-  }
-  .nav-back:hover{ color:#fff; background:rgba(255,255,255,.05); }
+/* ===== SIDEBAR ===== */
+.sidebar{
+  width:240px; background:var(--bg2);
+  border-right:1px solid var(--border);
+  padding:24px 16px; flex-shrink:0;
+  position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+.sb-brand{display:flex;align-items:center;gap:12px;margin-bottom:30px;padding:0 8px;}
+.sb-brand-mark{width:38px;height:38px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;}
+.sb-brand-name{font-weight:800;font-size:1.05rem;}
+.sb-section{margin-top:18px;font-size:.7rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);padding:0 8px;}
+.sb-item{
+  display:flex;align-items:center;gap:11px;
+  padding:10px 12px;margin:3px 0;
+  border-radius:9px;color:var(--muted);
+  text-decoration:none;font-weight:500;font-size:.92rem;
+  cursor:pointer;border:none;background:transparent;width:100%;text-align:left;font-family:inherit;
+  transition:background .15s,color .15s;
+}
+.sb-item:hover{background:rgba(91,140,255,.08);color:var(--text);}
+.sb-item.active{background:rgba(91,140,255,.16);color:var(--text);box-shadow:inset 3px 0 0 var(--accent);}
+.sb-item i{width:18px;text-align:center;}
+.sb-foot{margin-top:30px;padding:14px 8px;font-size:.78rem;color:var(--muted);border-top:1px solid var(--border);}
 
-  .status-pill{
-    display:inline-flex; align-items:center; gap:8px;
-    padding:6px 14px; border-radius:99px; font-size:.78rem; font-weight:700;
-  }
-  .status-pill.online{
-    background:rgba(16,185,129,.12);
-    border:1px solid rgba(16,185,129,.35); color:#10d9a3;
-  }
-  .status-pill.offline{
-    background:rgba(245,158,11,.1);
-    border:1px solid rgba(245,158,11,.35); color:#fbbf24;
-  }
-  .status-pill .dot{
-    width:7px; height:7px; border-radius:50%;
-    background: currentColor; box-shadow:0 0 8px currentColor;
-  }
+/* ===== MAIN ===== */
+.main{flex:1;padding:30px 38px;overflow-x:hidden;}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.topbar h1{font-size:1.6rem;font-weight:800;letter-spacing:-.4px;}
+.topbar .crumb{color:var(--muted);font-size:.85rem;}
+.topbar a{color:var(--accent);text-decoration:none;}
 
-  /* ===== MAIN ===== */
-  main{
-    position:relative; z-index:5;
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 32px;
-  }
+.bot-status{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:99px;font-size:.78rem;font-weight:700;}
+.bot-status.on{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3);}
+.bot-status.off{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.bot-status .dot{width:8px;height:8px;border-radius:50%;background:currentColor;}
 
-  h1.page-title{
-    font-size:1.85rem;
-    font-weight:800;
-    letter-spacing:-.5px;
-    margin-bottom:6px;
-  }
-  .page-sub{ color: var(--muted); margin-bottom:28px; font-size:.95rem; }
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:20px;}
+.card h2{font-size:1.1rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+.card h2 i{color:var(--accent);}
+.card .help{font-size:.85rem;color:var(--muted);margin-bottom:14px;}
 
-  /* ===== STATS GRID ===== */
-  .stat-grid{
-    display:grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap:14px;
-    margin-bottom:28px;
-  }
-  .stat{
-    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
-    border:1px solid var(--line);
-    border-radius:14px;
-    padding: 18px 20px;
-  }
-  .stat .label{
-    font-size:.74rem; font-weight:700; letter-spacing:.6px;
-    text-transform:uppercase; color: var(--muted);
-    margin-bottom:8px;
-  }
-  .stat .value{
-    font-size:1.65rem; font-weight:800; letter-spacing:-.5px;
-  }
-  .stat .value span{
-    font-size:.95rem; color: var(--muted); font-weight:600; margin-left:4px;
-  }
-  .stat .icon{
-    float:right;
-    color:#10d9a3; font-size:1.1rem; opacity:.6;
-  }
+.grid{display:grid;gap:18px;}
+.grid-3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));}
+.grid-2{grid-template-columns:repeat(auto-fit,minmax(360px,1fr));}
 
-  /* ===== TABS ===== */
-  .tabs{
-    display:flex; gap:4px;
-    margin-bottom:18px;
-    border-bottom:1px solid var(--line);
-    overflow-x:auto;
-  }
-  .tab{
-    padding:12px 18px;
-    background:transparent;
-    border:none;
-    color: var(--muted);
-    font-weight:700; font-size:.95rem;
-    font-family:inherit;
-    cursor:pointer;
-    border-bottom:2px solid transparent;
-    transition:color .15s, border-color .15s;
-    display:inline-flex; align-items:center; gap:8px;
-    white-space:nowrap;
-  }
-  .tab:hover{ color:#fff; }
-  .tab.active{
-    color:#10d9a3;
-    border-bottom-color:#10d9a3;
-  }
-  .tab-panel{ display:none; }
-  .tab-panel.active{ display:block; animation: fade .25s ease; }
-  @keyframes fade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+.stat{background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-radius:14px;padding:18px;}
+.stat-label{font-size:.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.6px;}
+.stat-value{font-size:1.8rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-top:6px;}
+.stat-sub{font-size:.78rem;color:var(--muted);margin-top:4px;}
 
-  /* ===== CARDS / SECTIONS ===== */
-  .card{
-    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
-    border:1px solid var(--line);
-    border-radius:16px;
-    padding: 22px 24px;
-    margin-bottom: 18px;
-  }
-  .card h2{
-    font-size:1.1rem; font-weight:700;
-    margin-bottom:6px;
-    display:flex; align-items:center; gap:10px;
-  }
-  .card h2 i{ color:#10d9a3; }
-  .card .desc{
-    color: var(--muted); font-size:.9rem;
-    margin-bottom:18px;
-  }
+/* Forms */
+label{display:block;font-size:.82rem;font-weight:600;color:var(--muted);margin-bottom:6px;}
+input[type="text"],input[type="number"],input[type="datetime-local"],input[type="url"],textarea,select{
+  width:100%;background:#07101f;color:var(--text);border:1px solid var(--border);
+  border-radius:9px;padding:10px 12px;font-family:inherit;font-size:.92rem;
+}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);}
+textarea{min-height:80px;resize:vertical;}
+.row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+.row > *{flex:1;min-width:160px;}
+.row > .grow{flex:2;}
 
-  /* Form inputs */
-  .form-row{ display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
-  .form-field{ flex:1; min-width: 200px; }
-  .form-field label{
-    display:block; font-size:.75rem; font-weight:700;
-    text-transform:uppercase; letter-spacing:.5px;
-    color: var(--muted); margin-bottom:6px;
-  }
-  .input, textarea, select{
-    width:100%;
-    padding:11px 13px;
-    background:#050d1a;
-    color: var(--text);
-    border:1px solid rgba(91,140,255,.2);
-    border-radius:10px;
-    font-size:.95rem; font-family:inherit;
-    transition: border-color .15s;
-  }
-  .input:focus, textarea:focus, select:focus{
-    outline:none; border-color:#10b981;
-  }
-  textarea{ resize:vertical; min-height:84px; }
+button.btn,a.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 18px;background:var(--grad);
+  color:#fff;border:none;border-radius:9px;
+  font-weight:700;cursor:pointer;font-family:inherit;font-size:.9rem;
+  text-decoration:none;
+  transition:transform .12s,box-shadow .12s;
+}
+button.btn:hover,a.btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(91,140,255,.4);}
+button.btn-ghost,a.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
+button.btn-danger{background:linear-gradient(135deg,#ef4444,#b91c1c);}
+button.btn-sm{padding:6px 12px;font-size:.82rem;}
 
-  .btn{
-    display:inline-flex; align-items:center; gap:8px;
-    padding:11px 20px;
-    border-radius:10px;
-    border:none;
-    font-weight:700; font-size:.92rem;
-    font-family:inherit;
-    cursor:pointer;
-    transition: transform .15s, box-shadow .15s, background .15s;
-  }
-  .btn-primary{
-    background: var(--gradient);
-    color:#fff;
-    box-shadow: 0 6px 18px rgba(16,185,129,.35);
-  }
-  .btn-primary:hover{ transform: translateY(-1px); box-shadow:0 10px 24px rgba(16,185,129,.5); }
-  .btn-primary:disabled{ opacity:.6; cursor:not-allowed; transform:none; }
-  .btn-ghost{ background:rgba(255,255,255,.05); color:#cfd9ee; }
-  .btn-ghost:hover{ background:rgba(255,255,255,.1); }
-  .btn-danger{
-    background: rgba(239,68,68,.12);
-    color: #fca5a5;
-    border:1px solid rgba(239,68,68,.3);
-  }
-  .btn-danger:hover{ background: rgba(239,68,68,.22); color:#fff; }
+.toast{
+  position:fixed;bottom:30px;right:30px;background:var(--bg3);border:1px solid var(--border);
+  padding:14px 18px;border-radius:10px;font-weight:600;font-size:.9rem;color:#fff;
+  box-shadow:0 12px 36px rgba(0,0,0,.4);opacity:0;transform:translateY(20px);
+  transition:opacity .25s,transform .25s;pointer-events:none;z-index:9999;
+}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.ok{border-color:rgba(16,185,129,.4);}
+.toast.err{border-color:rgba(239,68,68,.4);color:#fca5a5;}
 
-  .msg{
-    margin-top:8px; font-size:.85rem; min-height:18px;
-  }
-  .msg.ok{ color:#10d9a3; }
-  .msg.err{ color:#ff8585; }
+/* Lists */
+.list-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 14px;background:#07101f;border:1px solid var(--border);
+  border-radius:10px;margin-bottom:8px;
+}
+.list-item .meta{font-size:.78rem;color:var(--muted);}
+.list-item code{background:rgba(255,255,255,.05);padding:2px 7px;border-radius:5px;color:var(--accent);font-size:.78rem;}
 
-  /* Lists */
-  .list{ display:flex; flex-direction:column; gap:10px; }
-  .list-item{
-    display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
-    padding:14px 16px;
-    background: rgba(91,140,255,.04);
-    border:1px solid rgba(91,140,255,.12);
-    border-radius:10px;
-  }
-  .list-item .info{ flex:1; min-width:0; }
-  .list-item .info .when{
-    color:#10d9a3; font-size:.8rem; font-weight:700;
-    text-transform:uppercase; letter-spacing:.5px;
-    margin-bottom:4px;
-  }
-  .list-item .info .title{
-    font-weight:700; margin-bottom:4px;
-  }
-  .list-item .info .body{
-    color: var(--muted); font-size:.88rem;
-    overflow:hidden; text-overflow:ellipsis;
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
-  }
-  .list-item .meta{
-    color: var(--muted); font-size:.78rem;
-    margin-top:6px;
-    font-family:'SF Mono', Menlo, Consolas, monospace;
-  }
-  .empty{
-    text-align:center;
-    padding:40px 20px;
-    color: var(--muted);
-    border:1px dashed rgba(255,255,255,.1);
-    border-radius:12px;
-  }
-  .empty i{
-    display:block; font-size:2.4rem; color:#10d9a3; margin-bottom:12px; opacity:.6;
-  }
+/* Tabs */
+.section{display:none;}
+.section.active{display:block;}
 
-  /* Invite leaderboard */
-  .lb-row{
-    display:flex; align-items:center; gap:14px;
-    padding:12px 16px;
-    background: rgba(91,140,255,.04);
-    border:1px solid rgba(91,140,255,.12);
-    border-radius:10px;
-    margin-bottom:8px;
-  }
-  .lb-rank{
-    width:32px; height:32px; border-radius:8px;
-    display:flex; align-items:center; justify-content:center;
-    background: rgba(16,185,129,.15);
-    color:#10d9a3;
-    font-weight:800;
-  }
-  .lb-rank.gold   { background:rgba(255,193,7,.18);  color:#ffd76a; }
-  .lb-rank.silver { background:rgba(229,231,235,.15); color:#e5e7eb; }
-  .lb-rank.bronze { background:rgba(180,83,9,.18);    color:#fbbf24; }
-  .lb-name{ flex:1; font-weight:600; }
-  .lb-count{
-    background: rgba(16,185,129,.12);
-    color:#10d9a3;
-    padding:5px 12px;
-    border-radius:99px;
-    font-weight:700; font-size:.85rem;
-  }
+table{width:100%;border-collapse:collapse;font-size:.88rem;}
+th,td{text-align:left;padding:10px;border-bottom:1px solid var(--border);}
+th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.6px;}
 
-  @media (max-width:600px){
-    .topbar{ padding:14px 18px; }
-    main{ padding: 22px 18px; }
-    .form-row{ flex-direction:column; }
-  }
+.chart-box{height:280px;position:relative;}
+
+/* Responsive */
+@media(max-width:900px){
+  .sidebar{position:fixed;left:0;top:0;z-index:100;transform:translateX(-100%);transition:transform .2s;}
+  .sidebar.open{transform:translateX(0);}
+  .main{padding:20px;}
+  .menu-toggle{display:inline-flex;}
+}
+.menu-toggle{display:none;background:rgba(91,140,255,.15);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:9px;align-items:center;justify-content:center;cursor:pointer;}
+
+.guild-pick{display:inline-flex;align-items:center;gap:8px;}
+.guild-pick select{padding:7px 10px;font-size:.85rem;}
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div class="topbar-left">
-    <a href="{{ url_for('server_official_landing') }}" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:14px;">
-      <div class="logo-mark"><i class="fas fa-shield-halved"></i></div>
-      <div class="logo-name">Server<span>Official</span></div>
-    </a>
-    {% if bot_running %}
-      <span class="status-pill online" style="margin-left:14px;"><span class="dot"></span> Bot Online</span>
-    {% else %}
-      <span class="status-pill offline" style="margin-left:14px;"><span class="dot"></span> Bot Offline</span>
-    {% endif %}
+<!-- ===== SIDEBAR ===== -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-brand">
+    <div class="sb-brand-mark">SO</div>
+    <div class="sb-brand-name">Server<br>Official</div>
   </div>
-  <a class="nav-back" href="{{ url_for('bots_showcase') }}">
-    <i class="fas fa-arrow-left"></i> All Bots
-  </a>
-</div>
-
-<main>
-  <h1 class="page-title">Dashboard</h1>
-  <p class="page-sub">Manage scheduled announcements, giveaways, and server stats — without ever leaving your browser.</p>
-
-  <!-- Quick Stats -->
-  <div class="stat-grid">
-    <div class="stat">
-      <i class="fas fa-server icon"></i>
-      <div class="label">Servers</div>
-      <div class="value" id="stat-guilds">{{ live.guilds_count }}</div>
-    </div>
-    <div class="stat">
-      <i class="fas fa-users icon"></i>
-      <div class="label">Total Members</div>
-      <div class="value" id="stat-members">{{ live.members_count }}</div>
-    </div>
-    <div class="stat">
-      <i class="fas fa-clock icon"></i>
-      <div class="label">Pending Announcements</div>
-      <div class="value" id="stat-pending">{{ pending_count }}</div>
-    </div>
-    <div class="stat">
-      <i class="fas fa-gift icon"></i>
-      <div class="label">Active Giveaways</div>
-      <div class="value" id="stat-giveaways">{{ active_giveaways_count }}</div>
-    </div>
+  <button class="sb-item active" data-section="overview"><i class="fas fa-gauge-high"></i> Overview</button>
+  <div class="sb-section">Setup</div>
+  <button class="sb-item" data-section="setup"><i class="fas fa-screwdriver-wrench"></i> Server Setup</button>
+  <button class="sb-item" data-section="members"><i class="fas fa-users"></i> Members</button>
+  <button class="sb-item" data-section="analytics"><i class="fas fa-chart-line"></i> Analytics</button>
+  <div class="sb-section">Engage</div>
+  <button class="sb-item" data-section="announcements"><i class="fas fa-bullhorn"></i> Announcements</button>
+  <button class="sb-item" data-section="utilities"><i class="fas fa-toolbox"></i> Utilities</button>
+  <button class="sb-item" data-section="engagement"><i class="fas fa-trophy"></i> XP & Goals</button>
+  <div class="sb-section">Operate</div>
+  <button class="sb-item" data-section="logs"><i class="fas fa-list-ul"></i> Logs</button>
+  <button class="sb-item" data-section="automation"><i class="fas fa-robot"></i> Automation</button>
+  <button class="sb-item" data-section="integrations"><i class="fas fa-plug"></i> Integrations</button>
+  <button class="sb-item" data-section="backups"><i class="fas fa-cloud-arrow-down"></i> Backups</button>
+  <div class="sb-foot">
+    Bot: <span id="botStatusFoot">{{ 'ONLINE' if bot_running else 'OFFLINE' }}</span><br>
+    <a href="{{ url_for('bots_showcase') }}" style="color:var(--accent);">← All bots</a>
   </div>
+</aside>
 
-  <!-- TABS -->
-  <div class="tabs" role="tablist">
-    <button class="tab active" data-tab="announce"><i class="fas fa-bullhorn"></i> Announcements</button>
-    <button class="tab" data-tab="giveaways"><i class="fas fa-gift"></i> Giveaways</button>
-    <button class="tab" data-tab="invites"><i class="fas fa-user-plus"></i> Invites</button>
-    <button class="tab" data-tab="servers"><i class="fas fa-server"></i> Servers</button>
+<!-- ===== MAIN ===== -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <button class="menu-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></button>
+      <h1 id="pageTitle">Overview</h1>
+      <div class="crumb"><a href="{{ url_for('landing') }}">Byte Labs</a> / <a href="{{ url_for('bots_showcase') }}">Bots</a> / Server Official</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span class="bot-status {{ 'on' if bot_running else 'off' }}">
+        <span class="dot"></span> {{ 'BOT ONLINE' if bot_running else 'BOT OFFLINE' }}
+      </span>
+      <span class="guild-pick">
+        <span style="color:var(--muted);font-size:.85rem;">Server:</span>
+        <select id="guildPick" onchange="onGuildChange()">
+          <option value="">All servers</option>
+          {% for g in live.guilds %}
+          <option value="{{ g.id }}">{{ g.name }} ({{ g.member_count }})</option>
+          {% endfor %}
+        </select>
+      </span>
+    </div>
   </div>
 
-  <!-- ANNOUNCEMENTS PANEL -->
-  <div class="tab-panel active" id="panel-announce">
+  <!-- ============ OVERVIEW ============ -->
+  <section class="section active" data-section="overview">
+    <div class="grid grid-3" id="overviewStats">
+      <div class="stat"><div class="stat-label">Servers</div><div class="stat-value">{{ live.guilds_count }}</div><div class="stat-sub">{{ live.members_count }} members</div></div>
+      <div class="stat"><div class="stat-label">Active Giveaways</div><div class="stat-value">{{ overview.active_giveaways }}</div></div>
+      <div class="stat"><div class="stat-label">Pending Schedules</div><div class="stat-value">{{ overview.scheduled_count }}</div></div>
+      <div class="stat"><div class="stat-label">Active Polls</div><div class="stat-value">{{ overview.polls_active }}</div></div>
+      <div class="stat"><div class="stat-label">Pending Reminders</div><div class="stat-value">{{ overview.reminders_pending }}</div></div>
+      <div class="stat"><div class="stat-label">Sticky Messages</div><div class="stat-value">{{ overview.stickies }}</div></div>
+      <div class="stat"><div class="stat-label">Server Goals</div><div class="stat-value">{{ overview.goals_count }}</div></div>
+      <div class="stat"><div class="stat-label">Custom Commands</div><div class="stat-value">{{ overview.custom_commands_count }}</div></div>
+      <div class="stat"><div class="stat-label">Backups</div><div class="stat-value">{{ overview.backups_count }}</div></div>
+    </div>
+    <div class="grid grid-2" style="margin-top:20px;">
+      <div class="card"><h2><i class="fas fa-comment-dots"></i> Messages per day</h2><div class="chart-box"><canvas id="msgChart"></canvas></div></div>
+      <div class="card"><h2><i class="fas fa-user-plus"></i> Joins vs leaves</h2><div class="chart-box"><canvas id="joinChart"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- ============ SETUP ============ -->
+  <section class="section" data-section="setup">
     <div class="card">
-      <h2><i class="fas fa-plus"></i> Schedule a New Announcement</h2>
-      <p class="desc">Pick a channel by ID and a date/time — the bot will post a styled embed at the scheduled moment.</p>
-      <form id="schedForm" onsubmit="return false;">
-        <div class="form-row">
-          <div class="form-field">
-            <label>Server (Guild)</label>
-            <select id="schedGuild" class="input">
-              <option value="">— Any server —</option>
-              {% for g in live.guilds %}
-                <option value="{{ g.id }}">{{ g.name }} ({{ g.id }})</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-field">
-            <label>Channel ID</label>
-            <input type="text" id="schedChannel" class="input" placeholder="e.g. 123456789012345678" required>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>Title</label>
-            <input type="text" id="schedTitle" class="input" placeholder="📣 Announcement" maxlength="120">
-          </div>
-          <div class="form-field" style="max-width:240px;">
-            <label>When (local time)</label>
-            <input type="datetime-local" id="schedWhen" class="input" required>
-          </div>
-        </div>
-        <div class="form-field" style="margin-bottom:14px;">
-          <label>Message</label>
-          <textarea id="schedMessage" class="input" placeholder="What do you want to announce?" maxlength="2000" required></textarea>
-        </div>
-        <button class="btn btn-primary" id="schedSubmit" onclick="submitSchedule()">
-          <i class="fas fa-calendar-plus"></i> Schedule Announcement
+      <h2><i class="fas fa-wand-magic-sparkles"></i> One-shot Server Template</h2>
+      <p class="help">Pick a template — I'll create the categories, channels, voice rooms, and roles in your selected server in seconds.</p>
+      <div class="row">
+        <select id="tplPick">
+          <option value="community">Community</option>
+          <option value="gaming">Gaming</option>
+          <option value="study">Study</option>
+        </select>
+        <button class="btn" onclick="api('POST','/server-official/api/setup_template',{template:document.getElementById('tplPick').value, guild_id:currentGuild()},'Template applied')">
+          <i class="fas fa-rocket"></i> Apply Template
         </button>
-        <div class="msg" id="schedMsg"></div>
-      </form>
+      </div>
+      <p class="help" style="margin-top:12px;">Or use the slash commands in your server: <code>/setup_roles</code>, <code>/setup_channels</code>, <code>/setup_template</code>.</p>
     </div>
-
     <div class="card">
-      <h2><i class="fas fa-list"></i> Pending Scheduled Announcements</h2>
-      <p class="desc">All upcoming posts. Cancel any pending one at any time.</p>
-      <div class="list" id="pendingList">
-        {% if pending %}
-          {% for a in pending %}
-          <div class="list-item" data-id="{{ a.id }}">
-            <div class="info">
-              <div class="when">⏰ {{ a.scheduled_for }}</div>
-              <div class="title">{{ a.title }}</div>
-              <div class="body">{{ a.message }}</div>
-              <div class="meta">ID: {{ a.id }} · channel: {{ a.channel_id }}</div>
-            </div>
-            <button class="btn btn-danger" onclick="deleteSchedule('{{ a.id }}')">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-          {% endfor %}
-        {% else %}
-          <div class="empty">
-            <i class="fas fa-calendar-xmark"></i>
-            No pending announcements. Schedule one above to get started.
-          </div>
-        {% endif %}
+      <h2><i class="fas fa-clock-rotate-left"></i> Setup History (rollback log)</h2>
+      <div id="setupHistList">Loading…</div>
+    </div>
+  </section>
+
+  <!-- ============ MEMBERS ============ -->
+  <section class="section" data-section="members">
+    <div class="card">
+      <h2><i class="fas fa-handshake"></i> Welcome / Leave Configuration</h2>
+      <div class="row">
+        <div><label>Welcome Channel ID</label><input id="cfgWelcomeChan" placeholder="123…" /></div>
+        <div><label>Welcome Role ID</label><input id="cfgWelcomeRole" placeholder="123…" /></div>
+        <div><label>Log Channel ID</label><input id="cfgLogChan" placeholder="123…" /></div>
+      </div>
+      <label>Welcome Message <span class="help" style="display:inline;font-weight:400;">— use {user}, {server}, {count}</span></label>
+      <textarea id="cfgWelcomeMsg"></textarea>
+      <label style="margin-top:10px;">Leave Message</label>
+      <textarea id="cfgLeaveMsg"></textarea>
+      <div style="margin-top:14px;display:flex;gap:10px;">
+        <button class="btn" onclick="saveGuildConfig()"><i class="fas fa-save"></i> Save</button>
+        <button class="btn btn-ghost" onclick="loadGuildConfig()"><i class="fas fa-rotate"></i> Reload</button>
       </div>
     </div>
-  </div>
-
-  <!-- GIVEAWAYS PANEL -->
-  <div class="tab-panel" id="panel-giveaways">
     <div class="card">
-      <h2><i class="fas fa-gift"></i> Giveaways</h2>
-      <p class="desc">Giveaways are started from Discord with <code style="background:#050d1a;color:#67e8f9;padding:2px 6px;border-radius:4px;">/giveaway</code> for security (only Manage Server can run them). View status here.</p>
-      <div class="list">
-        {% if giveaways %}
-          {% for g in giveaways %}
-          <div class="list-item">
-            <div class="info">
-              <div class="when">
-                {% if g.ended %}🏁 ENDED{% else %}🎉 ACTIVE — ends {{ g.ends_at }}{% endif %}
-              </div>
-              <div class="title">{{ g.prize }}</div>
-              <div class="body">
-                Winners: {{ g.winners }} ·
-                {% if g.ended and g.winner_ids %}
-                  Won by: {% for w in g.winner_ids %}<code style="background:#050d1a;color:#67e8f9;padding:1px 6px;border-radius:4px;font-size:.8rem;">{{ w }}</code> {% endfor %}
-                {% elif g.ended %}
-                  No valid entries
-                {% else %}
-                  Hosted by <code style="background:#050d1a;color:#67e8f9;padding:1px 6px;border-radius:4px;font-size:.8rem;">{{ g.host_id }}</code>
-                {% endif %}
-              </div>
-              <div class="meta">ID: {{ g.id }} · guild: {{ g.guild_id }} · channel: {{ g.channel_id }}</div>
-            </div>
-          </div>
-          {% endfor %}
-        {% else %}
-          <div class="empty">
-            <i class="fas fa-gift"></i>
-            No giveaways yet. Run <code style="background:#050d1a;color:#67e8f9;padding:2px 6px;border-radius:4px;">/giveaway prize:&lt;item&gt; duration:1h</code> in Discord.
-          </div>
-        {% endif %}
+      <h2><i class="fas fa-arrow-right-from-bracket"></i> Recent Joins / Leaves (logs)</h2>
+      <div id="memberLogList">Pick a server to see recent joins/leaves.</div>
+    </div>
+  </section>
+
+  <!-- ============ ANALYTICS ============ -->
+  <section class="section" data-section="analytics">
+    <div class="grid grid-2">
+      <div class="card"><h2><i class="fas fa-chart-column"></i> Top Chatters</h2><div class="chart-box"><canvas id="topChattersChart"></canvas></div></div>
+      <div class="card"><h2><i class="fas fa-microphone"></i> Top Voice Activity (mins)</h2><div class="chart-box"><canvas id="voiceChart"></canvas></div></div>
+    </div>
+    <div class="grid grid-2" style="margin-top:18px;">
+      <div class="card"><h2><i class="fas fa-message"></i> Daily Message Volume</h2><div class="chart-box"><canvas id="msgChart2"></canvas></div></div>
+      <div class="card"><h2><i class="fas fa-user-plus"></i> Daily Join/Leave</h2><div class="chart-box"><canvas id="joinChart2"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- ============ ANNOUNCEMENTS ============ -->
+  <section class="section" data-section="announcements">
+    <div class="card">
+      <h2><i class="fas fa-clock"></i> Schedule a New Announcement</h2>
+      <div class="row">
+        <input id="schChan" placeholder="Channel ID (numeric)"/>
+        <input id="schTitle" placeholder="Title (optional)" class="grow"/>
+        <input id="schWhen" type="datetime-local"/>
+      </div>
+      <textarea id="schMsg" placeholder="Body…"></textarea>
+      <div style="margin-top:12px;"><button class="btn" onclick="createSchedule()"><i class="fas fa-paper-plane"></i> Schedule</button></div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-list"></i> Pending Schedules</h2>
+      <div id="schList">Loading…</div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-square-share-nodes"></i> Multi-channel Broadcast</h2>
+      <p class="help">Comma-separated channel IDs.</p>
+      <div class="row">
+        <input id="bcChans" placeholder="123,456,789" class="grow"/>
+        <input id="bcTitle" placeholder="Title (optional)"/>
+      </div>
+      <textarea id="bcMsg" placeholder="Body…"></textarea>
+      <div style="margin-top:12px;"><button class="btn" onclick="broadcast()"><i class="fas fa-bullhorn"></i> Broadcast</button></div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-floppy-disk"></i> Announcement Templates</h2>
+      <div class="row">
+        <input id="tplName" placeholder="Template name"/>
+        <input id="tplTitle" placeholder="Title"/>
+      </div>
+      <textarea id="tplMsg" placeholder="Body…"></textarea>
+      <div style="margin-top:12px;display:flex;gap:10px;">
+        <button class="btn" onclick="saveTemplate()"><i class="fas fa-plus"></i> Save Template</button>
+      </div>
+      <div id="tplList" style="margin-top:14px;"></div>
+    </div>
+  </section>
+
+  <!-- ============ UTILITIES ============ -->
+  <section class="section" data-section="utilities">
+    <div class="card">
+      <h2><i class="fas fa-poll-h"></i> Active Polls</h2>
+      <div id="pollList">Loading…</div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-bell"></i> Reminders (pending)</h2>
+      <div id="remList">Loading…</div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-thumbtack"></i> Sticky Messages</h2>
+      <div class="row">
+        <input id="stChan" placeholder="Channel ID"/>
+        <input id="stMsg" placeholder="Sticky message text" class="grow"/>
+        <button class="btn" onclick="setSticky()"><i class="fas fa-thumbtack"></i> Set</button>
+      </div>
+      <div id="stList" style="margin-top:12px;"></div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-note-sticky"></i> Admin Notes</h2>
+      <div class="row">
+        <input id="noteText" placeholder="Note text" class="grow"/>
+        <button class="btn" onclick="addNote()"><i class="fas fa-plus"></i> Add</button>
+      </div>
+      <div id="noteList" style="margin-top:12px;"></div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-pen-ruler"></i> Embed Builder</h2>
+      <div class="row">
+        <input id="embChan" placeholder="Channel ID"/>
+        <input id="embTitle" placeholder="Title"/>
+        <input id="embColor" type="text" placeholder="Color hex (e.g. 5b8cff)"/>
+      </div>
+      <textarea id="embBody" placeholder="Body…"></textarea>
+      <div style="margin-top:12px;"><button class="btn" onclick="postEmbed()"><i class="fas fa-paper-plane"></i> Post embed</button></div>
+    </div>
+  </section>
+
+  <!-- ============ ENGAGEMENT ============ -->
+  <section class="section" data-section="engagement">
+    <div class="card">
+      <h2><i class="fas fa-star"></i> XP Leaderboard</h2>
+      <div id="xpList">Pick a server to load XP leaderboard.</div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-bullseye"></i> Server Goals</h2>
+      <div class="row">
+        <select id="goalType"><option value="messages">Messages</option><option value="members">Members</option></select>
+        <input id="goalTarget" type="number" placeholder="Target"/>
+        <button class="btn" onclick="addGoal()"><i class="fas fa-plus"></i> Add Goal</button>
+      </div>
+      <div id="goalList" style="margin-top:12px;"></div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-gift"></i> Daily Check-in (XP rewards)</h2>
+      <p class="help">Members use <code>/daily</code> in Discord to claim. Streaks add bonus XP each consecutive day.</p>
+    </div>
+  </section>
+
+  <!-- ============ LOGS ============ -->
+  <section class="section" data-section="logs">
+    <div class="card">
+      <h2><i class="fas fa-list-ul"></i> Server Change Logs</h2>
+      <div id="srvLogs">Loading…</div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-robot"></i> Bot Action Logs</h2>
+      <div id="botLogs">Loading…</div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-bullhorn"></i> Announcement History</h2>
+      <div id="annHist">Loading…</div>
+    </div>
+  </section>
+
+  <!-- ============ AUTOMATION ============ -->
+  <section class="section" data-section="automation">
+    <div class="card">
+      <h2><i class="fas fa-thumbtack"></i> Auto-Pin on Reactions</h2>
+      <p class="help">When a message reaches this many total reactions, the bot auto-pins it. Set 0 to disable.</p>
+      <div class="row">
+        <input id="autoPin" type="number" placeholder="0 = off"/>
+        <button class="btn" onclick="updateAutomation('auto_pin_threshold')">Save</button>
       </div>
     </div>
-  </div>
-
-  <!-- INVITES PANEL -->
-  <div class="tab-panel" id="panel-invites">
     <div class="card">
-      <h2><i class="fas fa-user-plus"></i> Invite Leaderboard</h2>
-      <p class="desc">Top inviters across all servers the bot is in. Counts update live as new members join via tracked invites.</p>
-      {% if invite_top %}
-        {% for row in invite_top %}
-        <div class="lb-row">
-          <div class="lb-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
-            {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}#{{ loop.index }}{% endif %}
-          </div>
-          <div class="lb-name">
-            <code style="background:transparent;color:#67e8f9;font-size:.92rem;">{{ row.user_id }}</code>
-            <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">guild {{ row.guild_id }}</div>
-          </div>
-          <div class="lb-count">{{ row.joins }} invite{% if row.joins != 1 %}s{% endif %}</div>
-        </div>
-        {% endfor %}
-      {% else %}
-        <div class="empty">
-          <i class="fas fa-user-plus"></i>
-          No invite data yet. As members join via tracked invites, the leaderboard will populate automatically.
-        </div>
-      {% endif %}
+      <h2><i class="fas fa-broom"></i> Auto-Cleanup of Bot Messages</h2>
+      <p class="help">Delete the bot's own messages older than X days (every 6 hours). Set 0 to disable.</p>
+      <div class="row">
+        <input id="autoClean" type="number" placeholder="0 = off"/>
+        <button class="btn" onclick="updateAutomation('auto_cleanup_age_days')">Save</button>
+      </div>
     </div>
-  </div>
-
-  <!-- SERVERS PANEL -->
-  <div class="tab-panel" id="panel-servers">
     <div class="card">
-      <h2><i class="fas fa-server"></i> Connected Servers</h2>
-      <p class="desc">Live list of every server the bot is currently in.</p>
-      {% if live.guilds %}
-        {% for g in live.guilds %}
-        <div class="lb-row">
-          <div class="lb-rank">{{ loop.index }}</div>
-          <div class="lb-name">
-            {{ g.name }}
-            <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">ID: {{ g.id }}</div>
-          </div>
-          <div class="lb-count">{{ g.member_count }} members</div>
-        </div>
-        {% endfor %}
-      {% else %}
-        <div class="empty">
-          <i class="fas fa-circle-exclamation"></i>
-          {% if not bot_running %}
-            Server Official is offline. Set the <code style="background:#050d1a;color:#67e8f9;padding:2px 6px;border-radius:4px;">SERVER_TOKEN</code> environment variable, then restart.
-          {% else %}
-            Bot isn't in any servers yet. Invite it via the OAuth URL with <strong>bot</strong> + <strong>applications.commands</strong> scopes and the permissions: Manage Server, Send Messages, Read Message History, Add Reactions, Manage Messages.
-          {% endif %}
-        </div>
-      {% endif %}
+      <h2><i class="fas fa-toggle-on"></i> Feature Toggles</h2>
+      <div class="row">
+        <label style="display:flex;align-items:center;gap:8px;flex:0 0 auto;"><input type="checkbox" id="tglLevel"/> Leveling System</label>
+        <label style="display:flex;align-items:center;gap:8px;flex:0 0 auto;"><input type="checkbox" id="tglDaily"/> Daily Check-in Rewards</label>
+        <button class="btn" onclick="saveToggles()">Save</button>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <!-- ============ INTEGRATIONS ============ -->
+  <section class="section" data-section="integrations">
+    <div class="card">
+      <h2><i class="fas fa-keyboard"></i> Custom Commands</h2>
+      <p class="help">Define <code>!trigger</code> → response. Bot auto-replies in the server.</p>
+      <div class="row">
+        <input id="ccTrig" placeholder="trigger (no !)"/>
+        <input id="ccResp" placeholder="response text" class="grow"/>
+        <button class="btn" onclick="addCustomCmd()">Add</button>
+      </div>
+      <div id="ccList" style="margin-top:12px;"></div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-arrow-right-to-bracket"></i> Incoming Webhooks</h2>
+      <p class="help">Generate a secret URL — POST to it to fire announcements from outside Discord.</p>
+      <div class="row">
+        <input id="whName" placeholder="Webhook name"/>
+        <input id="whChan" placeholder="Channel ID"/>
+        <button class="btn" onclick="createWebhook()">Create</button>
+      </div>
+      <div id="whList" style="margin-top:12px;"></div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-cloud-arrow-up"></i> External API Hooks (outgoing)</h2>
+      <p class="help">When the bot does X, POST a webhook to your URL. Events: <code>announcement_posted</code></p>
+      <div class="row">
+        <input id="hookName" placeholder="Hook name"/>
+        <input id="hookUrl" placeholder="https://your.api/endpoint" type="url" class="grow"/>
+        <input id="hookEvents" placeholder="announcement_posted"/>
+        <button class="btn" onclick="addHook()">Add</button>
+      </div>
+      <div id="hookList" style="margin-top:12px;"></div>
+    </div>
+    <div class="card">
+      <h2><i class="fab fa-telegram"></i> Discord ↔ Telegram Bridge</h2>
+      <p class="help">Coming soon — needs a Telegram bot token. Open a Byte Labs request to enable it for your server.</p>
+    </div>
+  </section>
+
+  <!-- ============ BACKUPS ============ -->
+  <section class="section" data-section="backups">
+    <div class="card">
+      <h2><i class="fas fa-cloud-arrow-down"></i> Configuration Backups</h2>
+      <p class="help">Daily auto-backups + manual snapshots. Restoring brings back every setting (excluding the backup list itself).</p>
+      <div class="row">
+        <input id="bkLabel" placeholder="Optional label" class="grow"/>
+        <button class="btn" onclick="makeBackup()"><i class="fas fa-plus"></i> Create Backup</button>
+      </div>
+      <div id="bkList" style="margin-top:14px;"></div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-circle-exclamation"></i> One-click Reset</h2>
+      <p class="help">Wipes all server-official state for the selected server (configs, XP, notes, etc). Use with caution. A backup is created first.</p>
+      <button class="btn btn-danger" onclick="if(confirm('Wipe state for selected server?')) resetGuild()"><i class="fas fa-trash"></i> Reset selected server</button>
+    </div>
+  </section>
+
 </main>
 
+<div class="toast" id="toast"></div>
+
 <script>
-  /* ===== Tabs ===== */
-  document.querySelectorAll('.tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
-    });
+/* ============ CORE ============ */
+const $ = (s) => document.querySelector(s);
+let currentGuildId = "";
+function currentGuild(){ return currentGuildId; }
+function onGuildChange(){
+  currentGuildId = $('#guildPick').value;
+  loadGuildConfig();
+  loadAnalytics();
+  loadServerLogs();
+  loadXpBoard();
+  loadNotes();
+  loadCustomCmds();
+  loadGoals();
+}
+
+function toast(msg, kind='ok'){
+  const t = $('#toast');
+  t.className = 'toast show '+kind;
+  t.textContent = msg;
+  setTimeout(()=>{ t.className='toast '+kind; }, 2400);
+}
+
+async function api(method, url, body=null, okMsg=null){
+  const opts = { method, headers:{'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const r = await fetch(url, opts);
+    const data = await r.json().catch(()=>({}));
+    if (!r.ok || data.ok === false) {
+      toast(data.error || 'Request failed', 'err');
+      return data;
+    }
+    if (okMsg) toast(okMsg);
+    return data;
+  } catch(e){ toast(e.message,'err'); return {ok:false}; }
+}
+
+/* ============ TAB NAV ============ */
+document.querySelectorAll('.sb-item').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const target = b.dataset.section;
+    document.querySelectorAll('.sb-item').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.querySelector(`.section[data-section="${target}"]`).classList.add('active');
+    $('#pageTitle').textContent = b.textContent.trim();
+    if (target === 'overview') loadOverviewCharts();
+    if (target === 'analytics') loadAnalytics();
+    if (target === 'announcements'){ loadSchedules(); loadTemplates(); loadAnnHistory(); }
+    if (target === 'utilities'){ loadPolls(); loadReminders(); loadStickies(); loadNotes(); }
+    if (target === 'engagement'){ loadXpBoard(); loadGoals(); }
+    if (target === 'logs'){ loadServerLogs(); loadBotLogs(); loadAnnHistory(); }
+    if (target === 'automation') loadAutomation();
+    if (target === 'integrations'){ loadCustomCmds(); loadWebhooks(); loadHooks(); }
+    if (target === 'backups') loadBackups();
+    if (target === 'setup') loadSetupHistory();
+    if (target === 'members') loadGuildConfig();
+    document.getElementById('sidebar').classList.remove('open');
   });
+});
 
-  /* ===== Schedule submission ===== */
-  async function submitSchedule(){
-    const msg = document.getElementById('schedMsg');
-    const btn = document.getElementById('schedSubmit');
-    msg.className = 'msg'; msg.textContent = '';
-    const channel = document.getElementById('schedChannel').value.trim();
-    const message = document.getElementById('schedMessage').value.trim();
-    const whenLocal = document.getElementById('schedWhen').value;
-    if (!channel || !message || !whenLocal) {
-      msg.className = 'msg err'; msg.textContent = 'Channel, message and date/time are required.';
-      return;
+/* ============ CHARTS ============ */
+let charts = {};
+function makeLineChart(id, labels, datasets){
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#e8f0ff' } } },
+      scales:{ x:{ ticks:{ color:'#8295b8' }, grid:{ color:'rgba(91,140,255,.08)' } },
+               y:{ ticks:{ color:'#8295b8' }, grid:{ color:'rgba(91,140,255,.08)' } } }
     }
-    const whenISO = new Date(whenLocal).toISOString();
-    if (new Date(whenISO).getTime() < Date.now() + 5000) {
-      msg.className = 'msg err'; msg.textContent = 'Pick a time at least a few seconds in the future.';
-      return;
+  });
+}
+function makeBarChart(id, labels, data, label){
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ label, data, backgroundColor:'rgba(91,140,255,.6)', borderColor:'#5b8cff', borderWidth:1 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#e8f0ff' } } },
+      scales:{ x:{ ticks:{ color:'#8295b8' }, grid:{ color:'rgba(91,140,255,.08)' } },
+               y:{ ticks:{ color:'#8295b8' }, grid:{ color:'rgba(91,140,255,.08)' } } }
     }
-    btn.disabled = true;
-    msg.className = 'msg'; msg.textContent = 'Saving…';
-    try {
-      const res = await fetch('/server-official/api/announcements', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        credentials:'same-origin',
-        body: JSON.stringify({
-          guild_id: document.getElementById('schedGuild').value || null,
-          channel_id: channel,
-          title: document.getElementById('schedTitle').value.trim() || null,
-          message,
-          scheduled_for: whenISO,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        msg.className = 'msg err'; msg.textContent = data.error || 'Save failed.';
-        btn.disabled = false; return;
-      }
-      msg.className = 'msg ok'; msg.textContent = '✓ Scheduled. Reloading…';
-      setTimeout(() => location.reload(), 700);
-    } catch (e) {
-      msg.className = 'msg err'; msg.textContent = 'Network error.';
-      btn.disabled = false;
-    }
-  }
+  });
+}
 
-  async function deleteSchedule(id){
-    if (!confirm('Cancel this scheduled announcement?')) return;
-    const res = await fetch('/server-official/api/announcements/' + encodeURIComponent(id), {
-      method:'DELETE', credentials:'same-origin',
-    });
-    if (res.ok) location.reload();
-    else alert('Delete failed.');
+async function loadAnalytics(){
+  const url = '/server-official/api/analytics' + (currentGuildId ? `?guild_id=${currentGuildId}` : '');
+  const res = await api('GET', url);
+  if (!res || res.ok === false) return;
+  const a = res.data;
+  const days = Object.keys(a.messages_per_day).sort().slice(-30);
+  makeLineChart('msgChart', days, [{ label:'Messages', data:days.map(d=>a.messages_per_day[d]||0), borderColor:'#5b8cff', backgroundColor:'rgba(91,140,255,.18)', fill:true, tension:.3 }]);
+  makeLineChart('msgChart2', days, [{ label:'Messages', data:days.map(d=>a.messages_per_day[d]||0), borderColor:'#5b8cff', backgroundColor:'rgba(91,140,255,.18)', fill:true, tension:.3 }]);
+  const days2 = Array.from(new Set([...Object.keys(a.joins_per_day), ...Object.keys(a.leaves_per_day)])).sort().slice(-30);
+  const joinDS = { label:'Joins', data:days2.map(d=>a.joins_per_day[d]||0), borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.15)', fill:true, tension:.3 };
+  const leaveDS = { label:'Leaves', data:days2.map(d=>a.leaves_per_day[d]||0), borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,.12)', fill:true, tension:.3 };
+  makeLineChart('joinChart', days2, [joinDS, leaveDS]);
+  makeLineChart('joinChart2', days2, [joinDS, leaveDS]);
+  const tcLabels = a.top_chatters.map(t=>'<@'+t[0]+'>').slice(0,10);
+  makeBarChart('topChattersChart', a.top_chatters.map(t=>t[0].slice(-4)), a.top_chatters.map(t=>t[1]), 'Messages');
+  makeBarChart('voiceChart', a.top_voice.map(t=>t[0].slice(-4)), a.top_voice.map(t=>t[1]), 'Minutes');
+}
+
+function loadOverviewCharts(){ loadAnalytics(); }
+
+/* ============ MEMBERS / CONFIG ============ */
+async function loadGuildConfig(){
+  if (!currentGuildId){
+    ['cfgWelcomeChan','cfgWelcomeRole','cfgLogChan','cfgWelcomeMsg','cfgLeaveMsg'].forEach(id=>$('#'+id).value='');
+    return;
   }
+  const r = await api('GET', `/server-official/api/config?guild_id=${currentGuildId}`);
+  if (!r.ok) return;
+  $('#cfgWelcomeChan').value = r.data.welcome_channel_id || '';
+  $('#cfgWelcomeRole').value = r.data.welcome_role_id || '';
+  $('#cfgLogChan').value = r.data.log_channel_id || '';
+  $('#cfgWelcomeMsg').value = r.data.welcome_message || '';
+  $('#cfgLeaveMsg').value = r.data.leave_message || '';
+  $('#autoPin').value = r.data.auto_pin_threshold || 0;
+  $('#autoClean').value = r.data.auto_cleanup_age_days || 0;
+  $('#tglLevel').checked = !!r.data.leveling_enabled;
+  $('#tglDaily').checked = !!r.data.daily_rewards_enabled;
+}
+async function saveGuildConfig(){
+  if (!currentGuildId) return toast('Select a server first','err');
+  await api('POST', '/server-official/api/config', {
+    guild_id: currentGuildId,
+    welcome_channel_id: $('#cfgWelcomeChan').value,
+    welcome_role_id: $('#cfgWelcomeRole').value,
+    log_channel_id: $('#cfgLogChan').value,
+    welcome_message: $('#cfgWelcomeMsg').value,
+    leave_message: $('#cfgLeaveMsg').value,
+  }, 'Saved');
+}
+
+/* ============ SCHEDULES (existing) ============ */
+async function loadSchedules(){
+  const r = await api('GET', '/server-official/api/announcements');
+  if (!r.ok) return;
+  const list = r.data || [];
+  $('#schList').innerHTML = list.length === 0 ? '<p class="help">No pending schedules.</p>' :
+    list.map(a=>`<div class="list-item"><div><strong>${escapeHtml(a.title)}</strong><div class="meta">${escapeHtml(a.scheduled_for)} · #${a.channel_id} · <code>${a.id}</code></div></div><button class="btn btn-sm btn-danger" onclick="delSchedule('${a.id}')">Delete</button></div>`).join('');
+}
+async function createSchedule(){
+  const when = $('#schWhen').value;
+  const iso = when ? new Date(when).toISOString() : '';
+  await api('POST', '/server-official/api/announcements', {
+    channel_id: $('#schChan').value, title: $('#schTitle').value,
+    message: $('#schMsg').value, scheduled_for: iso, guild_id: currentGuildId,
+  }, 'Scheduled');
+  loadSchedules();
+}
+async function delSchedule(id){
+  await api('DELETE', `/server-official/api/announcements/${id}`, null, 'Deleted');
+  loadSchedules();
+}
+
+/* ============ BROADCAST ============ */
+async function broadcast(){
+  await api('POST', '/server-official/api/broadcast', {
+    channels: $('#bcChans').value.split(',').map(s=>s.trim()).filter(Boolean),
+    title: $('#bcTitle').value, message: $('#bcMsg').value,
+  }, 'Broadcast queued');
+}
+
+/* ============ TEMPLATES ============ */
+async function loadTemplates(){
+  const r = await api('GET', '/server-official/api/templates');
+  if (!r.ok) return;
+  $('#tplList').innerHTML = (r.data || []).map(t=>`<div class="list-item"><div><strong>${escapeHtml(t.name)}</strong> <code>${t.id}</code><div class="meta">${escapeHtml((t.message||'').slice(0,80))}</div></div><div><button class="btn btn-sm btn-ghost" onclick="useTemplate('${t.id}')">Use</button> <button class="btn btn-sm btn-danger" onclick="delTemplate('${t.id}')">Delete</button></div></div>`).join('') || '<p class="help">No templates yet.</p>';
+}
+async function saveTemplate(){
+  await api('POST', '/server-official/api/templates', {
+    name: $('#tplName').value, title: $('#tplTitle').value, message: $('#tplMsg').value,
+    guild_id: currentGuildId,
+  }, 'Saved');
+  loadTemplates();
+}
+async function delTemplate(id){
+  await api('DELETE', `/server-official/api/templates/${id}`, null, 'Deleted'); loadTemplates();
+}
+async function useTemplate(id){
+  const r = await api('GET', '/server-official/api/templates'); if (!r.ok) return;
+  const t = (r.data||[]).find(x=>x.id===id); if (!t) return;
+  $('#schTitle').value = t.title || ''; $('#schMsg').value = t.message || '';
+  toast('Loaded into the schedule form');
+}
+
+/* ============ POLLS ============ */
+async function loadPolls(){
+  const r = await api('GET', '/server-official/api/polls');
+  if (!r.ok) return;
+  $('#pollList').innerHTML = (r.data || []).map(p=>{
+    const opts = (p.options||[]).map(o=>`${o.emoji} ${escapeHtml(o.label)} — <strong>${o.votes}</strong>`).join(' &nbsp;·&nbsp; ');
+    return `<div class="list-item"><div><strong>${escapeHtml(p.question)}</strong> <code>${p.id}</code><div class="meta">${opts}</div></div></div>`;
+  }).join('') || '<p class="help">No polls yet. Use <code>/poll</code> in Discord.</p>';
+}
+
+/* ============ REMINDERS ============ */
+async function loadReminders(){
+  const r = await api('GET', '/server-official/api/reminders');
+  if (!r.ok) return;
+  $('#remList').innerHTML = (r.data || []).map(rm=>`<div class="list-item"><div><strong>${escapeHtml(rm.text)}</strong><div class="meta">due ${escapeHtml(rm.due_at)} · <code>${rm.id}</code></div></div><button class="btn btn-sm btn-danger" onclick="delReminder('${rm.id}')">Delete</button></div>`).join('') || '<p class="help">No pending reminders.</p>';
+}
+async function delReminder(id){ await api('DELETE',`/server-official/api/reminders/${id}`,null,'Deleted'); loadReminders(); }
+
+/* ============ STICKIES ============ */
+async function loadStickies(){
+  const r = await api('GET', '/server-official/api/stickies');
+  if (!r.ok) return;
+  $('#stList').innerHTML = (r.data || []).map(s=>`<div class="list-item"><div><strong>#${s.channel_id}</strong><div class="meta">${escapeHtml((s.message||'').slice(0,140))}</div></div><button class="btn btn-sm btn-danger" onclick="delSticky('${s.channel_id}')">Remove</button></div>`).join('') || '<p class="help">No stickies set.</p>';
+}
+async function setSticky(){ await api('POST','/server-official/api/stickies',{channel_id:$('#stChan').value, message:$('#stMsg').value, guild_id: currentGuildId},'Sticky set'); loadStickies(); }
+async function delSticky(cid){ await api('DELETE',`/server-official/api/stickies/${cid}`,null,'Removed'); loadStickies(); }
+
+/* ============ NOTES ============ */
+async function loadNotes(){
+  if (!currentGuildId){ $('#noteList').innerHTML='<p class="help">Pick a server.</p>'; return; }
+  const r = await api('GET', `/server-official/api/notes?guild_id=${currentGuildId}`);
+  if (!r.ok) return;
+  $('#noteList').innerHTML = (r.data || []).map(n=>`<div class="list-item"><div>${escapeHtml(n.text)}<div class="meta">by ${escapeHtml(n.author)} · ${escapeHtml(n.created_at)}</div></div><button class="btn btn-sm btn-danger" onclick="delNote('${n.id}')">Delete</button></div>`).join('') || '<p class="help">No notes.</p>';
+}
+async function addNote(){ if (!currentGuildId) return toast('Select a server','err'); await api('POST','/server-official/api/notes',{guild_id:currentGuildId,text:$('#noteText').value},'Added'); $('#noteText').value=''; loadNotes(); }
+async function delNote(id){ await api('DELETE',`/server-official/api/notes/${id}?guild_id=${currentGuildId}`,null,'Deleted'); loadNotes(); }
+
+/* ============ EMBED BUILDER ============ */
+async function postEmbed(){
+  const colorHex = ($('#embColor').value||'').replace('#','');
+  const color = colorHex ? parseInt(colorHex, 16) : null;
+  await api('POST','/server-official/api/post_embed',{
+    channel_id: $('#embChan').value, title: $('#embTitle').value,
+    message: $('#embBody').value, color
+  },'Embed posted');
+}
+
+/* ============ ENGAGEMENT ============ */
+async function loadXpBoard(){
+  if (!currentGuildId){ $('#xpList').innerHTML='<p class="help">Pick a server.</p>'; return; }
+  const r = await api('GET', `/server-official/api/xp_leaderboard?guild_id=${currentGuildId}`);
+  if (!r.ok) return;
+  $('#xpList').innerHTML = '<table><tr><th>#</th><th>User</th><th>Level</th><th>XP</th></tr>' +
+    (r.data||[]).map((u,i)=>`<tr><td>${i+1}</td><td>&lt;@${u.user_id}&gt;</td><td>${u.level}</td><td>${u.xp}</td></tr>`).join('') + '</table>';
+}
+async function loadGoals(){
+  const url = '/server-official/api/goals' + (currentGuildId?`?guild_id=${currentGuildId}`:'');
+  const r = await api('GET', url); if (!r.ok) return;
+  $('#goalList').innerHTML = (r.data||[]).map(g=>{
+    const pct = Math.min(100, Math.round((g.current||0) / (g.target||1) * 100));
+    return `<div class="list-item"><div style="flex:1;"><strong>${g.type}</strong> — ${g.current}/${g.target} ${g.done?'✅':''}<div style="background:#07101f;border-radius:99px;height:8px;margin-top:6px;overflow:hidden;"><div style="background:var(--grad);height:100%;width:${pct}%;"></div></div></div><button class="btn btn-sm btn-danger" onclick="delGoal('${g.id}')">×</button></div>`;
+  }).join('') || '<p class="help">No goals yet.</p>';
+}
+async function addGoal(){ if (!currentGuildId) return toast('Select a server','err'); await api('POST','/server-official/api/goals',{guild_id:currentGuildId, type:$('#goalType').value, target:parseInt($('#goalTarget').value||0)},'Goal added'); loadGoals(); }
+async function delGoal(id){ await api('DELETE',`/server-official/api/goals/${id}`,null,'Deleted'); loadGoals(); }
+
+/* ============ LOGS ============ */
+async function loadServerLogs(){
+  const url = '/server-official/api/server_logs' + (currentGuildId?`?guild_id=${currentGuildId}`:'');
+  const r = await api('GET', url); if (!r.ok) return;
+  $('#srvLogs').innerHTML = (r.data||[]).slice(0,50).map(l=>`<div class="list-item"><div><code>${l.type}</code> ${escapeHtml(l.description)}<div class="meta">${escapeHtml(l.ts)}</div></div></div>`).join('') || '<p class="help">No logs yet.</p>';
+}
+async function loadBotLogs(){
+  const r = await api('GET', '/server-official/api/bot_actions'); if (!r.ok) return;
+  $('#botLogs').innerHTML = (r.data||[]).slice(0,50).map(l=>`<div class="list-item"><div><code>${l.type}</code> ${escapeHtml(l.summary)}<div class="meta">by ${escapeHtml(l.actor)} · ${escapeHtml(l.ts)}</div></div></div>`).join('') || '<p class="help">No bot actions.</p>';
+}
+async function loadAnnHistory(){
+  const r = await api('GET', '/server-official/api/announcement_history'); if (!r.ok) return;
+  $('#annHist').innerHTML = (r.data||[]).slice(0,50).map(a=>`<div class="list-item"><div><strong>${escapeHtml(a.title)}</strong><div class="meta">posted ${a.posted ? '✅' : '❌'} · ${escapeHtml(a.posted_at||a.scheduled_for)}</div></div></div>`).join('') || '<p class="help">No history.</p>';
+}
+async function loadSetupHistory(){
+  const url = '/server-official/api/setup_history' + (currentGuildId?`?guild_id=${currentGuildId}`:'');
+  const r = await api('GET', url); if (!r.ok) return;
+  $('#setupHistList').innerHTML = (r.data||[]).slice(0,30).map(h=>`<div class="list-item"><div><code>${h.action}</code><div class="meta">${escapeHtml(h.ts)} · ${escapeHtml(JSON.stringify(h.details).slice(0,180))}</div></div></div>`).join('') || '<p class="help">No setup actions yet.</p>';
+}
+
+/* ============ AUTOMATION ============ */
+async function loadAutomation(){ loadGuildConfig(); }
+async function updateAutomation(field){
+  if (!currentGuildId) return toast('Select a server','err');
+  const val = parseInt(($('#'+(field==='auto_pin_threshold'?'autoPin':'autoClean')).value)||0);
+  const body = {guild_id:currentGuildId}; body[field]=val;
+  await api('POST','/server-official/api/config', body, 'Saved');
+}
+async function saveToggles(){
+  if (!currentGuildId) return toast('Select a server','err');
+  await api('POST','/server-official/api/config',{
+    guild_id: currentGuildId,
+    leveling_enabled: $('#tglLevel').checked,
+    daily_rewards_enabled: $('#tglDaily').checked,
+  },'Saved');
+}
+
+/* ============ INTEGRATIONS ============ */
+async function loadCustomCmds(){
+  if (!currentGuildId){ $('#ccList').innerHTML='<p class="help">Pick a server.</p>'; return; }
+  const r = await api('GET', `/server-official/api/custom_commands?guild_id=${currentGuildId}`); if (!r.ok) return;
+  const data = r.data || {};
+  $('#ccList').innerHTML = Object.keys(data).map(t=>`<div class="list-item"><div><code>!${t}</code> → ${escapeHtml(data[t])}</div><button class="btn btn-sm btn-danger" onclick="delCC('${t}')">×</button></div>`).join('') || '<p class="help">None defined.</p>';
+}
+async function addCustomCmd(){ if(!currentGuildId)return toast('Select a server','err'); await api('POST','/server-official/api/custom_commands',{guild_id:currentGuildId, trigger:$('#ccTrig').value, response:$('#ccResp').value},'Added'); loadCustomCmds(); }
+async function delCC(t){ await api('DELETE',`/server-official/api/custom_commands?guild_id=${currentGuildId}&trigger=${encodeURIComponent(t)}`,null,'Removed'); loadCustomCmds(); }
+
+async function loadWebhooks(){
+  const r = await api('GET','/server-official/api/webhooks_in'); if (!r.ok) return;
+  const baseUrl = location.origin + '/server-official/api/webhook_in/';
+  $('#whList').innerHTML = (r.data||[]).map(w=>`<div class="list-item"><div><strong>${escapeHtml(w.name)}</strong> → #${w.channel_id}<div class="meta">URL: <code>${baseUrl+w.secret}</code></div></div><button class="btn btn-sm btn-danger" onclick="delWh('${w.id}')">×</button></div>`).join('') || '<p class="help">None.</p>';
+}
+async function createWebhook(){ if(!currentGuildId)return toast('Select a server','err'); await api('POST','/server-official/api/webhooks_in',{guild_id:currentGuildId, name:$('#whName').value, channel_id:$('#whChan').value},'Created'); loadWebhooks(); }
+async function delWh(id){ await api('DELETE',`/server-official/api/webhooks_in/${id}`,null,'Deleted'); loadWebhooks(); }
+
+async function loadHooks(){
+  const r = await api('GET','/server-official/api/external_hooks'); if (!r.ok) return;
+  $('#hookList').innerHTML = (r.data||[]).map(h=>`<div class="list-item"><div><strong>${escapeHtml(h.name)}</strong> ← ${(h.events||[]).join(',')}<div class="meta">${escapeHtml(h.url)}</div></div><button class="btn btn-sm btn-danger" onclick="delHook('${h.id}')">×</button></div>`).join('') || '<p class="help">None.</p>';
+}
+async function addHook(){ await api('POST','/server-official/api/external_hooks',{name:$('#hookName').value, url:$('#hookUrl').value, events:$('#hookEvents').value.split(',').map(s=>s.trim()).filter(Boolean)},'Added'); loadHooks(); }
+async function delHook(id){ await api('DELETE',`/server-official/api/external_hooks/${id}`,null,'Deleted'); loadHooks(); }
+
+/* ============ BACKUPS ============ */
+async function loadBackups(){
+  const r = await api('GET','/server-official/api/backups'); if (!r.ok) return;
+  $('#bkList').innerHTML = (r.data||[]).map(b=>`<div class="list-item"><div><strong>${escapeHtml(b.label)}</strong> <code>${b.id}</code><div class="meta">${escapeHtml(b.ts)}</div></div><div><button class="btn btn-sm" onclick="restoreBackup('${b.id}')">Restore</button> <button class="btn btn-sm btn-danger" onclick="delBackup('${b.id}')">×</button></div></div>`).join('') || '<p class="help">No backups yet.</p>';
+}
+async function makeBackup(){ await api('POST','/server-official/api/backups',{label:$('#bkLabel').value||'manual'},'Backup created'); loadBackups(); }
+async function restoreBackup(id){ if(!confirm('Restore this backup? Current state will be replaced.'))return; await api('POST',`/server-official/api/backups/${id}/restore`,{},'Restored'); }
+async function delBackup(id){ await api('DELETE',`/server-official/api/backups/${id}`,null,'Deleted'); loadBackups(); }
+async function resetGuild(){ if(!currentGuildId)return toast('Select a server','err'); await api('POST','/server-official/api/reset_guild',{guild_id:currentGuildId},'Reset'); }
+
+/* ============ HELPERS ============ */
+function escapeHtml(s){
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* Initial load */
+loadOverviewCharts();
+loadSchedules();
+loadTemplates();
 </script>
+
 </body>
 </html>

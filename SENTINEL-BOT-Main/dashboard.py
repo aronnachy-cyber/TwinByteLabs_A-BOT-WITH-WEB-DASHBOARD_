@@ -658,20 +658,19 @@ def server_official_dashboard():
         return redirect(url_for('login'))
 
     so = _so_module()
-    pending = so.list_scheduled_announcements() if so else []
-    giveaways = so.list_giveaways() if so else []
-    invite_top = so.get_invite_leaderboard()[:20] if so else []
     live = _so_live_state()
-    active_giveaways_count = sum(1 for g in giveaways if not g.get("ended"))
+    overview = so.get_full_overview() if so else {
+        "scheduled_count": 0, "active_giveaways": 0, "templates_count": 0,
+        "polls_active": 0, "reminders_pending": 0, "stickies": 0,
+        "goals_count": 0, "backups_count": 0, "custom_commands_count": 0,
+        "external_hooks": 0, "incoming_webhooks": 0, "logs_count": 0,
+        "bot_actions_count": 0,
+    }
     return render_template(
         'server_official_dashboard.html',
         bot_running=bool(so and so.is_running()),
-        pending=pending,
-        pending_count=len(pending),
-        giveaways=giveaways,
-        active_giveaways_count=active_giveaways_count,
-        invite_top=invite_top,
         live=live,
+        overview=overview,
     )
 
 
@@ -749,6 +748,555 @@ def server_official_api_state():
         "bot_running": bool(so and so.is_running()),
         "guilds_count": _so_live_state()["guilds_count"],
     })
+
+
+# ============================================================
+# SERVER OFFICIAL — Extended Dashboard APIs
+# ============================================================
+def _so_require_login():
+    """Helper: returns (so, error_response) tuple."""
+    if not session.get('logged_in'):
+        return None, (jsonify({"ok": False, "error": "Login required"}), 401)
+    so = _so_module()
+    if not so:
+        return None, (jsonify({"ok": False, "error": "Bot module unavailable"}), 503)
+    return so, None
+
+
+def _current_actor() -> str:
+    u = session.get('user') or {}
+    return u.get('username') or u.get('id') or 'dashboard'
+
+
+# --- Analytics / Overview ---
+@app.route('/server-official/api/analytics', methods=['GET'])
+def so_api_analytics():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = request.args.get('guild_id') or None
+    return jsonify({"ok": True, "data": so.get_analytics(guild_id)})
+
+
+@app.route('/server-official/api/overview', methods=['GET'])
+def so_api_overview():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.get_full_overview()})
+
+
+# --- Guild Config ---
+@app.route('/server-official/api/config', methods=['GET'])
+def so_api_get_config():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": True, "data": so.get_guild_config(gid)})
+
+
+@app.route('/server-official/api/config', methods=['POST'])
+def so_api_set_config():
+    so, err = _so_require_login()
+    if err: return err
+    payload = request.get_json(silent=True) or {}
+    gid = (payload.pop('guild_id', '') or '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    cfg = so.update_guild_config(gid, payload)
+    so.add_bot_action("config_update", f"Updated config for guild {gid}", _current_actor())
+    return jsonify({"ok": True, "data": cfg})
+
+
+# --- Broadcast ---
+@app.route('/server-official/api/broadcast', methods=['POST'])
+def so_api_broadcast():
+    so, err = _so_require_login()
+    if err: return err
+    payload = request.get_json(silent=True) or {}
+    channels = payload.get('channels') or []
+    title = (payload.get('title') or '').strip() or '📣 Announcement'
+    message = (payload.get('message') or '').strip()
+    if not channels or not message:
+        return jsonify({"ok": False, "error": "channels and message required"}), 400
+    bot = so.bot
+    if not bot or not bot.is_ready():
+        return jsonify({"ok": False, "error": "Bot not ready"}), 503
+
+    import asyncio
+    async def _do():
+        posted = 0
+        for cid in channels:
+            try:
+                ch = bot.get_channel(int(cid)) or await bot.fetch_channel(int(cid))
+                from datetime import datetime, timezone
+                import discord
+                e = discord.Embed(title=title, description=message, color=0x5b8cff,
+                                  timestamp=datetime.now(timezone.utc))
+                e.set_footer(text="Server Official • Byte Labs")
+                await ch.send(embed=e)
+                posted += 1
+            except Exception as ex:
+                app.logger.warning(f"[broadcast] {cid} -> {ex}")
+        return posted
+
+    fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+    posted = fut.result(timeout=20)
+    so.add_bot_action("broadcast", f"Broadcast to {posted} channel(s) from dashboard", _current_actor())
+    return jsonify({"ok": True, "posted": posted})
+
+
+# --- Templates ---
+@app.route('/server-official/api/templates', methods=['GET'])
+def so_api_templates():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_templates()})
+
+
+@app.route('/server-official/api/templates', methods=['POST'])
+def so_api_create_template():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    name = (p.get('name') or '').strip()
+    title = (p.get('title') or '').strip() or '📣 Announcement'
+    message = (p.get('message') or '').strip()
+    if not name or not message:
+        return jsonify({"ok": False, "error": "name and message required"}), 400
+    item = so.add_template(p.get('guild_id'), name, title, message, p.get('color'))
+    return jsonify({"ok": True, "data": item})
+
+
+@app.route('/server-official/api/templates/<tid>', methods=['DELETE'])
+def so_api_delete_template(tid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_template(tid)})
+
+
+# --- Polls ---
+@app.route('/server-official/api/polls', methods=['GET'])
+def so_api_polls():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_polls(request.args.get('guild_id'))})
+
+
+# --- Reminders ---
+@app.route('/server-official/api/reminders', methods=['GET'])
+def so_api_reminders():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_reminders()})
+
+
+@app.route('/server-official/api/reminders/<rid>', methods=['DELETE'])
+def so_api_delete_reminder(rid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_reminder(rid)})
+
+
+# --- Stickies ---
+@app.route('/server-official/api/stickies', methods=['GET'])
+def so_api_stickies():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_stickies()})
+
+
+@app.route('/server-official/api/stickies', methods=['POST'])
+def so_api_set_sticky():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    cid = (p.get('channel_id') or '').strip()
+    msg = (p.get('message') or '').strip()
+    if not cid.isdigit() or not msg:
+        return jsonify({"ok": False, "error": "channel_id (numeric) and message required"}), 400
+    item = so.set_sticky(cid, msg, guild_id=p.get('guild_id'))
+    so.add_bot_action("sticky_set", f"Sticky set on channel {cid}", _current_actor())
+    return jsonify({"ok": True, "data": item})
+
+
+@app.route('/server-official/api/stickies/<cid>', methods=['DELETE'])
+def so_api_remove_sticky(cid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.remove_sticky(cid)})
+
+
+# --- Notes ---
+@app.route('/server-official/api/notes', methods=['GET'])
+def so_api_notes():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": True, "data": so.list_admin_notes(gid)})
+
+
+@app.route('/server-official/api/notes', methods=['POST'])
+def so_api_add_note():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    text = (p.get('text') or '').strip()
+    if not gid or not text:
+        return jsonify({"ok": False, "error": "guild_id and text required"}), 400
+    return jsonify({"ok": True, "data": so.add_admin_note(gid, text, _current_actor())})
+
+
+@app.route('/server-official/api/notes/<nid>', methods=['DELETE'])
+def so_api_del_note(nid):
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": so.delete_admin_note(gid, nid)})
+
+
+# --- Goals ---
+@app.route('/server-official/api/goals', methods=['GET'])
+def so_api_goals():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_goals(request.args.get('guild_id'))})
+
+
+@app.route('/server-official/api/goals', methods=['POST'])
+def so_api_add_goal():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    gtype = (p.get('type') or '').strip()
+    target = int(p.get('target') or 0)
+    if not gid or gtype not in {'messages', 'members'} or target <= 0:
+        return jsonify({"ok": False, "error": "guild_id, type (messages|members), target>0 required"}), 400
+    return jsonify({"ok": True, "data": so.add_goal(gid, gtype, target)})
+
+
+@app.route('/server-official/api/goals/<gid_>', methods=['DELETE'])
+def so_api_del_goal(gid_):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_goal(gid_)})
+
+
+# --- XP Leaderboard ---
+@app.route('/server-official/api/xp_leaderboard', methods=['GET'])
+def so_api_xp_lb():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": True, "data": so.get_xp_leaderboard(gid)})
+
+
+# --- Logs ---
+@app.route('/server-official/api/server_logs', methods=['GET'])
+def so_api_server_logs():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.get_server_logs(request.args.get('guild_id'))})
+
+
+@app.route('/server-official/api/bot_actions', methods=['GET'])
+def so_api_bot_actions():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.get_bot_action_logs()})
+
+
+@app.route('/server-official/api/announcement_history', methods=['GET'])
+def so_api_ann_history():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_scheduled_announcements(include_posted=True)})
+
+
+@app.route('/server-official/api/setup_history', methods=['GET'])
+def so_api_setup_hist():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.get_setup_history(request.args.get('guild_id'))})
+
+
+# --- Setup template (apply via running bot) ---
+@app.route('/server-official/api/setup_template', methods=['POST'])
+def so_api_setup_template():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    template = (p.get('template') or '').strip().lower()
+    if not gid or template not in so.SERVER_TEMPLATES:
+        return jsonify({"ok": False, "error": f"guild_id + template ({', '.join(so.SERVER_TEMPLATES.keys())}) required"}), 400
+    bot = so.bot
+    if not bot or not bot.is_ready():
+        return jsonify({"ok": False, "error": "Bot not ready"}), 503
+    g = bot.get_guild(int(gid))
+    if not g:
+        return jsonify({"ok": False, "error": "Bot is not in that server"}), 404
+
+    import asyncio, discord
+    spec = so.SERVER_TEMPLATES[template]
+    summary = {"categories": [], "channels": [], "voice": [], "roles": []}
+
+    async def _do():
+        try:
+            for cname in spec["categories"]:
+                cat = discord.utils.get(g.categories, name=cname)
+                if not cat:
+                    cat = await g.create_category(cname)
+                    summary["categories"].append(cname)
+                for chan_name in spec["channels"].get(cname, []):
+                    if not discord.utils.get(g.text_channels, name=chan_name):
+                        await g.create_text_channel(chan_name, category=cat)
+                        summary["channels"].append(chan_name)
+                for vname in spec["voice"].get(cname, []):
+                    if not discord.utils.get(g.voice_channels, name=vname):
+                        await g.create_voice_channel(vname, category=cat)
+                        summary["voice"].append(vname)
+            for rname, rcolor in spec["roles"]:
+                if not discord.utils.get(g.roles, name=rname):
+                    await g.create_role(name=rname, colour=discord.Colour(rcolor))
+                    summary["roles"].append(rname)
+        except discord.Forbidden:
+            return False
+        return True
+
+    fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+    ok = fut.result(timeout=60)
+    if not ok:
+        return jsonify({"ok": False, "error": "Bot lacks permissions to apply template"}), 403
+    so.add_setup_history(gid, f"template:{template}", summary)
+    so.add_bot_action("setup_template", f"Applied template '{template}' from dashboard", _current_actor())
+    return jsonify({"ok": True, "data": summary})
+
+
+# --- Custom Commands ---
+@app.route('/server-official/api/custom_commands', methods=['GET'])
+def so_api_cc_list():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": True, "data": so.list_custom_commands(gid)})
+
+
+@app.route('/server-official/api/custom_commands', methods=['POST'])
+def so_api_cc_add():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    trig = (p.get('trigger') or '').strip()
+    resp = (p.get('response') or '').strip()
+    if not gid or not trig or not resp:
+        return jsonify({"ok": False, "error": "guild_id, trigger, response required"}), 400
+    return jsonify({"ok": True, "data": so.add_custom_command(gid, trig, resp)})
+
+
+@app.route('/server-official/api/custom_commands', methods=['DELETE'])
+def so_api_cc_del():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    trig = request.args.get('trigger', '').strip()
+    if not gid or not trig:
+        return jsonify({"ok": False, "error": "guild_id and trigger required"}), 400
+    return jsonify({"ok": so.remove_custom_command(gid, trig)})
+
+
+# --- Incoming Webhooks ---
+@app.route('/server-official/api/webhooks_in', methods=['GET'])
+def so_api_wh_list():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_incoming_webhooks(request.args.get('guild_id'))})
+
+
+@app.route('/server-official/api/webhooks_in', methods=['POST'])
+def so_api_wh_create():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    name = (p.get('name') or '').strip()
+    cid = (p.get('channel_id') or '').strip()
+    if not gid or not name or not cid.isdigit():
+        return jsonify({"ok": False, "error": "guild_id, name, channel_id required"}), 400
+    return jsonify({"ok": True, "data": so.add_incoming_webhook(gid, name, cid)})
+
+
+@app.route('/server-official/api/webhooks_in/<wid>', methods=['DELETE'])
+def so_api_wh_del(wid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_incoming_webhook(wid)})
+
+
+@app.route('/server-official/api/webhook_in/<secret>', methods=['POST'])
+def so_api_wh_fire(secret):
+    """Public endpoint: third-party services POST here to fire an embed in the linked channel."""
+    so = _so_module()
+    if not so:
+        return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
+    wh = so.find_webhook_by_secret(secret)
+    if not wh:
+        return jsonify({"ok": False, "error": "Invalid webhook"}), 404
+    p = request.get_json(silent=True) or {}
+    title = (p.get('title') or '📥 Webhook').strip()
+    message = (p.get('message') or '').strip()
+    if not message:
+        return jsonify({"ok": False, "error": "message required"}), 400
+    bot = so.bot
+    if not bot or not bot.is_ready():
+        return jsonify({"ok": False, "error": "Bot not ready"}), 503
+
+    import asyncio, discord
+    from datetime import datetime, timezone
+
+    async def _send():
+        ch = bot.get_channel(int(wh['channel_id']))
+        if ch is None:
+            ch = await bot.fetch_channel(int(wh['channel_id']))
+        e = discord.Embed(title=title, description=message[:2000], color=0x22d3ee,
+                          timestamp=datetime.now(timezone.utc))
+        e.set_footer(text=f"via {wh['name']}")
+        await ch.send(embed=e)
+
+    asyncio.run_coroutine_threadsafe(_send(), bot.loop)
+    so.add_bot_action("webhook_in", f"Incoming webhook '{wh['name']}' fired", "external")
+    return jsonify({"ok": True})
+
+
+# --- External Hooks ---
+@app.route('/server-official/api/external_hooks', methods=['GET'])
+def so_api_hooks():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_external_hooks()})
+
+
+@app.route('/server-official/api/external_hooks', methods=['POST'])
+def so_api_hook_add():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    name = (p.get('name') or '').strip()
+    url = (p.get('url') or '').strip()
+    events = p.get('events') or []
+    if not name or not url.startswith('http'):
+        return jsonify({"ok": False, "error": "name and valid url required"}), 400
+    return jsonify({"ok": True, "data": so.add_external_hook(name, url, events)})
+
+
+@app.route('/server-official/api/external_hooks/<hid>', methods=['DELETE'])
+def so_api_hook_del(hid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_external_hook(hid)})
+
+
+# --- Backups ---
+@app.route('/server-official/api/backups', methods=['GET'])
+def so_api_backups():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_backups()})
+
+
+@app.route('/server-official/api/backups', methods=['POST'])
+def so_api_backup_create():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    label = (p.get('label') or 'manual').strip()
+    return jsonify({"ok": True, "data": so.create_backup(label)})
+
+
+@app.route('/server-official/api/backups/<bid>/restore', methods=['POST'])
+def so_api_backup_restore(bid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.restore_backup(bid)})
+
+
+@app.route('/server-official/api/backups/<bid>', methods=['DELETE'])
+def so_api_backup_delete(bid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_backup(bid)})
+
+
+# --- Reset selected guild's state ---
+@app.route('/server-official/api/reset_guild', methods=['POST'])
+def so_api_reset_guild():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    # Always backup first
+    so.create_backup(label=f"pre-reset-{gid}")
+    state = so.load_state()
+    state["server_configs"].pop(gid, None)
+    state["xp"].pop(gid, None)
+    state["daily_checkins"].pop(gid, None)
+    state["custom_commands"].pop(gid, None)
+    state["admin_notes"].pop(gid, None)
+    state["activity_stats"].pop(gid, None)
+    state["invite_counts"].pop(gid, None)
+    state["server_goals"] = [g for g in state["server_goals"] if g.get("guild_id") != gid]
+    state["scheduled_announcements"] = [a for a in state["scheduled_announcements"] if a.get("guild_id") != gid]
+    state["polls"] = [p for p in state["polls"] if p.get("guild_id") != gid]
+    state["server_logs"] = [l for l in state["server_logs"] if l.get("guild_id") != gid]
+    so.save_state(state)
+    so.add_bot_action("reset_guild", f"Reset all state for guild {gid}", _current_actor())
+    return jsonify({"ok": True})
+
+
+# --- Embed builder ---
+@app.route('/server-official/api/post_embed', methods=['POST'])
+def so_api_post_embed():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    cid = (p.get('channel_id') or '').strip()
+    title = (p.get('title') or '📣 Announcement').strip()
+    message = (p.get('message') or '').strip()
+    color = p.get('color')
+    if not cid.isdigit() or not message:
+        return jsonify({"ok": False, "error": "channel_id (numeric) and message required"}), 400
+    bot = so.bot
+    if not bot or not bot.is_ready():
+        return jsonify({"ok": False, "error": "Bot not ready"}), 503
+
+    import asyncio, discord
+    from datetime import datetime, timezone
+
+    async def _send():
+        ch = bot.get_channel(int(cid)) or await bot.fetch_channel(int(cid))
+        e = discord.Embed(title=title, description=message[:4000],
+                          color=int(color) if color else 0x5b8cff,
+                          timestamp=datetime.now(timezone.utc))
+        e.set_footer(text="Server Official • Byte Labs")
+        await ch.send(embed=e)
+
+    fut = asyncio.run_coroutine_threadsafe(_send(), bot.loop)
+    fut.result(timeout=15)
+    so.add_bot_action("embed_post", f"Embed posted to #{cid}", _current_actor())
+    return jsonify({"ok": True})
 
 
 @app.route('/sp4rk')
