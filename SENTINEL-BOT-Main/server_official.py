@@ -1949,3 +1949,119 @@ def get_full_overview() -> Dict[str, Any]:
         "logs_count": len(state["server_logs"]),
         "bot_actions_count": len(state["bot_action_logs"]),
     }
+
+
+# ============================================================
+# AVATAR / PERMISSION MANAGEMENT
+# ============================================================
+import asyncio as _asyncio
+
+AVATAR_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "server_avatars")
+os.makedirs(AVATAR_DIR, exist_ok=True)
+
+
+def member_can_manage_bot(guild_id: str, user_id: str) -> Dict[str, Any]:
+    """Return {'allowed': bool, 'reason': str, 'role': str} — user must be guild owner OR have admin/manage_guild perm."""
+    try:
+        if not bot or not bot.is_ready():
+            return {"allowed": False, "reason": "Bot not connected to Discord", "role": ""}
+        g = bot.get_guild(int(guild_id))
+        if not g:
+            return {"allowed": False, "reason": "Bot is not in this server", "role": ""}
+        m = g.get_member(int(user_id))
+        if not m:
+            return {"allowed": False, "reason": "You are not a member of this server", "role": ""}
+        if g.owner_id == m.id:
+            return {"allowed": True, "reason": "owner", "role": "Owner"}
+        perms = m.guild_permissions
+        if perms.administrator:
+            return {"allowed": True, "reason": "administrator", "role": "Administrator"}
+        if perms.manage_guild:
+            return {"allowed": True, "reason": "manage_guild", "role": "Manage Server"}
+        return {"allowed": False, "reason": "Requires Owner, Administrator, or Manage Server permission", "role": ""}
+    except Exception as e:
+        return {"allowed": False, "reason": f"Permission check failed: {e}", "role": ""}
+
+
+def get_guild_avatar_path(guild_id: str) -> Optional[str]:
+    """Return absolute path of stored avatar for guild, or None."""
+    for ext in ("png", "jpg", "jpeg", "gif", "webp"):
+        p = os.path.join(AVATAR_DIR, f"{guild_id}.{ext}")
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def get_guild_avatar_url(guild_id: str) -> Optional[str]:
+    """Return /static URL for guild avatar (cache-busted), or None."""
+    p = get_guild_avatar_path(guild_id)
+    if not p:
+        return None
+    fname = os.path.basename(p)
+    mtime = int(os.path.getmtime(p))
+    return f"/static/server_avatars/{fname}?v={mtime}"
+
+
+def save_guild_avatar(guild_id: str, image_bytes: bytes, ext: str) -> Dict[str, Any]:
+    """Save avatar bytes locally and best-effort apply to Discord per-guild bot profile."""
+    ext = (ext or "png").lower().lstrip(".")
+    if ext not in ("png", "jpg", "jpeg", "gif", "webp"):
+        return {"ok": False, "error": "Unsupported image format. Use PNG, JPG, GIF, or WEBP."}
+    if len(image_bytes) > 10 * 1024 * 1024:
+        return {"ok": False, "error": "Image too large (max 10 MB)"}
+    # remove any pre-existing avatars for this guild (different ext)
+    for old_ext in ("png", "jpg", "jpeg", "gif", "webp"):
+        old = os.path.join(AVATAR_DIR, f"{guild_id}.{old_ext}")
+        if os.path.exists(old):
+            try: os.remove(old)
+            except Exception: pass
+    path = os.path.join(AVATAR_DIR, f"{guild_id}.{ext}")
+    with open(path, "wb") as f:
+        f.write(image_bytes)
+    # best-effort: push to Discord's per-guild bot profile (newer feature)
+    discord_status = "Saved locally (dashboard only)"
+    try:
+        if bot and bot.is_ready():
+            g = bot.get_guild(int(guild_id))
+            if g and getattr(g, "me", None):
+                fut = _asyncio.run_coroutine_threadsafe(
+                    g.me.edit(avatar=image_bytes),
+                    bot.loop
+                )
+                try:
+                    fut.result(timeout=10)
+                    discord_status = "Applied to Discord per-server bot profile"
+                except Exception as inner:
+                    discord_status = f"Saved locally; Discord rejected per-guild avatar ({inner.__class__.__name__})"
+    except Exception as e:
+        discord_status = f"Saved locally; Discord update skipped ({e.__class__.__name__})"
+    return {"ok": True, "url": get_guild_avatar_url(guild_id), "discord_status": discord_status}
+
+
+def delete_guild_avatar(guild_id: str) -> Dict[str, Any]:
+    """Remove stored custom avatar for guild and reset Discord per-guild profile."""
+    removed = False
+    for ext in ("png", "jpg", "jpeg", "gif", "webp"):
+        p = os.path.join(AVATAR_DIR, f"{guild_id}.{ext}")
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+                removed = True
+            except Exception: pass
+    discord_status = "Local avatar removed"
+    try:
+        if bot and bot.is_ready():
+            g = bot.get_guild(int(guild_id))
+            if g and getattr(g, "me", None):
+                fut = _asyncio.run_coroutine_threadsafe(
+                    g.me.edit(avatar=None),
+                    bot.loop
+                )
+                try:
+                    fut.result(timeout=10)
+                    discord_status = "Reset Discord per-server bot avatar to default"
+                except Exception as inner:
+                    discord_status = f"Local avatar removed; Discord reset failed ({inner.__class__.__name__})"
+    except Exception as e:
+        discord_status = f"Local avatar removed; Discord reset skipped ({e.__class__.__name__})"
+    return {"ok": True, "removed": removed, "discord_status": discord_status}

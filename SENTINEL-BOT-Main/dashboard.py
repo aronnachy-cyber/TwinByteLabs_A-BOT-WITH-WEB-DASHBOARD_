@@ -1991,6 +1991,72 @@ def api_stats():
         "reaction_roles": rr_count
     })
 
+# ---- SERVER OFFICIAL: AVATAR / PERMISSION ----
+@app.route('/server-official/api/permission', methods=['GET'])
+def so_api_permission():
+    """Tell the dashboard whether the logged-in user can manage the bot in the given guild."""
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    uid = str(session.get('discord_id') or '')
+    if not gid:
+        return jsonify({"ok": True, "data": {"allowed": False, "reason": "Select a server first", "role": ""}})
+    if not uid:
+        return jsonify({"ok": True, "data": {"allowed": False, "reason": "No Discord user in session", "role": ""}})
+    return jsonify({"ok": True, "data": so.member_can_manage_bot(gid, uid)})
+
+
+@app.route('/server-official/api/avatar', methods=['GET'])
+def so_api_avatar_get():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": True, "data": {"url": so.get_guild_avatar_url(gid)}})
+
+
+@app.route('/server-official/api/avatar', methods=['POST'])
+def so_api_avatar_upload():
+    so, err = _so_require_login()
+    if err: return err
+    gid = (request.form.get('guild_id') or '').strip()
+    uid = str(session.get('discord_id') or '')
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    perm = so.member_can_manage_bot(gid, uid)
+    if not perm.get("allowed"):
+        return jsonify({"ok": False, "error": perm.get("reason") or "Permission denied"}), 403
+    if 'image' not in request.files:
+        return jsonify({"ok": False, "error": "No image uploaded"}), 400
+    f = request.files['image']
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "Empty file"}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else 'png'
+    data = f.read()
+    result = so.save_guild_avatar(gid, data, ext)
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": result.get("error", "Save failed")}), 400
+    so.add_bot_action("avatar_change", f"Avatar updated for guild {gid} ({result.get('discord_status')})", _current_actor())
+    return jsonify({"ok": True, "data": result})
+
+
+@app.route('/server-official/api/avatar', methods=['DELETE'])
+def so_api_avatar_delete():
+    so, err = _so_require_login()
+    if err: return err
+    gid = (request.args.get('guild_id') or '').strip()
+    uid = str(session.get('discord_id') or '')
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    perm = so.member_can_manage_bot(gid, uid)
+    if not perm.get("allowed"):
+        return jsonify({"ok": False, "error": perm.get("reason") or "Permission denied"}), 403
+    result = so.delete_guild_avatar(gid)
+    so.add_bot_action("avatar_reset", f"Avatar reset for guild {gid} ({result.get('discord_status')})", _current_actor())
+    return jsonify({"ok": True, "data": result})
+
+
 # ---- HEALTH CHECK ----
 @app.route('/health')
 def health():

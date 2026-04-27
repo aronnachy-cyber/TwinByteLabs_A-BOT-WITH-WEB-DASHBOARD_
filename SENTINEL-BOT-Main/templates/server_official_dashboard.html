@@ -243,6 +243,23 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
       </div>
     </div>
     <div class="card">
+      <h2><i class="fas fa-image-portrait"></i> Bot Profile Picture (this server only)</h2>
+      <p class="help">Only the <b>server owner</b>, an <b>Administrator</b>, or someone with <b>Manage Server</b> can change the bot's profile picture. PNG, JPG, GIF, or WEBP, max 10 MB.</p>
+      <div id="avatarPermBanner" class="muted" style="margin-bottom:10px;">Checking permission…</div>
+      <div class="row" style="align-items:center;gap:18px;">
+        <img id="avatarPreview" alt="Current avatar"
+             style="width:96px;height:96px;border-radius:50%;object-fit:cover;background:#0e1525;border:2px solid var(--border);" />
+        <div style="flex:1;">
+          <input type="file" id="avatarFile" accept="image/png,image/jpeg,image/gif,image/webp" disabled />
+          <div class="row" style="margin-top:10px;">
+            <button class="btn" id="btnAvatarUpload" onclick="uploadAvatar()" disabled><i class="fas fa-upload"></i> Upload &amp; Apply</button>
+            <button class="btn btn-ghost" id="btnAvatarReset" onclick="resetAvatar()" disabled><i class="fas fa-trash"></i> Remove Custom Avatar</button>
+          </div>
+          <div id="avatarStatus" class="muted" style="margin-top:8px;font-size:.85rem;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
       <h2><i class="fas fa-handshake"></i> Welcome / Leave Configuration</h2>
       <div class="row">
         <div><label>Welcome Channel ID</label><input id="cfgWelcomeChan" placeholder="123…" /></div>
@@ -489,6 +506,7 @@ function currentGuild(){ return currentGuildId; }
 function onGuildChange(){
   currentGuildId = $('#guildPick').value;
   loadGuildConfig();
+  loadAvatarPanel();
   loadAnalytics();
   loadServerLogs();
   loadXpBoard();
@@ -538,7 +556,7 @@ document.querySelectorAll('.sb-item').forEach(b=>{
     if (target === 'integrations'){ loadCustomCmds(); loadWebhooks(); loadHooks(); }
     if (target === 'backups') loadBackups();
     if (target === 'setup') loadSetupHistory();
-    if (target === 'members') loadGuildConfig();
+    if (target === 'members'){ loadGuildConfig(); loadAvatarPanel(); }
     document.getElementById('sidebar').classList.remove('open');
   });
 });
@@ -634,6 +652,105 @@ async function resetDisplayName(){
   $('#cfgDisplayName').value = '';
   await api('POST','/server-official/api/config',{guild_id:currentGuildId, display_name:''},'Reset to Server Official');
   applyDisplayName('');
+}
+
+/* ============ AVATAR (per-server, owner / admin / manage-server only) ============ */
+const DEFAULT_AVATAR = "data:image/svg+xml;utf8," + encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><defs><linearGradient id='g' x1='0' x2='1'><stop offset='0' stop-color='%235b8cff'/><stop offset='1' stop-color='%2300d4ff'/></linearGradient></defs><circle cx='48' cy='48' r='48' fill='url(%23g)'/><text x='48' y='60' font-family='Arial' font-size='38' font-weight='900' text-anchor='middle' fill='white'>SO</text></svg>"
+);
+
+function setSidebarAvatar(url){
+  const mark = document.querySelector('.sb-brand-mark');
+  if (!mark) return;
+  if (url){
+    mark.style.backgroundImage = `url("${url}")`;
+    mark.style.backgroundSize = 'cover';
+    mark.style.backgroundPosition = 'center';
+    mark.textContent = '';
+  } else {
+    mark.style.backgroundImage = '';
+    mark.textContent = 'SO';
+  }
+}
+
+async function loadAvatarPanel(){
+  const banner = $('#avatarPermBanner');
+  const fileEl = $('#avatarFile');
+  const upBtn  = $('#btnAvatarUpload');
+  const rmBtn  = $('#btnAvatarReset');
+  const img    = $('#avatarPreview');
+  const stat   = $('#avatarStatus');
+  if (stat) stat.textContent = '';
+  img.src = DEFAULT_AVATAR;
+  setSidebarAvatar(null);
+  if (!currentGuildId){
+    banner.innerHTML = '<i class="fas fa-circle-info"></i> Select a server first.';
+    fileEl.disabled = true; upBtn.disabled = true; rmBtn.disabled = true;
+    return;
+  }
+  // load existing avatar (works for any logged-in user — read-only)
+  try{
+    const av = await api('GET', `/server-official/api/avatar?guild_id=${currentGuildId}`);
+    if (av.ok && av.data && av.data.url){
+      img.src = av.data.url;
+      setSidebarAvatar(av.data.url);
+    }
+  }catch(e){}
+  // permission check controls write actions
+  const p = await api('GET', `/server-official/api/permission?guild_id=${currentGuildId}`);
+  const allowed = p.ok && p.data && p.data.allowed;
+  if (allowed){
+    banner.innerHTML = `<span style="color:#7CFC9C;"><i class="fas fa-circle-check"></i> You can change this bot's profile picture (${escapeHtml(p.data.role||'authorized')}).</span>`;
+    fileEl.disabled = false; upBtn.disabled = false; rmBtn.disabled = false;
+  } else {
+    const reason = (p.data && p.data.reason) || 'Not authorized';
+    banner.innerHTML = `<span style="color:#ff7a90;"><i class="fas fa-lock"></i> ${escapeHtml(reason)}</span>`;
+    fileEl.disabled = true; upBtn.disabled = true; rmBtn.disabled = true;
+  }
+}
+
+async function uploadAvatar(){
+  if (!currentGuildId) return toast('Select a server first','err');
+  const fileEl = $('#avatarFile');
+  if (!fileEl.files || !fileEl.files[0]) return toast('Choose an image first','err');
+  const f = fileEl.files[0];
+  if (f.size > 10*1024*1024) return toast('Image too large (max 10 MB)','err');
+  const fd = new FormData();
+  fd.append('guild_id', currentGuildId);
+  fd.append('image', f);
+  $('#avatarStatus').textContent = 'Uploading…';
+  try{
+    const r = await fetch('/server-official/api/avatar', {method:'POST', body:fd, credentials:'same-origin'});
+    const j = await r.json();
+    if (!r.ok || !j.ok){
+      toast(j.error || 'Upload failed', 'err');
+      $('#avatarStatus').textContent = j.error || 'Upload failed';
+      return;
+    }
+    toast('Profile picture updated', 'ok');
+    if (j.data && j.data.url){ $('#avatarPreview').src = j.data.url; setSidebarAvatar(j.data.url); }
+    $('#avatarStatus').textContent = (j.data && j.data.discord_status) || 'Saved';
+    fileEl.value = '';
+  }catch(e){
+    toast('Upload failed: ' + e.message, 'err');
+    $('#avatarStatus').textContent = 'Upload failed';
+  }
+}
+
+async function resetAvatar(){
+  if (!currentGuildId) return toast('Select a server first','err');
+  if (!confirm('Remove the custom profile picture for this server?')) return;
+  try{
+    const r = await fetch(`/server-official/api/avatar?guild_id=${currentGuildId}`, {method:'DELETE', credentials:'same-origin'});
+    const j = await r.json();
+    if (!r.ok || !j.ok){ toast(j.error || 'Reset failed','err'); return; }
+    toast('Custom avatar removed','ok');
+    $('#avatarPreview').src = DEFAULT_AVATAR;
+    setSidebarAvatar(null);
+    $('#avatarStatus').textContent = (j.data && j.data.discord_status) || 'Removed';
+  }catch(e){
+    toast('Reset failed: ' + e.message, 'err');
+  }
 }
 async function saveGuildConfig(){
   if (!currentGuildId) return toast('Select a server first','err');
