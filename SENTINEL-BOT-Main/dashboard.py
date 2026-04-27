@@ -575,6 +575,164 @@ def dev_server_official_set():
     return jsonify({"ok": True, "data": saved})
 
 
+# ============================================================
+# SERVER OFFICIAL — Landing, Dashboard, API
+# ============================================================
+def _so_module():
+    """Lazy-import the server_official module so dashboard.py doesn't crash if discord libs missing."""
+    try:
+        import server_official as so
+        return so
+    except Exception as e:
+        app.logger.warning(f"[server-official] import failed: {e}")
+        return None
+
+
+def _so_live_state():
+    """Pull live guild list / counts straight from the running bot (if any)."""
+    so = _so_module()
+    out = {"guilds_count": 0, "members_count": 0, "guilds": []}
+    if not so:
+        return out
+    try:
+        b = so.bot
+        if b and b.is_ready():
+            guilds = []
+            total_members = 0
+            for g in b.guilds:
+                guilds.append({
+                    "id": str(g.id),
+                    "name": g.name,
+                    "member_count": g.member_count or 0,
+                })
+                total_members += g.member_count or 0
+            out["guilds_count"] = len(guilds)
+            out["members_count"] = total_members
+            out["guilds"] = sorted(guilds, key=lambda x: x["member_count"], reverse=True)
+    except Exception as e:
+        app.logger.warning(f"[server-official] live_state error: {e}")
+    return out
+
+
+@app.route('/server-official')
+def server_official_landing():
+    """Public landing page for the Server Official bot."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html'), 200
+    so = _so_module()
+    return render_template(
+        'server_official_landing.html',
+        so=get_server_official(),
+        bot_running=bool(so and so.is_running()),
+    )
+
+
+@app.route('/server-official/dashboard')
+def server_official_dashboard():
+    """Web dashboard for managing scheduled announcements, giveaways and stats."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html'), 200
+    if not is_dev_session():
+        return (
+            "Dashboard locked. Open the dev menu (kebab → PIN) on the home page "
+            "to unlock, then return here.",
+            403,
+        )
+
+    so = _so_module()
+    pending = so.list_scheduled_announcements() if so else []
+    giveaways = so.list_giveaways() if so else []
+    invite_top = so.get_invite_leaderboard()[:20] if so else []
+    live = _so_live_state()
+    active_giveaways_count = sum(1 for g in giveaways if not g.get("ended"))
+    return render_template(
+        'server_official_dashboard.html',
+        bot_running=bool(so and so.is_running()),
+        pending=pending,
+        pending_count=len(pending),
+        giveaways=giveaways,
+        active_giveaways_count=active_giveaways_count,
+        invite_top=invite_top,
+        live=live,
+    )
+
+
+@app.route('/server-official/api/announcements', methods=['GET'])
+def server_official_api_list_announcements():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    so = _so_module()
+    if not so:
+        return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
+    return jsonify({"ok": True, "data": so.list_scheduled_announcements(include_posted=False)})
+
+
+@app.route('/server-official/api/announcements', methods=['POST'])
+def server_official_api_create_announcement():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    so = _so_module()
+    if not so:
+        return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
+
+    payload = request.get_json(silent=True) or {}
+    channel_id = (payload.get("channel_id") or "").strip()
+    message = (payload.get("message") or "").strip()
+    scheduled_for = (payload.get("scheduled_for") or "").strip()
+    title = (payload.get("title") or "").strip() or None
+    guild_id = (payload.get("guild_id") or "") or None
+    color = payload.get("color")
+
+    if not channel_id or not channel_id.isdigit():
+        return jsonify({"ok": False, "error": "channel_id must be a numeric Discord channel ID"}), 400
+    if not message:
+        return jsonify({"ok": False, "error": "message is required"}), 400
+    if len(message) > 2000:
+        return jsonify({"ok": False, "error": "message too long (max 2000 chars)"}), 400
+    if not scheduled_for:
+        return jsonify({"ok": False, "error": "scheduled_for (ISO datetime) is required"}), 400
+    when = so._parse_iso(scheduled_for)
+    if not when:
+        return jsonify({"ok": False, "error": "scheduled_for must be ISO 8601 (e.g. 2026-04-28T10:00:00Z)"}), 400
+    from datetime import datetime, timezone
+    if when <= datetime.now(timezone.utc):
+        return jsonify({"ok": False, "error": "scheduled_for must be in the future"}), 400
+
+    item = so.add_scheduled_announcement(
+        guild_id=str(guild_id) if guild_id else None,
+        channel_id=channel_id,
+        title=title or "📣 Announcement",
+        message=message,
+        scheduled_for_iso=when.isoformat(),
+        color=int(color) if color is not None else None,
+        created_by="dashboard",
+    )
+    return jsonify({"ok": True, "data": item})
+
+
+@app.route('/server-official/api/announcements/<announce_id>', methods=['DELETE'])
+def server_official_api_delete_announcement(announce_id):
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    so = _so_module()
+    if not so:
+        return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
+    if so.delete_scheduled_announcement(announce_id):
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Not found"}), 404
+
+
+@app.route('/server-official/api/state', methods=['GET'])
+def server_official_api_state():
+    """Public read-only status for the landing page badge."""
+    so = _so_module()
+    return jsonify({
+        "ok": True,
+        "bot_running": bool(so and so.is_running()),
+        "guilds_count": _so_live_state()["guilds_count"],
+    })
+
+
 @app.route('/sp4rk')
 def sp4rk_landing():
     """The original SP4RK landing page (now lives under /sp4rk)."""

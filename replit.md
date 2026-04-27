@@ -18,6 +18,7 @@ Sentinel OS is a feature-rich AI-powered Discord bot (V2.5.0) with a web-based a
 - **SENTINEL-BOT-Main/autoresponder.py** - Keyword auto-responder rules
 - **SENTINEL-BOT-Main/reaction_roles.py** - Reaction-to-role mapping
 - **SENTINEL-BOT-Main/leveling.py** - XP/leveling system with cooldowns and leaderboard
+- **SENTINEL-BOT-Main/server_official.py** - **Server Official** (second Discord bot, separate `SERVER_TOKEN`). Scheduled announcements, giveaways, invite tracking, server stats. Slash commands: `/announce`, `/schedule`, `/list_schedules`, `/cancel_schedule`, `/giveaway`, `/list_giveaways`, `/end_giveaway`, `/invites`, `/stats`, `/serverinfo`, `/help`. Web landing at `/server-official`, dashboard at `/server-official/dashboard` (PIN-locked). Storage: `server_official_state.json`. Auto-launched by `wsgi.py` if `SERVER_TOKEN` is set.
 
 ## Data Files
 - **SENTINEL-BOT-Main/settings.json** - Persistent bot configuration

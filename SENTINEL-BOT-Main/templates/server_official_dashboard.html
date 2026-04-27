@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Server Official — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+<style>
+  :root{
+    --bg:#040b18;
+    --panel:#0a1629;
+    --panel-2:#0f1d38;
+    --text:#eef5ff;
+    --muted:#8da4c4;
+    --line:rgba(255,255,255,0.07);
+    --accent:#10b981;
+    --accent2:#06b6d4;
+    --gradient: linear-gradient(135deg,#10b981 0%, #06b6d4 50%, #22d3ee 100%);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height:100vh;
+    line-height:1.5;
+  }
+  body::before{
+    content:""; position:fixed; pointer-events:none; z-index:0;
+    width:600px; height:600px; border-radius:50%;
+    filter:blur(120px); opacity:.25;
+    background:radial-gradient(circle,#10b981,transparent 70%);
+    top:-200px; left:-150px;
+  }
+  body::after{
+    content:""; position:fixed; pointer-events:none; z-index:0;
+    width:600px; height:600px; border-radius:50%;
+    filter:blur(120px); opacity:.25;
+    background:radial-gradient(circle,#06b6d4,transparent 70%);
+    bottom:-200px; right:-150px;
+  }
+
+  /* ===== TOP BAR ===== */
+  .topbar{
+    position:relative; z-index:10;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 32px;
+    border-bottom:1px solid var(--line);
+    background: rgba(4,11,24,.65);
+    backdrop-filter: blur(10px);
+  }
+  .topbar-left{ display:flex; align-items:center; gap:14px; }
+  .logo-mark{
+    width:40px; height:40px; border-radius:11px;
+    background: var(--gradient);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:900; color:#fff;
+    box-shadow: 0 8px 20px rgba(16,185,129,.4);
+  }
+  .logo-name{ font-weight:800; font-size:1.05rem; }
+  .logo-name span{
+    background: var(--gradient);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .nav-back{
+    color: var(--muted); text-decoration:none; font-weight:600;
+    display:inline-flex; align-items:center; gap:8px;
+    padding:8px 14px; border-radius:9px;
+    transition: color .15s, background .15s;
+  }
+  .nav-back:hover{ color:#fff; background:rgba(255,255,255,.05); }
+
+  .status-pill{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 14px; border-radius:99px; font-size:.78rem; font-weight:700;
+  }
+  .status-pill.online{
+    background:rgba(16,185,129,.12);
+    border:1px solid rgba(16,185,129,.35); color:#10d9a3;
+  }
+  .status-pill.offline{
+    background:rgba(245,158,11,.1);
+    border:1px solid rgba(245,158,11,.35); color:#fbbf24;
+  }
+  .status-pill .dot{
+    width:7px; height:7px; border-radius:50%;
+    background: currentColor; box-shadow:0 0 8px currentColor;
+  }
+
+  /* ===== MAIN ===== */
+  main{
+    position:relative; z-index:5;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 32px;
+  }
+
+  h1.page-title{
+    font-size:1.85rem;
+    font-weight:800;
+    letter-spacing:-.5px;
+    margin-bottom:6px;
+  }
+  .page-sub{ color: var(--muted); margin-bottom:28px; font-size:.95rem; }
+
+  /* ===== STATS GRID ===== */
+  .stat-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap:14px;
+    margin-bottom:28px;
+  }
+  .stat{
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding: 18px 20px;
+  }
+  .stat .label{
+    font-size:.74rem; font-weight:700; letter-spacing:.6px;
+    text-transform:uppercase; color: var(--muted);
+    margin-bottom:8px;
+  }
+  .stat .value{
+    font-size:1.65rem; font-weight:800; letter-spacing:-.5px;
+  }
+  .stat .value span{
+    font-size:.95rem; color: var(--muted); font-weight:600; margin-left:4px;
+  }
+  .stat .icon{
+    float:right;
+    color:#10d9a3; font-size:1.1rem; opacity:.6;
+  }
+
+  /* ===== TABS ===== */
+  .tabs{
+    display:flex; gap:4px;
+    margin-bottom:18px;
+    border-bottom:1px solid var(--line);
+    overflow-x:auto;
+  }
+  .tab{
+    padding:12px 18px;
+    background:transparent;
+    border:none;
+    color: var(--muted);
+    font-weight:700; font-size:.95rem;
+    font-family:inherit;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    transition:color .15s, border-color .15s;
+    display:inline-flex; align-items:center; gap:8px;
+    white-space:nowrap;
+  }
+  .tab:hover{ color:#fff; }
+  .tab.active{
+    color:#10d9a3;
+    border-bottom-color:#10d9a3;
+  }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; animation: fade .25s ease; }
+  @keyframes fade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+
+  /* ===== CARDS / SECTIONS ===== */
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding: 22px 24px;
+    margin-bottom: 18px;
+  }
+  .card h2{
+    font-size:1.1rem; font-weight:700;
+    margin-bottom:6px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .card h2 i{ color:#10d9a3; }
+  .card .desc{
+    color: var(--muted); font-size:.9rem;
+    margin-bottom:18px;
+  }
+
+  /* Form inputs */
+  .form-row{ display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .form-field{ flex:1; min-width: 200px; }
+  .form-field label{
+    display:block; font-size:.75rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:.5px;
+    color: var(--muted); margin-bottom:6px;
+  }
+  .input, textarea, select{
+    width:100%;
+    padding:11px 13px;
+    background:#050d1a;
+    color: var(--text);
+    border:1px solid rgba(91,140,255,.2);
+    border-radius:10px;
+    font-size:.95rem; font-family:inherit;
+    transition: border-color .15s;
+  }
+  .input:focus, textarea:focus, select:focus{
+    outline:none; border-color:#10b981;
+  }
+  textarea{ resize:vertical; min-height:84px; }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:11px 20px;
+    border-radius:10px;
+    border:none;
+    font-weight:700; font-size:.92rem;
+    font-family:inherit;
+    cursor:pointer;
+    transition: transform .15s, box-shadow .15s, background .15s;
+  }
+  .btn-primary{
+    background: var(--gradient);
+    color:#fff;
+    box-shadow: 0 6px 18px rgba(16,185,129,.35);
+  }
+  .btn-primary:hover{ transform: translateY(-1px); box-shadow:0 10px 24px rgba(16,185,129,.5); }
+  .btn-primary:disabled{ opacity:.6; cursor:not-allowed; transform:none; }
+  .btn-ghost{ background:rgba(255,255,255,.05); color:#cfd9ee; }
+  .btn-ghost:hover{ background:rgba(255,255,255,.1); }
+  .btn-danger{
+    background: rgba(239,68,68,.12);
+    color: #fca5a5;
+    border:1px solid rgba(239,68,68,.3);
+  }
+  .btn-danger:hover{ background: rgba(239,68,68,.22); color:#fff; }
+
+  .msg{
+    margin-top:8px; font-size:.85rem; min-height:18px;
+  }
+  .msg.ok{ color:#10d9a3; }
+  .msg.err{ color:#ff8585; }
+
+  /* Lists */
+  .list{ display:flex; flex-direction:column; gap:10px; }
+  .list-item{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
+    padding:14px 16px;
+    background: rgba(91,140,255,.04);
+    border:1px solid rgba(91,140,255,.12);
+    border-radius:10px;
+  }
+  .list-item .info{ flex:1; min-width:0; }
+  .list-item .info .when{
+    color:#10d9a3; font-size:.8rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:.5px;
+    margin-bottom:4px;
+  }
+  .list-item .info .title{
+    font-weight:700; margin-bottom:4px;
+  }
+  .list-item .info .body{
+    color: var(--muted); font-size:.88rem;
+    overflow:hidden; text-overflow:ellipsis;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  }
+  .list-item .meta{
+    color: var(--muted); font-size:.78rem;
+    margin-top:6px;
+    font-family:'SF Mono', Menlo, Consolas, monospace;
+  }
+  .empty{
+    text-align:center;
+    padding:40px 20px;
+    color: var(--muted);
+    border:1px dashed rgba(255,255,255,.1);
+    border-radius:12px;
+  }
+  .empty i{
+    display:block; font-size:2.4rem; color:#10d9a3; margin-bottom:12px; opacity:.6;
+  }
+
+  /* Invite leaderboard */
+  .lb-row{
+    display:flex; align-items:center; gap:14px;
+    padding:12px 16px;
+    background: rgba(91,140,255,.04);
+    border:1px solid rgba(91,140,255,.12);
+    border-radius:10px;
+    margin-bottom:8px;
+  }
+  .lb-rank{
+    width:32px; height:32px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(16,185,129,.15);
+    color:#10d9a3;
+    font-weight:800;
+  }
+  .lb-rank.gold   { background:rgba(255,193,7,.18);  color:#ffd76a; }
+  .lb-rank.silver { background:rgba(229,231,235,.15); color:#e5e7eb; }
+  .lb-rank.bronze { background:rgba(180,83,9,.18);    color:#fbbf24; }
+  .lb-name{ flex:1; font-weight:600; }
+  .lb-count{
+    background: rgba(16,185,129,.12);
+    color:#10d9a3;
+    padding:5px 12px;
+    border-radius:99px;
+    font-weight:700; font-size:.85rem;
+  }
+
+  @media (max-width:600px){
+    .topbar{ padding:14px 18px; }
+    main{ padding: 22px 18px; }
+    .form-row{ flex-direction:column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="{{ url_for('server_official_landing') }}" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:14px;">
+      <div class="logo-mark"><i class="fas fa-shield-halved"></i></div>
+      <div class="logo-name">Server<span>Official</span></div>
+    </a>
+    {% if bot_running %}
+      <span class="status-pill online" style="margin-left:14px;"><span class="dot"></span> Bot Online</span>
+    {% else %}
+      <span class="status-pill offline" style="margin-left:14px;"><span class="dot"></span> Bot Offline</span>
+    {% endif %}
+  </div>
+  <a class="nav-back" href="{{ url_for('bots_showcase') }}">
+    <i class="fas fa-arrow-left"></i> All Bots
+  </a>
+</div>
+
+<main>
+  <h1 class="page-title">Dashboard</h1>
+  <p class="page-sub">Manage scheduled announcements, giveaways, and server stats — without ever leaving your browser.</p>
+
+  <!-- Quick Stats -->
+  <div class="stat-grid">
+    <div class="stat">
+      <i class="fas fa-server icon"></i>
+      <div class="label">Servers</div>
+      <div class="value" id="stat-guilds">{{ live.guilds_count }}</div>
+    </div>
+    <div class="stat">
+      <i class="fas fa-users icon"></i>
+      <div class="label">Total Members</div>
+      <div class="value" id="stat-members">{{ live.members_count }}</div>
+    </div>
+    <div class="stat">
+      <i class="fas fa-clock icon"></i>
+      <div class="label">Pending Announcements</div>
+      <div class="value" id="stat-pending">{{ pending_count }}</div>
+    </div>
+    <div class="stat">
+      <i class="fas fa-gift icon"></i>
+      <div class="label">Active Giveaways</div>
+      <div class="value" id="stat-giveaways">{{ active_giveaways_count }}</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="announce"><i class="fas fa-bullhorn"></i> Announcements</button>
+    <button class="tab" data-tab="giveaways"><i class="fas fa-gift"></i> Giveaways</button>
+    <button class="tab" data-tab="invites"><i class="fas fa-user-plus"></i> Invites</button>
+    <button class="tab" data-tab="servers"><i class="fas fa-server"></i> Servers</button>
+  </div>
+
+  <!-- ANNOUNCEMENTS PANEL -->
+  <div class="tab-panel active" id="panel-announce">
+    <div class="card">
+      <h2><i class="fas fa-plus"></i> Schedule a New Announcement</h2>
+      <p class="desc">Pick a channel by ID and a date/time — the bot will post a styled embed at the scheduled moment.</p>
+      <form id="schedForm" onsubmit="return false;">
+        <div class="form-row">
+          <div class="form-field">
+            <label>Server (Guild)</label>
+            <select id="schedGuild" class="input">
+              <option value="">— Any server —</option>
+              {% for g in live.guilds %}
+                <option value="{{ g.id }}">{{ g.name }} ({{ g.id }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Channel ID</label>
+            <input type="text" id="schedChannel" class="input" placeholder="e.g. 123456789012345678" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Title</label>
+            <input type="text" id="schedTitle" class="input" placeholder="📣 Announcement" maxlength="120">
+          </div>
+          <div class="form-field" style="max-width:240px;">
+            <label>When (local time)</label>
+            <input type="datetime-local" id="schedWhen" class="input" required>
+          </div>
+        </div>
+        <div class="form-field" style="margin-bottom:14px;">
+          <label>Message</label>
+          <textarea id="schedMessage" class="input" placeholder="What do you want to announce?" maxlength="2000" required></textarea>
+        </div>
+        <button class="btn btn-primary" id="schedSubmit" onclick="submitSchedule()">
+          <i class="fas fa-calendar-plus"></i> Schedule Announcement
+        </button>
+        <div class="msg" id="schedMsg"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2><i class="fas fa-list"></i> Pending Scheduled Announcements</h2>
+      <p class="desc">All upcoming posts. Cancel any pending one at any time.</p>
+      <div class="list" id="pendingList">
+        {% if pending %}
+          {% for a in pending %}
+          <div class="list-item" data-id="{{ a.id }}">
+            <div class="info">
+              <div class="when">⏰ {{ a.scheduled_for }}</div>
+              <div class="title">{{ a.title }}</div>
+              <div class="body">{{ a.message }}</div>
+              <div class="meta">ID: {{ a.id }} · channel: {{ a.channel_id }}</div>
+            </div>
+            <button class="btn btn-danger" onclick="deleteSchedule('{{ a.id }}')">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty">
+            <i class="fas fa-calendar-xmark"></i>
+            No pending announcements. Schedule one above to get started.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- GIVEAWAYS PANEL -->
+  <div class="tab-panel" id="panel-giveaways">
+    <div class="card">
+      <h2><i class="fas fa-gift"></i> Giveaways</h2>
+      <p class="desc">Giveaways are started from Discord with <code style="background:#050d1a;color:#67e8f9;padding:2px 6px;border-radius:4px;">/giveaway</code> for security (only Manage Server can run them). View status here.</p>
+      <div class="list">
+        {% if giveaways %}
+          {% for g in giveaways %}
+          <div class="list-item">
+            <div class="info">
+              <div class="when">
+                {% if g.ended %}🏁 ENDED{% else %}🎉 ACTIVE — ends {{ g.ends_at }}{% endif %}
+              </div>
+              <div class="title">{{ g.prize }}</div>
+              <div class="body">
+                Winners: {{ g.winners }} ·
+                {% if g.ended and g.winner_ids %}
+                  Won by: {% for w in g.winner_ids %}<code style="background:#050d1a;color:#67e8f9;padding:1px 6px;border-radius:4px;font-size:.8rem;">{{ w }}</code> {% endfor %}
+                {% elif g.ended %}
+                  No valid entries
+                {% else %}
+                  Hosted by <code style="background:#050d1a;color:#67e8f9;padding:1px 6px;border-radius:4px;font-size:.8rem;">{{ g.host_id }}</code>
+                {% endif %}
+              </div>
+              <div class="meta">ID: {{ g.id }} · guild: {{ g.guild_id }} · channel: {{ g.channel_id }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty">
+            <i class="fas fa-gift"></i>
+            No giveaways yet. Run <code style="background:#050d1a;color:#67e8f9;padding:2px 6px;border-radius:4px;">/giveaway prize:&lt;item&gt; duration:1h</code> in Discord.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- INVITES PANEL -->
+  <div class="tab-panel" id="panel-invites">
+    <div class="card">
+      <h2><i class="fas fa-user-plus"></i> Invite Leaderboard</h2>
+      <p class="desc">Top inviters across all servers the bot is in. Counts update live as new members join via tracked invites.</p>
+      {% if invite_top %}
+        {% for row in invite_top %}
+        <div class="lb-row">
+          <div class="lb-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
+            {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}#{{ loop.index }}{% endif %}
+          </div>
+          <div class="lb-name">
+            <code style="background:transparent;color:#67e8f9;font-size:.92rem;">{{ row.user_id }}</code>
+            <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">guild {{ row.guild_id }}</div>
+          </div>
+          <div class="lb-count">{{ row.joins }} invite{% if row.joins != 1 %}s{% endif %}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">
+          <i class="fas fa-user-plus"></i>
+          No invite data yet. As members join via tracked invites, the leaderboard will populate automatically.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- SERVERS PANEL -->
+  <div class="tab-panel" id="panel-servers">
+    <div class="card">
+      <h2><i class="fas fa-server"></i> Connected Servers</h2>
+      <p class="desc">Live list of every server the bot is currently in.</p>
+      {% if live.guilds %}
+        {% for g in live.guilds %}
+        <div class="lb-row">
+          <div class="lb-rank">{{ loop.index }}</div>
+          <div class="lb-name">
+            {{ g.name }}
+            <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">ID: {{ g.id }}</div>
+          </div>
+          <div class="lb-count">{{ g.member_count }} members</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">
+          <i class="fas fa-circle-exclamation"></i>
+          {% if not bot_running %}
+            Server Official is offline. Set the <code style="background:#050d1a;color:#67e8f9;padding:2px 6px;border-radius:4px;">SERVER_TOKEN</code> environment variable, then restart.
+          {% else %}
+            Bot isn't in any servers yet. Invite it via the OAuth URL with <strong>bot</strong> + <strong>applications.commands</strong> scopes and the permissions: Manage Server, Send Messages, Read Message History, Add Reactions, Manage Messages.
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</main>
+
+<script>
+  /* ===== Tabs ===== */
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  /* ===== Schedule submission ===== */
+  async function submitSchedule(){
+    const msg = document.getElementById('schedMsg');
+    const btn = document.getElementById('schedSubmit');
+    msg.className = 'msg'; msg.textContent = '';
+    const channel = document.getElementById('schedChannel').value.trim();
+    const message = document.getElementById('schedMessage').value.trim();
+    const whenLocal = document.getElementById('schedWhen').value;
+    if (!channel || !message || !whenLocal) {
+      msg.className = 'msg err'; msg.textContent = 'Channel, message and date/time are required.';
+      return;
+    }
+    const whenISO = new Date(whenLocal).toISOString();
+    if (new Date(whenISO).getTime() < Date.now() + 5000) {
+      msg.className = 'msg err'; msg.textContent = 'Pick a time at least a few seconds in the future.';
+      return;
+    }
+    btn.disabled = true;
+    msg.className = 'msg'; msg.textContent = 'Saving…';
+    try {
+      const res = await fetch('/server-official/api/announcements', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        credentials:'same-origin',
+        body: JSON.stringify({
+          guild_id: document.getElementById('schedGuild').value || null,
+          channel_id: channel,
+          title: document.getElementById('schedTitle').value.trim() || null,
+          message,
+          scheduled_for: whenISO,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        msg.className = 'msg err'; msg.textContent = data.error || 'Save failed.';
+        btn.disabled = false; return;
+      }
+      msg.className = 'msg ok'; msg.textContent = '✓ Scheduled. Reloading…';
+      setTimeout(() => location.reload(), 700);
+    } catch (e) {
+      msg.className = 'msg err'; msg.textContent = 'Network error.';
+      btn.disabled = false;
+    }
+  }
+
+  async function deleteSchedule(id){
+    if (!confirm('Cancel this scheduled announcement?')) return;
+    const res = await fetch('/server-official/api/announcements/' + encodeURIComponent(id), {
+      method:'DELETE', credentials:'same-origin',
+    });
+    if (res.ok) location.reload();
+    else alert('Delete failed.');
+  }
+</script>
+</body>
+</html>

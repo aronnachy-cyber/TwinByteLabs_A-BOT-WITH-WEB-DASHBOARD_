@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Server Official — Byte Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+<style>
+  :root{
+    --bg:#040b18;
+    --text:#eef5ff;
+    --muted:#8da4c4;
+    --accent:#10b981;
+    --accent2:#06b6d4;
+    --accent3:#22d3ee;
+    --gradient: linear-gradient(135deg,#10b981 0%, #06b6d4 50%, #22d3ee 100%);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    overflow-x: hidden;
+    min-height:100vh;
+  }
+  /* Animated background orbs */
+  body::before, body::after{
+    content:""; position:fixed; pointer-events:none; z-index:0;
+    width:600px; height:600px; border-radius:50%;
+    filter: blur(120px); opacity:.35;
+  }
+  body::before{
+    background: radial-gradient(circle, #10b981, transparent 70%);
+    top:-200px; left:-150px;
+    animation: float1 14s ease-in-out infinite;
+  }
+  body::after{
+    background: radial-gradient(circle, #06b6d4, transparent 70%);
+    bottom:-200px; right:-150px;
+    animation: float2 16s ease-in-out infinite;
+  }
+  @keyframes float1{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(60px,40px);} }
+  @keyframes float2{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(-50px,-30px);} }
+
+  .grid-bg{
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(91,140,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(91,140,255,0.05) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events:none;
+    z-index:0;
+    mask-image: radial-gradient(ellipse at center, #000 0%, transparent 70%);
+  }
+
+  nav{
+    position:relative; z-index:10;
+    padding:20px 40px;
+    display:flex; align-items:center; justify-content:space-between;
+    backdrop-filter: blur(10px);
+    background: rgba(4,11,24,0.5);
+    border-bottom:1px solid rgba(255,255,255,0.05);
+  }
+  .nav-logo{
+    display:flex; align-items:center; gap:12px;
+    text-decoration:none;
+  }
+  .nav-logo-mark{
+    width:42px; height:42px;
+    border-radius:11px;
+    background: var(--gradient);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:900; color:white; font-size:1.05rem;
+    box-shadow: 0 8px 22px rgba(16,185,129,.4);
+  }
+  .nav-logo-name{ font-weight:800; font-size:1.15rem; color:#fff; }
+  .nav-logo-name span{
+    background: var(--gradient);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .nav-back{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:10px 18px;
+    background: rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:10px;
+    color:#cfd9ee;
+    text-decoration:none;
+    font-weight:600; font-size:.92rem;
+    transition: background .15s, border-color .15s;
+  }
+  .nav-back:hover{ background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff; }
+
+  .hero{
+    position:relative; z-index:5;
+    text-align:center;
+    padding: 90px 20px 70px;
+    max-width: 980px;
+    margin: 0 auto;
+  }
+  .hero-badge{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:8px 16px;
+    background: rgba(16,185,129,0.1);
+    border:1px solid rgba(16,185,129,.35);
+    border-radius:99px;
+    color:#10d9a3;
+    font-size:.82rem; font-weight:600;
+    margin-bottom: 22px;
+  }
+  .hero-badge::before{
+    content:""; width:8px; height:8px; border-radius:50%;
+    background:#10d9a3;
+    box-shadow: 0 0 10px #10d9a3;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+  .hero h1{
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    line-height: 1.05;
+    margin-bottom: 22px;
+  }
+  .hero h1 span{
+    background: var(--gradient);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .hero p.lede{
+    font-size: clamp(1rem, 1.6vw, 1.2rem);
+    color: var(--muted);
+    max-width: 720px;
+    margin: 0 auto 36px;
+  }
+  .hero-cta{
+    display:flex; gap:14px; justify-content:center; flex-wrap:wrap;
+  }
+  .btn-primary{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:15px 30px;
+    background: var(--gradient);
+    color:#fff;
+    text-decoration:none;
+    border:none;
+    border-radius:12px;
+    font-weight:700; font-size:1rem; font-family:inherit;
+    cursor:pointer;
+    box-shadow: 0 10px 30px rgba(16,185,129,.4);
+    transition: transform .15s, box-shadow .2s;
+  }
+  .btn-primary:hover{ transform: translateY(-2px); box-shadow: 0 14px 38px rgba(16,185,129,.55); }
+  .btn-secondary{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:15px 28px;
+    background: rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.15);
+    border-radius:12px;
+    color:#cfd9ee;
+    text-decoration:none;
+    font-weight:600;
+    transition: background .15s, border-color .15s;
+  }
+  .btn-secondary:hover{ background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.25); color:#fff; }
+
+  .status-pill{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 14px;
+    border-radius:99px;
+    font-size:.78rem; font-weight:700;
+    margin-top:18px;
+  }
+  .status-pill.online{
+    background:rgba(16,185,129,.12);
+    border:1px solid rgba(16,185,129,.35);
+    color:#10d9a3;
+  }
+  .status-pill.offline{
+    background:rgba(245,158,11,.1);
+    border:1px solid rgba(245,158,11,.35);
+    color:#fbbf24;
+  }
+  .status-pill .dot{
+    width:7px; height:7px; border-radius:50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+  }
+
+  /* ===== FEATURES ===== */
+  .section{
+    position:relative; z-index:5;
+    padding: 60px 20px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  .section-eyebrow{
+    text-align:center;
+    font-size:.85rem;
+    font-weight:700;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:#10d9a3;
+    margin-bottom:8px;
+  }
+  .section h2{
+    text-align:center;
+    font-size: clamp(1.9rem, 4vw, 2.8rem);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 18px;
+  }
+  .section h2 span{
+    background: var(--gradient);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .section .subtitle{
+    text-align:center;
+    color: var(--muted);
+    max-width: 640px;
+    margin: 0 auto 50px;
+    font-size: 1.05rem;
+  }
+
+  .features{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 22px;
+  }
+  .feature{
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:18px;
+    padding:28px;
+    transition: transform .2s, border-color .2s, background .2s;
+  }
+  .feature:hover{
+    transform: translateY(-4px);
+    border-color: rgba(16,185,129,.4);
+    background: linear-gradient(180deg, rgba(16,185,129,0.06), rgba(255,255,255,0.01));
+  }
+  .feature .icon{
+    width:48px; height:48px; border-radius:12px;
+    background: rgba(16,185,129,.12);
+    color: #10d9a3;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.3rem;
+    margin-bottom:18px;
+  }
+  .feature h3{
+    font-size:1.15rem;
+    font-weight:700;
+    margin-bottom:8px;
+  }
+  .feature p{
+    color: var(--muted);
+    font-size:.93rem;
+    line-height:1.55;
+  }
+
+  /* ===== COMMANDS ===== */
+  .commands{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap:14px;
+  }
+  .cmd{
+    background: linear-gradient(180deg, rgba(6,182,212,0.06), rgba(255,255,255,0.01));
+    border:1px solid rgba(6,182,212,.18);
+    border-radius:12px;
+    padding:18px 20px;
+    transition: border-color .15s, transform .15s;
+  }
+  .cmd:hover{
+    border-color: rgba(6,182,212,.45);
+    transform: translateY(-2px);
+  }
+  .cmd code{
+    display:inline-block;
+    background: #050d1a;
+    border:1px solid rgba(91,140,255,.15);
+    color: #67e8f9;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size:.92rem;
+    font-weight:600;
+    margin-bottom:8px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+  }
+  .cmd p{
+    color: var(--muted);
+    font-size:.88rem;
+  }
+
+  /* CTA strip */
+  .cta-strip{
+    background: linear-gradient(135deg, rgba(16,185,129,.1), rgba(6,182,212,.1));
+    border:1px solid rgba(16,185,129,.25);
+    border-radius:22px;
+    padding:46px 30px;
+    text-align:center;
+    margin: 30px auto 60px;
+    max-width: 900px;
+    position:relative;
+    z-index:5;
+  }
+  .cta-strip h2{
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    margin-bottom:14px;
+  }
+  .cta-strip p{
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  footer{
+    position:relative; z-index:5;
+    text-align:center;
+    padding: 30px 20px;
+    color: var(--muted);
+    font-size:.88rem;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+
+  @media (max-width: 600px){
+    nav{ padding:16px 20px; }
+    .hero{ padding: 60px 20px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<nav>
+  <a class="nav-logo" href="{{ url_for('landing') }}">
+    <div class="nav-logo-mark"><i class="fas fa-shield-halved"></i></div>
+    <div class="nav-logo-name">Server<span>Official</span></div>
+  </a>
+  <a class="nav-back" href="{{ url_for('bots_showcase') }}">
+    <i class="fas fa-arrow-left"></i> All Bots
+  </a>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge">Server management, simplified</div>
+  <h1>Run your server with <span>Server Official</span>.</h1>
+  <p class="lede">
+    {{ so.description or "Schedule announcements, host giveaways, track invites, and pull deep server stats — all from one clean Discord bot and a beautiful web dashboard." }}
+  </p>
+  <div class="hero-cta">
+    <a class="btn-primary" href="{{ url_for('server_official_dashboard') }}">
+      <i class="fas fa-gauge-high"></i> Open Dashboard
+    </a>
+    <a class="btn-secondary" href="#commands">
+      <i class="fas fa-terminal"></i> See Commands
+    </a>
+  </div>
+  <div>
+    {% if bot_running %}
+      <span class="status-pill online"><span class="dot"></span> Bot Online</span>
+    {% else %}
+      <span class="status-pill offline"><span class="dot"></span> Bot Offline — set SERVER_TOKEN to start</span>
+    {% endif %}
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section" id="features">
+  <div class="section-eyebrow">Built-in modules</div>
+  <h2>Everything a <span>server admin</span> needs.</h2>
+  <p class="subtitle">Each module is toggleable from the web dashboard, and every command works with Discord's native slash UI.</p>
+
+  <div class="features">
+    <div class="feature">
+      <div class="icon"><i class="fas fa-bullhorn"></i></div>
+      <h3>Scheduled Announcements</h3>
+      <p>Plan announcements days in advance — from the dashboard or with <code>/schedule</code>. Posted automatically with styled embeds.</p>
+    </div>
+    <div class="feature">
+      <div class="icon"><i class="fas fa-gift"></i></div>
+      <h3>Giveaways</h3>
+      <p>Start a timed giveaway with <code>/giveaway</code>. Members react 🎉 to enter — winners are picked automatically when time's up.</p>
+    </div>
+    <div class="feature">
+      <div class="icon"><i class="fas fa-user-plus"></i></div>
+      <h3>Invite Counter</h3>
+      <p>See exactly who invited whom. Live leaderboards in the dashboard plus <code>/invites</code> for quick lookups in chat.</p>
+    </div>
+    <div class="feature">
+      <div class="icon"><i class="fas fa-chart-column"></i></div>
+      <h3>Server Statistics</h3>
+      <p>Member counts, online presence, bot ratio, channels, roles, boosts — pulled live with <code>/stats</code> or shown on the dashboard.</p>
+    </div>
+    <div class="feature">
+      <div class="icon"><i class="fas fa-shield-halved"></i></div>
+      <h3>Permission-Aware</h3>
+      <p>Every management command requires the <strong>Manage Server</strong> permission, so only your trusted staff can post or run giveaways.</p>
+    </div>
+    <div class="feature">
+      <div class="icon"><i class="fas fa-window-maximize"></i></div>
+      <h3>Web Dashboard</h3>
+      <p>Manage every announcement and giveaway from a beautiful Byte Labs dashboard — no need to remember command syntax.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Commands -->
+<section class="section" id="commands">
+  <div class="section-eyebrow">Slash Commands</div>
+  <h2>All <span>commands</span> at a glance.</h2>
+  <p class="subtitle">Type <code style="background:#050d1a;color:#67e8f9;padding:2px 8px;border-radius:6px;">/</code> in Discord to bring up the full list.</p>
+
+  <div class="commands">
+    <div class="cmd"><code>/announce</code><p>Post a styled embed announcement to any channel right now.</p></div>
+    <div class="cmd"><code>/schedule</code><p>Schedule an announcement for later — accepts durations like <code style="background:#050d1a;color:#67e8f9;padding:1px 6px;border-radius:4px;font-size:.82rem;">30m</code>, <code style="background:#050d1a;color:#67e8f9;padding:1px 6px;border-radius:4px;font-size:.82rem;">2h</code>, <code style="background:#050d1a;color:#67e8f9;padding:1px 6px;border-radius:4px;font-size:.82rem;">1d</code>.</p></div>
+    <div class="cmd"><code>/list_schedules</code><p>See every pending scheduled announcement with its ID.</p></div>
+    <div class="cmd"><code>/cancel_schedule</code><p>Cancel a pending announcement by its ID.</p></div>
+    <div class="cmd"><code>/giveaway</code><p>Start a timed giveaway. Members react 🎉 to enter; winners chosen automatically.</p></div>
+    <div class="cmd"><code>/list_giveaways</code><p>List all active giveaways in the server.</p></div>
+    <div class="cmd"><code>/end_giveaway</code><p>End an active giveaway early and pick winners now.</p></div>
+    <div class="cmd"><code>/invites</code><p>Show the invite leaderboard, or look up a specific user's invite count.</p></div>
+    <div class="cmd"><code>/stats</code><p>Detailed server stats: members, online, channels, roles, boosts, owner.</p></div>
+    <div class="cmd"><code>/serverinfo</code><p>Quick at-a-glance server snapshot.</p></div>
+    <div class="cmd"><code>/help</code><p>Show the full command list right inside Discord.</p></div>
+  </div>
+</section>
+
+<section class="cta-strip">
+  <h2>Ready to manage smarter?</h2>
+  <p>Open the dashboard to schedule your first announcement or launch a giveaway — no command memorization needed.</p>
+  <a class="btn-primary" href="{{ url_for('server_official_dashboard') }}">
+    <i class="fas fa-gauge-high"></i> Open Dashboard
+  </a>
+</section>
+
+<footer>
+  © <span id="yr"></span> Byte Labs · Server Official
+</footer>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
