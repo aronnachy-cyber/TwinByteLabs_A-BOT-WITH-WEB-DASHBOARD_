@@ -484,12 +484,39 @@ def is_maintenance_mode():
 def is_dev_session():
     return bool(session.get("dev_unlocked"))
 
-# ---- LANDING PAGE ----
+# ---- LANDING PAGES ----
 @app.route('/')
 def landing():
+    """Byte Labs parent landing page (the new public homepage)."""
     # Maintenance mode: show a "coming soon" page to everyone EXCEPT the dev.
     # NOTE: returns HTTP 200 (not 503) so external uptime/cron pingers keep
     # treating the URL as healthy and free-tier hosts don't sleep the service.
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html'), 200
+
+    return render_template(
+        'bytelabs_landing.html',
+        dev_unlocked=is_dev_session(),
+        maintenance_on=is_maintenance_mode(),
+    )
+
+
+@app.route('/bots')
+def bots_showcase():
+    """Card-style interface listing all Byte Labs bots."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html'), 200
+
+    return render_template(
+        'bots.html',
+        dev_unlocked=is_dev_session(),
+        maintenance_on=is_maintenance_mode(),
+    )
+
+
+@app.route('/sp4rk')
+def sp4rk_landing():
+    """The original SP4RK landing page (now lives under /sp4rk)."""
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html'), 200
 

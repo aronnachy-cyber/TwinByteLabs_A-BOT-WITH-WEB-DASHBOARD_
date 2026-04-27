@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Our Bots — Byte Labs</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#050b18;
+  --bg2:#0a1428;
+  --bg3:#0f1d3a;
+  --accent:#5b8cff;
+  --accent2:#8b5cf6;
+  --accent3:#22d3ee;
+  --text:#e8f0ff;
+  --muted:#8295b8;
+  --border:rgba(91,140,255,0.18);
+  --grad:linear-gradient(135deg,#5b8cff 0%,#8b5cf6 50%,#22d3ee 100%);
+}
+html,body{ overflow-x:hidden; }
+body{
+  font-family:'Inter','Segoe UI',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  position:relative;
+}
+
+/* ===== ANIMATED BACKGROUND ===== */
+.bg-orbs{
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index:0;
+  overflow:hidden;
+}
+.orb{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(80px);
+  opacity:.45;
+}
+.orb.o1{ width:520px; height:520px; background:#5b8cff; top:-120px; left:-100px; animation:floatA 18s ease-in-out infinite; }
+.orb.o2{ width:480px; height:480px; background:#8b5cf6; top:30%; right:-140px; animation:floatB 22s ease-in-out infinite; }
+.orb.o3{ width:420px; height:420px; background:#22d3ee; bottom:-160px; left:30%; animation:floatC 26s ease-in-out infinite; opacity:.30; }
+
+@keyframes floatA{ 0%,100%{ transform:translate(0,0); } 50%{ transform:translate(80px,60px); } }
+@keyframes floatB{ 0%,100%{ transform:translate(0,0); } 50%{ transform:translate(-60px,80px); } }
+@keyframes floatC{ 0%,100%{ transform:translate(0,0); } 50%{ transform:translate(40px,-70px); } }
+
+.bg-grid{
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index:0;
+  background-image:
+    linear-gradient(rgba(91,140,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91,140,255,0.05) 1px, transparent 1px);
+  background-size:60px 60px;
+  mask-image:radial-gradient(ellipse at center, black 30%, transparent 75%);
+  -webkit-mask-image:radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
+
+/* ===== NAV ===== */
+nav{
+  position:relative;
+  z-index:10;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:20px 48px;
+  background:rgba(5,11,24,0.65);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+}
+.nav-logo{
+  display:flex; align-items:center; gap:12px;
+  text-decoration:none;
+  color:var(--text);
+}
+.nav-logo-mark{
+  width:38px; height:38px;
+  border-radius:10px;
+  background:var(--grad);
+  display:flex; align-items:center; justify-content:center;
+  font-weight:900;
+  font-size:1.05rem;
+  color:#fff;
+  box-shadow:0 8px 22px rgba(91,140,255,.4);
+  letter-spacing:-0.5px;
+}
+.nav-logo-name{
+  font-weight:800;
+  font-size:1.15rem;
+  letter-spacing:-0.3px;
+}
+.nav-logo-name span{
+  background:var(--grad);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+.nav-back{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 16px;
+  border-radius:10px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  color:var(--text);
+  text-decoration:none;
+  font-size:.9rem;
+  font-weight:600;
+  transition:background .15s, border-color .15s;
+}
+.nav-back:hover{
+  background:rgba(91,140,255,.12);
+  border-color:rgba(91,140,255,.4);
+}
+
+/* ===== HEADER ===== */
+.page-head{
+  position:relative; z-index:5;
+  text-align:center;
+  padding:80px 48px 40px;
+  max-width:1100px;
+  margin:0 auto;
+}
+.page-head .eyebrow{
+  display:inline-block;
+  font-size:.82rem;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:#5b8cff;
+  margin-bottom:14px;
+}
+.page-head h1{
+  font-size:clamp(2.2rem, 4.5vw, 3.4rem);
+  font-weight:900;
+  letter-spacing:-1px;
+  margin:0 0 14px;
+}
+.page-head h1 .grad{
+  background:var(--grad);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.page-head p{
+  color:var(--muted);
+  max-width:560px;
+  margin:0 auto;
+  font-size:1.05rem;
+  line-height:1.6;
+}
+
+/* ===== CARD GRID ===== */
+.bot-grid{
+  position:relative; z-index:5;
+  max-width:1180px;
+  margin:0 auto;
+  padding:30px 48px 80px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));
+  gap:26px;
+}
+
+.bot-card{
+  position:relative;
+  background:linear-gradient(180deg, rgba(15,29,58,0.85), rgba(10,20,40,0.7));
+  border:1px solid var(--border);
+  border-radius:20px;
+  overflow:hidden;
+  text-decoration:none;
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+  transition:transform .25s ease, border-color .2s, box-shadow .25s;
+}
+.bot-card.is-live{ cursor:pointer; }
+.bot-card.is-live::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at 50% 0%, rgba(91,140,255,.15), transparent 60%);
+  opacity:0;
+  transition:opacity .3s;
+  pointer-events:none;
+}
+.bot-card.is-live:hover{
+  transform:translateY(-6px);
+  border-color:rgba(91,140,255,.5);
+  box-shadow:0 25px 60px rgba(0,0,0,.4), 0 0 0 1px rgba(91,140,255,.15);
+}
+.bot-card.is-live:hover::before{ opacity:1; }
+
+.bot-card.is-soon{
+  cursor:default;
+  opacity:.7;
+  filter:saturate(.6);
+}
+.bot-card.is-soon:hover{
+  border-color:var(--border);
+  transform:none;
+}
+
+/* Card header banner */
+.bot-banner{
+  position:relative;
+  padding:34px 28px 26px;
+  background:linear-gradient(135deg, rgba(91,140,255,0.18), rgba(139,92,246,0.12));
+  border-bottom:1px solid var(--border);
+  overflow:hidden;
+}
+.bot-banner::after{
+  content:"";
+  position:absolute;
+  top:-40%; right:-20%;
+  width:200px; height:200px;
+  background:radial-gradient(circle, rgba(91,140,255,.35), transparent 60%);
+  filter:blur(40px);
+  pointer-events:none;
+}
+
+/* SP4RK gets its signature warm flame banner */
+.bot-card.sp4rk .bot-banner{
+  background:linear-gradient(135deg, rgba(255,140,40,0.22), rgba(255,60,30,0.15));
+}
+.bot-card.sp4rk .bot-banner::after{
+  background:radial-gradient(circle, rgba(255,140,40,.4), transparent 60%);
+}
+
+.bot-icon{
+  position:relative;
+  width:64px; height:64px;
+  border-radius:16px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.6rem;
+  font-weight:900;
+  color:#fff;
+  letter-spacing:-1px;
+  z-index:1;
+  box-shadow:0 12px 30px rgba(0,0,0,.3);
+}
+.bot-card.sp4rk .bot-icon{
+  background:linear-gradient(135deg, #ff8a1f, #ff3b1d);
+  box-shadow:0 12px 30px rgba(255,80,30,.4);
+}
+.bot-card.coming .bot-icon{
+  background:linear-gradient(135deg, #5b8cff, #8b5cf6);
+}
+
+.bot-status{
+  position:absolute;
+  top:18px; right:18px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 11px;
+  border-radius:99px;
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+  z-index:1;
+}
+.status-live{
+  background:rgba(34,211,238,0.15);
+  color:#22d3ee;
+  border:1px solid rgba(34,211,238,0.4);
+}
+.status-live .dot{
+  width:7px; height:7px; border-radius:50%;
+  background:#22d3ee;
+  box-shadow:0 0 8px #22d3ee;
+  animation:blink 1.6s ease-in-out infinite;
+}
+.status-soon{
+  background:rgba(255,193,7,0.12);
+  color:#ffd76a;
+  border:1px solid rgba(255,193,7,0.35);
+}
+@keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+/* Card body */
+.bot-body{
+  padding:24px 28px 26px;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+.bot-name{
+  font-size:1.5rem;
+  font-weight:800;
+  letter-spacing:-.4px;
+  margin:0 0 4px;
+}
+.bot-tag{
+  font-size:.85rem;
+  color:#5b8cff;
+  font-weight:600;
+  margin-bottom:14px;
+}
+.bot-card.sp4rk .bot-tag{ color:#ff8a1f; }
+
+.bot-desc{
+  color:var(--muted);
+  font-size:.94rem;
+  line-height:1.6;
+  margin:0 0 18px;
+  flex:1;
+}
+
+.bot-tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:18px;
+}
+.bot-tags .chip{
+  font-size:.72rem;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:99px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  color:#a5b6d2;
+}
+
+.bot-cta{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:12px 18px;
+  border-radius:10px;
+  background:var(--grad);
+  color:#fff;
+  font-weight:700;
+  font-size:.93rem;
+  text-decoration:none;
+  transition:transform .15s, box-shadow .15s;
+}
+.bot-card.sp4rk .bot-cta{
+  background:linear-gradient(135deg, #ff8a1f, #ff3b1d);
+  box-shadow:0 8px 22px rgba(255,80,30,.35);
+}
+.bot-card.is-live:hover .bot-cta{
+  transform:translateY(-1px);
+  box-shadow:0 12px 28px rgba(91,140,255,.45);
+}
+.bot-card.sp4rk.is-live:hover .bot-cta{
+  box-shadow:0 12px 28px rgba(255,80,30,.5);
+}
+.bot-cta-soon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:12px 18px;
+  border-radius:10px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  color:var(--muted);
+  font-weight:600;
+  font-size:.92rem;
+}
+
+/* ===== FOOTER ===== */
+footer{
+  position:relative; z-index:5;
+  padding:30px 48px;
+  border-top:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:14px;
+  color:var(--muted);
+  font-size:.88rem;
+}
+.footer-socials a{
+  color:var(--muted);
+  margin-right:14px;
+  font-size:1.05rem;
+  transition:color .15s;
+}
+.footer-socials a:hover{ color:#5b8cff; }
+
+@media (max-width:760px){
+  nav{ padding:16px 22px; }
+  .page-head{ padding:60px 22px 30px; }
+  .bot-grid{ padding:20px 22px 60px; gap:18px; }
+  footer{ padding:22px; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- Animated background -->
+<div class="bg-orbs">
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+</div>
+<div class="bg-grid"></div>
+
+<!-- ===== NAV ===== -->
+<nav>
+  <a class="nav-logo" href="{{ url_for('landing') }}">
+    <div class="nav-logo-mark">B/L</div>
+    <div class="nav-logo-name">Byte<span>Labs</span></div>
+  </a>
+  <a class="nav-back" href="{{ url_for('landing') }}">
+    <i class="fas fa-arrow-left"></i> Back to Byte Labs
+  </a>
+</nav>
+
+<!-- ===== HEADER ===== -->
+<header class="page-head">
+  <div class="eyebrow">Our Bots</div>
+  <h1>Meet the <span class="grad">Byte Labs</span> lineup.</h1>
+  <p>Each bot is purpose-built, AI-augmented, and backed by a beautiful web dashboard. Pick one to learn more.</p>
+</header>
+
+<!-- ===== CARD GRID ===== -->
+<section class="bot-grid">
+
+  <!-- SP4RK card (LIVE) -->
+  <a href="{{ url_for('sp4rk_landing') }}" class="bot-card sp4rk is-live">
+    <div class="bot-banner">
+      <div class="bot-icon">S</div>
+      <div class="bot-status status-live"><span class="dot"></span> Live</div>
+    </div>
+    <div class="bot-body">
+      <div class="bot-name">SP4RK</div>
+      <div class="bot-tag">Discord Moderation &amp; Engagement</div>
+      <div class="bot-desc">
+        All-in-one Discord bot — AI-powered automod, anti-raid, tickets, giveaways,
+        XP leveling, social alerts, and a full web dashboard to control every setting in real time.
+      </div>
+      <div class="bot-tags">
+        <span class="chip">AutoMod</span>
+        <span class="chip">Anti-Raid</span>
+        <span class="chip">Tickets</span>
+        <span class="chip">XP / Levels</span>
+        <span class="chip">Giveaways</span>
+      </div>
+      <span class="bot-cta">
+        Open SP4RK <i class="fas fa-arrow-right"></i>
+      </span>
+    </div>
+  </a>
+
+  <!-- Coming Soon card 1 -->
+  <div class="bot-card coming is-soon">
+    <div class="bot-banner">
+      <div class="bot-icon"><i class="fas fa-music"></i></div>
+      <div class="bot-status status-soon">Coming Soon</div>
+    </div>
+    <div class="bot-body">
+      <div class="bot-name">Tempo</div>
+      <div class="bot-tag">Music &amp; Voice Engagement</div>
+      <div class="bot-desc">
+        High-quality music streaming, voice channel events, and listener leaderboards —
+        designed for music-loving communities.
+      </div>
+      <div class="bot-tags">
+        <span class="chip">Music</span>
+        <span class="chip">Voice</span>
+        <span class="chip">Playlists</span>
+      </div>
+      <span class="bot-cta-soon">
+        <i class="fas fa-clock"></i> In the Lab
+      </span>
+    </div>
+  </div>
+
+  <!-- Coming Soon card 2 -->
+  <div class="bot-card coming is-soon">
+    <div class="bot-banner">
+      <div class="bot-icon"><i class="fas fa-chart-line"></i></div>
+      <div class="bot-status status-soon">Coming Soon</div>
+    </div>
+    <div class="bot-body">
+      <div class="bot-name">Pulse</div>
+      <div class="bot-tag">Analytics &amp; Insights</div>
+      <div class="bot-desc">
+        Track server growth, engagement trends, top contributors, and channel health
+        with beautiful, exportable reports.
+      </div>
+      <div class="bot-tags">
+        <span class="chip">Analytics</span>
+        <span class="chip">Reports</span>
+        <span class="chip">Insights</span>
+      </div>
+      <span class="bot-cta-soon">
+        <i class="fas fa-clock"></i> In the Lab
+      </span>
+    </div>
+  </div>
+
+</section>
+
+<footer>
+  <div>© <span id="yr"></span> Byte Labs. Crafted with care for communities.</div>
+  <div class="footer-socials">
+    <a href="#" aria-label="Discord"><i class="fa-brands fa-discord"></i></a>
+    <a href="#" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
+    <a href="#" aria-label="X"><i class="fa-brands fa-x-twitter"></i></a>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>

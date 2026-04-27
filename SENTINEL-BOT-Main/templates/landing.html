@@ -792,13 +792,16 @@ footer{
 
 <!-- ===== NAV ===== -->
 <nav>
-  <a class="nav-logo" href="/" id="navLogo">
+  <a class="nav-logo" href="{{ url_for('sp4rk_landing') }}" id="navLogo">
     <svg width="30" height="34" viewBox="0 0 40 46">
       <path d="M20 3L4 10.5V22C4 32.5 11.5 42.2 20 45C28.5 42.2 36 32.5 36 22V10.5L20 3Z"
         fill="#0d2245" stroke="#3a8fff" stroke-width="1.8"/>
       <text x="20" y="31" text-anchor="middle" fill="#3a8fff" font-size="18" font-weight="bold">S</text>
     </svg>
     <span class="nav-logo-name">SP4RK</span>
+  </a>
+  <a href="{{ url_for('bots_showcase') }}" class="btn-ghost" style="margin-left:auto;margin-right:12px;">
+    <i class="fas fa-arrow-left"></i> Our Bots
   </a>
 
   <div class="nav-right">

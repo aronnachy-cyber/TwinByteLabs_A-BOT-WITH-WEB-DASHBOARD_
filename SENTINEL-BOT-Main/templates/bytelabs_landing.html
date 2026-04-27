@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Byte Labs — Intelligent Bots for Modern Communities</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#050b18;
+  --bg2:#0a1428;
+  --bg3:#0f1d3a;
+  --accent:#5b8cff;
+  --accent2:#8b5cf6;
+  --accent3:#22d3ee;
+  --text:#e8f0ff;
+  --muted:#8295b8;
+  --border:rgba(91,140,255,0.18);
+  --grad:linear-gradient(135deg,#5b8cff 0%,#8b5cf6 50%,#22d3ee 100%);
+}
+html,body{ overflow-x:hidden; }
+body{
+  font-family:'Inter','Segoe UI',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  position:relative;
+}
+
+/* ===== ANIMATED BACKGROUND ===== */
+.bg-orbs{
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index:0;
+  overflow:hidden;
+}
+.orb{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(80px);
+  opacity:.55;
+}
+.orb.o1{ width:520px; height:520px; background:#5b8cff; top:-120px; left:-100px; animation:floatA 18s ease-in-out infinite; }
+.orb.o2{ width:480px; height:480px; background:#8b5cf6; top:30%; right:-140px; animation:floatB 22s ease-in-out infinite; }
+.orb.o3{ width:420px; height:420px; background:#22d3ee; bottom:-160px; left:30%; animation:floatC 26s ease-in-out infinite; opacity:.35; }
+
+@keyframes floatA{ 0%,100%{ transform:translate(0,0); } 50%{ transform:translate(80px,60px); } }
+@keyframes floatB{ 0%,100%{ transform:translate(0,0); } 50%{ transform:translate(-60px,80px); } }
+@keyframes floatC{ 0%,100%{ transform:translate(0,0); } 50%{ transform:translate(40px,-70px); } }
+
+/* Grid overlay */
+.bg-grid{
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index:0;
+  background-image:
+    linear-gradient(rgba(91,140,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91,140,255,0.05) 1px, transparent 1px);
+  background-size:60px 60px;
+  mask-image:radial-gradient(ellipse at center, black 30%, transparent 75%);
+  -webkit-mask-image:radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
+
+/* ===== NAV ===== */
+nav{
+  position:relative;
+  z-index:10;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:20px 48px;
+  background:rgba(5,11,24,0.65);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+}
+.nav-logo{
+  display:flex; align-items:center; gap:12px;
+  text-decoration:none;
+  color:var(--text);
+}
+.nav-logo-mark{
+  width:38px; height:38px;
+  border-radius:10px;
+  background:var(--grad);
+  display:flex; align-items:center; justify-content:center;
+  font-weight:900;
+  font-size:1.05rem;
+  color:#fff;
+  box-shadow:0 8px 22px rgba(91,140,255,.4);
+  letter-spacing:-0.5px;
+}
+.nav-logo-name{
+  font-weight:800;
+  font-size:1.15rem;
+  letter-spacing:-0.3px;
+}
+.nav-logo-name span{
+  background:var(--grad);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+.nav-links{
+  display:flex; align-items:center; gap:30px;
+}
+.nav-links a{
+  color:var(--muted);
+  text-decoration:none;
+  font-size:.93rem;
+  font-weight:500;
+  transition:color .15s;
+}
+.nav-links a:hover{ color:var(--text); }
+
+.nav-cta{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 20px;
+  border-radius:10px;
+  background:var(--grad);
+  color:#fff;
+  text-decoration:none;
+  font-weight:600;
+  font-size:.92rem;
+  box-shadow:0 6px 18px rgba(91,140,255,.35);
+  transition:transform .15s, box-shadow .15s;
+}
+.nav-cta:hover{
+  transform:translateY(-1px);
+  box-shadow:0 10px 26px rgba(91,140,255,.5);
+}
+
+/* ===== HERO ===== */
+.hero{
+  position:relative;
+  z-index:5;
+  max-width:1180px;
+  margin:0 auto;
+  padding:110px 48px 80px;
+  text-align:center;
+}
+.hero-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 16px;
+  border-radius:99px;
+  background:rgba(91,140,255,0.1);
+  border:1px solid rgba(91,140,255,0.3);
+  color:#a5c0ff;
+  font-size:.82rem;
+  font-weight:600;
+  margin-bottom:28px;
+  letter-spacing:.3px;
+}
+.hero-badge .dot{
+  width:7px; height:7px; border-radius:50%;
+  background:#22d3ee;
+  box-shadow:0 0 10px #22d3ee;
+  animation:blink 1.6s ease-in-out infinite;
+}
+@keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+.hero h1{
+  font-size:clamp(2.4rem, 5.5vw, 4.5rem);
+  font-weight:900;
+  line-height:1.05;
+  letter-spacing:-1.5px;
+  margin:0 0 22px;
+}
+.hero h1 .grad{
+  background:var(--grad);
+  background-size:200% 200%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:gradShift 6s ease-in-out infinite;
+}
+@keyframes gradShift{ 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+
+.hero p.lede{
+  font-size:1.15rem;
+  color:var(--muted);
+  max-width:680px;
+  margin:0 auto 38px;
+  line-height:1.65;
+}
+
+.hero-cta-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  flex-wrap:wrap;
+}
+
+.btn-primary{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:15px 32px;
+  background:var(--grad);
+  color:#fff;
+  text-decoration:none;
+  border-radius:12px;
+  font-weight:700;
+  font-size:1rem;
+  box-shadow:0 10px 30px rgba(91,140,255,.4);
+  transition:transform .15s, box-shadow .2s;
+  position:relative;
+  overflow:hidden;
+}
+.btn-primary::before{
+  content:"";
+  position:absolute;
+  top:0; left:-75%;
+  width:50%; height:100%;
+  background:linear-gradient(120deg, transparent, rgba(255,255,255,.35), transparent);
+  transform:skewX(-20deg);
+  transition:left .7s ease;
+}
+.btn-primary:hover{
+  transform:translateY(-2px);
+  box-shadow:0 14px 38px rgba(91,140,255,.55);
+}
+.btn-primary:hover::before{ left:130%; }
+
+.btn-secondary{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:15px 28px;
+  background:rgba(255,255,255,.04);
+  color:var(--text);
+  text-decoration:none;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  font-weight:600;
+  font-size:1rem;
+  transition:background .15s, border-color .15s, transform .15s;
+}
+.btn-secondary:hover{
+  background:rgba(255,255,255,.08);
+  border-color:rgba(255,255,255,.25);
+  transform:translateY(-1px);
+}
+
+/* ===== STATS BAR ===== */
+.stats{
+  position:relative; z-index:5;
+  max-width:1100px;
+  margin:0 auto 60px;
+  padding:0 48px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  gap:18px;
+}
+.stat-card{
+  background:rgba(15,29,58,0.5);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:24px 22px;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.stat-num{
+  font-size:1.9rem;
+  font-weight:800;
+  background:var(--grad);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  letter-spacing:-1px;
+}
+.stat-label{
+  margin-top:4px;
+  font-size:.85rem;
+  color:var(--muted);
+  font-weight:500;
+}
+
+/* ===== WHAT WE BUILD ===== */
+.section{
+  position:relative; z-index:5;
+  max-width:1180px;
+  margin:0 auto;
+  padding:80px 48px;
+}
+.section-head{
+  text-align:center;
+  margin-bottom:50px;
+}
+.section-head .eyebrow{
+  display:inline-block;
+  font-size:.82rem;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:#5b8cff;
+  margin-bottom:10px;
+}
+.section-head h2{
+  font-size:clamp(1.8rem, 3vw, 2.4rem);
+  font-weight:800;
+  letter-spacing:-.6px;
+  margin:0 0 12px;
+}
+.section-head p{
+  max-width:600px;
+  margin:0 auto;
+  color:var(--muted);
+  line-height:1.65;
+}
+
+.pillar-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+  gap:20px;
+}
+.pillar{
+  position:relative;
+  background:linear-gradient(180deg, rgba(15,29,58,0.7), rgba(10,20,40,0.5));
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:28px 26px;
+  transition:transform .2s, border-color .2s, box-shadow .2s;
+  overflow:hidden;
+}
+.pillar::before{
+  content:"";
+  position:absolute;
+  top:0; left:0; right:0;
+  height:3px;
+  background:var(--grad);
+  opacity:0;
+  transition:opacity .2s;
+}
+.pillar:hover{
+  transform:translateY(-4px);
+  border-color:rgba(91,140,255,.4);
+  box-shadow:0 20px 40px rgba(0,0,0,.3);
+}
+.pillar:hover::before{ opacity:1; }
+
+.pillar-icon{
+  width:48px; height:48px;
+  border-radius:12px;
+  background:rgba(91,140,255,.12);
+  border:1px solid rgba(91,140,255,.2);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.2rem;
+  color:#5b8cff;
+  margin-bottom:18px;
+}
+.pillar h3{
+  font-size:1.1rem;
+  font-weight:700;
+  margin:0 0 8px;
+}
+.pillar p{
+  color:var(--muted);
+  font-size:.92rem;
+  line-height:1.6;
+  margin:0;
+}
+
+/* ===== CTA STRIP ===== */
+.cta-strip{
+  position:relative; z-index:5;
+  max-width:1100px;
+  margin:30px auto 80px;
+  padding:50px 48px;
+  text-align:center;
+  background:linear-gradient(135deg, rgba(91,140,255,0.12), rgba(139,92,246,0.10));
+  border:1px solid rgba(91,140,255,0.25);
+  border-radius:20px;
+  overflow:hidden;
+}
+.cta-strip::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at 30% 20%, rgba(91,140,255,.15), transparent 50%),
+             radial-gradient(circle at 70% 80%, rgba(34,211,238,.12), transparent 50%);
+  pointer-events:none;
+}
+.cta-strip > *{ position:relative; }
+.cta-strip h2{
+  font-size:1.8rem;
+  font-weight:800;
+  margin:0 0 10px;
+  letter-spacing:-.5px;
+}
+.cta-strip p{
+  color:var(--muted);
+  margin:0 0 26px;
+  font-size:1rem;
+}
+
+/* ===== FOOTER ===== */
+footer{
+  position:relative; z-index:5;
+  padding:30px 48px;
+  border-top:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:14px;
+  color:var(--muted);
+  font-size:.88rem;
+}
+.footer-socials a{
+  color:var(--muted);
+  margin-right:14px;
+  font-size:1.05rem;
+  transition:color .15s;
+}
+.footer-socials a:hover{ color:#5b8cff; }
+
+@media (max-width:760px){
+  nav{ padding:16px 22px; }
+  .nav-links{ display:none; }
+  .hero{ padding:80px 22px 60px; }
+  .stats{ padding:0 22px; }
+  .section{ padding:60px 22px; }
+  .cta-strip{ margin:20px 22px 60px; padding:38px 26px; }
+  footer{ padding:22px; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- Animated background -->
+<div class="bg-orbs">
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+</div>
+<div class="bg-grid"></div>
+
+<!-- ===== NAV ===== -->
+<nav>
+  <a class="nav-logo" href="{{ url_for('landing') }}">
+    <div class="nav-logo-mark">B/L</div>
+    <div class="nav-logo-name">Byte<span>Labs</span></div>
+  </a>
+  <div class="nav-links">
+    <a href="{{ url_for('bots_showcase') }}">Our Bots</a>
+    <a href="#what-we-build">What We Build</a>
+    <a href="#contact">Contact</a>
+  </div>
+  <a class="nav-cta" href="{{ url_for('bots_showcase') }}">
+    Explore Bots <i class="fas fa-arrow-right"></i>
+  </a>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-badge">
+    <span class="dot"></span>
+    <span>Building the future of community automation</span>
+  </div>
+  <h1>
+    We build <span class="grad">intelligent bots</span><br>
+    that power modern communities.
+  </h1>
+  <p class="lede">
+    Byte Labs designs and ships AI-driven bots, dashboards, and automation tools
+    that help Discord servers, communities, and creators run smoother — without
+    the busywork.
+  </p>
+  <div class="hero-cta-row">
+    <a class="btn-primary" href="{{ url_for('bots_showcase') }}">
+      <i class="fas fa-th-large"></i> Our Bots
+    </a>
+    <a class="btn-secondary" href="#what-we-build">
+      <i class="fas fa-circle-info"></i> Learn More
+    </a>
+  </div>
+</section>
+
+<!-- ===== STATS ===== -->
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-num">1+</div>
+    <div class="stat-label">Production bot live</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">24/7</div>
+    <div class="stat-label">Always-on infrastructure</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">AI</div>
+    <div class="stat-label">Powered moderation</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">∞</div>
+    <div class="stat-label">More bots in the lab</div>
+  </div>
+</div>
+
+<!-- ===== WHAT WE BUILD ===== -->
+<section class="section" id="what-we-build">
+  <div class="section-head">
+    <div class="eyebrow">What We Build</div>
+    <h2>Every Byte Labs bot follows the same principles.</h2>
+    <p>Beautiful dashboards, intelligent automation, rock-solid uptime, and full control in your hands.</p>
+  </div>
+  <div class="pillar-grid">
+    <div class="pillar">
+      <div class="pillar-icon"><i class="fas fa-brain"></i></div>
+      <h3>AI-First Automation</h3>
+      <p>Every bot is augmented with AI for smarter moderation, content understanding, and natural responses.</p>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon"><i class="fas fa-display"></i></div>
+      <h3>Web Dashboards</h3>
+      <p>Configure everything from a beautiful web UI — no commands to memorize, no JSON to edit by hand.</p>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon"><i class="fas fa-shield-halved"></i></div>
+      <h3>Security &amp; Anti-Raid</h3>
+      <p>Built-in protection layers keep your community safe from raids, spam, and bad actors around the clock.</p>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon"><i class="fas fa-bolt"></i></div>
+      <h3>Always Online</h3>
+      <p>Production-grade hosting and self-healing connections mean our bots stay online so you don't have to babysit them.</p>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon"><i class="fas fa-puzzle-piece"></i></div>
+      <h3>Modular Features</h3>
+      <p>Toggle exactly what you need — moderation, levels, tickets, giveaways, social alerts — and turn off what you don't.</p>
+    </div>
+    <div class="pillar">
+      <div class="pillar-icon"><i class="fas fa-code-branch"></i></div>
+      <h3>Continuously Updated</h3>
+      <p>We ship improvements weekly. New features land for everyone, automatically, no re-installation required.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<section class="cta-strip" id="contact">
+  <h2>Ready to add a Byte Labs bot to your server?</h2>
+  <p>Browse our growing lineup of bots and find the one that fits your community.</p>
+  <a class="btn-primary" href="{{ url_for('bots_showcase') }}">
+    See All Our Bots <i class="fas fa-arrow-right"></i>
+  </a>
+</section>
+
+<footer>
+  <div>© <span id="yr"></span> Byte Labs. Crafted with care for communities.</div>
+  <div class="footer-socials">
+    <a href="#" aria-label="Discord"><i class="fa-brands fa-discord"></i></a>
+    <a href="#" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
+    <a href="#" aria-label="X"><i class="fa-brands fa-x-twitter"></i></a>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
