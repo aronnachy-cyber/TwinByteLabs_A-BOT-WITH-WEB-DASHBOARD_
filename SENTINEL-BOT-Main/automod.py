@@ -189,12 +189,10 @@ async def _instant_mute(message, reason, minutes=AUTOMUTE_MINUTES):
 
 
 async def auto_dm_warning_user(member, reason, guild_name):
-    try:
-        await member.send(
-            f"⚠️ SP4RK Alert: Chill. That behavior ain't it. Fix it before this escalates."
-        )
-    except Exception:
-        pass
+    """Disabled — SP4RK no longer DMs offending users.
+    Warnings are sent only to staff via the log channel/webhook.
+    Manual `/warn` by a member or staff is the only way to notify a user directly."""
+    return
 
 async def apply_graduated_punishment(message, config, count, add_warning_fn):
     """Apply escalating punishments based on warning count."""
@@ -316,13 +314,19 @@ async def handle_message(message, config, add_warning_fn=None):
     author  = message.author
     channel = message.channel
 
+    # Allowlist — words listed here are NEVER treated as banned, even if
+    # they appear in the strict profanity list or any blacklist (false-positive guard).
+    allowlist_raw = (config.get("auto_allowlist", "") or "")
+    allowlist = [w.strip().lower() for w in allowlist_raw.split(",") if w.strip()]
+    if allowlist:
+        normalized = _normalize(content)
+        if any(_contains_word(normalized, w) for w in allowlist):
+            return False  # message is exempt — bail out before any punishment
+
     async def _punish(reason, log_title, log_desc, dm=True):
+        # SP4RK no longer warns the offending user directly — staff are notified instead.
+        # We still delete the message and record the warning for staff/mods.
         await safe_delete(message)
-        if dm and config.get("auto_dm_warning") == "ON":
-            await auto_dm_warning_user(author, reason, message.guild.name)
-        await channel.send(
-            f"⚠️ {author.mention} Warning issued. Don't test system limits.", delete_after=7
-        )
         count = None
         if add_warning_fn:
             count = await add_warning_fn(author, reason)

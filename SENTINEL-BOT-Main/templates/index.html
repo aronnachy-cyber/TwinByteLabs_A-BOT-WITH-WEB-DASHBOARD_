@@ -503,15 +503,29 @@ input:checked + .slider:before { transform: translateX(22px); }
         <label class="toggle"><input type="checkbox" id="auto_block_mentions" {% if config.get('auto_block_mentions')=='ON' %}checked{% endif %}><span class="slider"></span></label>
       </div>
       <div class="row">
-        <div class="row-label"><strong>Auto DM Warning</strong>DM user when their message is deleted</div>
-        <label class="toggle"><input type="checkbox" id="auto_dm_warning" {% if config.get('auto_dm_warning')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+        <div class="row-label">
+          <strong>Auto DM Warning</strong>
+          <span style="color:var(--muted);font-size:.78rem;">Disabled — SP4RK no longer DMs offending users. Warnings now go to staff only via the log channel/webhook. Use <code>/warn</code> for manual member-to-user warnings.</span>
+        </div>
+        <label class="toggle" style="opacity:.5;cursor:not-allowed;">
+          <input type="checkbox" id="auto_dm_warning" disabled><span class="slider"></span>
+        </label>
       </div>
     </div>
 
     <div class="card">
       <div class="card-title"><i class="fas fa-list-ul"></i> Custom Word Blacklist</div>
-      <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px;">Comma-separated. Messages with these words are auto-deleted + warned.</p>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px;">Comma-separated. Messages with these words are auto-deleted + logged to staff.</p>
       <textarea id="auto_custom_blacklist" style="min-height:100px;" placeholder="word1, word2, phrase">{{ config.get('auto_custom_blacklist','') }}</textarea>
+    </div>
+
+    <div class="card" style="border:1px solid #2e7d4f;">
+      <div class="card-title" style="color:#7CFC9C;"><i class="fas fa-shield-heart"></i> Words NOT Banned (Allowlist)</div>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px;">
+        Comma-separated. Messages containing <b>any</b> of these words/phrases are <b>fully exempt</b> — even if they would otherwise match the strict profanity filter or any blacklist.
+        Useful for false-positives like brand names, place names ("Scunthorpe"), or technical terms.
+      </p>
+      <textarea id="auto_allowlist" style="min-height:90px;" placeholder="scunthorpe, assassin, classic, mybrand">{{ config.get('auto_allowlist','') }}</textarea>
     </div>
 
     <div class="card">
@@ -1062,7 +1076,7 @@ function collectData() {
     profanity_level: getText('profanity_level'), mute_role: getText('mute_role'), auto_role: getText('auto_role'),
     auto_block_links: getCheck('auto_block_links'), auto_block_invites: getCheck('auto_block_invites'),
     auto_block_mentions: getCheck('auto_block_mentions'), auto_dm_warning: getCheck('auto_dm_warning'),
-    auto_custom_blacklist: getText('auto_custom_blacklist'), webhook_log: getText('webhook_log'),
+    auto_custom_blacklist: getText('auto_custom_blacklist'), auto_allowlist: getText('auto_allowlist'), webhook_log: getText('webhook_log'),
     warning_limit: parseInt(getText('warning_limit')) || 30, owner_approval: getCheck('owner_approval'),
     anti_raid: getCheck('anti_raid'), security_2fa: getCheck('security_2fa'),
     role_monitor: getCheck('role_monitor'), mass_ban_prevent: getCheck('mass_ban_prevent'),

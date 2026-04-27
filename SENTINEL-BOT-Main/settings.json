@@ -14,7 +14,7 @@
     "auto_block_invites": "ON",
     "auto_block_mentions": "ON",
     "auto_custom_blacklist": "67,6251",
-    "auto_dm_warning": "ON",
+    "auto_dm_warning": "OFF",
     "webhook_log": "",
     "warning_limit": 20,
     "owner_approval": "ON",
@@ -34,5 +34,6 @@
     "daily_report": "ON",
     "leveling": "ON",
     "level_up_message": "{user} You have reached a milestone.upgraded to {level} discord.gg",
-    "server_lang": "en"
+    "server_lang": "en",
+    "auto_allowlist": ""
 }

@@ -431,7 +431,7 @@ TOGGLE_KEYS = [
 TEXT_KEYS = [
     "prefix", "bot_status", "theme_color", "welcome_msg", "bot_avatar",
     "log_channel", "profanity_level", "mute_role", "auto_role",
-    "auto_custom_blacklist", "webhook_log", "banned_words",
+    "auto_custom_blacklist", "auto_allowlist", "webhook_log", "banned_words",
     "youtube_channel_link", "youtube_notify_msg", "multi_channel",
     "owner_dm_id", "ticket_category", "level_up_message",
     "spam_threshold", "spam_window", "caps_percent",
