@@ -2,112 +2,246 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SP4RK — Login</title>
+<title>Byte Labs — Sign In</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
   :root{
-    --bg:#07101f;
-    --panel:#0f1d38;
-    --accent:#3a8fff;
-    --accent2:#5ab4ff;
-    --text:#e8f0ff;
-    --muted:#7a93b8;
-    --border:rgba(58,143,255,.25);
+    --bg:#050b18;
+    --bg2:#0a1428;
+    --bg3:#0f1d3a;
+    --accent:#5b8cff;
+    --accent2:#8b5cf6;
+    --accent3:#22d3ee;
+    --text:#e8efff;
+    --muted:#8a9bbf;
+    --border:rgba(91,140,255,.18);
+    --grad:linear-gradient(135deg,#5b8cff 0%,#8b5cf6 50%,#22d3ee 100%);
     --discord:#5865F2;
+    --discord-hover:#4752c4;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{
-    font-family:'Segoe UI',sans-serif;
-    background:radial-gradient(ellipse at top,#0d2245 0%,#07101f 70%);
+    font-family:'Inter','Segoe UI',system-ui,sans-serif;
+    background:var(--bg);
     color:var(--text);
     min-height:100vh;
     display:flex;
     align-items:center;
     justify-content:center;
     padding:24px;
+    overflow:hidden;
+    position:relative;
   }
+
+  /* === Floating gradient orbs (matches Byte Labs landing) === */
+  .bg-orbs{position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none;}
+  .orb{
+    position:absolute;border-radius:50%;
+    filter:blur(110px);opacity:.5;
+  }
+  .orb.o1{ width:520px; height:520px; background:#5b8cff; top:-120px; left:-100px; animation:floatA 18s ease-in-out infinite; }
+  .orb.o2{ width:480px; height:480px; background:#8b5cf6; top:30%; right:-140px; animation:floatB 22s ease-in-out infinite; }
+  .orb.o3{ width:420px; height:420px; background:#22d3ee; bottom:-160px; left:30%; animation:floatC 26s ease-in-out infinite; opacity:.35; }
+  @keyframes floatA{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(40px,60px);} }
+  @keyframes floatB{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(-50px,30px);} }
+  @keyframes floatC{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(30px,-50px);} }
+
+  /* === Subtle grid overlay === */
+  .bg-grid{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(91,140,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(91,140,255,0.05) 1px, transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(ellipse at center, black 30%, transparent 75%);
+    -webkit-mask-image:radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+
+  /* === Login card === */
   .card{
+    position:relative;
+    z-index:1;
     width:100%;
-    max-width:420px;
-    background:var(--panel);
+    max-width:440px;
+    background:rgba(10,20,40,0.75);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
     border:1px solid var(--border);
-    border-radius:18px;
-    padding:40px 32px;
-    box-shadow:0 20px 60px rgba(0,0,0,.4);
+    border-radius:22px;
+    padding:44px 36px 36px;
+    box-shadow:
+      0 30px 80px rgba(0,0,0,.55),
+      0 0 0 1px rgba(91,140,255,.04) inset,
+      0 1px 0 rgba(255,255,255,.04) inset;
     text-align:center;
+    animation:cardIn .6s cubic-bezier(.2,.8,.2,1);
   }
-  .logo{
-    width:64px;height:72px;
-    margin:0 auto 18px;
+  @keyframes cardIn{
+    from{ opacity:0; transform:translateY(14px) scale(.98); }
+    to  { opacity:1; transform:translateY(0)    scale(1);   }
   }
-  h1{
-    font-size:1.6rem;
-    letter-spacing:2px;
-    color:var(--accent);
-    margin-bottom:8px;
-  }
-  p.lead{
-    color:var(--muted);
-    font-size:0.92rem;
-    margin-bottom:28px;
-    line-height:1.5;
-  }
-  .btn-discord{
+
+  /* === Brand mark (B/L gradient tile, identical to landing nav) === */
+  .brand{
     display:flex;
     align-items:center;
     justify-content:center;
+    gap:14px;
+    margin-bottom:22px;
+  }
+  .brand-mark{
+    width:54px;height:54px;
+    border-radius:14px;
+    background:var(--grad);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:900;color:#fff;font-size:1.05rem;letter-spacing:.5px;
+    box-shadow:0 10px 30px rgba(91,140,255,.35), 0 0 0 1px rgba(255,255,255,.08) inset;
+  }
+  .brand-name{
+    font-size:1.6rem;
+    font-weight:800;
+    letter-spacing:-.5px;
+    background:var(--grad);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+
+  h1{
+    font-size:1.55rem;
+    font-weight:700;
+    letter-spacing:-.4px;
+    margin-bottom:10px;
+    color:var(--text);
+  }
+  p.lead{
+    color:var(--muted);
+    font-size:.95rem;
+    line-height:1.55;
+    margin-bottom:28px;
+    max-width:340px;
+    margin-left:auto;margin-right:auto;
+  }
+
+  /* === Discord button === */
+  .btn-discord{
+    display:flex;align-items:center;justify-content:center;
     gap:12px;
     width:100%;
-    padding:14px 18px;
+    padding:15px 18px;
     background:var(--discord);
     color:#fff;
     border:none;
-    border-radius:10px;
+    border-radius:12px;
     font-size:1rem;
     font-weight:600;
+    font-family:inherit;
     text-decoration:none;
     cursor:pointer;
-    transition:opacity .15s,transform .15s;
+    transition:background .18s ease, transform .18s ease, box-shadow .18s ease;
+    box-shadow:0 8px 24px rgba(88,101,242,.35);
   }
-  .btn-discord:hover{opacity:.9;transform:translateY(-1px);}
-  .btn-discord i{font-size:1.3rem;}
+  .btn-discord:hover{
+    background:var(--discord-hover);
+    transform:translateY(-1px);
+    box-shadow:0 12px 30px rgba(88,101,242,.45);
+  }
+  .btn-discord i{font-size:1.25rem;}
+
+  /* === Alert / disabled note === */
   .alert{
-    background:rgba(231,76,60,.12);
-    border:1px solid rgba(231,76,60,.35);
+    background:rgba(255,80,80,.08);
+    border:1px solid rgba(255,80,80,.28);
     color:#ffb3a8;
-    padding:12px 14px;
-    border-radius:10px;
+    padding:13px 14px;
+    border-radius:12px;
     font-size:.88rem;
     margin-bottom:18px;
     text-align:left;
+    line-height:1.45;
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+  }
+  .alert i{color:#ff7a90;flex-shrink:0;margin-top:2px;}
+
+  /* === Tagline pill === */
+  .pill{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:6px 14px;
+    background:rgba(91,140,255,.1);
+    border:1px solid rgba(91,140,255,.25);
+    border-radius:999px;
+    font-size:.78rem;
+    font-weight:500;
+    color:var(--accent);
+    margin-bottom:20px;
+  }
+  .pill .dot{
+    width:6px;height:6px;border-radius:50%;background:#22d3ee;
+    box-shadow:0 0 10px #22d3ee;
+    animation:pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse{ 0%,100%{opacity:.6;} 50%{opacity:1;} }
+
+  /* === Footer links === */
+  .footer{
+    margin-top:26px;
+    padding-top:20px;
+    border-top:1px solid rgba(255,255,255,.05);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
   }
   .home-link{
-    display:inline-block;
-    margin-top:22px;
-    color:var(--accent2);
-    font-size:0.85rem;
-    text-decoration:none;
-  }
-  .home-link:hover{text-decoration:underline;}
-  .disabled-note{
-    margin-top:14px;
-    font-size:0.8rem;
     color:var(--muted);
+    font-size:.85rem;
+    text-decoration:none;
+    transition:color .15s ease;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .home-link:hover{ color:var(--accent); }
+  .secured{
+    color:var(--muted);
+    font-size:.78rem;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .secured i{color:#22d3ee;}
+
+  @media (max-width:480px){
+    .card{ padding:36px 24px 28px; border-radius:18px; }
+    .brand-mark{ width:46px;height:46px;font-size:.95rem; }
+    .brand-name{ font-size:1.35rem; }
+    h1{ font-size:1.35rem; }
   }
 </style>
 </head>
 <body>
+  <div class="bg-orbs">
+    <div class="orb o1"></div>
+    <div class="orb o2"></div>
+    <div class="orb o3"></div>
+  </div>
+  <div class="bg-grid"></div>
+
   <div class="card">
-    <svg class="logo" viewBox="0 0 40 46" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M20 3L4 10.5V22C4 32.5 11.5 42.2 20 45C28.5 42.2 36 32.5 36 22V10.5L20 3Z" fill="#0d2245" stroke="#3a8fff" stroke-width="2"/>
-      <text x="20" y="31" text-anchor="middle" fill="#3a8fff" font-size="18" font-weight="bold" font-family="Arial,sans-serif">S</text>
-    </svg>
-    <h1>SP4RK</h1>
-    <p class="lead">Sign in with your Discord account to access the dashboard.</p>
+    <div class="brand">
+      <div class="brand-mark">B/L</div>
+      <div class="brand-name">Byte Labs</div>
+    </div>
+
+    <div class="pill"><span class="dot"></span> Secure Discord OAuth</div>
+
+    <h1>Welcome back</h1>
+    <p class="lead">Sign in with your Discord account to access the Byte Labs control center and manage your bots.</p>
 
     {% if error %}
-      <div class="alert"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
+      <div class="alert"><i class="fas fa-exclamation-circle"></i> <span>{{ error }}</span></div>
     {% endif %}
 
     {% if discord_configured %}
@@ -115,10 +249,16 @@
         <i class="fab fa-discord"></i> Continue with Discord
       </a>
     {% else %}
-      <div class="alert">Discord login is not configured. Please contact the administrator.</div>
+      <div class="alert">
+        <i class="fas fa-circle-info"></i>
+        <span>Discord login is not configured yet. Please contact the administrator to set it up.</span>
+      </div>
     {% endif %}
 
-    <a class="home-link" href="/">← Back to Home</a>
+    <div class="footer">
+      <a class="home-link" href="/"><i class="fas fa-arrow-left"></i> Back to Byte Labs</a>
+      <span class="secured"><i class="fas fa-lock"></i> Secured</span>
+    </div>
   </div>
 </body>
 </html>
