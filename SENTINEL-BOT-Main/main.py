@@ -1110,10 +1110,24 @@ async def on_command_error(ctx, error):
         print(f"Unhandled command error: {error}")
 
 # ---------------- MODERATION COMMANDS ----------------
+def _hierarchy_block(ctx, member, action_word):
+    """Return error message string if SP4RK can't action this member, else None."""
+    allowed, why = automod.can_bot_action(member, ctx.guild.me)
+    if not allowed:
+        return f"❌ Cannot {action_word} {member.mention} — {why}."
+    # Also check the invoking user's role isn't lower than the target's
+    if ctx.author.id != ctx.guild.owner_id and member.top_role >= ctx.author.top_role:
+        return f"❌ You cannot {action_word} {member.mention} — their role is equal to or higher than yours."
+    return None
+
 @bot.command()
 @commands.has_permissions(manage_roles=True)
 async def mute(ctx, member: discord.Member, duration: str = None):
     """Mute a member. Optional duration: 30m, 2h, 1d. Example: !mute @user 30m"""
+    block = _hierarchy_block(ctx, member, "mute")
+    if block:
+        await ctx.send(block)
+        return
     await moderation.mute_member(ctx, member, config, duration)
     dlog("🔇 MUTE", f"{member} muted by {ctx.author}" + (f" for {duration}" if duration else ""))
 
@@ -1186,6 +1200,10 @@ async def clearwarnings(ctx, member: discord.Member):
 @commands.has_permissions(moderate_members=True)
 async def timeout_member(ctx, member: discord.Member, duration: str, *, reason="No reason provided"):
     """Timeout a member. Duration: 30s, 10m, 2h, 7d (max 28d)."""
+    block = _hierarchy_block(ctx, member, "timeout")
+    if block:
+        await ctx.send(block)
+        return
     seconds = parse_duration(duration)
     if not seconds:
         await ctx.send("❌ Invalid duration! Use e.g. `30m`, `2h`, `1d`. Max 28 days.")
@@ -1202,7 +1220,7 @@ async def timeout_member(ctx, member: discord.Member, duration: str, *, reason="
         supabase_save_mod_log(ctx.guild.id, "timeout", str(member), str(ctx.author), f"{label} — {reason}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("⏱️ TIMEOUT", f"{member} timed out for {label} by {ctx.author}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to timeout {member.mention}.")
+        await ctx.send(f"❌ I don't have permission to timeout {member.mention} (check role hierarchy or `Moderate Members` permission).")
     except Exception as e:
         await ctx.send(f"❌ Error: {e}")
 
@@ -1302,6 +1320,13 @@ async def modlogs(ctx, member: discord.Member):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
+    block = _hierarchy_block(ctx, member, "kick")
+    if block:
+        await ctx.send(block)
+        return
+    if not ctx.guild.me.guild_permissions.kick_members:
+        await ctx.send("❌ I'm missing the **Kick Members** permission. Add it to my role in Server Settings → Roles.")
+        return
     allowed = await security.mass_action_prevent(ctx, "kick", config, log_callback=dlog)
     if not allowed:
         return
@@ -1313,13 +1338,20 @@ async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
         supabase_save_mod_log(ctx.guild.id, "kick", str(member), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("🚪 KICK", f"{member} kicked by {ctx.author} — {reason}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to kick {member.mention}.")
+        await ctx.send(f"❌ I don't have permission to kick {member.mention} (role hierarchy or missing perms).")
     except Exception as e:
         await ctx.send(f"❌ Error: {e}")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
+    block = _hierarchy_block(ctx, member, "ban")
+    if block:
+        await ctx.send(block)
+        return
+    if not ctx.guild.me.guild_permissions.ban_members:
+        await ctx.send("❌ I'm missing the **Ban Members** permission. Add it to my role in Server Settings → Roles.")
+        return
     allowed = await security.mass_action_prevent(ctx, "ban", config, log_callback=dlog)
     if not allowed:
         return
@@ -1331,7 +1363,7 @@ async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
         supabase_save_mod_log(ctx.guild.id, "ban", str(member), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("⛔ BAN", f"{member} banned by {ctx.author} — {reason}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to ban {member.mention}.")
+        await ctx.send(f"❌ I don't have permission to ban {member.mention} (role hierarchy or missing perms).")
     except Exception as e:
         await ctx.send(f"❌ Error: {e}")
 
@@ -1339,6 +1371,13 @@ async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
 @commands.has_permissions(administrator=True)
 async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reason provided"):
     """Temp-ban a member. Duration: 30m, 2h, 1d, 7d, etc."""
+    block = _hierarchy_block(ctx, member, "temp-ban")
+    if block:
+        await ctx.send(block)
+        return
+    if not ctx.guild.me.guild_permissions.ban_members:
+        await ctx.send("❌ I'm missing the **Ban Members** permission. Add it to my role in Server Settings → Roles.")
+        return
     seconds = parse_duration(duration)
     if not seconds:
         await ctx.send("❌ Invalid duration! Use formats like `30m`, `2h`, `1d`, `7d`.")

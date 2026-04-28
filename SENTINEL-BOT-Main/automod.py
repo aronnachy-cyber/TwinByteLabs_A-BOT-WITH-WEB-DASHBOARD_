@@ -146,14 +146,51 @@ def _has_repeated_word_spam(content, threshold=REPEAT_WORD_THRESHOLD):
     return False
 
 
+def can_bot_action(target, bot_member):
+    """Return (allowed: bool, reason: str). True only when SP4RK can safely act on target.
+
+    Blocks: self, bots, server owner, members with admin/manage_guild perms (staff),
+    and anyone whose top role is >= the bot's top role (Discord hierarchy).
+    """
+    try:
+        if target is None or bot_member is None:
+            return (False, "missing member context")
+        if target.id == bot_member.id:
+            return (False, "target is the bot itself")
+        if getattr(target, "bot", False):
+            return (False, "target is a bot")
+        guild = getattr(target, "guild", None)
+        if guild and guild.owner_id == target.id:
+            return (False, "target is the server owner")
+        perms = getattr(target, "guild_permissions", None)
+        if perms and (perms.administrator or perms.manage_guild):
+            return (False, "target is staff (Administrator / Manage Server)")
+        if hasattr(target, "top_role") and hasattr(bot_member, "top_role"):
+            if target.top_role >= bot_member.top_role:
+                return (False, "target's role is equal to or higher than the bot's")
+        return (True, "")
+    except Exception as e:
+        return (False, f"hierarchy check failed: {e}")
+
+
 async def _instant_mute(message, reason, minutes=AUTOMUTE_MINUTES):
     """
     Auto-mute (timeout) the user for `minutes`. NO owner verification.
     Deletes the offending message and posts a short notice in-channel.
     """
     member = message.author
-    guild_id = message.guild.id if message.guild else 0
+    guild = message.guild
+    guild_id = guild.id if guild else 0
     user_id  = member.id
+
+    # Hierarchy guard — never try to action staff or higher-role members.
+    bot_member = guild.me if guild else None
+    allowed, why = can_bot_action(member, bot_member)
+    if not allowed:
+        await safe_delete(message)
+        # Don't warn or post in-channel — just bail out silently.
+        # (Optional staff webhook log happens upstream in handle_message.)
+        return True
 
     # Don't double-mute the same person within 30 seconds
     now = time.time()
@@ -178,7 +215,7 @@ async def _instant_mute(message, reason, minutes=AUTOMUTE_MINUTES):
     except discord.Forbidden:
         try:
             await message.channel.send(
-                f"⚠️ Could not auto-mute {member.mention} — missing permissions.",
+                f"⚠️ Could not auto-mute {member.mention} — missing permissions or hierarchy.",
                 delete_after=8,
             )
         except Exception:
@@ -186,6 +223,8 @@ async def _instant_mute(message, reason, minutes=AUTOMUTE_MINUTES):
     except Exception as e:
         print(f"[automod] auto-mute error: {e}")
     return True
+
+
 
 
 async def auto_dm_warning_user(member, reason, guild_name):
@@ -201,6 +240,17 @@ async def apply_graduated_punishment(message, config, count, add_warning_fn):
 
     member = message.author
     guild  = message.guild
+
+    # Hierarchy guard — never escalate against staff or higher-role members.
+    bot_member = guild.me if guild else None
+    allowed, why = can_bot_action(member, bot_member)
+    if not allowed:
+        await send_webhook_log(
+            config,
+            "🛡️ Escalation Skipped (Protected)",
+            f"**User:** {member} ({member.id})\n**Warnings:** {count}\n**Why:** {why}",
+        )
+        return
 
     try:
         if count >= 10:
@@ -322,6 +372,21 @@ async def handle_message(message, config, add_warning_fn=None):
         normalized = _normalize(content)
         if any(_contains_word(normalized, w) for w in allowlist):
             return False  # message is exempt — bail out before any punishment
+
+    # Hierarchy guard — protect server owner, staff, bots and equal/higher-role members
+    # from being warned, muted, or punished by SP4RK. They're invisible to automod.
+    bot_member = message.guild.me if message.guild else None
+    _allowed_root, _why_root = can_bot_action(author, bot_member)
+    if not _allowed_root:
+        # Just delete the offending message; do NOT warn, do NOT escalate.
+        # Staff/mods can see the original via Discord's audit log.
+        await safe_delete(message)
+        await send_webhook_log(
+            config,
+            "🛡️ Automod Skipped (Protected Member)",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Why:** {_why_root}\n**Message:** {(content or '')[:200]}",
+        )
+        return True
 
     async def _punish(reason, log_title, log_desc, dm=True):
         # SP4RK no longer warns the offending user directly — staff are notified instead.

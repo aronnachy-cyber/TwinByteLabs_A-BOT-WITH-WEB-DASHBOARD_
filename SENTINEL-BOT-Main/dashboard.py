@@ -1501,7 +1501,8 @@ def auth_discord_callback():
     next_url = session.pop('post_login_redirect', None)
     if next_url:
         return redirect(next_url)
-    return redirect(url_for('index'))
+    # Default: bounce back to the Byte Labs landing page (NOT the SP4RK admin dashboard)
+    return redirect(url_for('landing'))
 
 # ---- REMOVED: UID-based register/forgot-password (Discord-only auth) ----
 @app.route('/register')
