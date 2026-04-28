@@ -5,7 +5,7 @@ import secrets
 import requests as http_requests
 import traceback
 from html import escape as html_escape
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 from supabase import create_client, Client as SupabaseClient
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -255,6 +255,65 @@ def supabase_get_notes(guild_id, member_id):
     except Exception as e:
         print(f"⚠️ Supabase get_notes error: {e}")
         return []
+
+# ---- USER FEEDBACK (star ratings, Supabase + JSON fallback) ----
+FEEDBACK_FILE = 'feedback.json'
+
+
+def _load_feedback_file():
+    """Local fallback store when Supabase is unavailable."""
+    try:
+        if os.path.exists(FEEDBACK_FILE):
+            with open(FEEDBACK_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+    except Exception as e:
+        print(f"⚠️ load feedback file error: {e}")
+    return []
+
+
+def _save_feedback_file(items):
+    try:
+        with open(FEEDBACK_FILE, 'w', encoding='utf-8') as f:
+            json.dump(items, f, indent=2, default=str)
+    except Exception as e:
+        print(f"⚠️ save feedback file error: {e}")
+
+
+def supabase_save_feedback(entry):
+    """Insert one feedback row in Supabase. Returns True on success."""
+    if not supabase:
+        return False
+    try:
+        supabase.table("sentinel_feedback").insert({
+            "discord_id": entry.get("discord_id"),
+            "user_name":  entry.get("user_name"),
+            "rating":     entry.get("rating"),
+            "comment":    entry.get("comment", ""),
+            "source":     entry.get("source", "main"),
+        }).execute()
+        return True
+    except Exception as e:
+        print(f"⚠️ Supabase save_feedback error: {e}")
+        return False
+
+
+def supabase_list_feedback(limit=20):
+    """Fetch the latest feedback rows from Supabase, newest first."""
+    if not supabase:
+        return None
+    try:
+        res = supabase.table("sentinel_feedback")\
+            .select("*")\
+            .order("created_at", desc=True)\
+            .limit(limit)\
+            .execute()
+        return res.data or []
+    except Exception as e:
+        print(f"⚠️ Supabase list_feedback error: {e}")
+        return None
+
 
 # ---- USERS MANAGEMENT (Discord-only, Supabase-backed with JSON fallback) ----
 USERS_FILE = 'users.json'
@@ -1635,6 +1694,56 @@ def api_add_log():
     data = request.get_json() or {}
     add_dashboard_log(data.get("type", "INFO"), data.get("description", ""))
     return jsonify({"status": "success"})
+
+# ---- API: USER FEEDBACK (star ratings) ----
+@app.route('/api/feedback', methods=['POST'])
+def api_feedback_submit():
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        rating = int(data.get('rating', 0))
+    except (TypeError, ValueError):
+        rating = 0
+    if rating < 1 or rating > 5:
+        return jsonify({"ok": False, "error": "Rating must be between 1 and 5"}), 400
+    comment = (data.get('comment') or '').strip()
+    if len(comment) > 2000:
+        comment = comment[:2000]
+    source = (data.get('source') or 'main').strip()[:64] or 'main'
+    entry = {
+        "discord_id": session.get('discord_id', ''),
+        "user_name":  session.get('user_name', 'User'),
+        "rating":     rating,
+        "comment":    comment,
+        "source":     source,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    saved_remote = supabase_save_feedback(entry)
+    # Always keep a local copy as a safety net (and so it shows even when
+    # Supabase is offline).
+    items = _load_feedback_file()
+    items.insert(0, entry)
+    _save_feedback_file(items[:500])
+    add_dashboard_log("FEEDBACK", f"{entry['user_name']} rated {rating}/5 ({source})")
+    return jsonify({"ok": True, "remote": saved_remote})
+
+
+@app.route('/api/feedback', methods=['GET'])
+def api_feedback_list():
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    try:
+        limit = max(1, min(int(request.args.get('limit', 10)), 50))
+    except (TypeError, ValueError):
+        limit = 10
+    rows = supabase_list_feedback(limit=limit)
+    if rows is None:  # Supabase unavailable -> use local file
+        rows = _load_feedback_file()[:limit]
+    # Compute aggregate stats from whichever source we used
+    total = len(rows)
+    avg = round(sum((r.get('rating') or 0) for r in rows) / total, 2) if total else 0
+    return jsonify({"ok": True, "items": rows, "count": total, "average": avg})
 
 # ---- API: EXPORT REPORT ----
 @app.route('/api/export/report')

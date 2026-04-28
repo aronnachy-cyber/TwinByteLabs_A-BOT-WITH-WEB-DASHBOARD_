@@ -118,6 +118,19 @@ create table if not exists sentinel_autoresponder (
     match_type  text default 'contains'
 );
 
+-- ------------- NEW: User feedback (star ratings + comments) ---------
+create table if not exists sentinel_feedback (
+    id           bigserial primary key,
+    discord_id   text,
+    user_name    text,
+    rating       int  not null check (rating between 1 and 5),
+    comment      text default '',
+    source       text default 'main',  -- 'main' | 'server_official' | …
+    created_at   timestamptz default now()
+);
+create index if not exists idx_sentinel_feedback_created
+    on sentinel_feedback (created_at desc);
+
 -- ------------- NEW: Server Official full state (single-row JSONB) ----
 -- The Server Official bot persists ALL of its state (configs, goals,
 -- announcements, polls, reminders, custom commands, analytics, logs,

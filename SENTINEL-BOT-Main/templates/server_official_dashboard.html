@@ -139,6 +139,130 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
 </head>
 <body>
 
+<!-- ==================== LOADING SCREEN ==================== -->
+<div id="bl-splash" role="status" aria-live="polite">
+  <div class="bl-splash-card">
+    <div class="bl-splash-logo">
+      <div style="width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,#5b8cff,#8a6cff);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:1.05rem;letter-spacing:1px;">SO</div>
+      <div>
+        <div class="bl-splash-title">Server Official</div>
+        <div class="bl-splash-sub">by Byte Labs</div>
+      </div>
+    </div>
+
+    <div class="bl-splash-spinner"><div class="bl-spin-bar"></div></div>
+
+    <div class="bl-splash-tip">
+      <div class="bl-tip-label"><i class="fas fa-lightbulb"></i> Tip</div>
+      <div id="bl-tip-text">Loading your dashboard…</div>
+    </div>
+
+    <div class="bl-splash-warn">
+      <div class="bl-warn-title"><i class="fas fa-triangle-exclamation"></i> Bot is in Alpha</div>
+      <div class="bl-warn-body">Expect bugs. Please report anything weird in the SP4RK Feedback tab.</div>
+      <div class="bl-warn-sig">— Byte Labs</div>
+    </div>
+  </div>
+</div>
+
+<style>
+#bl-splash {
+  position: fixed; inset: 0;
+  background: radial-gradient(circle at 30% 20%, #0e1d3b 0%, #050a18 70%);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 99999;
+  transition: opacity .45s ease, visibility .45s ease;
+}
+#bl-splash.bl-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+.bl-splash-card {
+  width: min(440px, 92vw);
+  background: linear-gradient(180deg, rgba(20,36,72,.85) 0%, rgba(10,18,38,.92) 100%);
+  border: 1px solid rgba(91,140,255,.25);
+  border-radius: 18px;
+  padding: 30px 28px 24px;
+  box-shadow: 0 20px 70px rgba(0,0,0,.55), 0 0 0 1px rgba(91,140,255,.05) inset;
+  color: #e8f0ff;
+  text-align: left;
+}
+.bl-splash-logo { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+.bl-splash-title { font-size: 1.15rem; font-weight: 700; letter-spacing:.3px; }
+.bl-splash-sub   { font-size: .78rem; color:#8295b8; letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+.bl-splash-spinner { width: 100%; height: 3px; background: rgba(91,140,255,.12); border-radius: 4px; overflow:hidden; margin-bottom:18px; }
+.bl-spin-bar {
+  width: 35%; height: 100%;
+  background: linear-gradient(90deg, transparent, #5b8cff, #8a6cff, transparent);
+  border-radius: 4px;
+  animation: bl-spin-slide 1.4s linear infinite;
+}
+@keyframes bl-spin-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(285%); }
+}
+.bl-splash-tip {
+  background: rgba(91,140,255,.08);
+  border: 1px solid rgba(91,140,255,.18);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  min-height: 64px;
+}
+.bl-tip-label { font-size:.72rem; color:#5b8cff; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; }
+#bl-tip-text   { font-size:.92rem; line-height:1.45; color:#cfe0ff; transition: opacity .25s ease; }
+.bl-splash-warn {
+  background: rgba(255, 170, 0, .07);
+  border: 1px solid rgba(255, 170, 0, .35);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.bl-warn-title { font-size:.82rem; color:#ffc62a; font-weight:700; letter-spacing:.4px; margin-bottom:3px; }
+.bl-warn-body  { font-size:.85rem; color:#e8d6a8; }
+.bl-warn-sig   { font-size:.78rem; color:#a59570; margin-top:6px; font-style:italic; }
+</style>
+
+<script>
+(function(){
+  const TIPS = [
+    "Pick a server from the top dropdown to see its analytics.",
+    "Use /announce or the Announcements tab to schedule posts ahead of time.",
+    "Daily message volume shows the last 30 days — gaps mean a quiet day.",
+    "Set a welcome role under Setup so new joiners get auto-tagged.",
+    "Server Goals let you track member milestones publicly.",
+    "Custom commands fire when someone types your trigger in chat.",
+    "Daily backups of your config are kept in the Backups tab.",
+    "Incoming webhooks let external services post into your channels.",
+    "All your settings auto-save to the cloud every few seconds.",
+    "Share feedback in the SP4RK dashboard — Byte Labs reads every one.",
+  ];
+  const tipEl = document.getElementById('bl-tip-text');
+  let i = Math.floor(Math.random() * TIPS.length);
+  if (tipEl) tipEl.textContent = TIPS[i];
+  const tipTimer = setInterval(() => {
+    if (!tipEl) return;
+    tipEl.style.opacity = '0';
+    setTimeout(() => {
+      i = (i + 1) % TIPS.length;
+      tipEl.textContent = TIPS[i];
+      tipEl.style.opacity = '1';
+    }, 250);
+  }, 2600);
+
+  function hideSplash(){
+    const el = document.getElementById('bl-splash');
+    if (!el) return;
+    el.classList.add('bl-hidden');
+    clearInterval(tipTimer);
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 600);
+  }
+  const MIN_MS = 1400;
+  const start  = Date.now();
+  window.addEventListener('load', () => {
+    const wait = Math.max(0, MIN_MS - (Date.now() - start));
+    setTimeout(hideSplash, wait);
+  });
+  setTimeout(hideSplash, 6000);
+})();
+</script>
+
 <!-- ===== SIDEBAR ===== -->
 <aside class="sidebar" id="sidebar">
   <div class="sb-brand">

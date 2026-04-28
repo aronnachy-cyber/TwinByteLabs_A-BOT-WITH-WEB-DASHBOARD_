@@ -37,7 +37,18 @@ Sentinel OS is a feature-rich AI-powered Discord bot (V2.5.0) with a web-based a
 - **SENTINEL-BOT-Main/templates/index.html** - Main dashboard (/dashboard) — 13 tabs
 
 ## Dashboard Tabs
-General | Moderation | Automod | Security | Social Notifier | Live Warnings | Action Logs | Giveaways | Tickets | Auto-Responder | Reaction Roles | Leveling/XP | Users (admin) | Account
+General | Moderation | Automod | Security | Social Notifier | Live Warnings | Action Logs | Giveaways | Tickets | Auto-Responder | Reaction Roles | Leveling/XP | Users (admin) | Feedback | Account
+
+## Loading Screen
+Both `index.html` (SP4RK) and `server_official_dashboard.html` (Server Official) show a full-screen splash on every load with: Byte Labs branding, an animated progress bar, a rotating tip carousel (changes every 2.6s), and an Alpha-warning banner ("Bot is in Alpha. Expect bugs. — Byte Labs"). The splash auto-hides on `window.load` after a 1.4s minimum (so the warning is actually read), with a 6s safety-net timeout. CSS/JS is inlined per template under the `#bl-splash` id and shares the `bl-` class prefix to avoid collisions.
+
+## User Feedback System
+Star-rating + comment system on the SP4RK dashboard's **Feedback** tab.
+- 5-star widget with hover preview, keyboard support, and rolling label ("Loved it!", etc.).
+- Optional 2000-char comment textarea.
+- Submit POSTs to `/api/feedback` (Discord-OAuth gated).
+- Server stores each entry in Supabase table `sentinel_feedback` AND in local `feedback.json` as a fallback, then emits a `FEEDBACK` action log.
+- The same tab lists the latest 10 ratings via `GET /api/feedback`, showing average score and per-entry stars / author / timestamp.
 
 ## Leveling / XP
 - Leveling is enabled by the `leveling` config key.

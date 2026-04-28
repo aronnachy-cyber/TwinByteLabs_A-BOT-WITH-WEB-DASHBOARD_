@@ -164,6 +164,136 @@ input:checked + .slider:before { transform: translateX(22px); }
 </head>
 <body>
 
+<!-- ==================== LOADING SCREEN ==================== -->
+<div id="bl-splash" role="status" aria-live="polite">
+  <div class="bl-splash-card">
+    <div class="bl-splash-logo">
+      <svg width="56" height="64" viewBox="0 0 40 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 3L4 10.5V22C4 32.5 11.5 42.2 20 45C28.5 42.2 36 32.5 36 22V10.5L20 3Z" fill="#0d2245" stroke="#3a8fff" stroke-width="2"/>
+        <text x="20" y="31" text-anchor="middle" fill="#3a8fff" font-size="18" font-weight="bold" font-family="Arial,sans-serif">S</text>
+      </svg>
+      <div>
+        <div class="bl-splash-title">SP4RK Dashboard</div>
+        <div class="bl-splash-sub">by Byte Labs</div>
+      </div>
+    </div>
+
+    <div class="bl-splash-spinner"><div class="bl-spin-bar"></div></div>
+
+    <div class="bl-splash-tip">
+      <div class="bl-tip-label"><i class="fas fa-lightbulb"></i> Tip</div>
+      <div id="bl-tip-text">Loading your dashboard…</div>
+    </div>
+
+    <div class="bl-splash-warn">
+      <div class="bl-warn-title"><i class="fas fa-triangle-exclamation"></i> Bot is in Alpha</div>
+      <div class="bl-warn-body">Expect bugs. Please report anything weird in the Feedback tab.</div>
+      <div class="bl-warn-sig">— Byte Labs</div>
+    </div>
+  </div>
+</div>
+
+<style>
+#bl-splash {
+  position: fixed; inset: 0;
+  background: radial-gradient(circle at 30% 20%, #0e1d3b 0%, #050a18 70%);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 99999;
+  transition: opacity .45s ease, visibility .45s ease;
+}
+#bl-splash.bl-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+.bl-splash-card {
+  width: min(440px, 92vw);
+  background: linear-gradient(180deg, rgba(20,36,72,.85) 0%, rgba(10,18,38,.92) 100%);
+  border: 1px solid rgba(91,140,255,.25);
+  border-radius: 18px;
+  padding: 30px 28px 24px;
+  box-shadow: 0 20px 70px rgba(0,0,0,.55), 0 0 0 1px rgba(91,140,255,.05) inset;
+  color: #e8f0ff;
+  text-align: left;
+}
+.bl-splash-logo { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+.bl-splash-title { font-size: 1.15rem; font-weight: 700; letter-spacing:.3px; }
+.bl-splash-sub   { font-size: .78rem; color:#8295b8; letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+.bl-splash-spinner { width: 100%; height: 3px; background: rgba(91,140,255,.12); border-radius: 4px; overflow:hidden; margin-bottom:18px; }
+.bl-spin-bar {
+  width: 35%; height: 100%;
+  background: linear-gradient(90deg, transparent, #5b8cff, #8a6cff, transparent);
+  border-radius: 4px;
+  animation: bl-spin-slide 1.4s linear infinite;
+}
+@keyframes bl-spin-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(285%); }
+}
+.bl-splash-tip {
+  background: rgba(91,140,255,.08);
+  border: 1px solid rgba(91,140,255,.18);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  min-height: 64px;
+}
+.bl-tip-label { font-size:.72rem; color:#5b8cff; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; }
+#bl-tip-text   { font-size:.92rem; line-height:1.45; color:#cfe0ff; transition: opacity .25s ease; }
+.bl-splash-warn {
+  background: rgba(255, 170, 0, .07);
+  border: 1px solid rgba(255, 170, 0, .35);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.bl-warn-title { font-size:.82rem; color:#ffc62a; font-weight:700; letter-spacing:.4px; margin-bottom:3px; }
+.bl-warn-body  { font-size:.85rem; color:#e8d6a8; }
+.bl-warn-sig   { font-size:.78rem; color:#a59570; margin-top:6px; font-style:italic; }
+</style>
+
+<script>
+(function(){
+  const TIPS = [
+    "Drag sidebar items to reorder them — your layout is saved automatically.",
+    "Use the Feedback tab to send bug reports straight to Byte Labs.",
+    "Live Warnings refresh in real time — no manual reload needed.",
+    "Set a log channel under General so SP4RK can post action logs.",
+    "Auto-Responder rules accept exact, contains, and regex matches.",
+    "Anti-Raid kicks new accounts joining in bursts — toggle in Security.",
+    "Reaction Roles let members self-assign roles by reacting to a message.",
+    "Tickets are private channels — only the opener and staff can see them.",
+    "Pro tip: hover any chart point to see exact daily counts.",
+    "Click a star in the Feedback tab to share how SP4RK is treating you.",
+  ];
+  const tipEl = document.getElementById('bl-tip-text');
+  let i = Math.floor(Math.random() * TIPS.length);
+  if (tipEl) tipEl.textContent = TIPS[i];
+  const tipTimer = setInterval(() => {
+    if (!tipEl) return;
+    tipEl.style.opacity = '0';
+    setTimeout(() => {
+      i = (i + 1) % TIPS.length;
+      tipEl.textContent = TIPS[i];
+      tipEl.style.opacity = '1';
+    }, 250);
+  }, 2600);
+
+  function hideSplash(){
+    const el = document.getElementById('bl-splash');
+    if (!el) return;
+    el.classList.add('bl-hidden');
+    clearInterval(tipTimer);
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 600);
+  }
+  // Show for at least ~1.4s so the user actually reads the alpha warning,
+  // then hide as soon as window finishes loading.
+  const MIN_MS = 1400;
+  const start  = Date.now();
+  window.addEventListener('load', () => {
+    const wait = Math.max(0, MIN_MS - (Date.now() - start));
+    setTimeout(hideSplash, wait);
+  });
+  // Safety net: never let the splash linger more than 6s.
+  setTimeout(hideSplash, 6000);
+})();
+</script>
+
 <!-- SIDEBAR -->
 <div class="sidebar" id="sidebar">
   <div class="sidebar-logo">
@@ -229,6 +359,10 @@ input:checked + .slider:before { transform: translateX(22px); }
         <span id="pending-nav-badge" style="margin-left:auto;background:var(--red);color:#fff;font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px;display:{% if pending_users|length > 0 %}inline{% else %}none{% endif %}">{{ pending_users|length }}</span>
       </div>
       {% endif %}
+      <div class="nav-item" onclick="showTab('feedback',this)" data-tab="feedback">
+        <i class="fas fa-star"></i> Feedback
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
       <div class="nav-item" onclick="showTab('account',this)" data-tab="account">
         <i class="fas fa-user-circle"></i> Account
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
@@ -888,6 +1022,76 @@ input:checked + .slider:before { transform: translateX(22px); }
   </div>
 </div>
 
+<!-- ==================== FEEDBACK TAB ==================== -->
+<div id="feedback" class="tab-content">
+  <div class="card" style="max-width:680px;">
+    <div class="card-title"><i class="fas fa-star"></i> Rate your experience</div>
+    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:18px;">
+      How is SP4RK working for you? Your feedback goes straight to the Byte Labs team and helps shape the next release.
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:18px;">
+      <div>
+        <div style="font-size:0.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Your rating</div>
+        <div id="fb-stars" class="star-row" role="radiogroup" aria-label="Star rating">
+          <i class="fas fa-star star" data-val="1" role="radio" tabindex="0" aria-label="1 star"></i>
+          <i class="fas fa-star star" data-val="2" role="radio" tabindex="0" aria-label="2 stars"></i>
+          <i class="fas fa-star star" data-val="3" role="radio" tabindex="0" aria-label="3 stars"></i>
+          <i class="fas fa-star star" data-val="4" role="radio" tabindex="0" aria-label="4 stars"></i>
+          <i class="fas fa-star star" data-val="5" role="radio" tabindex="0" aria-label="5 stars"></i>
+          <span id="fb-stars-label" style="margin-left:14px;color:var(--muted);font-size:0.85rem;">Tap a star</span>
+        </div>
+      </div>
+
+      <div>
+        <label for="fb-comment" style="font-size:0.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">What can we improve? <span style="text-transform:none;letter-spacing:0;opacity:.7;">(optional)</span></label>
+        <textarea id="fb-comment" rows="4" maxlength="2000" placeholder="Tell us about a bug, request a feature, or just say what you love…" style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:inherit;font-size:0.92rem;resize:vertical;"></textarea>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <button id="fb-submit-btn" class="btn-primary" onclick="submitFeedback()" style="background:linear-gradient(135deg,#5b8cff,#8a6cff);color:#fff;border:none;padding:10px 22px;border-radius:10px;font-weight:600;cursor:pointer;font-size:0.92rem;">
+          <i class="fas fa-paper-plane"></i> Send feedback
+        </button>
+        <span id="fb-submit-status" style="color:var(--muted);font-size:0.85rem;"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:680px;margin-top:18px;">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span><i class="fas fa-comment-dots"></i> Recent feedback</span>
+      <span id="fb-summary" style="font-size:0.82rem;color:var(--muted);font-weight:500;">Loading…</span>
+    </div>
+    <div id="fb-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+  </div>
+</div>
+
+<style>
+.star-row { display:inline-flex; align-items:center; gap:6px; }
+.star-row .star {
+  font-size: 1.6rem;
+  color: rgba(255,255,255,.18);
+  cursor: pointer;
+  transition: transform .12s ease, color .12s ease, text-shadow .12s ease;
+  outline: none;
+}
+.star-row .star:hover { transform: scale(1.12); }
+.star-row .star.lit {
+  color: #ffc62a;
+  text-shadow: 0 0 12px rgba(255,198,42,.45);
+}
+.fb-item {
+  background: rgba(79,142,247,.05);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.fb-item .meta { display:flex; align-items:center; gap:10px; font-size:.8rem; color:var(--muted); margin-bottom:6px; flex-wrap:wrap; }
+.fb-item .meta .stars { color:#ffc62a; letter-spacing:1px; }
+.fb-item .body { color:var(--text); font-size:.9rem; white-space:pre-wrap; word-break:break-word; }
+.fb-item .empty { color:var(--muted); font-style:italic; }
+</style>
+
 <!-- ==================== ACCOUNT TAB ==================== -->
 <div id="account" class="tab-content">
   <div class="card" style="max-width:500px;">
@@ -918,7 +1122,8 @@ const tabTitles = {
   social: 'Social Notifier', warnings: 'Live Warnings', logs: 'Action Logs',
   giveaways: 'Giveaways', tickets: 'Support Tickets',
   autoresponder: 'Auto-Responder', reactionroles: 'Reaction Roles',
-  account: 'Account Settings', users: 'User Management'
+  account: 'Account Settings', users: 'User Management',
+  feedback: 'Feedback'
 };
 
 function showTab(id, el) {
@@ -935,7 +1140,130 @@ function showTab(id, el) {
   if (id === 'reactionroles') loadReactionRoles();
   if (id === 'general') loadConnectionStatus();
   if (id === 'users') { {% if is_admin %}pollPendingUsers(); loadPendingList();{% endif %} }
+  if (id === 'feedback') loadFeedback();
 }
+
+/* ============ FEEDBACK (star rating system) ============ */
+let _fbRating = 0;
+const _fbLabels = ['Tap a star','Hated it','Not great','It\'s okay','Pretty good','Loved it!'];
+
+function _renderStars(){
+  document.querySelectorAll('#fb-stars .star').forEach(el => {
+    const v = parseInt(el.getAttribute('data-val'), 10);
+    el.classList.toggle('lit', v <= _fbRating);
+  });
+  const lbl = document.getElementById('fb-stars-label');
+  if (lbl) lbl.textContent = _fbLabels[_fbRating] || _fbLabels[0];
+}
+
+function _initFeedbackStars(){
+  const row = document.getElementById('fb-stars');
+  if (!row || row.dataset.bound) return;
+  row.dataset.bound = '1';
+  row.querySelectorAll('.star').forEach(el => {
+    const v = parseInt(el.getAttribute('data-val'), 10);
+    el.addEventListener('click', () => { _fbRating = v; _renderStars(); });
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _fbRating = v; _renderStars(); }
+    });
+    el.addEventListener('mouseenter', () => {
+      document.querySelectorAll('#fb-stars .star').forEach(s => {
+        s.classList.toggle('lit', parseInt(s.getAttribute('data-val'),10) <= v);
+      });
+    });
+  });
+  row.addEventListener('mouseleave', _renderStars);
+  _renderStars();
+}
+
+async function submitFeedback(){
+  if (_fbRating < 1){
+    const s = document.getElementById('fb-submit-status');
+    s.textContent = 'Please pick a star rating first.';
+    s.style.color = '#e74c3c';
+    return;
+  }
+  const btn = document.getElementById('fb-submit-btn');
+  const status = document.getElementById('fb-submit-status');
+  const comment = (document.getElementById('fb-comment').value || '').trim();
+  btn.disabled = true; btn.style.opacity = '.7';
+  status.style.color = 'var(--muted)';
+  status.textContent = 'Sending…';
+  try {
+    const res = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: _fbRating, comment, source: 'main' })
+    });
+    const j = await res.json();
+    if (!res.ok || !j.ok){
+      status.style.color = '#e74c3c';
+      status.textContent = j.error || 'Could not send feedback.';
+    } else {
+      status.style.color = '#10b981';
+      status.textContent = 'Thanks for the feedback!';
+      _fbRating = 0; _renderStars();
+      document.getElementById('fb-comment').value = '';
+      loadFeedback();
+    }
+  } catch(e){
+    status.style.color = '#e74c3c';
+    status.textContent = 'Network error — try again.';
+  } finally {
+    btn.disabled = false; btn.style.opacity = '1';
+  }
+}
+
+function _starRow(n){
+  n = Math.max(0, Math.min(5, parseInt(n||0,10)));
+  return '★★★★★'.slice(0,n) + '☆☆☆☆☆'.slice(0, 5-n);
+}
+
+function _fmtFbDate(iso){
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  } catch(_){ return iso; }
+}
+
+async function loadFeedback(){
+  _initFeedbackStars();
+  const list = document.getElementById('fb-list');
+  const sum = document.getElementById('fb-summary');
+  if (!list) return;
+  list.innerHTML = '<div class="fb-item"><div class="empty">Loading…</div></div>';
+  try {
+    const res = await fetch('/api/feedback?limit=10');
+    const j = await res.json();
+    if (!res.ok || !j.ok) throw new Error(j.error || 'load failed');
+    if (sum){
+      sum.textContent = j.count
+        ? `${j.count} ${j.count===1?'rating':'ratings'} · avg ${j.average.toFixed(1)} / 5`
+        : 'No feedback yet';
+    }
+    if (!j.items || !j.items.length){
+      list.innerHTML = '<div class="fb-item"><div class="empty">Be the first to share your thoughts.</div></div>';
+      return;
+    }
+    list.innerHTML = j.items.map(it => {
+      const who = (it.user_name || 'Anonymous').replace(/[<>&]/g,'');
+      const cmt = (it.comment || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+      return `<div class="fb-item">
+        <div class="meta">
+          <span class="stars">${_starRow(it.rating)}</span>
+          <strong style="color:var(--text);">${who}</strong>
+          <span>· ${_fmtFbDate(it.created_at)}</span>
+        </div>
+        <div class="body">${cmt || '<span class="empty">No comment</span>'}</div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    if (sum) sum.textContent = '';
+    list.innerHTML = '<div class="fb-item"><div class="empty">Could not load feedback right now.</div></div>';
+  }
+}
+document.addEventListener('DOMContentLoaded', _initFeedbackStars);
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
