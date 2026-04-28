@@ -502,9 +502,19 @@ def build_help_embed(prefix):
     ))
     embed.add_field(name="⚡ Slash Equivalents", inline=False, value=(
         "All major moderation actions are also available as slash commands:\n"
-        "`/warn` `/warnings` `/clearwarnings` `/kick` `/ban` `/unban`\n"
+        "`/warn` `/warnings` `/clearwarnings` `/kick` `/ban` `/unban` `/softban`\n"
         "`/timeout` `/untimeout` `/purge` `/userinfo` `/serverinfo`\n"
         "`/avatar` `/banner` `/roleinfo`"
+    ))
+    embed.add_field(name="🏷️ Tags (Dyno/Carl-bot style)", inline=False, value=(
+        "`/tag show <name>` — show a tag (or `!tag <name>`)\n"
+        "`/tag create <name> <content>` — create a snippet anyone can call\n"
+        "`/tag edit | delete | list | info`"
+    ))
+    embed.add_field(name="🔔 Quality of life", inline=False, value=(
+        "`/afk [reason]` — bot replies when you're mentioned\n"
+        "`/highlight add <keyword>` — get DM'd when your word appears\n"
+        "`/highlight remove | list | clear`"
     ))
     embed.add_field(name="🤖 Bot / Setup", inline=False, value=(
         f"`{prefix}refresh` — reload dashboard config\n"
@@ -2748,6 +2758,16 @@ async def slash_roleinfo(interaction: discord.Interaction, role: discord.Role):
         embed.set_thumbnail(url=role.icon.url)
     embed.set_footer(text=f"Requested by {interaction.user} • SP4RK")
     await interaction.response.send_message(embed=embed)
+
+
+# ---------------- DYNO/CARL-BOT EXTRAS ----------------
+# Tags, Softban, AFK, and Highlights — registered via a single setup() call
+# so this already-large file stays readable.
+try:
+    import extras as _sp4rk_extras
+    _sp4rk_extras.setup(bot, dlog=dlog)
+except Exception as _e:
+    print(f"⚠️  Failed to load extras module: {_e}")
 
 
 # ---------------- RUN ----------------

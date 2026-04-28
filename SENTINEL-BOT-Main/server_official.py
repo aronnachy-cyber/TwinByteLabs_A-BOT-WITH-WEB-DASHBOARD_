@@ -1934,6 +1934,30 @@ async def auto_cleanup_tick():
 
 
 # ============================================================
+# DYNO/CARL-BOT EXTRAS — Starboard + Embed Builder
+# ============================================================
+# These keys aren't in DEFAULT_GUILD_CONFIG so update_guild_config would
+# strip them. Provide a passthrough writer for the extras module.
+def _so_set_guild_config(guild_id: str, cfg: Dict[str, Any]) -> None:
+    state = load_state()
+    state["server_configs"][str(guild_id)] = cfg
+    save_state(state)
+
+
+try:
+    import so_extras as _so_extras
+    _so_extras.setup(
+        bot,
+        load_state=load_state,
+        save_state=save_state,
+        get_guild_config=get_guild_config,
+        set_guild_config=_so_set_guild_config,
+    )
+except Exception as _e:
+    logger.warning(f"[server_official] Failed to load so_extras: {_e}")
+
+
+# ============================================================
 # THREAD LAUNCHER
 # ============================================================
 _bot_thread: Optional[threading.Thread] = None

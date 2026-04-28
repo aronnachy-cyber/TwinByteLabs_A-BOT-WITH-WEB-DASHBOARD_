@@ -93,6 +93,21 @@ All slash mod commands enforce both `app_commands.checks.has_permissions` AND th
 ## Prefix Commands (default: !)
 warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, timeout, untimeout, unban, purge, purgeuser, slowmode, lockdown, unlockdown, lock, unlock, role, nick, voicekick, snipe, massban, note, notes, modlogs, userinfo (alias whois/ui), serverinfo (alias si), refresh
 
+## V2.8 — Dyno / Carl-bot Feature Pack
+Two new self-contained modules add the signature features people expect from modern community bots. Both keep `main.py` / `server_official.py` clean by exposing a single `setup()` entry point.
+
+**`extras.py` (loaded by SP4RK):**
+- **🏷️ Tags** — Carl-bot/Dyno style user-created text snippets. `/tag show|create|edit|delete|list|info` plus the prefix shortcut `!tag <name>`. Stored in `tags.json` with atomic writes; sorted-by-usage list view; per-tag author + use-counter + edit timestamp; only the author or a moderator can edit/delete.
+- **🧹 Softban** — `/softban <member> [reason] [delete_days 1-7]`. Bans then immediately unbans to wipe a member's recent messages without a permanent removal. Uses modern `delete_message_seconds` (discord.py 2.7+) and the same role-hierarchy guard as `/ban`.
+- **💤 AFK** — `/afk [reason]`. Bot replies when the AFK user gets pinged (with a `<t:since:R>` relative timestamp) and clears the AFK flag automatically on the user's next message. Stored in `afk.json`.
+- **🔔 Highlights** — Carl-bot's killer feature. `/highlight add|remove|list|clear`. Get DM'd when a keyword you choose appears in any channel you can read. Word-boundary matching (so "art" doesn't fire on "start"), respects channel read perms, 60-second per-(guild,user) DM cooldown to prevent spam, capped at 10 highlights per server per user. Stored in `highlights.json`.
+
+**`so_extras.py` (loaded by Server Official):**
+- **⭐ Starboard** — `/setup-starboard <channel> <threshold>`, `/disable-starboard`, `/starboard-stats`. Listens on `on_raw_reaction_add` with a fast emoji prefilter so non-⭐ reactions add zero overhead. Reposts qualifying messages with author, jump link, first image attachment, and live ⭐ count footer. Tracks already-posted message IDs in per-guild config so a re-enable can't double-post old stars; ignores bot messages and stars from inside the starboard channel itself (no mirror loops).
+- **🎨 Embed Builder** — `/embed` slash command. Build & post rich embeds in any channel without the dashboard. Supports title, description (with `\n` escapes), channel target, color (hex / int / 12 named colors like `blurple`/`gold`), image, thumbnail, author name+icon, footer, and clickable title URL. Catches Discord's HTTP rejects (bad image URL / oversized payload) and reports them as friendly ephemeral errors.
+
+Storage for Server Official extras lives inside the existing per-guild `server_configs` block, so it rides the Supabase mirror automatically. A small `_so_set_guild_config` passthrough writer was added because the regular `update_guild_config` filters keys to `DEFAULT_GUILD_CONFIG` and would otherwise silently drop the new starboard keys.
+
 ## V2.7 Reliability Hardening
 - `save_warnings()` now writes atomically (`tmp + os.replace`) so a crash mid-write can never leave a 0-byte/corrupted `warnings.json`.
 - All blocking `requests.post` calls inside async event handlers replaced with `aiohttp` so a slow webhook/Gemini/dashboard endpoint can no longer freeze the bot heartbeat (was up to 8s per message). Affected: `check_warning_limit`, `handle_ai_moderation`, `automod.send_webhook_log`.
