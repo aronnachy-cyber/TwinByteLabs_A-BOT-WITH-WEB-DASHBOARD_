@@ -153,7 +153,7 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
   <div class="sb-section">Engage</div>
   <button class="sb-item" data-section="announcements"><i class="fas fa-bullhorn"></i> Announcements</button>
   <button class="sb-item" data-section="utilities"><i class="fas fa-toolbox"></i> Utilities</button>
-  <button class="sb-item" data-section="engagement"><i class="fas fa-trophy"></i> XP & Goals</button>
+  <button class="sb-item" data-section="engagement"><i class="fas fa-trophy"></i> Server Goals</button>
   <div class="sb-section">Operate</div>
   <button class="sb-item" data-section="logs"><i class="fas fa-list-ul"></i> Logs</button>
   <button class="sb-item" data-section="automation"><i class="fas fa-robot"></i> Automation</button>
@@ -203,8 +203,16 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
       <div class="stat"><div class="stat-label">Backups</div><div class="stat-value">{{ overview.backups_count }}</div></div>
     </div>
     <div class="grid grid-2" style="margin-top:20px;">
-      <div class="card"><h2><i class="fas fa-comment-dots"></i> Messages per day</h2><div class="chart-box"><canvas id="msgChart"></canvas></div></div>
-      <div class="card"><h2><i class="fas fa-user-plus"></i> Joins vs leaves</h2><div class="chart-box"><canvas id="joinChart"></canvas></div></div>
+      <div class="card">
+        <h2><i class="fas fa-comment-dots"></i> Messages per day <span class="help" style="display:inline;font-weight:400;">— last 30 days</span></h2>
+        <p class="help">Total non-bot messages sent each day across the selected server.</p>
+        <div class="chart-box"><canvas id="msgChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2><i class="fas fa-user-plus"></i> Joins vs leaves <span class="help" style="display:inline;font-weight:400;">— last 30 days</span></h2>
+        <p class="help">Green = members who joined that day. Red = members who left.</p>
+        <div class="chart-box"><canvas id="joinChart"></canvas></div>
+      </div>
     </div>
   </section>
 
@@ -284,12 +292,28 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
   <!-- ============ ANALYTICS ============ -->
   <section class="section" data-section="analytics">
     <div class="grid grid-2">
-      <div class="card"><h2><i class="fas fa-chart-column"></i> Top Chatters</h2><div class="chart-box"><canvas id="topChattersChart"></canvas></div></div>
-      <div class="card"><h2><i class="fas fa-microphone"></i> Top Voice Activity (mins)</h2><div class="chart-box"><canvas id="voiceChart"></canvas></div></div>
+      <div class="card">
+        <h2><i class="fas fa-chart-column"></i> Top chatters <span class="help" style="display:inline;font-weight:400;">— all-time</span></h2>
+        <p class="help">The 10 members who have sent the most messages since the bot started tracking.</p>
+        <div class="chart-box"><canvas id="topChattersChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2><i class="fas fa-microphone"></i> Top voice activity <span class="help" style="display:inline;font-weight:400;">— minutes</span></h2>
+        <p class="help">Total minutes each member has spent in voice channels.</p>
+        <div class="chart-box"><canvas id="voiceChart"></canvas></div>
+      </div>
     </div>
     <div class="grid grid-2" style="margin-top:18px;">
-      <div class="card"><h2><i class="fas fa-message"></i> Daily Message Volume</h2><div class="chart-box"><canvas id="msgChart2"></canvas></div></div>
-      <div class="card"><h2><i class="fas fa-user-plus"></i> Daily Join/Leave</h2><div class="chart-box"><canvas id="joinChart2"></canvas></div></div>
+      <div class="card">
+        <h2><i class="fas fa-message"></i> Daily message volume <span class="help" style="display:inline;font-weight:400;">— last 30 days</span></h2>
+        <p class="help">How chatty the server has been each day. Higher = more conversation.</p>
+        <div class="chart-box"><canvas id="msgChart2"></canvas></div>
+      </div>
+      <div class="card">
+        <h2><i class="fas fa-user-plus"></i> Daily join / leave <span class="help" style="display:inline;font-weight:400;">— last 30 days</span></h2>
+        <p class="help">Net member growth: green is people coming in, red is people leaving.</p>
+        <div class="chart-box"><canvas id="joinChart2"></canvas></div>
+      </div>
     </div>
   </section>
 
@@ -375,21 +399,14 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
   <!-- ============ ENGAGEMENT ============ -->
   <section class="section" data-section="engagement">
     <div class="card">
-      <h2><i class="fas fa-star"></i> XP Leaderboard</h2>
-      <div id="xpList">Pick a server to load XP leaderboard.</div>
-    </div>
-    <div class="card">
       <h2><i class="fas fa-bullseye"></i> Server Goals</h2>
+      <p class="help">Track community milestones — total messages sent or member counts. Use <code>/goal</code> in Discord, or add one here.</p>
       <div class="row">
         <select id="goalType"><option value="messages">Messages</option><option value="members">Members</option></select>
         <input id="goalTarget" type="number" placeholder="Target"/>
         <button class="btn" onclick="addGoal()"><i class="fas fa-plus"></i> Add Goal</button>
       </div>
       <div id="goalList" style="margin-top:12px;"></div>
-    </div>
-    <div class="card">
-      <h2><i class="fas fa-gift"></i> Daily Check-in (XP rewards)</h2>
-      <p class="help">Members use <code>/daily</code> in Discord to claim. Streaks add bonus XP each consecutive day.</p>
     </div>
   </section>
 
@@ -425,14 +442,6 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
       <div class="row">
         <input id="autoClean" type="number" placeholder="0 = off"/>
         <button class="btn" onclick="updateAutomation('auto_cleanup_age_days')">Save</button>
-      </div>
-    </div>
-    <div class="card">
-      <h2><i class="fas fa-toggle-on"></i> Feature Toggles</h2>
-      <div class="row">
-        <label style="display:flex;align-items:center;gap:8px;flex:0 0 auto;"><input type="checkbox" id="tglLevel"/> Leveling System</label>
-        <label style="display:flex;align-items:center;gap:8px;flex:0 0 auto;"><input type="checkbox" id="tglDaily"/> Daily Check-in Rewards</label>
-        <button class="btn" onclick="saveToggles()">Save</button>
       </div>
     </div>
   </section>
@@ -489,7 +498,7 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
     </div>
     <div class="card">
       <h2><i class="fas fa-circle-exclamation"></i> One-click Reset</h2>
-      <p class="help">Wipes all server-official state for the selected server (configs, XP, notes, etc). Use with caution. A backup is created first.</p>
+      <p class="help">Wipes all server-official state for the selected server (configs, notes, goals, etc). Use with caution. A backup is created first.</p>
       <button class="btn btn-danger" onclick="if(confirm('Wipe state for selected server?')) resetGuild()"><i class="fas fa-trash"></i> Reset selected server</button>
     </div>
   </section>
@@ -509,7 +518,6 @@ function onGuildChange(){
   loadAvatarPanel();
   loadAnalytics();
   loadServerLogs();
-  loadXpBoard();
   loadNotes();
   loadCustomCmds();
   loadGoals();
@@ -550,7 +558,7 @@ document.querySelectorAll('.sb-item').forEach(b=>{
     if (target === 'analytics') loadAnalytics();
     if (target === 'announcements'){ loadSchedules(); loadTemplates(); loadAnnHistory(); }
     if (target === 'utilities'){ loadPolls(); loadReminders(); loadStickies(); loadNotes(); }
-    if (target === 'engagement'){ loadXpBoard(); loadGoals(); }
+    if (target === 'engagement'){ loadGoals(); }
     if (target === 'logs'){ loadServerLogs(); loadBotLogs(); loadAnnHistory(); }
     if (target === 'automation') loadAutomation();
     if (target === 'integrations'){ loadCustomCmds(); loadWebhooks(); loadHooks(); }
@@ -563,33 +571,94 @@ document.querySelectorAll('.sb-item').forEach(b=>{
 
 /* ============ CHARTS ============ */
 let charts = {};
-function makeLineChart(id, labels, datasets){
+
+/* Format an ISO date like "2026-04-28" as a friendly "Apr 28" label. */
+function fmtDateLabel(iso){
+  try {
+    const d = new Date(iso + 'T00:00:00Z');
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric', timeZone:'UTC' });
+  } catch(_){ return iso; }
+}
+
+/* Build the last N consecutive days from today (inclusive), so the X-axis
+   shows real calendar gaps even when the bot didn't record traffic those days. */
+function lastNDays(n){
+  const out = [];
+  const today = new Date();
+  for (let i = n-1; i >= 0; i--){
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    out.push(d.toISOString().slice(0,10));
+  }
+  return out;
+}
+
+const CHART_BASE_OPTS = {
+  responsive:true,
+  maintainAspectRatio:false,
+  interaction:{ mode:'index', intersect:false },
+  plugins:{
+    legend:{ position:'bottom', labels:{ color:'#e8f0ff', usePointStyle:true, padding:14 } },
+    tooltip:{
+      backgroundColor:'rgba(7,16,31,.95)', titleColor:'#fff', bodyColor:'#cfe0ff',
+      borderColor:'rgba(91,140,255,.35)', borderWidth:1, padding:10, cornerRadius:8,
+      displayColors:true,
+    },
+  },
+};
+
+function axisOpts(yTitle, yUnit){
+  return {
+    x:{
+      ticks:{ color:'#8295b8', maxRotation:0, autoSkip:true, maxTicksLimit:8 },
+      grid:{ color:'rgba(91,140,255,.06)' },
+      title:{ display:true, text:'Date', color:'#a7b6d4', font:{ size:11, weight:'600' } },
+    },
+    y:{
+      beginAtZero:true,
+      ticks:{ color:'#8295b8', precision:0 },
+      grid:{ color:'rgba(91,140,255,.08)' },
+      title:{ display:true, text:yTitle + (yUnit?` (${yUnit})`:''), color:'#a7b6d4', font:{ size:11, weight:'600' } },
+    },
+  };
+}
+
+function makeLineChart(id, isoLabels, datasets, yTitle='Count', yUnit=''){
   if (charts[id]) charts[id].destroy();
   const ctx = document.getElementById(id);
   if (!ctx) return;
+  const labels = isoLabels.map(fmtDateLabel);
   charts[id] = new Chart(ctx, {
     type:'line',
-    data:{ labels, datasets },
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ labels:{ color:'#e8f0ff' } } },
-      scales:{ x:{ ticks:{ color:'#8295b8' }, grid:{ color:'rgba(91,140,255,.08)' } },
-               y:{ ticks:{ color:'#8295b8' }, grid:{ color:'rgba(91,140,255,.08)' } } }
-    }
+    data:{ labels, datasets: datasets.map(ds => ({ pointRadius:3, pointHoverRadius:5, borderWidth:2, ...ds })) },
+    options:{ ...CHART_BASE_OPTS, scales: axisOpts(yTitle, yUnit) },
   });
 }
-function makeBarChart(id, labels, data, label){
+
+function makeBarChart(id, labels, data, label, yTitle='Count', yUnit=''){
   if (charts[id]) charts[id].destroy();
   const ctx = document.getElementById(id);
   if (!ctx) return;
   charts[id] = new Chart(ctx, {
     type:'bar',
-    data:{ labels, datasets:[{ label, data, backgroundColor:'rgba(91,140,255,.6)', borderColor:'#5b8cff', borderWidth:1 }] },
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ labels:{ color:'#e8f0ff' } } },
-      scales:{ x:{ ticks:{ color:'#8295b8' }, grid:{ color:'rgba(91,140,255,.08)' } },
-               y:{ ticks:{ color:'#8295b8' }, grid:{ color:'rgba(91,140,255,.08)' } } }
-    }
+    data:{ labels, datasets:[{ label, data, backgroundColor:'rgba(91,140,255,.6)', borderColor:'#5b8cff', borderWidth:1, borderRadius:6 }] },
+    options:{
+      ...CHART_BASE_OPTS,
+      scales:{
+        x:{ ticks:{ color:'#8295b8' }, grid:{ color:'rgba(91,140,255,.06)' },
+            title:{ display:true, text:'Member', color:'#a7b6d4', font:{ size:11, weight:'600' } } },
+        y:{ beginAtZero:true, ticks:{ color:'#8295b8', precision:0 }, grid:{ color:'rgba(91,140,255,.08)' },
+            title:{ display:true, text:yTitle + (yUnit?` (${yUnit})`:''), color:'#a7b6d4', font:{ size:11, weight:'600' } } },
+      },
+    },
   });
+}
+
+/* Resolve numeric Discord user IDs to display names from the guild option list. */
+function nameForUserId(uid){
+  // Best-effort: server picker only knows guilds, so use the last 4 digits of the ID
+  // as a friendly tag (User ...1234) until the bot exposes a member roster.
+  const s = String(uid || '');
+  return s.length > 4 ? `User …${s.slice(-4)}` : (s || 'Unknown');
 }
 
 async function loadAnalytics(){
@@ -597,17 +666,36 @@ async function loadAnalytics(){
   const res = await api('GET', url);
   if (!res || res.ok === false) return;
   const a = res.data;
-  const days = Object.keys(a.messages_per_day).sort().slice(-30);
-  makeLineChart('msgChart', days, [{ label:'Messages', data:days.map(d=>a.messages_per_day[d]||0), borderColor:'#5b8cff', backgroundColor:'rgba(91,140,255,.18)', fill:true, tension:.3 }]);
-  makeLineChart('msgChart2', days, [{ label:'Messages', data:days.map(d=>a.messages_per_day[d]||0), borderColor:'#5b8cff', backgroundColor:'rgba(91,140,255,.18)', fill:true, tension:.3 }]);
-  const days2 = Array.from(new Set([...Object.keys(a.joins_per_day), ...Object.keys(a.leaves_per_day)])).sort().slice(-30);
-  const joinDS = { label:'Joins', data:days2.map(d=>a.joins_per_day[d]||0), borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.15)', fill:true, tension:.3 };
-  const leaveDS = { label:'Leaves', data:days2.map(d=>a.leaves_per_day[d]||0), borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,.12)', fill:true, tension:.3 };
-  makeLineChart('joinChart', days2, [joinDS, leaveDS]);
-  makeLineChart('joinChart2', days2, [joinDS, leaveDS]);
-  const tcLabels = a.top_chatters.map(t=>'<@'+t[0]+'>').slice(0,10);
-  makeBarChart('topChattersChart', a.top_chatters.map(t=>t[0].slice(-4)), a.top_chatters.map(t=>t[1]), 'Messages');
-  makeBarChart('voiceChart', a.top_voice.map(t=>t[0].slice(-4)), a.top_voice.map(t=>t[1]), 'Minutes');
+
+  // Always show a steady 30-day window so empty days are visible (no jagged gaps).
+  const days = lastNDays(30);
+  const msgData = days.map(d=>a.messages_per_day[d]||0);
+  const msgDS = {
+    label:'Messages sent', data: msgData,
+    borderColor:'#5b8cff', backgroundColor:'rgba(91,140,255,.18)',
+    fill:true, tension:.3,
+  };
+  makeLineChart('msgChart', days, [msgDS], 'Messages', 'per day');
+  makeLineChart('msgChart2', days, [msgDS], 'Messages', 'per day');
+
+  const joinDS = {
+    label:'New members joined', data: days.map(d=>a.joins_per_day[d]||0),
+    borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.18)', fill:true, tension:.3,
+  };
+  const leaveDS = {
+    label:'Members who left', data: days.map(d=>a.leaves_per_day[d]||0),
+    borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,.15)', fill:true, tension:.3,
+  };
+  makeLineChart('joinChart', days, [joinDS, leaveDS], 'Members', 'per day');
+  makeLineChart('joinChart2', days, [joinDS, leaveDS], 'Members', 'per day');
+
+  const chatLabels = (a.top_chatters||[]).map(t => nameForUserId(t[0]));
+  const chatData   = (a.top_chatters||[]).map(t => t[1]);
+  makeBarChart('topChattersChart', chatLabels, chatData, 'Messages sent (all-time)', 'Messages');
+
+  const voiceLabels = (a.top_voice||[]).map(t => nameForUserId(t[0]));
+  const voiceData   = (a.top_voice||[]).map(t => Math.round(t[1]));
+  makeBarChart('voiceChart', voiceLabels, voiceData, 'Voice time (minutes)', 'Voice time', 'minutes');
 }
 
 function loadOverviewCharts(){ loadAnalytics(); }
@@ -629,8 +717,6 @@ async function loadGuildConfig(){
   $('#cfgLeaveMsg').value = r.data.leave_message || '';
   $('#autoPin').value = r.data.auto_pin_threshold || 0;
   $('#autoClean').value = r.data.auto_cleanup_age_days || 0;
-  $('#tglLevel').checked = !!r.data.leveling_enabled;
-  $('#tglDaily').checked = !!r.data.daily_rewards_enabled;
   applyDisplayName(r.data.display_name || '');
 }
 function applyDisplayName(name){
@@ -865,13 +951,6 @@ async function postEmbed(){
 }
 
 /* ============ ENGAGEMENT ============ */
-async function loadXpBoard(){
-  if (!currentGuildId){ $('#xpList').innerHTML='<p class="help">Pick a server.</p>'; return; }
-  const r = await api('GET', `/server-official/api/xp_leaderboard?guild_id=${currentGuildId}`);
-  if (!r.ok) return;
-  $('#xpList').innerHTML = '<table><tr><th>#</th><th>User</th><th>Level</th><th>XP</th></tr>' +
-    (r.data||[]).map((u,i)=>`<tr><td>${i+1}</td><td>&lt;@${u.user_id}&gt;</td><td>${u.level}</td><td>${u.xp}</td></tr>`).join('') + '</table>';
-}
 async function loadGoals(){
   const url = '/server-official/api/goals' + (currentGuildId?`?guild_id=${currentGuildId}`:'');
   const r = await api('GET', url); if (!r.ok) return;
@@ -911,15 +990,6 @@ async function updateAutomation(field){
   const body = {guild_id:currentGuildId}; body[field]=val;
   await api('POST','/server-official/api/config', body, 'Saved');
 }
-async function saveToggles(){
-  if (!currentGuildId) return toast('Select a server','err');
-  await api('POST','/server-official/api/config',{
-    guild_id: currentGuildId,
-    leveling_enabled: $('#tglLevel').checked,
-    daily_rewards_enabled: $('#tglDaily').checked,
-  },'Saved');
-}
-
 /* ============ INTEGRATIONS ============ */
 async function loadCustomCmds(){
   if (!currentGuildId){ $('#ccList').innerHTML='<p class="help">Pick a server.</p>'; return; }

@@ -986,17 +986,6 @@ def so_api_del_goal(gid_):
     return jsonify({"ok": so.delete_goal(gid_)})
 
 
-# --- XP Leaderboard ---
-@app.route('/server-official/api/xp_leaderboard', methods=['GET'])
-def so_api_xp_lb():
-    so, err = _so_require_login()
-    if err: return err
-    gid = request.args.get('guild_id', '').strip()
-    if not gid:
-        return jsonify({"ok": False, "error": "guild_id required"}), 400
-    return jsonify({"ok": True, "data": so.get_xp_leaderboard(gid)})
-
-
 # --- Logs ---
 @app.route('/server-official/api/server_logs', methods=['GET'])
 def so_api_server_logs():

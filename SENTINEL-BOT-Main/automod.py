@@ -375,18 +375,14 @@ async def handle_message(message, config, add_warning_fn=None):
 
     # Hierarchy guard — protect server owner, staff, bots and equal/higher-role members
     # from being warned, muted, or punished by SP4RK. They're invisible to automod.
+    # IMPORTANT: We must NOT delete their messages — that would silently nuke
+    # everyone's chat whenever SP4RK's role is at the bottom of the hierarchy
+    # (which made the bot appear to delete every single message in the server).
     bot_member = message.guild.me if message.guild else None
     _allowed_root, _why_root = can_bot_action(author, bot_member)
     if not _allowed_root:
-        # Just delete the offending message; do NOT warn, do NOT escalate.
-        # Staff/mods can see the original via Discord's audit log.
-        await safe_delete(message)
-        await send_webhook_log(
-            config,
-            "🛡️ Automod Skipped (Protected Member)",
-            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Why:** {_why_root}\n**Message:** {(content or '')[:200]}",
-        )
-        return True
+        # Bail out silently — leave the message alone, do NOT warn, do NOT escalate.
+        return False
 
     async def _punish(reason, log_title, log_desc, dm=True):
         # SP4RK no longer warns the offending user directly — staff are notified instead.

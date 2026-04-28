@@ -117,3 +117,14 @@ create table if not exists sentinel_autoresponder (
     response    text not null,
     match_type  text default 'contains'
 );
+
+-- ------------- NEW: Server Official full state (single-row JSONB) ----
+-- The Server Official bot persists ALL of its state (configs, goals,
+-- announcements, polls, reminders, custom commands, analytics, logs,
+-- backups, …) into one JSONB column. Mirrors server_official_state.json
+-- so the bot survives container restarts and ephemeral disks.
+create table if not exists server_official_state (
+    id          int primary key,
+    data        jsonb not null default '{}'::jsonb,
+    updated_at  timestamptz default now()
+);

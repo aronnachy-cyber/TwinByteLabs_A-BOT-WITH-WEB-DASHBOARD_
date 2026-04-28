@@ -1118,6 +1118,10 @@ async def unmute(ctx, member: discord.Member):
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def warn(ctx, member: discord.Member, *, reason="Violation"):
+    block = _hierarchy_block(ctx, member, "warn")
+    if block:
+        await ctx.send(block)
+        return
     await add_warning(member, reason)
     entry = _get_member_entry(str(ctx.guild.id), str(member.id))
     count = entry["count"]

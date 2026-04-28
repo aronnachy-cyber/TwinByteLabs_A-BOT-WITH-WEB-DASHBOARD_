@@ -28,6 +28,7 @@ from datetime import datetime, timezone, timedelta, date
 from typing import Optional, List, Dict, Any, Tuple
 import uuid
 
+import time
 import discord
 from discord.ext import commands, tasks
 import requests
@@ -36,10 +37,108 @@ logger = logging.getLogger("server_official")
 logging.basicConfig(level=logging.INFO)
 
 # ============================================================
-# STORAGE
+# STORAGE — local JSON (working copy) + Supabase (durable)
 # ============================================================
 _STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server_official_state.json")
 _state_lock = threading.Lock()
+
+# --- Supabase client (single row JSONB mirror of the local state) ---
+SUPABASE_TABLE = "server_official_state"
+SUPABASE_ROW_ID = 1
+_SUPABASE_FLUSH_INTERVAL = 15.0  # seconds between durable flushes
+_supabase_client = None
+_dirty_state: Optional[Dict[str, Any]] = None     # latest state pending Supabase write
+_dirty_lock = threading.Lock()
+_flusher_started = False
+
+try:
+    from supabase import create_client as _sb_create_client
+    _SB_URL = os.environ.get("SUPABASE_URL", "")
+    _SB_KEY = os.environ.get("SUPABASE_KEY", "")
+    if _SB_URL and _SB_KEY:
+        _supabase_client = _sb_create_client(_SB_URL, _SB_KEY)
+        logger.info("[server_official] Supabase persistence enabled")
+    else:
+        logger.info("[server_official] Supabase env not set — using local JSON only")
+except Exception as _sb_err:
+    logger.warning(f"[server_official] Supabase import failed: {_sb_err}; using local JSON only")
+    _supabase_client = None
+
+
+def _supabase_load_full_state() -> Optional[Dict[str, Any]]:
+    """Try to fetch the persisted state row from Supabase. Returns None on miss/error."""
+    if not _supabase_client:
+        return None
+    try:
+        res = _supabase_client.table(SUPABASE_TABLE).select("data").eq("id", SUPABASE_ROW_ID).execute()
+        rows = res.data or []
+        if not rows:
+            return None
+        data = rows[0].get("data")
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except Exception:
+                return None
+        if isinstance(data, dict):
+            return data
+        return None
+    except Exception as e:
+        logger.warning(f"[server_official] Supabase load error: {e}")
+        return None
+
+
+def _supabase_save_full_state(state: Dict[str, Any]) -> bool:
+    """Upsert the entire state JSON into the single Supabase row."""
+    if not _supabase_client:
+        return False
+    try:
+        payload = {
+            "id": SUPABASE_ROW_ID,
+            "data": state,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        _supabase_client.table(SUPABASE_TABLE).upsert(payload, on_conflict="id").execute()
+        return True
+    except Exception as e:
+        logger.warning(f"[server_official] Supabase save error: {e}")
+        return False
+
+
+def _start_supabase_flusher():
+    """Start a background daemon that periodically pushes the dirty state to Supabase.
+
+    We keep the local JSON as the hot working copy (fast, in-process) and only
+    flush to Supabase on a timer to avoid hammering the network on every bot
+    event. State is therefore eventually-consistent within a few seconds."""
+    global _flusher_started
+    if _flusher_started or not _supabase_client:
+        return
+    _flusher_started = True
+
+    def _loop():
+        while True:
+            time.sleep(_SUPABASE_FLUSH_INTERVAL)
+            try:
+                with _dirty_lock:
+                    snapshot = _dirty_state
+                    cleared = snapshot is not None
+                    if cleared:
+                        # Only consume the snapshot once we're committed to saving it
+                        pending = snapshot
+                if not cleared:
+                    continue
+                ok = _supabase_save_full_state(pending)
+                if ok:
+                    with _dirty_lock:
+                        # Don't drop newer pending state that arrived during the network call.
+                        if _dirty_state is pending:
+                            globals()["_dirty_state"] = None
+            except Exception as e:
+                logger.warning(f"[server_official] flusher tick failed: {e}")
+
+    t = threading.Thread(target=_loop, name="ServerOfficialSupabaseFlusher", daemon=True)
+    t.start()
 
 DEFAULT_STATE: Dict[str, Any] = {
     # --- existing ---
@@ -54,13 +153,10 @@ DEFAULT_STATE: Dict[str, Any] = {
 
     # --- new (per-guild config) ---
     "server_configs": {},   # guild_id -> { welcome_role_id, welcome_channel_id, welcome_message,
-                            #               leave_message, log_channel_id, leveling_enabled,
-                            #               daily_rewards_enabled, auto_pin_threshold,
-                            #               auto_cleanup_age_days }
+                            #               leave_message, log_channel_id,
+                            #               auto_pin_threshold, auto_cleanup_age_days }
 
     # --- engagement ---
-    "xp": {},               # guild_id -> { user_id -> {xp, level, last_msg_ts} }
-    "daily_checkins": {},   # guild_id -> { user_id -> {streak, last_checkin_date, total} }
     "server_goals": [],     # [{id, guild_id, type, target, current, ends_at, created_at, done}]
 
     # --- utility ---
@@ -90,23 +186,47 @@ DEFAULT_STATE: Dict[str, Any] = {
 }
 
 
+def _merge_defaults(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure every default top-level key (and settings sub-key) is present."""
+    for k, v in DEFAULT_STATE.items():
+        if k not in data:
+            data[k] = json.loads(json.dumps(v))
+    for sk, sv in DEFAULT_STATE["settings"].items():
+        data["settings"].setdefault(sk, sv)
+    return data
+
+
+def _hydrate_local_from_supabase_once() -> None:
+    """On first load, if local JSON is missing/empty but Supabase has a row,
+    seed the local file from the durable copy so the bot picks up where it
+    left off after a container restart."""
+    try:
+        if os.path.exists(_STATE_FILE) and os.path.getsize(_STATE_FILE) > 2:
+            return
+        remote = _supabase_load_full_state()
+        if not remote:
+            return
+        with open(_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(remote, f, indent=2, default=str)
+        logger.info("[server_official] Hydrated local state from Supabase")
+    except Exception as e:
+        logger.warning(f"[server_official] hydrate-from-supabase failed: {e}")
+
+
 def load_state() -> Dict[str, Any]:
     with _state_lock:
+        # First call also kicks off the durable-flush background thread.
+        _start_supabase_flusher()
+        _hydrate_local_from_supabase_once()
         if not os.path.exists(_STATE_FILE):
-            return json.loads(json.dumps(DEFAULT_STATE))
+            return _merge_defaults(json.loads(json.dumps(DEFAULT_STATE)))
         try:
             with open(_STATE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except Exception as e:
             logger.warning(f"[server_official] load_state error: {e}; resetting")
-            return json.loads(json.dumps(DEFAULT_STATE))
-        for k, v in DEFAULT_STATE.items():
-            if k not in data:
-                data[k] = json.loads(json.dumps(v))
-        # Settings deep merge
-        for sk, sv in DEFAULT_STATE["settings"].items():
-            data["settings"].setdefault(sk, sv)
-        return data
+            return _merge_defaults(json.loads(json.dumps(DEFAULT_STATE)))
+        return _merge_defaults(data)
 
 
 def save_state(state: Dict[str, Any]) -> None:
@@ -118,6 +238,16 @@ def save_state(state: Dict[str, Any]) -> None:
             os.replace(tmp, _STATE_FILE)
         except Exception as e:
             logger.error(f"[server_official] save_state error: {e}")
+            return
+    # Mark as dirty for the periodic Supabase flusher (cheap, non-blocking).
+    if _supabase_client:
+        try:
+            with _dirty_lock:
+                # Snapshot via JSON round-trip so later in-place mutations don't
+                # leak into the pending Supabase payload.
+                globals()["_dirty_state"] = json.loads(json.dumps(state, default=str))
+        except Exception as e:
+            logger.warning(f"[server_official] mark-dirty failed: {e}")
 
 
 def _gen_id() -> str:
@@ -171,8 +301,6 @@ DEFAULT_GUILD_CONFIG = {
     "welcome_message": "👋 Welcome {user} to **{server}**! You are member #{count}.",
     "leave_message": "👋 {user} has left **{server}**.",
     "log_channel_id": "",
-    "leveling_enabled": True,
-    "daily_rewards_enabled": True,
     "auto_pin_threshold": 0,        # 0 = disabled
     "auto_cleanup_age_days": 0,     # 0 = disabled (cleanup of bot's own old messages)
     "broadcast_default_color": 0x5b8cff,
@@ -706,13 +834,6 @@ def get_analytics(guild_id: Optional[str] = None) -> Dict[str, Any]:
     }
 
 
-def get_xp_leaderboard(guild_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-    state = load_state()
-    g = state["xp"].get(str(guild_id), {})
-    rows = sorted(g.items(), key=lambda kv: kv[1].get("xp", 0), reverse=True)[:limit]
-    return [{"user_id": uid, "xp": v.get("xp", 0), "level": v.get("level", 1)} for uid, v in rows]
-
-
 # ============================================================
 # THE BOT
 # ============================================================
@@ -737,18 +858,6 @@ def _embed(title: str, description: str = "", color: int = 0x10b981) -> discord.
     e = discord.Embed(title=title, description=description, color=color, timestamp=datetime.now(timezone.utc))
     e.set_footer(text=state["settings"].get("embed_footer", "Server Official"))
     return e
-
-
-def _level_for(xp: int) -> int:
-    """Leveling curve: each level requires 100 * level XP."""
-    level = 1
-    needed = 100
-    rem = xp
-    while rem >= needed:
-        rem -= needed
-        level += 1
-        needed = 100 * level
-    return level
 
 
 # ---------- INVITE TRACKING ----------
@@ -918,26 +1027,6 @@ async def on_message(message: discord.Message):
 
     # Activity tracking
     _bump_messages_for(str(g.id), str(message.author.id))
-
-    # XP / Leveling
-    if cfg.get("leveling_enabled", True):
-        state = load_state()
-        gx = state["xp"].setdefault(str(g.id), {})
-        u = gx.setdefault(str(message.author.id), {"xp": 0, "level": 1, "last_msg_ts": 0})
-        now_ts = datetime.now(timezone.utc).timestamp()
-        if now_ts - float(u.get("last_msg_ts", 0)) > 60:
-            gain = random.randint(15, 25)
-            u["xp"] += gain
-            u["last_msg_ts"] = now_ts
-            new_level = _level_for(u["xp"])
-            if new_level > u["level"]:
-                u["level"] = new_level
-                try:
-                    await message.channel.send(embed=_embed("🎉 Level Up!",
-                        f"{message.author.mention} reached **Level {new_level}**!", color=0xf59e0b))
-                except Exception:
-                    pass
-            save_state(state)
 
     # Custom commands (! prefix)
     cmds = list_custom_commands(str(g.id))
@@ -1557,63 +1646,8 @@ async def slash_note(interaction: discord.Interaction, action: str, text: Option
 
 
 # ============================================================
-# SLASH COMMANDS — ENGAGEMENT (rank, leaderboard, daily, goal)
+# SLASH COMMANDS — ENGAGEMENT (goals)
 # ============================================================
-@bot.tree.command(name="rank", description="Show your XP / level (or another member's).")
-async def slash_rank(interaction: discord.Interaction, user: Optional[discord.Member] = None):
-    member = user or interaction.user
-    state = load_state()
-    u = state["xp"].get(str(interaction.guild_id), {}).get(str(member.id), {"xp": 0, "level": 1})
-    e = _embed(f"⭐ {member.display_name}",
-               f"**Level:** {u.get('level', 1)}\n**XP:** {u.get('xp', 0)}", color=0xf59e0b)
-    e.set_thumbnail(url=member.display_avatar.url)
-    await interaction.response.send_message(embed=e)
-
-
-@bot.tree.command(name="leaderboard", description="Top members by XP.")
-async def slash_leaderboard(interaction: discord.Interaction):
-    rows = get_xp_leaderboard(str(interaction.guild_id), 10)
-    if not rows:
-        return await interaction.response.send_message("No XP data yet.", ephemeral=True)
-    g = interaction.guild
-    lines = []
-    for i, r in enumerate(rows, 1):
-        m = g.get_member(int(r["user_id"])) if g else None
-        name = m.mention if m else f"<@{r['user_id']}>"
-        medal = ["🥇", "🥈", "🥉"][i-1] if i <= 3 else f"`#{i}`"
-        lines.append(f"{medal} {name} — Lv {r['level']} ({r['xp']} XP)")
-    await interaction.response.send_message(embed=_embed("🏆 XP Leaderboard", "\n".join(lines)))
-
-
-@bot.tree.command(name="daily", description="Claim daily reward & build a streak.")
-async def slash_daily(interaction: discord.Interaction):
-    g_id = str(interaction.guild_id)
-    u_id = str(interaction.user.id)
-    state = load_state()
-    daily = state["daily_checkins"].setdefault(g_id, {}).setdefault(u_id, {"streak": 0, "last": None, "total": 0})
-    today = _today()
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
-    if daily.get("last") == today:
-        return await interaction.response.send_message("✅ You've already checked in today!", ephemeral=True)
-    if daily.get("last") == yesterday:
-        daily["streak"] = int(daily.get("streak", 0)) + 1
-    else:
-        daily["streak"] = 1
-    daily["last"] = today
-    reward_xp = 50 + (daily["streak"] * 5)
-    daily["total"] = int(daily.get("total", 0)) + reward_xp
-    # Add XP
-    gx = state["xp"].setdefault(g_id, {}).setdefault(u_id, {"xp": 0, "level": 1, "last_msg_ts": 0})
-    gx["xp"] += reward_xp
-    gx["level"] = _level_for(gx["xp"])
-    save_state(state)
-    await interaction.response.send_message(
-        embed=_embed("🎁 Daily Reward Claimed",
-            f"**+{reward_xp} XP**\n**Streak:** {daily['streak']} 🔥\n**Total earned:** {daily['total']} XP"),
-        ephemeral=True,
-    )
-
-
 @bot.tree.command(name="goal", description="Set or list server goals.")
 @discord.app_commands.describe(action="set | list", type_="messages | members", target="Target number (for set)")
 async def slash_goal(interaction: discord.Interaction, action: str, type_: Optional[str] = None, target: Optional[int] = None):
@@ -1704,7 +1738,7 @@ async def slash_help(interaction: discord.Interaction):
         "**📣 Announcements**\n"
         "`/announce` `/broadcast` `/schedule` `/list_schedules` `/cancel_schedule`\n\n"
         "**🎉 Engagement**\n"
-        "`/rank` `/leaderboard` `/daily` `/goal` `/giveaway` `/list_giveaways` `/end_giveaway`\n\n"
+        "`/goal` `/giveaway` `/list_giveaways` `/end_giveaway`\n\n"
         "**🛠️ Utilities**\n"
         "`/poll` `/remind` `/sticky` `/note` `/userinfo` `/invites` `/stats` `/serverinfo`\n\n"
         "Manage everything from the dashboard at **/server-official/dashboard**."
