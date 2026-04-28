@@ -150,3 +150,10 @@ warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, purge, 
   4. Press `Ctrl + Shift + D`
 - Once unlocked: kebab menu appears in nav with: Edit Server Official, Ask for a Bot preview, Maintenance Mode toggle, Lock dev menu.
 - Server endpoints: `POST /dev/unlock` (validate PIN), `POST /dev/lock`, `POST /dev/maintenance`, `GET /dev/state`, `POST /dev/server-official`.
+
+## Developer Tools Panel on Dashboards (Apr 2026)
+When a dev session is unlocked (PIN passed), both `/dashboard` and `/server-official` show a floating gear button (bottom-right) that opens a side panel with:
+- **Theme**: accent color picker, presets (Midnight, Ocean, Sunset, Forest, Royal, Mono), splash on/off, compact density, reset.
+- **Quick actions**: reload, ping bot health, copy session info, clear local cache & reload.
+- **System info**: page, viewport, language, platform, UA, current theme.
+Theme is persisted in `localStorage.bl_theme` and applied pre-paint via an early `<head>` script in both dashboards (maps `--accent`/`--accent2` and `--bg2`/`--sidebar`, `--bg3`/`--card` so both CSS schemes work). Server passes `dev_unlocked=is_dev_session()` from `dashboard.py` to both render calls.

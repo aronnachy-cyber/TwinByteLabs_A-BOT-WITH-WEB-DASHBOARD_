@@ -137,6 +137,28 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
 .guild-pick select{padding:7px 10px;font-size:.85rem;}
 </style>
 </head>
+<script>
+/* ===== Apply persisted dev theme BEFORE paint to avoid flash ===== */
+(function(){
+  try {
+    const raw = localStorage.getItem('bl_theme');
+    if (!raw) return;
+    const t = JSON.parse(raw);
+    const root = document.documentElement;
+    if (t.accent)   { root.style.setProperty('--accent', t.accent); root.style.setProperty('--accent2', t.accent); }
+    if (t.bg)       root.style.setProperty('--bg',  t.bg);
+    if (t.bg2)      { root.style.setProperty('--bg2', t.bg2); root.style.setProperty('--sidebar', t.bg2); }
+    if (t.bg3)      { root.style.setProperty('--bg3', t.bg3); root.style.setProperty('--card', t.bg3); }
+    if (t.text)     root.style.setProperty('--text', t.text);
+    if (t.compact)  document.documentElement.classList.add('bl-compact');
+    if (t.hideSplash) {
+      const s = document.createElement('style');
+      s.textContent = '#bl-splash{display:none!important;}';
+      document.head.appendChild(s);
+    }
+  } catch(_){}
+})();
+</script>
 <body>
 
 <!-- ==================== LOADING SCREEN ==================== -->
@@ -1159,7 +1181,222 @@ function escapeHtml(s){
 loadOverviewCharts();
 loadSchedules();
 loadTemplates();
+
+{% if dev_unlocked %}
+/* ============ DEVELOPER TOOLS PANEL ============ */
+window.BL_DEV_PRESETS = {
+  midnight: { name:'Midnight (default)', accent:'#5b8cff', bg:'#07101f', bg2:'#0b1628', bg3:'#0f1d38', text:'#e8f0ff' },
+  ocean:    { name:'Ocean',              accent:'#22d3ee', bg:'#031424', bg2:'#062436', bg3:'#0a3349', text:'#dffaff' },
+  sunset:   { name:'Sunset',             accent:'#ff7a45', bg:'#1a0d12', bg2:'#26141d', bg3:'#331a26', text:'#fde8d8' },
+  forest:   { name:'Forest',             accent:'#22c55e', bg:'#071a10', bg2:'#0a2418', bg3:'#0f3022', text:'#dcfce7' },
+  royal:    { name:'Royal Purple',       accent:'#a78bfa', bg:'#120a24', bg2:'#1c1136', bg3:'#261748', text:'#ede9fe' },
+  mono:     { name:'Mono',               accent:'#cbd5e1', bg:'#0a0a0a', bg2:'#141414', bg3:'#1c1c1c', text:'#f5f5f5' },
+};
+function _blReadTheme(){ try { return JSON.parse(localStorage.getItem('bl_theme') || '{}'); } catch(_){ return {}; } }
+function _blWriteTheme(t){ localStorage.setItem('bl_theme', JSON.stringify(t || {})); }
+function _blApplyTheme(t){
+  const r = document.documentElement;
+  ['--accent','--accent2','--bg','--bg2','--bg3','--sidebar','--card','--text'].forEach(v => r.style.removeProperty(v));
+  if (t.accent) { r.style.setProperty('--accent', t.accent); r.style.setProperty('--accent2', t.accent); }
+  if (t.bg)     r.style.setProperty('--bg', t.bg);
+  if (t.bg2)    { r.style.setProperty('--bg2', t.bg2); r.style.setProperty('--sidebar', t.bg2); }
+  if (t.bg3)    { r.style.setProperty('--bg3', t.bg3); r.style.setProperty('--card', t.bg3); }
+  if (t.text)   r.style.setProperty('--text', t.text);
+  document.documentElement.classList.toggle('bl-compact', !!t.compact);
+}
+function blOpenDev(){ document.getElementById('bl-dev-panel').classList.add('open'); blRefreshDevPanel(); }
+function blCloseDev(){ document.getElementById('bl-dev-panel').classList.remove('open'); }
+function blRefreshDevPanel(){
+  const t = _blReadTheme();
+  const ac = document.getElementById('bl-dev-accent'); if (ac) ac.value = t.accent || '#5b8cff';
+  const sp = document.getElementById('bl-dev-splash'); if (sp) sp.checked = !t.hideSplash;
+  const cm = document.getElementById('bl-dev-compact'); if (cm) cm.checked = !!t.compact;
+  const si = document.getElementById('bl-dev-sysinfo');
+  if (si){
+    const vp = `${window.innerWidth}×${window.innerHeight}`;
+    const ua = navigator.userAgent.replace(/Mozilla\/[^ ]+ /, '');
+    si.innerHTML = `
+      <div><span>Page</span><code>${location.pathname}</code></div>
+      <div><span>Viewport</span><code>${vp}</code></div>
+      <div><span>Language</span><code>${navigator.language || '—'}</code></div>
+      <div><span>Platform</span><code>${navigator.platform || '—'}</code></div>
+      <div><span>UA</span><code style="font-size:.7rem;word-break:break-all;">${ua}</code></div>
+      <div><span>Theme</span><code>${(t.accent||'default')} · splash:${!t.hideSplash} · compact:${!!t.compact}</code></div>
+    `;
+  }
+}
+function blApplyAccent(val){ const t=_blReadTheme(); t.accent=val; _blWriteTheme(t); _blApplyTheme(t); }
+function blApplyPreset(key){
+  const p = window.BL_DEV_PRESETS[key]; if (!p) return;
+  const t = _blReadTheme();
+  t.accent=p.accent; t.bg=p.bg; t.bg2=p.bg2; t.bg3=p.bg3; t.text=p.text;
+  _blWriteTheme(t); _blApplyTheme(t); blRefreshDevPanel();
+  toast('Theme applied: ' + p.name);
+}
+function blToggleSplash(checked){ const t=_blReadTheme(); t.hideSplash=!checked; _blWriteTheme(t); _blApplyTheme(t); }
+function blToggleCompact(checked){ const t=_blReadTheme(); t.compact=!!checked; _blWriteTheme(t); _blApplyTheme(t); }
+function blResetTheme(){
+  if (!confirm('Reset all theme overrides to defaults?')) return;
+  localStorage.removeItem('bl_theme');
+  ['--accent','--accent2','--bg','--bg2','--bg3','--sidebar','--card','--text'].forEach(v => document.documentElement.style.removeProperty(v));
+  document.documentElement.classList.remove('bl-compact');
+  blRefreshDevPanel();
+  toast('Theme reset');
+}
+function blClearCache(){
+  if (!confirm('Clear all browser-stored dashboard data and reload?')) return;
+  try { localStorage.clear(); sessionStorage.clear(); } catch(_){}
+  location.reload();
+}
+function blReloadPage(){ location.reload(); }
+async function blCopySession(){
+  const info = { page: location.pathname, when: new Date().toISOString(), ua: navigator.userAgent };
+  try { await navigator.clipboard.writeText(JSON.stringify(info, null, 2)); toast('Session info copied'); }
+  catch(e){ toast('Copy failed', 'err'); }
+}
+async function blPingHealth(){
+  toast('Checking…');
+  try {
+    const r = await fetch('/server-official/api/status', { cache:'no-store' });
+    const j = await r.json().catch(() => ({}));
+    toast('SO bot: ' + (j.running ? 'ONLINE' : 'offline'));
+  } catch(e){ toast('Health check failed', 'err'); }
+}
+{% endif %}
 </script>
+
+{% if dev_unlocked %}
+<!-- ==================== DEVELOPER TOOLS PANEL ==================== -->
+<button type="button" id="bl-dev-fab" onclick="blOpenDev()" title="Developer Tools" aria-label="Developer Tools">
+  <i class="fas fa-screwdriver-wrench"></i>
+</button>
+
+<aside id="bl-dev-panel" aria-hidden="true">
+  <div class="bl-dev-head">
+    <div>
+      <div class="bl-dev-title"><i class="fas fa-user-shield"></i> Developer Tools</div>
+      <div class="bl-dev-sub">Theme · utilities · diagnostics</div>
+    </div>
+    <button type="button" class="bl-dev-x" onclick="blCloseDev()" aria-label="Close">
+      <i class="fas fa-xmark"></i>
+    </button>
+  </div>
+
+  <section class="bl-dev-sec">
+    <div class="bl-dev-sec-title"><i class="fas fa-palette"></i> Dashboard theme</div>
+    <label class="bl-dev-row">
+      <span>Accent color</span>
+      <input type="color" id="bl-dev-accent" value="#5b8cff" onchange="blApplyAccent(this.value)">
+    </label>
+    <div class="bl-dev-presets">
+      <button type="button" onclick="blApplyPreset('midnight')" style="--p:#5b8cff">Midnight</button>
+      <button type="button" onclick="blApplyPreset('ocean')"    style="--p:#22d3ee">Ocean</button>
+      <button type="button" onclick="blApplyPreset('sunset')"   style="--p:#ff7a45">Sunset</button>
+      <button type="button" onclick="blApplyPreset('forest')"   style="--p:#22c55e">Forest</button>
+      <button type="button" onclick="blApplyPreset('royal')"    style="--p:#a78bfa">Royal</button>
+      <button type="button" onclick="blApplyPreset('mono')"     style="--p:#cbd5e1">Mono</button>
+    </div>
+    <label class="bl-dev-row bl-dev-toggle">
+      <span>Show splash screen</span>
+      <input type="checkbox" id="bl-dev-splash" checked onchange="blToggleSplash(this.checked)">
+    </label>
+    <label class="bl-dev-row bl-dev-toggle">
+      <span>Compact density</span>
+      <input type="checkbox" id="bl-dev-compact" onchange="blToggleCompact(this.checked)">
+    </label>
+    <button type="button" class="bl-dev-btn bl-dev-btn-ghost" onclick="blResetTheme()">
+      <i class="fas fa-arrow-rotate-left"></i> Reset to defaults
+    </button>
+  </section>
+
+  <section class="bl-dev-sec">
+    <div class="bl-dev-sec-title"><i class="fas fa-bolt"></i> Quick actions</div>
+    <button type="button" class="bl-dev-btn" onclick="blReloadPage()">
+      <i class="fas fa-rotate"></i> Reload dashboard
+    </button>
+    <button type="button" class="bl-dev-btn" onclick="blPingHealth()">
+      <i class="fas fa-heart-pulse"></i> Ping bot health
+    </button>
+    <button type="button" class="bl-dev-btn" onclick="blCopySession()">
+      <i class="fas fa-copy"></i> Copy session info
+    </button>
+    <button type="button" class="bl-dev-btn bl-dev-btn-danger" onclick="blClearCache()">
+      <i class="fas fa-broom"></i> Clear local cache & reload
+    </button>
+  </section>
+
+  <section class="bl-dev-sec">
+    <div class="bl-dev-sec-title"><i class="fas fa-circle-info"></i> System info</div>
+    <div id="bl-dev-sysinfo" class="bl-dev-info"></div>
+  </section>
+
+  <div class="bl-dev-foot">Server Official · Byte Labs · dev mode</div>
+</aside>
+
+<style>
+#bl-dev-fab {
+  position: fixed; right: 22px; bottom: 22px; z-index: 9998;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: linear-gradient(135deg, #5b8cff, #8a6cff);
+  color: #fff; border: none; cursor: pointer;
+  box-shadow: 0 10px 30px rgba(91,140,255,.45);
+  font-size: 1.15rem; display: flex; align-items: center; justify-content: center;
+  transition: transform .15s ease;
+}
+#bl-dev-fab:hover { transform: scale(1.08) rotate(8deg); }
+#bl-dev-panel {
+  position: fixed; top: 0; right: -400px; width: min(380px, 92vw); height: 100vh;
+  background: linear-gradient(180deg, #0c1830 0%, #07101f 100%);
+  border-left: 1px solid var(--border, rgba(91,140,255,.18));
+  box-shadow: -20px 0 60px rgba(0,0,0,.55);
+  z-index: 9999; overflow-y: auto;
+  transition: right .3s ease;
+  color: var(--text, #e8f0ff);
+}
+#bl-dev-panel.open { right: 0; }
+.bl-dev-head { display:flex; align-items:flex-start; justify-content:space-between; padding:18px 20px 14px; border-bottom:1px solid rgba(91,140,255,.15); }
+.bl-dev-title { font-size:1.02rem; font-weight:700; }
+.bl-dev-sub { font-size:.74rem; color:var(--muted,#7a93b8); margin-top:3px; letter-spacing:.5px; text-transform:uppercase; }
+.bl-dev-x { background:transparent;color:var(--muted,#7a93b8); border:none; font-size:1.1rem; cursor:pointer; padding:4px 8px; border-radius:6px; }
+.bl-dev-x:hover { color:#fff; background:rgba(255,255,255,.06); }
+.bl-dev-sec { padding:16px 20px; border-bottom:1px solid rgba(91,140,255,.08); }
+.bl-dev-sec-title { font-size:.72rem; color:#5b8cff; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; margin-bottom:12px; }
+.bl-dev-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; font-size:.88rem; color:var(--text,#e8f0ff); }
+.bl-dev-row input[type="color"] { width:44px; height:30px; border:1px solid rgba(91,140,255,.25); border-radius:8px; background:transparent; cursor:pointer; padding:0; }
+.bl-dev-toggle input[type="checkbox"] { width:36px; height:20px; appearance:none; -webkit-appearance:none; background:rgba(255,255,255,.08); border-radius:20px; position:relative; cursor:pointer; transition:background .15s; }
+.bl-dev-toggle input[type="checkbox"]:checked { background:#5b8cff; }
+.bl-dev-toggle input[type="checkbox"]::after { content:''; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .15s; }
+.bl-dev-toggle input[type="checkbox"]:checked::after { transform: translateX(16px); }
+.bl-dev-presets { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:6px 0 12px; }
+.bl-dev-presets button {
+  background: rgba(91,140,255,.06); color: var(--text,#e8f0ff);
+  border: 1px solid rgba(91,140,255,.18); border-radius:8px;
+  padding:8px 10px; font-size:.8rem; font-weight:600; cursor:pointer;
+  display:flex; align-items:center; gap:8px;
+}
+.bl-dev-presets button::before { content:''; width:10px; height:10px; border-radius:50%; background:var(--p,#5b8cff); flex-shrink:0; }
+.bl-dev-presets button:hover { border-color: var(--p,#5b8cff); background: rgba(255,255,255,.04); }
+.bl-dev-btn {
+  width:100%; display:flex; align-items:center; gap:10px;
+  background: rgba(91,140,255,.1); color: var(--text,#e8f0ff);
+  border: 1px solid rgba(91,140,255,.22); border-radius:9px;
+  padding:10px 14px; font-size:.86rem; font-weight:600; cursor:pointer;
+  margin-top:8px;
+}
+.bl-dev-btn:hover { background: rgba(91,140,255,.18); }
+.bl-dev-btn-ghost { background: transparent; border-style:dashed; }
+.bl-dev-btn-danger { background: rgba(231,76,60,.1); border-color: rgba(231,76,60,.35); color:#f4a8a0; }
+.bl-dev-btn-danger:hover { background: rgba(231,76,60,.2); }
+.bl-dev-info { display:flex; flex-direction:column; gap:6px; font-size:.78rem; }
+.bl-dev-info div { display:flex; gap:10px; align-items:flex-start; }
+.bl-dev-info span { color: var(--muted,#7a93b8); min-width:70px; }
+.bl-dev-info code { background: rgba(91,140,255,.08); padding:2px 7px; border-radius:5px; color:#cfe0ff; font-family:'JetBrains Mono',monospace; }
+.bl-dev-foot { padding:14px 20px; font-size:.7rem; color:var(--muted,#7a93b8); text-align:center; opacity:.65; letter-spacing:.6px; }
+
+html.bl-compact .card { padding: 14px !important; margin-bottom: 12px !important; }
+html.bl-compact .so-section { padding: 14px !important; }
+</style>
+{% endif %}
 
 </body>
 </html>

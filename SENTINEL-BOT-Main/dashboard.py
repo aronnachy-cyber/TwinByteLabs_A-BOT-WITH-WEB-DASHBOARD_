@@ -728,6 +728,7 @@ def server_official_dashboard():
         bot_running=bool(so and so.is_running()),
         live=live,
         overview=overview,
+        dev_unlocked=is_dev_session(),
     )
 
 
@@ -1596,6 +1597,7 @@ def index():
             current_session_token='',
             pending_users=[],
             all_users=[],
+            dev_unlocked=is_dev_session(),
         )
     except Exception as e:
         print(f"❌ Dashboard template render error: {e}")
