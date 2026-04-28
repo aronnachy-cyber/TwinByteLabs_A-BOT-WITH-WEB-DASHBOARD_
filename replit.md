@@ -93,6 +93,20 @@ All slash mod commands enforce both `app_commands.checks.has_permissions` AND th
 ## Prefix Commands (default: !)
 warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, timeout, untimeout, unban, purge, purgeuser, slowmode, lockdown, unlockdown, lock, unlock, role, nick, voicekick, snipe, massban, note, notes, modlogs, userinfo (alias whois/ui), serverinfo (alias si), refresh
 
+## V2.8.1 — Server Official Landing Page Refresh
+The Server Official public landing page (`/server-official`) has been rebuilt to match SP4RK's depth and richness while keeping its own emerald/cyan identity (vs SP4RK's blue/orange):
+
+- **Animated mission-control hero** — a radar scope with rotating sweep, four pulsing "blip" feature dots, a satellite-dish core with a `ping` ring, and three floating "transmission" pills ("Announcement queued", "Giveaway live", "Starboard +1"). Replaces SP4RK's construction crane + ember motif with a thematic equivalent.
+- **Hero CTAs match SP4RK's pattern** — Open Dashboard (gradient primary), Add to Discord (when invite URL is configured), See Features (ghost). Online/offline status pill plus a live "Managing N servers · M members" mini-stat when the bot is connected.
+- **By-the-numbers stat strip** — six tiles (Servers, Scheduled Posts, Active Giveaways, Live Polls, Reminders, Sticky Messages) populated from `get_full_overview()` and `_so_live_state()`. Conditionally rendered so the page isn't ugly when SO isn't running.
+- **12 feature cards** (was 6) — covers every shipped module, with NEW badges on Starboard and Embed Builder.
+- **Expanded slash command grid** — 20 commands now listed (was 11), grouped to flow naturally from announcements → giveaways → polls/reminders → embeds → starboard → invites → setup.
+- **3-tier pricing section** — Starter / Pro (featured) / Enterprise, mirroring SP4RK's miniO / Simple / Advance layout. Featured tier uses gold/amber gradient instead of SP4RK's orange so the two bots stay visually distinct.
+- **Rich footer** — social icon row + copyright with a live-state indicator.
+- **Route now passes `live`, `overview`, and `invite_url`** to the template. Invite URL is built from `SERVER_OFFICIAL_CLIENT_ID` (or falls back to `DISCORD_CLIENT_ID`) plus optional `SERVER_OFFICIAL_PERMISSIONS` env var so a single-OAuth-app deployment Just Works.
+
+File grew from 452 → ~1000 lines. Same overall shape as SP4RK's landing (1454 lines) — the difference is mostly that SP4RK has the `dev menu` PIN-protected drawer for the maintenance toggle, which is intentionally SP4RK-only.
+
 ## V2.8 — Dyno / Carl-bot Feature Pack
 Two new self-contained modules add the signature features people expect from modern community bots. Both keep `main.py` / `server_official.py` clean by exposing a single `setup()` entry point.
 

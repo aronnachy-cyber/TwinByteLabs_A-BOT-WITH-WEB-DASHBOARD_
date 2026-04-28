@@ -4,444 +4,921 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Server Official — Byte Labs</title>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
 <style>
-  :root{
-    --bg:#040b18;
-    --text:#eef5ff;
-    --muted:#8da4c4;
-    --accent:#10b981;
-    --accent2:#06b6d4;
-    --accent3:#22d3ee;
-    --gradient: linear-gradient(135deg,#10b981 0%, #06b6d4 50%, #22d3ee 100%);
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  body{
-    font-family:'Inter', system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.55;
-    overflow-x: hidden;
-    min-height:100vh;
-  }
-  /* Animated background orbs */
-  body::before, body::after{
-    content:""; position:fixed; pointer-events:none; z-index:0;
-    width:600px; height:600px; border-radius:50%;
-    filter: blur(120px); opacity:.35;
-  }
-  body::before{
-    background: radial-gradient(circle, #10b981, transparent 70%);
-    top:-200px; left:-150px;
-    animation: float1 14s ease-in-out infinite;
-  }
-  body::after{
-    background: radial-gradient(circle, #06b6d4, transparent 70%);
-    bottom:-200px; right:-150px;
-    animation: float2 16s ease-in-out infinite;
-  }
-  @keyframes float1{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(60px,40px);} }
-  @keyframes float2{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(-50px,-30px);} }
+*{box-sizing:border-box;margin:0;padding:0;}
 
-  .grid-bg{
-    position:fixed; inset:0;
-    background-image:
-      linear-gradient(rgba(91,140,255,0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(91,140,255,0.05) 1px, transparent 1px);
-    background-size: 60px 60px;
-    pointer-events:none;
-    z-index:0;
-    mask-image: radial-gradient(ellipse at center, #000 0%, transparent 70%);
-  }
+:root{
+  --bg:#040b18;
+  --bg2:#06122a;
+  --text:#eef5ff;
+  --muted:#8da4c4;
+  --border:rgba(16,185,129,0.18);
+  --accent:#10b981;       /* emerald */
+  --accent2:#06b6d4;      /* cyan */
+  --accent3:#22d3ee;      /* bright cyan */
+  --warm:#facc15;         /* gold (used for "featured" plan + premium accents) */
+  --gradient: linear-gradient(135deg,#10b981 0%, #06b6d4 50%, #22d3ee 100%);
+  --gradient-warm: linear-gradient(90deg,#facc15,#f59e0b);
+}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Inter','Segoe UI',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.55;
+  overflow-x:hidden;
+  min-height:100vh;
+}
 
-  nav{
-    position:relative; z-index:10;
-    padding:20px 40px;
-    display:flex; align-items:center; justify-content:space-between;
-    backdrop-filter: blur(10px);
-    background: rgba(4,11,24,0.5);
-    border-bottom:1px solid rgba(255,255,255,0.05);
-  }
-  .nav-logo{
-    display:flex; align-items:center; gap:12px;
-    text-decoration:none;
-  }
-  .nav-logo-mark{
-    width:42px; height:42px;
-    border-radius:11px;
-    background: var(--gradient);
-    display:flex; align-items:center; justify-content:center;
-    font-weight:900; color:white; font-size:1.05rem;
-    box-shadow: 0 8px 22px rgba(16,185,129,.4);
-  }
-  .nav-logo-name{ font-weight:800; font-size:1.15rem; color:#fff; }
-  .nav-logo-name span{
-    background: var(--gradient);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .nav-back{
-    display:inline-flex; align-items:center; gap:8px;
-    padding:10px 18px;
-    background: rgba(255,255,255,0.05);
-    border:1px solid rgba(255,255,255,0.1);
-    border-radius:10px;
-    color:#cfd9ee;
-    text-decoration:none;
-    font-weight:600; font-size:.92rem;
-    transition: background .15s, border-color .15s;
-  }
-  .nav-back:hover{ background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff; }
+/* ===== AMBIENT BACKGROUND ===== */
+body::before, body::after{
+  content:""; position:fixed; pointer-events:none; z-index:0;
+  width:600px; height:600px; border-radius:50%;
+  filter: blur(120px); opacity:.32;
+}
+body::before{
+  background: radial-gradient(circle, #10b981, transparent 70%);
+  top:-200px; left:-150px;
+  animation: float1 14s ease-in-out infinite;
+}
+body::after{
+  background: radial-gradient(circle, #06b6d4, transparent 70%);
+  bottom:-200px; right:-150px;
+  animation: float2 16s ease-in-out infinite;
+}
+@keyframes float1{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(60px,40px);} }
+@keyframes float2{ 0%,100%{transform:translate(0,0);} 50%{transform:translate(-50px,-30px);} }
+.grid-bg{
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(91,140,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91,140,255,0.05) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events:none;
+  z-index:0;
+  mask-image: radial-gradient(ellipse at center, #000 0%, transparent 70%);
+}
 
-  .hero{
-    position:relative; z-index:5;
-    text-align:center;
-    padding: 90px 20px 70px;
-    max-width: 980px;
-    margin: 0 auto;
-  }
-  .hero-badge{
-    display:inline-flex; align-items:center; gap:8px;
-    padding:8px 16px;
-    background: rgba(16,185,129,0.1);
-    border:1px solid rgba(16,185,129,.35);
-    border-radius:99px;
-    color:#10d9a3;
-    font-size:.82rem; font-weight:600;
-    margin-bottom: 22px;
-  }
-  .hero-badge::before{
-    content:""; width:8px; height:8px; border-radius:50%;
-    background:#10d9a3;
-    box-shadow: 0 0 10px #10d9a3;
-    animation: pulse 1.6s ease-in-out infinite;
-  }
-  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.4;} }
+/* ===== NAV ===== */
+nav{
+  position:relative; z-index:10;
+  padding:18px 40px;
+  display:flex; align-items:center; gap:14px;
+  backdrop-filter: blur(10px);
+  background: rgba(4,11,24,0.55);
+  border-bottom:1px solid rgba(255,255,255,0.05);
+}
+.nav-logo{display:flex; align-items:center; gap:12px; text-decoration:none;}
+.nav-logo-mark{
+  width:42px; height:42px; border-radius:11px;
+  background: var(--gradient);
+  display:flex; align-items:center; justify-content:center;
+  font-weight:900; color:white; font-size:1.1rem;
+  box-shadow: 0 8px 22px rgba(16,185,129,.4);
+}
+.nav-logo-name{ font-weight:800; font-size:1.15rem; color:#fff; }
+.nav-logo-name span{
+  background: var(--gradient);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.btn-ghost{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 18px;
+  background: rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:10px;
+  color:#cfd9ee; text-decoration:none;
+  font-weight:600; font-size:.92rem;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.btn-ghost:hover{ background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff; }
+.nav-right{ margin-left:auto; display:flex; gap:10px; align-items:center; }
+.btn-primary{
+  display:inline-flex; align-items:center; gap:10px;
+  padding:11px 22px;
+  background: var(--gradient);
+  color:#fff; text-decoration:none; border:none;
+  border-radius:10px;
+  font-weight:700; font-size:.95rem; font-family:inherit;
+  cursor:pointer;
+  box-shadow: 0 8px 24px rgba(16,185,129,.4);
+  transition: transform .15s, box-shadow .2s, filter .15s;
+}
+.btn-primary:hover{ transform:translateY(-2px); box-shadow:0 14px 38px rgba(16,185,129,.55); filter:brightness(1.08); }
+.btn-discord{
+  display:inline-flex; align-items:center; gap:10px;
+  padding:11px 22px;
+  background:#5865f2; color:#fff; text-decoration:none;
+  border-radius:10px;
+  font-weight:700; font-size:.95rem;
+  box-shadow: 0 8px 24px rgba(88,101,242,.35);
+  transition: transform .15s, filter .15s;
+}
+.btn-discord:hover{ transform:translateY(-2px); filter:brightness(1.1); }
 
-  .hero h1{
-    font-size: clamp(2.4rem, 6vw, 4.4rem);
-    font-weight: 900;
-    letter-spacing: -1.5px;
-    line-height: 1.05;
-    margin-bottom: 22px;
-  }
-  .hero h1 span{
-    background: var(--gradient);
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent;
-  }
-  .hero p.lede{
-    font-size: clamp(1rem, 1.6vw, 1.2rem);
-    color: var(--muted);
-    max-width: 720px;
-    margin: 0 auto 36px;
-  }
-  .hero-cta{
-    display:flex; gap:14px; justify-content:center; flex-wrap:wrap;
-  }
-  .btn-primary{
-    display:inline-flex; align-items:center; gap:10px;
-    padding:15px 30px;
-    background: var(--gradient);
-    color:#fff;
-    text-decoration:none;
-    border:none;
-    border-radius:12px;
-    font-weight:700; font-size:1rem; font-family:inherit;
-    cursor:pointer;
-    box-shadow: 0 10px 30px rgba(16,185,129,.4);
-    transition: transform .15s, box-shadow .2s;
-  }
-  .btn-primary:hover{ transform: translateY(-2px); box-shadow: 0 14px 38px rgba(16,185,129,.55); }
-  .btn-secondary{
-    display:inline-flex; align-items:center; gap:10px;
-    padding:15px 28px;
-    background: rgba(255,255,255,0.04);
-    border:1px solid rgba(255,255,255,0.15);
-    border-radius:12px;
-    color:#cfd9ee;
-    text-decoration:none;
-    font-weight:600;
-    transition: background .15s, border-color .15s;
-  }
-  .btn-secondary:hover{ background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.25); color:#fff; }
+/* ===== HERO ===== */
+.hero{
+  position:relative; z-index:5;
+  display:grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap:50px; align-items:center;
+  max-width:1200px; margin:0 auto;
+  padding: 70px 30px 60px;
+}
+@media (max-width:980px){
+  .hero{ grid-template-columns: 1fr; text-align:center; padding-top:50px; }
+}
+.hero-badge{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:7px 16px;
+  background: rgba(16,185,129,0.1);
+  border:1px solid rgba(16,185,129,.35);
+  border-radius:99px;
+  color:#10d9a3;
+  font-size:.82rem; font-weight:600;
+  margin-bottom: 20px;
+}
+.hero-badge::before{
+  content:""; width:8px; height:8px; border-radius:50%;
+  background:#10d9a3;
+  box-shadow: 0 0 10px #10d9a3;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.4;} }
 
-  .status-pill{
-    display:inline-flex; align-items:center; gap:8px;
-    padding:6px 14px;
-    border-radius:99px;
-    font-size:.78rem; font-weight:700;
-    margin-top:18px;
-  }
-  .status-pill.online{
-    background:rgba(16,185,129,.12);
-    border:1px solid rgba(16,185,129,.35);
-    color:#10d9a3;
-  }
-  .status-pill.offline{
-    background:rgba(245,158,11,.1);
-    border:1px solid rgba(245,158,11,.35);
-    color:#fbbf24;
-  }
-  .status-pill .dot{
-    width:7px; height:7px; border-radius:50%;
-    background: currentColor;
-    box-shadow: 0 0 8px currentColor;
-  }
+.hero h1{
+  font-size: clamp(2.4rem, 5.6vw, 4.2rem);
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  line-height: 1.05;
+  margin-bottom: 20px;
+}
+.hero h1 .brand{
+  background: var(--gradient);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.hero p.lede{
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
+  color: var(--muted);
+  max-width: 560px;
+  margin-bottom: 30px;
+}
+@media (max-width:980px){ .hero p.lede{ margin-left:auto; margin-right:auto; } }
 
-  /* ===== FEATURES ===== */
-  .section{
-    position:relative; z-index:5;
-    padding: 60px 20px;
-    max-width: 1180px;
-    margin: 0 auto;
-  }
-  .section-eyebrow{
-    text-align:center;
-    font-size:.85rem;
-    font-weight:700;
-    letter-spacing:2px;
-    text-transform:uppercase;
-    color:#10d9a3;
-    margin-bottom:8px;
-  }
-  .section h2{
-    text-align:center;
-    font-size: clamp(1.9rem, 4vw, 2.8rem);
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    margin-bottom: 18px;
-  }
-  .section h2 span{
-    background: var(--gradient);
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent;
-  }
-  .section .subtitle{
-    text-align:center;
-    color: var(--muted);
-    max-width: 640px;
-    margin: 0 auto 50px;
-    font-size: 1.05rem;
-  }
+.hero-cta{
+  display:flex; gap:12px; flex-wrap:wrap;
+}
+@media (max-width:980px){ .hero-cta{ justify-content:center; } }
+.hero-cta .btn-primary,
+.hero-cta .btn-discord,
+.hero-cta .btn-ghost{ padding:14px 26px; font-size:1rem; }
 
-  .features{
-    display:grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 22px;
-  }
-  .feature{
-    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:18px;
-    padding:28px;
-    transition: transform .2s, border-color .2s, background .2s;
-  }
-  .feature:hover{
-    transform: translateY(-4px);
-    border-color: rgba(16,185,129,.4);
-    background: linear-gradient(180deg, rgba(16,185,129,0.06), rgba(255,255,255,0.01));
-  }
-  .feature .icon{
-    width:48px; height:48px; border-radius:12px;
-    background: rgba(16,185,129,.12);
-    color: #10d9a3;
-    display:flex; align-items:center; justify-content:center;
-    font-size:1.3rem;
-    margin-bottom:18px;
-  }
-  .feature h3{
-    font-size:1.15rem;
-    font-weight:700;
-    margin-bottom:8px;
-  }
-  .feature p{
-    color: var(--muted);
-    font-size:.93rem;
-    line-height:1.55;
-  }
+.status-row{
+  display:flex; gap:14px; flex-wrap:wrap; align-items:center;
+  margin-top:22px;
+}
+@media (max-width:980px){ .status-row{ justify-content:center; } }
+.status-pill{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:6px 14px;
+  border-radius:99px;
+  font-size:.78rem; font-weight:700;
+}
+.status-pill.online{
+  background:rgba(16,185,129,.12);
+  border:1px solid rgba(16,185,129,.35);
+  color:#10d9a3;
+}
+.status-pill.offline{
+  background:rgba(245,158,11,.1);
+  border:1px solid rgba(245,158,11,.35);
+  color:#fbbf24;
+}
+.status-pill .dot{
+  width:7px; height:7px; border-radius:50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+.live-mini{
+  font-size:.82rem; color:var(--muted);
+  display:inline-flex; gap:6px; align-items:center;
+}
+.live-mini b{ color:#fff; }
 
-  /* ===== COMMANDS ===== */
-  .commands{
-    display:grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap:14px;
-  }
-  .cmd{
-    background: linear-gradient(180deg, rgba(6,182,212,0.06), rgba(255,255,255,0.01));
-    border:1px solid rgba(6,182,212,.18);
-    border-radius:12px;
-    padding:18px 20px;
-    transition: border-color .15s, transform .15s;
-  }
-  .cmd:hover{
-    border-color: rgba(6,182,212,.45);
-    transform: translateY(-2px);
-  }
-  .cmd code{
-    display:inline-block;
-    background: #050d1a;
-    border:1px solid rgba(91,140,255,.15);
-    color: #67e8f9;
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size:.92rem;
-    font-weight:600;
-    margin-bottom:8px;
-    font-family: 'SF Mono', Menlo, Consolas, monospace;
-  }
-  .cmd p{
-    color: var(--muted);
-    font-size:.88rem;
-  }
+/* ===== HERO ART — ANIMATED MISSION CONTROL ===== */
+.hero-art{
+  position:relative;
+  width:100%; min-height:340px;
+  display:flex; align-items:center; justify-content:center;
+}
+.scope{
+  position:relative;
+  width:340px; height:340px; max-width:90vw;
+  border-radius:50%;
+  background:
+    radial-gradient(circle at center, rgba(16,185,129,.06), transparent 65%),
+    radial-gradient(circle at center, rgba(6,182,212,.04), transparent 80%);
+  border:1px solid rgba(16,185,129,.18);
+  box-shadow:
+    inset 0 0 60px rgba(16,185,129,.06),
+    0 30px 80px rgba(6,182,212,.18);
+  overflow:hidden;
+}
+/* concentric scope rings */
+.scope::before, .scope::after{
+  content:""; position:absolute; inset:50%; border-radius:50%;
+  border:1px dashed rgba(34,211,238,.22);
+  transform:translate(-50%,-50%);
+}
+.scope::before{ width:75%; height:75%; }
+.scope::after { width:45%; height:45%; }
+/* radar sweep */
+.scope .sweep{
+  position:absolute; inset:0;
+  border-radius:50%;
+  background: conic-gradient(from 0deg,
+              rgba(16,185,129,0.45) 0deg,
+              rgba(16,185,129,0.0) 70deg,
+              rgba(16,185,129,0.0) 360deg);
+  animation: spin 5.5s linear infinite;
+  mix-blend-mode: screen;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+/* crosshair */
+.scope .cross-h, .scope .cross-v{
+  position:absolute; background:rgba(34,211,238,.25);
+}
+.scope .cross-h{ left:0; right:0; top:50%; height:1px; }
+.scope .cross-v{ top:0; bottom:0; left:50%; width:1px; }
+/* center "satellite" pulse */
+.scope .core{
+  position:absolute; left:50%; top:50%;
+  width:54px; height:54px; margin:-27px 0 0 -27px;
+  border-radius:50%;
+  background: var(--gradient);
+  display:flex; align-items:center; justify-content:center;
+  color:#04141a; font-size:1.4rem;
+  box-shadow: 0 0 0 6px rgba(16,185,129,.18), 0 0 30px rgba(16,185,129,.55);
+  z-index:3;
+}
+.scope .core::after{
+  content:""; position:absolute; inset:-14px; border-radius:50%;
+  border:2px solid rgba(16,185,129,.45);
+  animation: ping 2.4s ease-out infinite;
+}
+@keyframes ping{
+  0%   { transform:scale(.7); opacity:.9; }
+  80%  { transform:scale(1.6); opacity:0; }
+  100% { opacity:0; }
+}
+/* "blips" — feature dots that pop into view as the sweep passes */
+.blip{
+  position:absolute; width:12px; height:12px; margin:-6px 0 0 -6px;
+  border-radius:50%; background:#10d9a3;
+  box-shadow:0 0 12px #10d9a3;
+  opacity:0;
+  animation: blip-fade 5.5s linear infinite;
+  z-index:2;
+}
+.blip.b2{ background:#22d3ee; box-shadow:0 0 12px #22d3ee; animation-delay:1.6s; }
+.blip.b3{ background:#facc15; box-shadow:0 0 12px #facc15; animation-delay:3.0s; }
+.blip.b4{ background:#a78bfa; box-shadow:0 0 12px #a78bfa; animation-delay:4.2s; }
+@keyframes blip-fade{
+  0%, 8%   { opacity:0; transform:scale(.6); }
+  18%, 38% { opacity:1; transform:scale(1); }
+  60%      { opacity:.55; }
+  90%,100% { opacity:0; transform:scale(.6); }
+}
+/* small floating "transmissions" around the scope */
+.signal{
+  position:absolute;
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.04em;
+  color:#cfeef0;
+  background:rgba(6,18,42,.85);
+  border:1px solid rgba(6,182,212,.35);
+  padding:5px 10px;
+  border-radius:8px;
+  white-space:nowrap;
+  box-shadow:0 6px 18px rgba(6,182,212,.15);
+  animation: signal-float 5s ease-in-out infinite;
+  z-index:4;
+}
+.signal i{ color:#22d3ee; margin-right:6px; }
+.signal.s1{ left:-30px; top:18%; animation-delay:0s; }
+.signal.s2{ right:-30px; top:55%; animation-delay:1.2s; }
+.signal.s3{ left:8%; bottom:-10px; animation-delay:2.4s; }
+@keyframes signal-float{
+  0%,100% { transform:translateY(0); opacity:.95; }
+  50%     { transform:translateY(-8px); opacity:1; }
+}
 
-  /* CTA strip */
-  .cta-strip{
-    background: linear-gradient(135deg, rgba(16,185,129,.1), rgba(6,182,212,.1));
-    border:1px solid rgba(16,185,129,.25);
-    border-radius:22px;
-    padding:46px 30px;
-    text-align:center;
-    margin: 30px auto 60px;
-    max-width: 900px;
-    position:relative;
-    z-index:5;
-  }
-  .cta-strip h2{
-    font-size: clamp(1.6rem, 3vw, 2.2rem);
-    margin-bottom:14px;
-  }
-  .cta-strip p{
-    color: var(--muted);
-    margin-bottom: 24px;
-  }
+/* ===== SECTION FRAME ===== */
+.section{
+  position:relative; z-index:5;
+  padding: 70px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.section-eyebrow{
+  text-align:center;
+  font-size:.82rem;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:#10d9a3;
+  margin-bottom:8px;
+}
+.section h2{
+  text-align:center;
+  font-size: clamp(1.9rem, 4vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 14px;
+}
+.section h2 span{
+  background: var(--gradient);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.section .subtitle{
+  text-align:center;
+  color: var(--muted);
+  max-width: 680px;
+  margin: 0 auto 50px;
+  font-size: 1.05rem;
+}
 
-  footer{
-    position:relative; z-index:5;
-    text-align:center;
-    padding: 30px 20px;
-    color: var(--muted);
-    font-size:.88rem;
-    border-top: 1px solid rgba(255,255,255,0.05);
-  }
+/* ===== STAT TILES (BY THE NUMBERS) ===== */
+.stats-row{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 18px;
+  max-width: 1100px;
+  margin: -10px auto 0;
+}
+.stat-tile{
+  background: linear-gradient(180deg, rgba(16,185,129,.08), rgba(6,182,212,.04));
+  border:1px solid rgba(16,185,129,.22);
+  border-radius:16px;
+  padding:24px 18px;
+  text-align:center;
+  transition: transform .2s, border-color .2s;
+}
+.stat-tile:hover{ transform:translateY(-3px); border-color:rgba(34,211,238,.45); }
+.stat-tile .stat-icon{
+  width:42px; height:42px; border-radius:10px;
+  background: rgba(16,185,129,.12);
+  color:#10d9a3;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.1rem; margin:0 auto 12px;
+}
+.stat-tile .stat-num{
+  font-size:1.9rem; font-weight:800; line-height:1.1;
+  background: var(--gradient);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.stat-tile .stat-label{
+  font-size:.82rem; color:var(--muted);
+  margin-top:6px;
+  text-transform:uppercase; letter-spacing:.06em; font-weight:600;
+}
 
-  @media (max-width: 600px){
-    nav{ padding:16px 20px; }
-    .hero{ padding: 60px 20px 40px; }
-  }
+/* ===== FEATURES ===== */
+.features{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 22px;
+}
+.feature-card{
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:18px;
+  padding:28px 26px;
+  transition: transform .2s, border-color .2s, background .2s;
+}
+.feature-card:hover{
+  transform: translateY(-4px);
+  border-color: rgba(16,185,129,.4);
+  background: linear-gradient(180deg, rgba(16,185,129,0.06), rgba(255,255,255,0.01));
+}
+.feature-card .icon{
+  width:48px; height:48px; border-radius:12px;
+  background: rgba(16,185,129,.12);
+  color: #10d9a3;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.3rem;
+  margin-bottom:18px;
+}
+.feature-card h3{ font-size:1.15rem; font-weight:700; margin-bottom:8px; color:#fff; }
+.feature-card p{ color: var(--muted); font-size:.93rem; line-height:1.55; }
+.feature-card .new-pill{
+  display:inline-block;
+  font-size:.62rem; letter-spacing:.08em; font-weight:800; text-transform:uppercase;
+  padding:3px 8px; border-radius:99px;
+  background: rgba(250,204,21,.15);
+  color:#facc15; border:1px solid rgba(250,204,21,.35);
+  margin-left:8px;
+}
+
+/* ===== COMMANDS ===== */
+.commands{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap:14px;
+}
+.cmd{
+  background: linear-gradient(180deg, rgba(6,182,212,0.06), rgba(255,255,255,0.01));
+  border:1px solid rgba(6,182,212,.18);
+  border-radius:12px;
+  padding:18px 20px;
+  transition: border-color .15s, transform .15s;
+}
+.cmd:hover{ border-color: rgba(6,182,212,.45); transform: translateY(-2px); }
+.cmd code{
+  display:inline-block;
+  background: #050d1a;
+  border:1px solid rgba(91,140,255,.15);
+  color: #67e8f9;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size:.92rem; font-weight:600;
+  margin-bottom:8px;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+}
+.cmd p{ color: var(--muted); font-size:.88rem; }
+.cmd p code{ background:#050d1a; color:#67e8f9; padding:1px 6px; border-radius:4px; font-size:.78rem; margin:0; display:inline; border:none; }
+
+/* ===== PLANS / TIERS ===== */
+.plans{
+  padding: 70px 24px 50px;
+  background: linear-gradient(180deg, transparent 0%, rgba(16,185,129,.04) 100%);
+}
+.plans-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+  gap:22px;
+  max-width:1100px;
+  margin:0 auto;
+}
+.plan-card{
+  position:relative;
+  background:rgba(11,22,40,.85);
+  border:1px solid rgba(16,185,129,.18);
+  border-radius:16px;
+  padding:34px 26px 30px;
+  text-align:left;
+  transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+.plan-card:hover{
+  transform:translateY(-4px);
+  border-color:var(--accent2);
+  box-shadow:0 14px 38px rgba(6,182,212,.18);
+}
+.plan-card.featured{
+  border:1px solid #facc15;
+  background:linear-gradient(180deg, rgba(250,204,21,.08), rgba(11,22,40,.9));
+  box-shadow:0 10px 30px rgba(250,204,21,.16);
+}
+.plan-card.featured:hover{ box-shadow:0 16px 44px rgba(250,204,21,.24); }
+.plan-tag{
+  position:absolute;
+  top:14px; right:14px;
+  font-size:.66rem; font-weight:800;
+  letter-spacing:.06em; text-transform:uppercase;
+  padding:4px 10px;
+  border-radius:999px;
+  background: var(--gradient-warm);
+  color:#1a1300;
+}
+.plan-name{ font-size:1.35rem; font-weight:800; margin-bottom:4px; color:#fff; }
+.plan-target{ font-size:.82rem; color:#9fb1cc; margin-bottom:18px; }
+.plan-price{
+  font-size:1.6rem; font-weight:800; margin-bottom:18px;
+  background: var(--gradient);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.plan-card.featured .plan-price{
+  background: var(--gradient-warm);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.plan-features{ list-style:none; padding:0; margin:0 0 22px; }
+.plan-features li{
+  font-size:.92rem; color:#cfd8e6;
+  padding:7px 0 7px 24px;
+  position:relative;
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.plan-features li:last-child{ border-bottom:none; }
+.plan-features li::before{
+  content:"✓"; position:absolute; left:0; top:7px;
+  color:var(--accent); font-weight:700;
+}
+.plan-card.featured .plan-features li::before{ color:#facc15; }
+.plan-cta{
+  display:block;
+  text-align:center;
+  padding:11px 16px;
+  border-radius:10px;
+  font-weight:700; font-size:.95rem;
+  text-decoration:none;
+  border:1px solid var(--accent);
+  color:var(--accent);
+  background:transparent;
+  transition:all .2s ease;
+}
+.plan-cta:hover{ background:var(--accent); color:#fff; }
+.plan-card.featured .plan-cta{
+  background: var(--gradient-warm);
+  border-color:transparent;
+  color:#1a1300;
+}
+.plan-card.featured .plan-cta:hover{ filter:brightness(1.08); }
+
+/* ===== CTA STRIP ===== */
+.cta-strip{
+  background: linear-gradient(135deg, rgba(16,185,129,.12), rgba(6,182,212,.12));
+  border:1px solid rgba(16,185,129,.25);
+  border-radius:22px;
+  padding:46px 30px;
+  text-align:center;
+  margin: 30px auto 60px;
+  max-width: 980px;
+  position:relative;
+  z-index:5;
+}
+.cta-strip h2{
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight:800;
+  margin-bottom:14px;
+}
+.cta-strip p{ color: var(--muted); margin-bottom: 24px; }
+
+/* ===== FOOTER ===== */
+footer{
+  position:relative; z-index:5;
+  padding: 40px 24px 24px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  background: rgba(4,11,24,0.55);
+}
+.footer-inner{
+  max-width:1100px; margin:0 auto;
+  display:flex; flex-direction:column; align-items:center; gap:18px;
+  text-align:center;
+}
+.footer-socials{
+  display:flex; gap:14px;
+}
+.footer-socials a{
+  width:38px; height:38px; border-radius:50%;
+  background: rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);
+  color:#cfd9ee; text-decoration:none;
+  display:flex; align-items:center; justify-content:center;
+  transition: all .2s ease;
+  font-size:.95rem;
+}
+.footer-socials a:hover{
+  background: var(--gradient);
+  border-color:transparent;
+  color:#fff;
+  transform:translateY(-3px);
+}
+.footer-copy{ color:var(--muted); font-size:.86rem; }
+.footer-copy b{ color:#10d9a3; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 600px){
+  nav{ padding:14px 18px; flex-wrap:wrap; }
+  .nav-right{ width:100%; justify-content:flex-start; }
+  .hero{ padding: 50px 18px 40px; }
+  .hero-art{ min-height:280px; }
+  .scope{ width:280px; height:280px; }
+  .signal{ display:none; }
+  .section{ padding:50px 18px; }
+}
 </style>
 </head>
 <body>
 
 <div class="grid-bg"></div>
 
+<!-- ===== NAV ===== -->
 <nav>
   <a class="nav-logo" href="{{ url_for('landing') }}">
     <div class="nav-logo-mark"><i class="fas fa-shield-halved"></i></div>
     <div class="nav-logo-name">Server<span>Official</span></div>
   </a>
-  <a class="nav-back" href="{{ url_for('bots_showcase') }}">
-    <i class="fas fa-arrow-left"></i> All Bots
+  <a href="{{ url_for('bots_showcase') }}" class="btn-ghost">
+    <i class="fas fa-arrow-left"></i> Our Bots
   </a>
-</nav>
-
-<section class="hero">
-  <div class="hero-badge">Server management, simplified</div>
-  <h1>Run your server with <span>Server Official</span>.</h1>
-  <p class="lede">
-    {{ so.description or "Schedule announcements, host giveaways, track invites, and pull deep server stats — all from one clean Discord bot and a beautiful web dashboard." }}
-  </p>
-  <div class="hero-cta">
+  <div class="nav-right">
+    {% if invite_url %}
+    <a class="btn-discord" href="{{ invite_url }}" target="_blank" rel="noopener">
+      <i class="fab fa-discord"></i> Add to Server
+    </a>
+    {% endif %}
     <a class="btn-primary" href="{{ url_for('server_official_dashboard') }}">
       <i class="fas fa-gauge-high"></i> Open Dashboard
     </a>
-    <a class="btn-secondary" href="#commands">
-      <i class="fas fa-terminal"></i> See Commands
-    </a>
   </div>
-  <div>
-    {% if bot_running %}
-      <span class="status-pill online"><span class="dot"></span> Bot Online</span>
-    {% else %}
-      <span class="status-pill offline"><span class="dot"></span> Bot Offline — set SERVER_TOKEN to start</span>
-    {% endif %}
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-text">
+    <div class="hero-badge">Server management, simplified</div>
+    <h1>Run your server like an <span class="brand">official broadcaster</span>.</h1>
+    <p class="lede">
+      {{ so.description or "Schedule announcements, host giveaways, run polls and reminders, build embeds without leaving Discord, track invites and starboard your best moments — all from one clean Discord bot and a beautiful web dashboard." }}
+    </p>
+    <div class="hero-cta">
+      <a class="btn-primary" href="{{ url_for('server_official_dashboard') }}">
+        <i class="fas fa-gauge-high"></i> Open Dashboard
+      </a>
+      {% if invite_url %}
+      <a class="btn-discord" href="{{ invite_url }}" target="_blank" rel="noopener">
+        <i class="fab fa-discord"></i> Add to Discord
+      </a>
+      {% endif %}
+      <a class="btn-ghost" href="#features">See Features</a>
+    </div>
+    <div class="status-row">
+      {% if bot_running %}
+        <span class="status-pill online"><span class="dot"></span> Bot Online</span>
+      {% else %}
+        <span class="status-pill offline"><span class="dot"></span> Bot Offline — set <code style="background:transparent;color:inherit;font-size:.75rem;">SERVER_TOKEN</code> to start</span>
+      {% endif %}
+      {% if bot_running and live and live.guilds_count %}
+        <span class="live-mini">
+          <i class="fas fa-server" style="color:#10d9a3;"></i>
+          Managing <b>{{ live.guilds_count }}</b> server{{ '' if live.guilds_count == 1 else 's' }}
+          {% if live.members_count %} · <b>{{ "{:,}".format(live.members_count) }}</b> members{% endif %}
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ANIMATED MISSION CONTROL SCOPE -->
+  <div class="hero-art" aria-hidden="true">
+    <div class="scope">
+      <div class="cross-h"></div>
+      <div class="cross-v"></div>
+      <div class="sweep"></div>
+      <div class="core"><i class="fas fa-satellite-dish"></i></div>
+      <!-- decorative blips at fixed scope coordinates -->
+      <div class="blip"    style="left:30%; top:25%;"></div>
+      <div class="blip b2" style="left:72%; top:38%;"></div>
+      <div class="blip b3" style="left:60%; top:72%;"></div>
+      <div class="blip b4" style="left:25%; top:65%;"></div>
+    </div>
+    <div class="signal s1"><i class="fas fa-bullhorn"></i> Announcement queued</div>
+    <div class="signal s2"><i class="fas fa-gift"></i> Giveaway live</div>
+    <div class="signal s3"><i class="fas fa-star"></i> Starboard +1</div>
   </div>
 </section>
 
-<!-- Features -->
+{# ============================================================
+   STATS — only render when we have a live overview to show off
+   ============================================================ #}
+{% if overview %}
+<section class="section" style="padding-top:10px;">
+  <div class="stats-row">
+    <div class="stat-tile">
+      <div class="stat-icon"><i class="fas fa-server"></i></div>
+      <div class="stat-num">{{ live.guilds_count or 0 }}</div>
+      <div class="stat-label">Servers</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-icon"><i class="fas fa-bullhorn"></i></div>
+      <div class="stat-num">{{ overview.scheduled_count or 0 }}</div>
+      <div class="stat-label">Scheduled Posts</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-icon"><i class="fas fa-gift"></i></div>
+      <div class="stat-num">{{ overview.active_giveaways or 0 }}</div>
+      <div class="stat-label">Active Giveaways</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-icon"><i class="fas fa-square-poll-vertical"></i></div>
+      <div class="stat-num">{{ overview.polls_active or 0 }}</div>
+      <div class="stat-label">Live Polls</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-icon"><i class="fas fa-clock"></i></div>
+      <div class="stat-num">{{ overview.reminders_pending or 0 }}</div>
+      <div class="stat-label">Reminders</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-icon"><i class="fas fa-thumbtack"></i></div>
+      <div class="stat-num">{{ overview.stickies or 0 }}</div>
+      <div class="stat-label">Sticky Messages</div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- ===== FEATURES ===== -->
 <section class="section" id="features">
   <div class="section-eyebrow">Built-in modules</div>
-  <h2>Everything a <span>server admin</span> needs.</h2>
-  <p class="subtitle">Each module is toggleable from the web dashboard, and every command works with Discord's native slash UI.</p>
+  <h2>Everything a <span>server admin</span> actually needs.</h2>
+  <p class="subtitle">Twelve modules, one bot. Toggle each one from the web dashboard — no config files, no restarts.</p>
 
   <div class="features">
-    <div class="feature">
+    <div class="feature-card">
       <div class="icon"><i class="fas fa-bullhorn"></i></div>
       <h3>Scheduled Announcements</h3>
-      <p>Plan announcements days in advance — from the dashboard or with <code>/schedule</code>. Posted automatically with styled embeds.</p>
+      <p>Plan announcements days in advance with <code>/schedule</code> or the dashboard. Posted on time as styled embeds — even if your moderators are asleep.</p>
     </div>
-    <div class="feature">
+
+    <div class="feature-card">
       <div class="icon"><i class="fas fa-gift"></i></div>
       <h3>Giveaways</h3>
-      <p>Start a timed giveaway with <code>/giveaway</code>. Members react 🎉 to enter — winners are picked automatically when time's up.</p>
+      <p>Start a timed giveaway with <code>/giveaway</code>. Members react 🎉 to enter — winners are picked automatically and announced when time's up.</p>
     </div>
-    <div class="feature">
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-star"></i></div>
+      <h3>Starboard <span class="new-pill">New</span></h3>
+      <p>The classic Carl-bot starboard. React with ⭐ — once your threshold is hit, the message gets reposted to your starboard channel with author and jump link.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-palette"></i></div>
+      <h3>Embed Builder <span class="new-pill">New</span></h3>
+      <p>Post rich embeds straight from Discord with <code>/embed</code>. Supports color names, images, thumbnails, author lines, footers and clickable titles — no dashboard trip needed.</p>
+    </div>
+
+    <div class="feature-card">
       <div class="icon"><i class="fas fa-user-plus"></i></div>
-      <h3>Invite Counter</h3>
-      <p>See exactly who invited whom. Live leaderboards in the dashboard plus <code>/invites</code> for quick lookups in chat.</p>
+      <h3>Invite Tracking</h3>
+      <p>See exactly who invited whom. Live leaderboards in the dashboard, plus <code>/invites</code> for instant lookups in chat.</p>
     </div>
-    <div class="feature">
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-square-poll-vertical"></i></div>
+      <h3>Polls &amp; Reminders</h3>
+      <p>Quick reaction polls with <code>/poll</code> and personal reminders with <code>/remind</code>. Persisted to disk — they survive restarts.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-thumbtack"></i></div>
+      <h3>Sticky Messages</h3>
+      <p>Pin a message to the bottom of any channel — every time someone posts, the bot re-stickies it so important info stays visible.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-hand-sparkles"></i></div>
+      <h3>Welcome Flow &amp; Auto-Roles</h3>
+      <p>Automatic welcome messages and a join-role for every new member. Configure the welcome channel and role from the dashboard in one click.</p>
+    </div>
+
+    <div class="feature-card">
       <div class="icon"><i class="fas fa-chart-column"></i></div>
-      <h3>Server Statistics</h3>
-      <p>Member counts, online presence, bot ratio, channels, roles, boosts — pulled live with <code>/stats</code> or shown on the dashboard.</p>
+      <h3>Live Server Analytics</h3>
+      <p>Messages per day, top chatters, voice-minute tracking, online ratio, channel/role/boost counts — straight from <code>/stats</code> or the dashboard.</p>
     </div>
-    <div class="feature">
-      <div class="icon"><i class="fas fa-shield-halved"></i></div>
-      <h3>Permission-Aware</h3>
-      <p>Every management command requires the <strong>Manage Server</strong> permission, so only your trusted staff can post or run giveaways.</p>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-wand-magic-sparkles"></i></div>
+      <h3>One-Click Setup Templates</h3>
+      <p>Spin up a community / gaming / study server in seconds with <code>/setup_template</code>. Pre-built channel categories, roles and welcome flow.</p>
     </div>
-    <div class="feature">
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-plug"></i></div>
+      <h3>Custom Commands &amp; Webhooks</h3>
+      <p>Define <code>!triggers</code> in the dashboard, accept incoming HTTP webhooks, and forward server events out to your own services with outgoing hooks.</p>
+    </div>
+
+    <div class="feature-card">
       <div class="icon"><i class="fas fa-window-maximize"></i></div>
-      <h3>Web Dashboard</h3>
-      <p>Manage every announcement and giveaway from a beautiful Byte Labs dashboard — no need to remember command syntax.</p>
+      <h3>Beautiful Web Dashboard</h3>
+      <p>Manage every announcement, giveaway, sticky, hook and template from a Byte Labs dashboard — Discord OAuth login, no command syntax to memorise.</p>
     </div>
   </div>
 </section>
 
-<!-- Commands -->
+<!-- ===== COMMANDS ===== -->
 <section class="section" id="commands">
   <div class="section-eyebrow">Slash Commands</div>
-  <h2>All <span>commands</span> at a glance.</h2>
-  <p class="subtitle">Type <code style="background:#050d1a;color:#67e8f9;padding:2px 8px;border-radius:6px;">/</code> in Discord to bring up the full list.</p>
+  <h2>Every <span>command</span> at a glance.</h2>
+  <p class="subtitle">Type <code style="background:#050d1a;color:#67e8f9;padding:2px 8px;border-radius:6px;">/</code> in Discord to bring up the full list — autocomplete, descriptions, the works.</p>
 
   <div class="commands">
     <div class="cmd"><code>/announce</code><p>Post a styled embed announcement to any channel right now.</p></div>
-    <div class="cmd"><code>/schedule</code><p>Schedule an announcement for later — accepts durations like <code style="background:#050d1a;color:#67e8f9;padding:1px 6px;border-radius:4px;font-size:.82rem;">30m</code>, <code style="background:#050d1a;color:#67e8f9;padding:1px 6px;border-radius:4px;font-size:.82rem;">2h</code>, <code style="background:#050d1a;color:#67e8f9;padding:1px 6px;border-radius:4px;font-size:.82rem;">1d</code>.</p></div>
+    <div class="cmd"><code>/schedule</code><p>Schedule an announcement for later — durations like <code>30m</code>, <code>2h</code>, <code>1d</code>.</p></div>
     <div class="cmd"><code>/list_schedules</code><p>See every pending scheduled announcement with its ID.</p></div>
     <div class="cmd"><code>/cancel_schedule</code><p>Cancel a pending announcement by its ID.</p></div>
-    <div class="cmd"><code>/giveaway</code><p>Start a timed giveaway. Members react 🎉 to enter; winners chosen automatically.</p></div>
+    <div class="cmd"><code>/broadcast</code><p>Push the same message to multiple channels at once.</p></div>
+    <div class="cmd"><code>/giveaway</code><p>Start a timed giveaway — members react 🎉 to enter.</p></div>
     <div class="cmd"><code>/list_giveaways</code><p>List all active giveaways in the server.</p></div>
     <div class="cmd"><code>/end_giveaway</code><p>End an active giveaway early and pick winners now.</p></div>
-    <div class="cmd"><code>/invites</code><p>Show the invite leaderboard, or look up a specific user's invite count.</p></div>
-    <div class="cmd"><code>/stats</code><p>Detailed server stats: members, online, channels, roles, boosts, owner.</p></div>
-    <div class="cmd"><code>/serverinfo</code><p>Quick at-a-glance server snapshot.</p></div>
+    <div class="cmd"><code>/poll</code><p>Quick reaction poll with up to 4 options.</p></div>
+    <div class="cmd"><code>/remind</code><p>Set a personal reminder — survives restarts.</p></div>
+    <div class="cmd"><code>/sticky</code><p>Stick a message to the bottom of a channel.</p></div>
+    <div class="cmd"><code>/embed</code><p>Build &amp; post a rich embed without the dashboard.</p></div>
+    <div class="cmd"><code>/setup-starboard</code><p>Configure ⭐ starboard channel + threshold.</p></div>
+    <div class="cmd"><code>/starboard-stats</code><p>See starboard config and total starred count.</p></div>
+    <div class="cmd"><code>/invites</code><p>Invite leaderboard or per-user lookup.</p></div>
+    <div class="cmd"><code>/stats</code><p>Members, online, channels, roles, boosts, owner.</p></div>
+    <div class="cmd"><code>/setup_template</code><p>One-click community / gaming / study server.</p></div>
+    <div class="cmd"><code>/set_welcome_role</code><p>Auto-assign a role to every new member.</p></div>
+    <div class="cmd"><code>/set_log_channel</code><p>Pick where join/leave logs are written.</p></div>
     <div class="cmd"><code>/help</code><p>Show the full command list right inside Discord.</p></div>
   </div>
 </section>
 
+<!-- ===== PLANS ===== -->
+<section class="section plans" id="plans">
+  <div class="section-eyebrow">Pricing</div>
+  <h2>Pick the <span>Server Official</span> that fits.</h2>
+  <p class="subtitle">Three tiers, one bot. Start small, scale up — every tier is free during beta.</p>
+
+  <div class="plans-grid">
+
+    <div class="plan-card">
+      <h3 class="plan-name">Starter</h3>
+      <p class="plan-target">For small communities</p>
+      <p class="plan-price">Free</p>
+      <ul class="plan-features">
+        <li>Welcome flow &amp; auto-role</li>
+        <li>Up to 10 scheduled announcements</li>
+        <li>Polls, reminders &amp; sticky messages</li>
+        <li>Embed builder (<code>/embed</code>)</li>
+        <li>Basic server stats</li>
+      </ul>
+      <a class="plan-cta" href="{{ url_for('server_official_dashboard') }}">Get Starter</a>
+    </div>
+
+    <div class="plan-card featured">
+      <span class="plan-tag">Free for now</span>
+      <h3 class="plan-name">Pro</h3>
+      <p class="plan-target">For active, growing servers</p>
+      <p class="plan-price">$0 <span style="font-size:.8rem;color:#9fb1cc;font-weight:400;">/ early access</span></p>
+      <ul class="plan-features">
+        <li>Everything in Starter</li>
+        <li>Unlimited scheduled posts &amp; giveaways</li>
+        <li>Starboard + invite tracking</li>
+        <li>Custom <code>!triggers</code> &amp; incoming webhooks</li>
+        <li>One-click setup templates</li>
+        <li>Live analytics dashboard</li>
+      </ul>
+      <a class="plan-cta" href="{{ url_for('server_official_dashboard') }}">Try Pro Free</a>
+    </div>
+
+    <div class="plan-card">
+      <h3 class="plan-name">Enterprise</h3>
+      <p class="plan-target">For large communities &amp; brands</p>
+      <p class="plan-price">Coming soon</p>
+      <ul class="plan-features">
+        <li>Everything in Pro</li>
+        <li>Outgoing webhooks to your services</li>
+        <li>Daily backups &amp; export</li>
+        <li>Multi-server management</li>
+        <li>Priority support</li>
+      </ul>
+      <a class="plan-cta" href="mailto:contact@bytelabs.dev">Contact Us</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== CTA STRIP ===== -->
 <section class="cta-strip">
-  <h2>Ready to manage smarter?</h2>
-  <p>Open the dashboard to schedule your first announcement or launch a giveaway — no command memorization needed.</p>
+  <h2>Ready to ship your first announcement?</h2>
+  <p>Open the dashboard to schedule a post, launch a giveaway, or build your first embed — no command memorisation needed.</p>
   <a class="btn-primary" href="{{ url_for('server_official_dashboard') }}">
     <i class="fas fa-gauge-high"></i> Open Dashboard
   </a>
 </section>
 
+<!-- ===== FOOTER ===== -->
 <footer>
-  © <span id="yr"></span> Byte Labs · Server Official
+  <div class="footer-inner">
+    <div class="footer-socials">
+      <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+      <a href="#" aria-label="Discord"><i class="fab fa-discord"></i></a>
+      <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
+      <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
+    </div>
+    <div class="footer-copy">
+      &copy; <span id="yr"></span> Byte Labs &nbsp;·&nbsp; Server Official &nbsp;·&nbsp;
+      <b>{% if bot_running %}Online{% else %}Offline{% endif %}</b>
+    </div>
+  </div>
 </footer>
 
 <script>

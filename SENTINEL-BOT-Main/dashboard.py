@@ -693,14 +693,47 @@ def _so_live_state():
 
 @app.route('/server-official')
 def server_official_landing():
-    """Public landing page for the Server Official bot."""
+    """Public landing page for the Server Official bot.
+
+    Pulls live state + a feature overview so the landing page can show
+    real numbers ("managing N servers, M members") and feel alive
+    instead of being a static brochure.
+    """
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html'), 200
     so = _so_module()
+
+    # Build the "Add to Discord" invite URL. Prefer a Server-Official
+    # specific OAuth app if one is configured; fall back to the shared
+    # DISCORD_CLIENT_ID so a single-OAuth-app deployment still works.
+    so_client_id = os.environ.get("SERVER_OFFICIAL_CLIENT_ID") or DISCORD_CLIENT_ID
+    bot_perms = os.environ.get("SERVER_OFFICIAL_PERMISSIONS", "8")
+    invite_url = ""
+    if so_client_id:
+        invite_url = (
+            f"https://discord.com/oauth2/authorize"
+            f"?client_id={so_client_id}"
+            f"&scope=bot+applications.commands"
+            f"&permissions={bot_perms}"
+        )
+
+    # Live counts (best-effort — these fall back to zeros if the bot
+    # isn't running yet).
+    live = _so_live_state()
+    overview = {}
+    if so:
+        try:
+            overview = so.get_full_overview()
+        except Exception as e:
+            app.logger.warning(f"[server-official] overview failed: {e}")
+
     return render_template(
         'server_official_landing.html',
         so=get_server_official(),
         bot_running=bool(so and so.is_running()),
+        live=live,
+        overview=overview,
+        invite_url=invite_url,
     )
 
 
