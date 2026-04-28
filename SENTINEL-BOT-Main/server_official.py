@@ -1313,29 +1313,10 @@ async def setup_template(interaction: discord.Interaction, template: str):
 # ============================================================
 # SLASH COMMANDS — MEMBER MANAGEMENT
 # ============================================================
-@bot.tree.command(name="userinfo", description="Show profile card for a member.")
-@discord.app_commands.describe(user="A member (defaults to yourself)")
-async def slash_userinfo(interaction: discord.Interaction, user: Optional[discord.Member] = None):
-    member = user or interaction.user
-    g = interaction.guild
-    state = load_state()
-    daily = state["daily_checkins"].get(str(g.id), {}).get(str(member.id), {})
-    invites = state["invite_counts"].get(str(g.id), {}).get(str(member.id), 0)
-    msgs = state["activity_stats"].get(str(g.id), {}).get("msg_per_user", {}).get(str(member.id), 0)
-    voice = state["activity_stats"].get(str(g.id), {}).get("voice_minutes", {}).get(str(member.id), 0)
-    joined = f"<t:{int(member.joined_at.timestamp())}:R>" if member.joined_at else "Unknown"
-    desc = (
-        f"**Joined this server:** {joined}\n"
-        f"**Account created:** <t:{int(member.created_at.timestamp())}:R>\n"
-        f"**Roles:** {len(member.roles)-1}\n\n"
-        f"**Messages sent:** {msgs:,}\n"
-        f"**Voice minutes:** {round(voice, 1)}\n"
-        f"**People invited:** {invites}\n"
-        f"**Daily check-in streak:** {daily.get('streak', 0)} 🔥"
-    )
-    e = _embed(f"👤 {member.display_name}", desc, color=0x5b8cff)
-    e.set_thumbnail(url=member.display_avatar.url)
-    await interaction.response.send_message(embed=e)
+# NOTE: /userinfo and /serverinfo were removed from Server Official —
+# those are general info commands handled by SP4RK. Server Official focuses
+# strictly on server-official duties: announcements, schedules, giveaways,
+# invite tracking, welcome flow, scheduled engagement, and admin utilities.
 
 
 @bot.tree.command(name="set_welcome_role", description="Set the role auto-assigned on join.")
@@ -1719,17 +1700,6 @@ async def slash_stats(interaction: discord.Interaction):
     await interaction.response.send_message(embed=e)
 
 
-@bot.tree.command(name="serverinfo", description="Quick server snapshot.")
-async def slash_serverinfo(interaction: discord.Interaction):
-    g = interaction.guild
-    if not g:
-        return await interaction.response.send_message("Use in a server.", ephemeral=True)
-    e = _embed(g.name, f"ID: `{g.id}`\nMembers: {g.member_count}\nCreated: <t:{int(g.created_at.timestamp())}:R>")
-    if g.icon:
-        e.set_thumbnail(url=g.icon.url)
-    await interaction.response.send_message(embed=e)
-
-
 @bot.tree.command(name="help", description="What Server Official can do.")
 async def slash_help(interaction: discord.Interaction):
     desc = (
@@ -1740,7 +1710,9 @@ async def slash_help(interaction: discord.Interaction):
         "**🎉 Engagement**\n"
         "`/goal` `/giveaway` `/list_giveaways` `/end_giveaway`\n\n"
         "**🛠️ Utilities**\n"
-        "`/poll` `/remind` `/sticky` `/note` `/userinfo` `/invites` `/stats` `/serverinfo`\n\n"
+        "`/poll` `/remind` `/sticky` `/note` `/invites` `/stats`\n\n"
+        "_Looking for `/userinfo` or `/serverinfo`? Those are handled by **SP4RK** — "
+        "Server Official focuses on official server duties only._\n\n"
         "Manage everything from the dashboard at **/server-official/dashboard**."
     )
     await interaction.response.send_message(embed=_embed("🛡️ Server Official — Help", desc))

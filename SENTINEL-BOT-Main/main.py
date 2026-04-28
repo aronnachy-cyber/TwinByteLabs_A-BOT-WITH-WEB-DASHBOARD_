@@ -479,18 +479,186 @@ async def slash_commands(interaction: discord.Interaction):
     embed = build_help_embed(p)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="serverinfo", description="Show server information")
-async def slash_serverinfo(interaction: discord.Interaction):
-    guild = interaction.guild
-    embed = discord.Embed(title=f"📋 {guild.name}", color=0x4f8ef7)
-    embed.add_field(name="Members",  value=guild.member_count)
-    embed.add_field(name="Channels", value=len(guild.channels))
-    embed.add_field(name="Roles",    value=len(guild.roles))
-    embed.add_field(name="Created",  value=guild.created_at.strftime("%Y-%m-%d"))
+# ============================================================
+# 📋 RICH /serverinfo  (big, informative embed)
+# ============================================================
+def _build_serverinfo_embed(guild: discord.Guild, requester: discord.abc.User) -> discord.Embed:
+    """Build a large, detailed server info embed for SP4RK."""
+    # --- Member breakdown -----------------------------------------------
+    humans = sum(1 for m in guild.members if not m.bot) if guild.members else 0
+    bots   = sum(1 for m in guild.members if m.bot) if guild.members else 0
+    online = sum(1 for m in guild.members if m.status == discord.Status.online) if guild.members else 0
+    idle   = sum(1 for m in guild.members if m.status == discord.Status.idle) if guild.members else 0
+    dnd    = sum(1 for m in guild.members if m.status == discord.Status.dnd) if guild.members else 0
+    offline= sum(1 for m in guild.members if m.status == discord.Status.offline) if guild.members else 0
+
+    # --- Channel breakdown ----------------------------------------------
+    text_count   = len(guild.text_channels)
+    voice_count  = len(guild.voice_channels)
+    stage_count  = len(getattr(guild, "stage_channels", []) or [])
+    forum_count  = len(getattr(guild, "forums", []) or [])
+    category_cnt = len(guild.categories)
+    threads_cnt  = len(getattr(guild, "threads", []) or [])
+
+    # --- Boost / verification / features --------------------------------
+    boost_tier  = getattr(guild, "premium_tier", 0) or 0
+    boost_count = getattr(guild, "premium_subscription_count", 0) or 0
+    verif_map = {
+        discord.VerificationLevel.none:    "🟢 None",
+        discord.VerificationLevel.low:     "🟡 Low",
+        discord.VerificationLevel.medium:  "🟠 Medium",
+        discord.VerificationLevel.high:    "🔴 High",
+        discord.VerificationLevel.highest: "🛑 Highest",
+    }
+    verification = verif_map.get(guild.verification_level, str(guild.verification_level))
+
+    feature_pretty = {
+        "COMMUNITY":         "🌐 Community",
+        "PARTNERED":         "🤝 Partnered",
+        "VERIFIED":          "✅ Verified",
+        "DISCOVERABLE":      "🔭 Discoverable",
+        "ANIMATED_ICON":     "🎞️ Animated Icon",
+        "BANNER":            "🖼️ Banner",
+        "VANITY_URL":        "🔗 Vanity URL",
+        "INVITE_SPLASH":     "💦 Invite Splash",
+        "VIP_REGIONS":       "🌟 VIP Voice",
+        "WELCOME_SCREEN_ENABLED": "👋 Welcome Screen",
+        "MEMBER_VERIFICATION_GATE_ENABLED": "🛡️ Membership Gate",
+        "NEWS":              "📰 News Channels",
+        "THREADS_ENABLED":   "🧵 Threads",
+    }
+    features = [feature_pretty.get(f, f"✨ {f.replace('_',' ').title()}") for f in (guild.features or [])]
+    features_str = " · ".join(features[:8]) if features else "—"
+
+    # --- Build embed ----------------------------------------------------
+    embed = discord.Embed(
+        title=f"📋 {guild.name}",
+        description=(
+            f"_{guild.description}_\n\n" if getattr(guild, "description", None) else ""
+        ) + f"🆔 Server ID: `{guild.id}`",
+        color=0x4f8ef7,
+        timestamp=datetime.utcnow(),
+    )
     if guild.icon:
         embed.set_thumbnail(url=guild.icon.url)
-    embed.set_footer(text="SP4RK V2.0.4")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    if getattr(guild, "banner", None):
+        try:
+            embed.set_image(url=guild.banner.url)
+        except Exception:
+            pass
+
+    # 👑 Owner
+    owner_str = f"{guild.owner.mention}\n`{guild.owner}`" if guild.owner else "Unknown"
+    embed.add_field(name="👑 Owner", value=owner_str, inline=True)
+
+    # 📅 Created
+    embed.add_field(
+        name="📅 Created",
+        value=f"<t:{int(guild.created_at.timestamp())}:D>\n<t:{int(guild.created_at.timestamp())}:R>",
+        inline=True,
+    )
+
+    # 🌍 Region info — Discord removed per-server region but show preferred locale
+    embed.add_field(
+        name="🌍 Locale",
+        value=f"`{getattr(guild, 'preferred_locale', 'en-US')}`",
+        inline=True,
+    )
+
+    # 👥 Members (humans / bots)
+    embed.add_field(
+        name=f"👥 Members — {guild.member_count:,}",
+        value=f"👤 Humans: **{humans:,}**\n🤖 Bots: **{bots:,}**",
+        inline=True,
+    )
+
+    # 📶 Presence
+    embed.add_field(
+        name="📶 Presence",
+        value=(
+            f"🟢 Online: **{online:,}**\n"
+            f"🟡 Idle: **{idle:,}**\n"
+            f"🔴 DND: **{dnd:,}**\n"
+            f"⚫ Offline: **{offline:,}**"
+        ),
+        inline=True,
+    )
+
+    # 🚀 Boosts
+    embed.add_field(
+        name="🚀 Boosts",
+        value=f"Tier **{boost_tier}** · {boost_count} boost{'s' if boost_count != 1 else ''}",
+        inline=True,
+    )
+
+    # 💬 Channels
+    embed.add_field(
+        name=f"💬 Channels — {text_count + voice_count + stage_count + forum_count}",
+        value=(
+            f"📁 Categories: **{category_cnt}**\n"
+            f"💬 Text: **{text_count}**  ·  🔊 Voice: **{voice_count}**\n"
+            f"🎙️ Stage: **{stage_count}**  ·  📋 Forum: **{forum_count}**\n"
+            f"🧵 Active Threads: **{threads_cnt}**"
+        ),
+        inline=False,
+    )
+
+    # 🎭 Roles
+    role_count = len(guild.roles) - 1   # exclude @everyone
+    top_roles = [r.mention for r in sorted(guild.roles, key=lambda r: r.position, reverse=True)
+                 if r.name != "@everyone"][:6]
+    embed.add_field(
+        name=f"🎭 Roles — {role_count}",
+        value=" ".join(top_roles) if top_roles else "—",
+        inline=False,
+    )
+
+    # 🛡️ Security
+    embed.add_field(
+        name="🛡️ Verification",
+        value=verification,
+        inline=True,
+    )
+    embed.add_field(
+        name="🔞 Content Filter",
+        value=str(guild.explicit_content_filter).replace("_", " ").title(),
+        inline=True,
+    )
+    embed.add_field(
+        name="📤 Default Notify",
+        value=str(guild.default_notifications).replace("_", " ").title(),
+        inline=True,
+    )
+
+    # ✨ Features
+    if features:
+        embed.add_field(name=f"✨ Features ({len(features)})", value=features_str, inline=False)
+
+    try:
+        icon_url = requester.display_avatar.url
+    except Exception:
+        icon_url = None
+    if icon_url:
+        embed.set_footer(text=f"Requested by {requester} • SP4RK", icon_url=icon_url)
+    else:
+        embed.set_footer(text=f"Requested by {requester} • SP4RK")
+    return embed
+
+
+@bot.tree.command(name="serverinfo", description="Show detailed server information")
+async def slash_serverinfo(interaction: discord.Interaction):
+    if not interaction.guild:
+        return await interaction.response.send_message("Use this in a server.", ephemeral=True)
+    embed = _build_serverinfo_embed(interaction.guild, interaction.user)
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.command(name="serverinfo", aliases=["si"])
+async def prefix_serverinfo(ctx):
+    """!serverinfo — detailed server snapshot."""
+    if not ctx.guild:
+        return await ctx.send("Use this in a server.")
+    await ctx.send(embed=_build_serverinfo_embed(ctx.guild, ctx.author))
 
 @bot.command(name="help", aliases=["commands", "cmds"])
 async def prefix_help(ctx):
@@ -1664,55 +1832,213 @@ async def slowmode(ctx, seconds: int = 0):
     except Exception as e:
         await ctx.send(f"❌ Error: {e}")
 
-@bot.command()
-@commands.has_permissions(manage_messages=True)
-async def userinfo(ctx, member: discord.Member = None):
-    """Show detailed info about a member."""
-    member = member or ctx.author
-    guild_id  = str(ctx.guild.id)
+# ============================================================
+# 👤 RICH userinfo  (big, informative embed — shared by ! and /)
+# ============================================================
+def _build_userinfo_embed(member: discord.Member, requester: discord.abc.User) -> discord.Embed:
+    """Build a large, detailed user info embed for SP4RK."""
+    guild = member.guild
+    guild_id  = str(guild.id)
     member_id = str(member.id)
-    entry = _get_member_entry(guild_id, member_id)
-    count = entry["count"]
 
-    roles_list = [r.mention for r in member.roles if r.name != "@everyone"]
-    roles_str  = " ".join(roles_list[-10:]) if roles_list else "None"
+    # Warning count
+    try:
+        entry = _get_member_entry(guild_id, member_id)
+        warn_count = entry.get("count", 0)
+    except Exception:
+        warn_count = 0
+    warn_limit = config.get('warning_limit', 30)
+
+    # Roles
+    roles_sorted = sorted(
+        [r for r in member.roles if r.name != "@everyone"],
+        key=lambda r: r.position, reverse=True,
+    )
+    role_count   = len(roles_sorted)
+    roles_str    = " ".join(r.mention for r in roles_sorted[:12]) if roles_sorted else "_No roles_"
+    if role_count > 12:
+        roles_str += f"  …  **+{role_count - 12} more**"
+    top_role     = roles_sorted[0].mention if roles_sorted else "_None_"
+
+    # Member position (e.g. 5th to join the server)
+    join_position = "—"
+    if guild.members and member.joined_at:
+        sorted_joined = sorted(
+            (m for m in guild.members if m.joined_at),
+            key=lambda m: m.joined_at,
+        )
+        try:
+            join_position = f"#{sorted_joined.index(member) + 1:,} of {guild.member_count:,}"
+        except ValueError:
+            join_position = "—"
+
+    # Status / activity
+    status_emoji = {
+        discord.Status.online:  "🟢 Online",
+        discord.Status.idle:    "🟡 Idle",
+        discord.Status.dnd:     "🔴 Do Not Disturb",
+        discord.Status.offline: "⚫ Offline",
+    }
+    status_str = status_emoji.get(member.status, "❔ Unknown")
+    if any(isinstance(a, discord.Activity) and a.type == discord.ActivityType.streaming for a in member.activities):
+        status_str = "🟣 Streaming"
+
+    # Top activity
+    activity_str = "—"
+    for act in (member.activities or []):
+        if isinstance(act, discord.CustomActivity) and act.name:
+            activity_str = f"💭 {act.name}"
+            break
+        if isinstance(act, discord.Spotify):
+            activity_str = f"🎵 Listening to **{act.title}** by {', '.join(act.artists)}"
+            break
+        if isinstance(act, discord.Game):
+            activity_str = f"🎮 Playing **{act.name}**"
+            break
+        if isinstance(act, discord.Streaming):
+            activity_str = f"📡 Streaming **{act.name}**"
+            break
+        if isinstance(act, discord.Activity):
+            verb = {discord.ActivityType.playing: "Playing", discord.ActivityType.watching: "Watching",
+                    discord.ActivityType.listening: "Listening to", discord.ActivityType.competing: "Competing in"}.get(act.type, "Doing")
+            activity_str = f"🎯 {verb} **{act.name}**"
+            break
+
+    # Acknowledgements / badges
+    acks = []
+    if guild.owner_id == member.id:
+        acks.append("👑 Server Owner")
+    if member.guild_permissions.administrator:
+        acks.append("🛡️ Administrator")
+    elif member.guild_permissions.manage_guild:
+        acks.append("⚙️ Manage Server")
+    elif member.guild_permissions.manage_messages or member.guild_permissions.kick_members:
+        acks.append("🔧 Moderator")
+    if member.bot:
+        acks.append("🤖 Bot")
+    if getattr(member, "premium_since", None):
+        acks.append("🚀 Server Booster")
+    ack_str = " · ".join(acks) if acks else "_Member_"
+
+    # Key permissions (compact)
+    perms = []
+    gp = member.guild_permissions
+    perm_map = [
+        (gp.administrator,    "Administrator"),
+        (gp.manage_guild,     "Manage Server"),
+        (gp.manage_channels,  "Manage Channels"),
+        (gp.manage_roles,     "Manage Roles"),
+        (gp.manage_messages,  "Manage Messages"),
+        (gp.ban_members,      "Ban Members"),
+        (gp.kick_members,     "Kick Members"),
+        (gp.mention_everyone, "Mention Everyone"),
+    ]
+    for has, label in perm_map:
+        if has:
+            perms.append(label)
+    perms_str = ", ".join(perms) if perms else "_None_"
+
+    # Embed color from top role, fallback to brand blue
+    color = member.color if str(member.color) != "#000000" else discord.Color(0x4f8ef7)
 
     embed = discord.Embed(
-        title=f"👤 {member}",
-        color=member.color if str(member.color) != "#000000" else 0x4f8ef7,
-        timestamp=datetime.utcnow()
+        title=f"👤 {member.display_name}",
+        description=(
+            f"**{member}**  ·  {ack_str}\n"
+            f"🆔 `{member.id}`"
+        ),
+        color=color,
+        timestamp=datetime.utcnow(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="🆔 User ID",      value=f"`{member.id}`",                                 inline=True)
-    embed.add_field(name="🏷️ Nickname",     value=member.nick or "None",                            inline=True)
-    embed.add_field(name="📅 Account Created",
-        value=f"<t:{int(member.created_at.timestamp())}:D> (<t:{int(member.created_at.timestamp())}:R>)",
-        inline=False
+
+    # Banner if available (requires fetch — best effort, skip if not pre-loaded)
+    banner = getattr(member, "banner", None)
+    if banner:
+        try:
+            embed.set_image(url=banner.url)
+        except Exception:
+            pass
+
+    # 📅 Account Created
+    embed.add_field(
+        name="📅 Account Created",
+        value=f"<t:{int(member.created_at.timestamp())}:D>\n<t:{int(member.created_at.timestamp())}:R>",
+        inline=True,
     )
-    embed.add_field(name="📥 Joined Server",
-        value=f"<t:{int(member.joined_at.timestamp())}:D> (<t:{int(member.joined_at.timestamp())}:R>)" if member.joined_at else "Unknown",
-        inline=False
-    )
-    embed.add_field(name=f"🎭 Roles ({len(roles_list)})", value=roles_str[:1000], inline=False)
-    embed.add_field(name="⚠️ Warnings",
-        value=f"**{count}** / {config.get('warning_limit', 30)}",
-        inline=True
+    # 📥 Joined Server
+    if member.joined_at:
+        embed.add_field(
+            name="📥 Joined Server",
+            value=f"<t:{int(member.joined_at.timestamp())}:D>\n<t:{int(member.joined_at.timestamp())}:R>",
+            inline=True,
+        )
+    else:
+        embed.add_field(name="📥 Joined Server", value="Unknown", inline=True)
+
+    # 🏷️ Join order
+    embed.add_field(name="🏷️ Join Position", value=join_position, inline=True)
+
+    # 📶 Status & 🎯 Activity
+    embed.add_field(name="📶 Status",   value=status_str,   inline=True)
+    embed.add_field(name="🎯 Activity", value=activity_str, inline=True)
+
+    # ⭐ Top role
+    embed.add_field(name="⭐ Top Role", value=top_role, inline=True)
+
+    # 🚀 Boosting since
+    if getattr(member, "premium_since", None):
+        embed.add_field(
+            name="🚀 Boosting Since",
+            value=f"<t:{int(member.premium_since.timestamp())}:R>",
+            inline=False,
+        )
+
+    # 🎭 Roles
+    embed.add_field(name=f"🎭 Roles — {role_count}", value=roles_str[:1024], inline=False)
+
+    # 🔑 Permissions
+    embed.add_field(name="🔑 Key Permissions", value=perms_str, inline=False)
+
+    # ⚠️ Warnings (with progress bar)
+    bar_len = 12
+    pct = min(1.0, warn_count / max(1, warn_limit))
+    filled = int(bar_len * pct)
+    bar = "▰" * filled + "▱" * (bar_len - filled)
+    bar_emoji = "🟩" if warn_count == 0 else ("🟧" if pct < 0.5 else "🟥")
+    embed.add_field(
+        name="⚠️ Warnings",
+        value=f"{bar_emoji} `{bar}`  **{warn_count}** / {warn_limit}",
+        inline=False,
     )
 
-    perms = []
-    if member.guild_permissions.administrator:
-        perms.append("Administrator")
-    if member.guild_permissions.manage_guild:
-        perms.append("Manage Server")
-    if member.guild_permissions.manage_messages:
-        perms.append("Manage Messages")
-    if member.guild_permissions.ban_members:
-        perms.append("Ban Members")
-    if member.guild_permissions.kick_members:
-        perms.append("Kick Members")
-    embed.add_field(name="🔑 Key Permissions", value=", ".join(perms) or "None", inline=False)
-    embed.set_footer(text=f"Requested by {ctx.author}")
-    await ctx.send(embed=embed)
+    # Footer
+    try:
+        icon_url = requester.display_avatar.url
+        embed.set_footer(text=f"Requested by {requester} • SP4RK", icon_url=icon_url)
+    except Exception:
+        embed.set_footer(text=f"Requested by {requester} • SP4RK")
+    return embed
+
+
+@bot.command(name="userinfo", aliases=["whois", "ui"])
+@commands.has_permissions(manage_messages=True)
+async def userinfo(ctx, member: discord.Member = None):
+    """!userinfo [@member] — detailed profile card for a member."""
+    member = member or ctx.author
+    await ctx.send(embed=_build_userinfo_embed(member, ctx.author))
+
+
+@bot.tree.command(name="userinfo", description="Show a detailed profile card for a member")
+@app_commands.describe(member="The member to inspect (defaults to yourself)")
+async def slash_userinfo(interaction: discord.Interaction,
+                         member: discord.Member = None):
+    if not interaction.guild:
+        return await interaction.response.send_message("Use this in a server.", ephemeral=True)
+    target = member or interaction.user
+    await interaction.response.send_message(
+        embed=_build_userinfo_embed(target, interaction.user)
+    )
 
 # ---------------- SERVER TEMPLATE COMMANDS ----------------
 @bot.tree.command(name="copy", description="Copy this server's full structure (channels, roles, permissions) into a template")
