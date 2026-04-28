@@ -661,6 +661,181 @@ footer{
   .bot-grid{ padding:20px 22px 60px; gap:18px; }
   footer{ padding:22px; }
 }
+
+/* ============================================================
+   ▼▼▼ BEAUTY UPGRADES — stats, filters, spotlight, halos ▼▼▼
+   ============================================================ */
+
+/* === Stats strip === */
+.bx-stats{
+  position:relative; z-index:5;
+  max-width:900px; margin:0 auto;
+  padding:8px 48px 30px;
+  display:flex; align-items:center; justify-content:center;
+  gap:34px; flex-wrap:wrap;
+}
+.bx-stat{ text-align:center; min-width:80px; }
+.bx-stat-num{
+  font-size:2.4rem; font-weight:900; letter-spacing:-1.5px;
+  background:var(--grad);
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  line-height:1;
+  text-shadow:0 0 30px rgba(91,140,255,.18);
+}
+.bx-stat-num span{ font-size:1.5rem; opacity:.75; }
+.bx-stat-label{
+  font-size:.72rem; font-weight:700; letter-spacing:1.6px;
+  text-transform:uppercase; color:var(--muted); margin-top:8px;
+}
+.bx-stat-divider{
+  width:1px; height:42px;
+  background:linear-gradient(180deg, transparent, rgba(91,140,255,.32), transparent);
+}
+
+/* === Filter chips === */
+.bx-filters{
+  position:relative; z-index:5;
+  max-width:1180px; margin:0 auto;
+  padding:0 48px 24px;
+  display:flex; gap:10px; flex-wrap:wrap;
+  justify-content:center;
+}
+.bx-chip{
+  display:inline-flex; align-items:center; gap:9px;
+  padding:9px 18px;
+  border-radius:99px;
+  background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.08);
+  color:var(--muted); font-weight:600; font-size:.88rem;
+  cursor:pointer; font-family:inherit;
+  transition:color .2s, background .2s, border-color .2s, transform .15s, box-shadow .2s;
+}
+.bx-chip i{ font-size:.82rem; }
+.bx-chip:hover{
+  color:var(--text);
+  border-color:rgba(91,140,255,.38);
+  background:rgba(91,140,255,.06);
+  transform:translateY(-1px);
+}
+.bx-chip.active{
+  background:var(--grad);
+  color:#fff; border-color:transparent;
+  box-shadow:0 10px 26px rgba(91,140,255,.4);
+}
+.bx-chip .bx-count{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:22px; height:22px; padding:0 7px;
+  background:rgba(0,0,0,.28);
+  border-radius:99px;
+  font-size:.72rem; font-weight:800;
+}
+.bx-chip:not(.active) .bx-count{ background:rgba(91,140,255,.14); color:var(--text); }
+
+/* Card filter visibility */
+.bot-card.bx-hidden{ display:none; }
+
+/* === Mouse-tracking spotlight on cards === */
+.bot-card::after{
+  content:""; position:absolute; inset:0;
+  background:radial-gradient(450px circle at var(--mx,50%) var(--my,50%), rgba(91,140,255,.14), transparent 45%);
+  opacity:0; transition:opacity .3s;
+  pointer-events:none; border-radius:inherit; z-index:0;
+}
+.bot-card.is-live:hover::after{ opacity:1; }
+.bot-card.sp4rk::after{
+  background:radial-gradient(450px circle at var(--mx,50%) var(--my,50%), rgba(255,140,40,.16), transparent 45%);
+}
+.bot-card.serverofficial::after{
+  background:radial-gradient(450px circle at var(--mx,50%) var(--my,50%), rgba(34,211,238,.16), transparent 45%);
+}
+
+/* keep banner & body above the spotlight */
+.bot-banner, .bot-body{ position:relative; z-index:1; }
+
+/* === Banner shimmer on hover === */
+.bot-banner{ overflow:hidden; }
+.bot-banner .bx-shimmer{
+  position:absolute; top:0; left:-60%; width:60%; height:100%;
+  background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.10) 50%, transparent 70%);
+  pointer-events:none; transform:translateX(-100%);
+}
+.bot-card.is-live:hover .bot-banner .bx-shimmer{
+  animation: bx-shimmer-sweep 1.05s ease forwards;
+}
+@keyframes bx-shimmer-sweep{
+  0%   { transform:translateX(0); }
+  100% { transform:translateX(360%); }
+}
+
+/* === Icon halo glow === */
+.bot-icon{ position:relative; }
+.bot-icon::before{
+  content:""; position:absolute; inset:-12px;
+  border-radius:inherit;
+  background:inherit;
+  filter:blur(22px);
+  opacity:.55; z-index:-1;
+  transition:opacity .25s, transform .25s;
+}
+.bot-card.is-live:hover .bot-icon::before{ opacity:.85; transform:scale(1.05); }
+
+/* === Animated CTA arrow === */
+.bot-cta i{ transition:transform .25s ease; }
+.bot-card.is-live:hover .bot-cta i{ transform:translateX(5px); }
+
+/* === Coming-soon build progress === */
+.bx-progress{
+  margin-top:auto; padding-top:6px;
+}
+.bx-progress-row{
+  display:flex; justify-content:space-between; align-items:baseline;
+  font-size:.72rem; color:var(--muted); margin-bottom:7px;
+  font-weight:700; letter-spacing:.6px; text-transform:uppercase;
+}
+.bx-progress-row b{
+  font-size:.78rem; letter-spacing:0; text-transform:none;
+  color:#ffd76a; font-weight:800;
+}
+.bx-progress-track{
+  height:6px; border-radius:99px; background:rgba(255,255,255,.06);
+  overflow:hidden; position:relative;
+}
+.bx-progress-fill{
+  height:100%;
+  background:linear-gradient(90deg, #ffc107, #ff8a1f);
+  border-radius:99px;
+  position:relative;
+  width:0;
+  transition:width 1.2s cubic-bezier(.2,.8,.2,1);
+  box-shadow:0 0 10px rgba(255,193,7,.45);
+}
+.bx-progress-fill::after{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+  animation: bx-bar-shine 1.8s linear infinite;
+}
+@keyframes bx-bar-shine{
+  0%{ transform:translateX(-100%); } 100%{ transform:translateX(100%); }
+}
+
+/* Coming-soon card subtle pulse on icon */
+.bot-card.coming .bot-icon::before{
+  animation: bx-soon-pulse 2.6s ease-in-out infinite;
+}
+@keyframes bx-soon-pulse{
+  0%,100%{ opacity:.35; transform:scale(1); }
+  50%    { opacity:.65; transform:scale(1.08); }
+}
+
+/* === Slight body padding bump for breathing room === */
+.bot-body{ padding-bottom:28px; }
+
+@media (max-width:760px){
+  .bx-stats{ padding:0 22px 24px; gap:20px; }
+  .bx-stat-num{ font-size:1.9rem; }
+  .bx-stat-divider{ display:none; }
+  .bx-filters{ padding:0 22px 18px; }
+}
 </style>
 </head>
 
@@ -713,13 +888,50 @@ footer{
   <p>Each bot is purpose-built, AI-augmented, and backed by a beautiful web dashboard. Pick one to learn more.</p>
 </header>
 
+<!-- ===== STATS STRIP ===== -->
+<section class="bx-stats" aria-label="Lineup stats">
+  <div class="bx-stat">
+    <div class="bx-stat-num" data-target="4">0</div>
+    <div class="bx-stat-label">Bots Crafted</div>
+  </div>
+  <div class="bx-stat-divider" aria-hidden="true"></div>
+  <div class="bx-stat">
+    <div class="bx-stat-num" data-target="2">0</div>
+    <div class="bx-stat-label">Live Now</div>
+  </div>
+  <div class="bx-stat-divider" aria-hidden="true"></div>
+  <div class="bx-stat">
+    <div class="bx-stat-num">24<span>/7</span></div>
+    <div class="bx-stat-label">Uptime Target</div>
+  </div>
+  <div class="bx-stat-divider" aria-hidden="true"></div>
+  <div class="bx-stat">
+    <div class="bx-stat-num">∞</div>
+    <div class="bx-stat-label">Possibilities</div>
+  </div>
+</section>
+
+<!-- ===== FILTER CHIPS ===== -->
+<div class="bx-filters" role="tablist" aria-label="Filter bots">
+  <button type="button" class="bx-chip active" data-filter="all" role="tab" aria-selected="true">
+    <i class="fas fa-grip"></i> All Bots <span class="bx-count">4</span>
+  </button>
+  <button type="button" class="bx-chip" data-filter="live" role="tab" aria-selected="false">
+    <i class="fas fa-bolt"></i> Live <span class="bx-count">2</span>
+  </button>
+  <button type="button" class="bx-chip" data-filter="soon" role="tab" aria-selected="false">
+    <i class="fas fa-flask"></i> In the Lab <span class="bx-count">2</span>
+  </button>
+</div>
+
 <!-- ===== CARD GRID ===== -->
 <section class="bot-grid">
 
   <!-- ===== Server Official (admin-customizable) ===== -->
   {% set so = server_official %}
-  <div class="bot-card serverofficial is-live" id="soCard">
+  <div class="bot-card serverofficial is-live" id="soCard" data-status="live">
     <div class="bot-banner">
+      <span class="bx-shimmer" aria-hidden="true"></span>
       <div class="bot-icon" id="soIcon">
         {% if so.image %}
           <img src="{{ so.image }}" alt="{{ so.name }}">
@@ -749,8 +961,9 @@ footer{
   </div>
 
   <!-- SP4RK card (LIVE) -->
-  <a href="{{ url_for('index') if logged_in else url_for('sp4rk_landing') }}" class="bot-card sp4rk is-live">
+  <a href="{{ url_for('index') if logged_in else url_for('sp4rk_landing') }}" class="bot-card sp4rk is-live" data-status="live">
     <div class="bot-banner">
+      <span class="bx-shimmer" aria-hidden="true"></span>
       <div class="bot-icon">S</div>
       <div class="bot-status status-live"><span class="dot"></span> Live</div>
     </div>
@@ -775,8 +988,9 @@ footer{
   </a>
 
   <!-- Coming Soon card 1 -->
-  <div class="bot-card coming is-soon">
+  <div class="bot-card coming is-soon" data-status="soon">
     <div class="bot-banner">
+      <span class="bx-shimmer" aria-hidden="true"></span>
       <div class="bot-icon"><i class="fas fa-music"></i></div>
       <div class="bot-status status-soon">Coming Soon</div>
     </div>
@@ -792,15 +1006,17 @@ footer{
         <span class="chip">Voice</span>
         <span class="chip">Playlists</span>
       </div>
-      <span class="bot-cta-soon">
-        <i class="fas fa-clock"></i> In the Lab
-      </span>
+      <div class="bx-progress">
+        <div class="bx-progress-row"><span>Build progress</span><b>65%</b></div>
+        <div class="bx-progress-track"><div class="bx-progress-fill" data-progress="65"></div></div>
+      </div>
     </div>
   </div>
 
   <!-- Coming Soon card 2 -->
-  <div class="bot-card coming is-soon">
+  <div class="bot-card coming is-soon" data-status="soon">
     <div class="bot-banner">
+      <span class="bx-shimmer" aria-hidden="true"></span>
       <div class="bot-icon"><i class="fas fa-chart-line"></i></div>
       <div class="bot-status status-soon">Coming Soon</div>
     </div>
@@ -816,9 +1032,10 @@ footer{
         <span class="chip">Reports</span>
         <span class="chip">Insights</span>
       </div>
-      <span class="bot-cta-soon">
-        <i class="fas fa-clock"></i> In the Lab
-      </span>
+      <div class="bx-progress">
+        <div class="bx-progress-row"><span>Build progress</span><b>40%</b></div>
+        <div class="bx-progress-track"><div class="bx-progress-fill" data-progress="40"></div></div>
+      </div>
     </div>
   </div>
 
@@ -905,6 +1122,96 @@ footer{
 
 <script>
   document.getElementById('yr').textContent = new Date().getFullYear();
+
+  /* =========================================================
+     Beauty layer: stats counter, filter chips, mouse spotlight,
+     progress-bar fill animation.
+     ========================================================= */
+
+  /* --- Animated count-up for stats --- */
+  (function animateStats(){
+    const els = document.querySelectorAll('.bx-stat-num[data-target]');
+    const animate = (el) => {
+      const target = parseInt(el.dataset.target, 10) || 0;
+      const dur = 900;
+      const start = performance.now();
+      const tick = (now) => {
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        el.textContent = Math.round(target * eased);
+        if (t < 1) requestAnimationFrame(tick);
+        else el.textContent = String(target);
+      };
+      requestAnimationFrame(tick);
+    };
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) { animate(e.target); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.4 });
+      els.forEach(el => io.observe(el));
+    } else {
+      els.forEach(animate);
+    }
+  })();
+
+  /* --- Build-progress fill animation --- */
+  (function fillProgress(){
+    const bars = document.querySelectorAll('.bx-progress-fill[data-progress]');
+    if (!bars.length) return;
+    const reveal = (bar) => {
+      const pct = Math.max(0, Math.min(100, parseInt(bar.dataset.progress, 10) || 0));
+      requestAnimationFrame(() => { bar.style.width = pct + '%'; });
+    };
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) { reveal(e.target); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.3 });
+      bars.forEach(b => io.observe(b));
+    } else {
+      bars.forEach(reveal);
+    }
+  })();
+
+  /* --- Filter chips --- */
+  (function initFilters(){
+    const chips = document.querySelectorAll('.bx-chip');
+    const cards = document.querySelectorAll('.bot-card');
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        chips.forEach(c => { c.classList.remove('active'); c.setAttribute('aria-selected','false'); });
+        chip.classList.add('active');
+        chip.setAttribute('aria-selected','true');
+        const f = chip.dataset.filter;
+        cards.forEach(card => {
+          const status = card.dataset.status || 'live';
+          const show = (f === 'all') || (status === f);
+          card.classList.toggle('bx-hidden', !show);
+        });
+      });
+    });
+  })();
+
+  /* --- Mouse-tracking spotlight on cards --- */
+  (function initSpotlight(){
+    const cards = document.querySelectorAll('.bot-card.is-live');
+    cards.forEach(card => {
+      card.addEventListener('mousemove', (e) => {
+        const r = card.getBoundingClientRect();
+        const x = ((e.clientX - r.left) / r.width)  * 100;
+        const y = ((e.clientY - r.top)  / r.height) * 100;
+        card.style.setProperty('--mx', x + '%');
+        card.style.setProperty('--my', y + '%');
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.setProperty('--mx', '50%');
+        card.style.setProperty('--my', '50%');
+      });
+    });
+  })();
 
   /* ===== Server Official: Request modal ===== */
   function openServerOfficialAsk(){

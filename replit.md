@@ -157,3 +157,12 @@ When a dev session is unlocked (PIN passed), both `/dashboard` and `/server-offi
 - **Quick actions**: reload, ping bot health, copy session info, clear local cache & reload.
 - **System info**: page, viewport, language, platform, UA, current theme.
 Theme is persisted in `localStorage.bl_theme` and applied pre-paint via an early `<head>` script in both dashboards (maps `--accent`/`--accent2` and `--bg2`/`--sidebar`, `--bg3`/`--card` so both CSS schemes work). Server passes `dev_unlocked=is_dev_session()` from `dashboard.py` to both render calls.
+
+## /bots Page Beauty Pass (Apr 2026)
+Enhanced `templates/bots.html` while keeping all existing IDs/classes intact:
+- **Stats strip** below the header (4 stats with gradient count-up: Bots Crafted, Live Now, Uptime Target, Possibilities).
+- **Filter chips** (All / Live / In the Lab) with live count badges; toggles `data-status` on each card to hide non-matching entries.
+- **Mouse-tracking spotlight** on live cards via `--mx`/`--my` CSS vars updated on `mousemove`.
+- **Banner shimmer sweep** on hover; **icon halo glow** with pulse animation on Coming Soon cards.
+- **Build-progress bar** on Tempo (65%) and Pulse (40%) with shimmer fill, animated in via IntersectionObserver.
+- All new CSS uses `bx-` prefix to avoid colliding with the existing `bot-`/`so*` names used by the dev edit modal.
