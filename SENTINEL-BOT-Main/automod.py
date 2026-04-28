@@ -104,18 +104,28 @@ def _emoji_count(text):
     return count
 
 async def send_webhook_log(config, title, description, color=0xff6b6b):
+    """Send a log entry to a Discord webhook without blocking the event loop.
+
+    Uses aiohttp instead of the sync `requests` library — the previous
+    implementation could freeze the bot for up to 3 seconds per log entry
+    when the webhook host was slow.
+    """
     webhook_url = config.get("webhook_log", "").strip()
     if not webhook_url or not webhook_url.startswith("http"):
         return
+    payload = {
+        "embeds": [{
+            "title": title,
+            "description": description,
+            "color": color,
+        }]
+    }
     try:
-        payload = {
-            "embeds": [{
-                "title": title,
-                "description": description,
-                "color": color
-            }]
-        }
-        requests.post(webhook_url, json=payload, timeout=3)
+        import aiohttp
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=3)
+        ) as session:
+            await session.post(webhook_url, json=payload)
     except Exception as e:
         print(f"Webhook log error: {e}")
 

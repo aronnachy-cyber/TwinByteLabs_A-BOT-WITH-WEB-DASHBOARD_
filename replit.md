@@ -62,26 +62,43 @@ Star-rating + comment system on the SP4RK dashboard's **Feedback** tab.
 - When dashboard and bot run as separate Render services, set `DASHBOARD_URL` on the worker to the public dashboard URL so prefix/config changes are fetched by the bot.
 - `START_BOT_IN_WEB` defaults to false so the dashboard web service does not start a second Discord bot connection. Only the worker should run the bot unless explicitly running a one-service deployment.
 
-## Slash Commands (V2.5.0)
-- `/bot` — Bot stats, uptime, active features (everyone)
+## Slash Commands (V2.7 — full slash parity for moderation)
+**Info & Utility**
+- `/bot` — Bot stats, uptime, active features
 - `/dashboard` — Mini admin dashboard embed (admin only)
 - `/commands` — Full command list
-- `/serverinfo` — Server info
-- `/giveaway <duration> <prize> [winners]` — Start giveaway
-- `/giveaway-end <message_id>` — End giveaway early
-- `/giveaway-reroll <message_id>` — Reroll winner
-- `/poll <question> <opt1> <opt2> [opt3] [opt4]` — Create reaction poll
-- `/ticket [reason]` — Open support ticket
-- `/ticket-close` — Close current ticket
-- `/setup-reaction-role <message_id> <emoji> <role>` — Link emoji to role
-- `/autorespond add <trigger> <response> [match]` — Add auto-reply
-- `/autorespond remove <trigger>` — Remove auto-reply
-- `/autorespond list` — List all rules
-- `/rank [@user]` — Check XP and level
-- `/leaderboard` — Server XP leaderboard
+- `/serverinfo` — **Big** server info embed (icon, banner, owner, presence breakdown, channel/role/boost/feature stats)
+- `/userinfo [member]` — **Big** user profile (avatar, banner, status, activity, top role, join position, acks, warnings progress bar)
+- `/avatar [member]` — Full-size avatar with PNG/JPG/WEBP/GIF download links
+- `/banner [member]` — Show profile banner (if set)
+- `/roleinfo <role>` — Role color, position, member count, hoist/mentionable/managed flags, key permissions
+
+**Moderation (V2.7 — new slash counterparts of every prefix command)**
+- `/warn <member> [reason]` — Warn (calls same `add_warning` helper as `!warn`)
+- `/warnings <member>` — Warning history embed
+- `/clearwarnings <member>` — Reset warnings (admin)
+- `/kick <member> [reason]`
+- `/ban <member> [reason]`
+- `/unban <user_id> [reason]`
+- `/timeout <member> <duration> [reason]` — Discord native timeout (max 28d)
+- `/untimeout <member>`
+- `/purge <amount>` — Bulk delete (1–200)
+All slash mod commands enforce both `app_commands.checks.has_permissions` AND the same role-hierarchy guard as `_hierarchy_block`. A global `@bot.tree.error` handler now turns missing-permission / cooldown / check-failure exceptions into friendly ephemeral replies instead of "The application did not respond."
+
+**Engagement / Tickets / Giveaways** (unchanged)
+- `/giveaway`, `/giveaway-end`, `/giveaway-reroll`, `/poll`, `/ticket`, `/ticket-close`
+- `/setup-reaction-role`, `/remove-reaction-role`, `/list-reaction-roles`
+- `/autorespond add|remove|list`, `/rank`, `/leaderboard`
 
 ## Prefix Commands (default: !)
-warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, purge, slowmode, lockdown, unlockdown, userinfo, refresh
+warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, timeout, untimeout, unban, purge, purgeuser, slowmode, lockdown, unlockdown, lock, unlock, role, nick, voicekick, snipe, massban, note, notes, modlogs, userinfo (alias whois/ui), serverinfo (alias si), refresh
+
+## V2.7 Reliability Hardening
+- `save_warnings()` now writes atomically (`tmp + os.replace`) so a crash mid-write can never leave a 0-byte/corrupted `warnings.json`.
+- All blocking `requests.post` calls inside async event handlers replaced with `aiohttp` so a slow webhook/Gemini/dashboard endpoint can no longer freeze the bot heartbeat (was up to 8s per message). Affected: `check_warning_limit`, `handle_ai_moderation`, `automod.send_webhook_log`.
+- `server_official.fire_external_hooks` now dispatches each external webhook in a daemon thread (was: serial blocking POSTs that could stall a slash command or Flask request for `5s × hook_count`).
+- All `tasks.loop` background loops (`sync_bot_settings`, `daily_report_task`, `scheduler_tick`, `reminder_tick`) wrapped in top-level try/except so a single bad iteration can never silently kill the loop and leave the bot frozen on stale state.
+- Scheduler/reminder duplicate-fire race fixed: items are marked `posted=True` / `sent=True` and persisted **before** the network send, so a crash mid-send can never replay an announcement on next boot.
 
 ## Routes
 - `/` - Public landing page

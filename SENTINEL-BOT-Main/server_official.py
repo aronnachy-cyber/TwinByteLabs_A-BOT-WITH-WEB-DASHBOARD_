@@ -660,16 +660,35 @@ def delete_external_hook(hook_id: str) -> bool:
     return len(state["external_hooks"]) < before
 
 
+def _fire_one_hook(hook: Dict[str, Any], event: str, payload: Dict[str, Any]) -> None:
+    try:
+        requests.post(
+            hook["url"],
+            json={"event": event, "payload": payload},
+            timeout=5,
+        )
+    except Exception as e:
+        logger.warning(f"[hooks] {hook.get('name','?')} failed: {e}")
+
+
 def fire_external_hooks(event: str, payload: Dict[str, Any]) -> None:
-    """Fire-and-forget POST to every hook subscribed to `event`."""
+    """Fire-and-forget POST to every hook subscribed to `event`.
+
+    Each request runs in its own daemon thread so a slow webhook target
+    can never block the event loop (when called from a slash command) or
+    a Flask request (when called from the dashboard) for up to 5s each.
+    """
+    import threading
     hooks = list_external_hooks()
     for h in hooks:
         if event not in (h.get("events") or []):
             continue
-        try:
-            requests.post(h["url"], json={"event": event, "payload": payload}, timeout=5)
-        except Exception as e:
-            logger.warning(f"[hooks] {h['name']} failed: {e}")
+        threading.Thread(
+            target=_fire_one_hook,
+            args=(h, event, payload),
+            daemon=True,
+            name=f"ext-hook-{h.get('name','?')}",
+        ).start()
 
 
 def add_incoming_webhook(guild_id: str, name: str, channel_id: str) -> Dict[str, Any]:
@@ -1798,53 +1817,90 @@ async def _finalize_giveaway(g: Dict[str, Any]) -> None:
 
 @tasks.loop(seconds=30)
 async def scheduler_tick():
+    """Fire scheduled announcements + finalize ended giveaways.
+
+    Hardened against:
+      - Loop death from a single bad iteration (top-level try/except).
+      - Naive/aware datetime crashes (per-item try/except around _parse_iso).
+      - Duplicate-post race: we mark `posted=True` and `save_state` BEFORE
+        the actual send, so if the bot crashes mid-send the announcement is
+        not replayed on next boot.
+    """
     if not bot.is_ready():
         return
-    now = datetime.now(timezone.utc)
-    state = load_state()
-    changed = False
-    for ann in state.get("scheduled_announcements", []):
-        if ann.get("posted"):
-            continue
-        when = _parse_iso(ann.get("scheduled_for", ""))
-        if when and when <= now:
-            ok = await _post_scheduled(ann)
-            ann["posted"] = bool(ok)
-            ann["posted_at"] = _now_iso() if ok else None
-            changed = True
-    if changed:
-        save_state(state)
-    for g in list(state.get("giveaways", [])):
-        if g.get("ended"):
-            continue
-        ends = _parse_iso(g.get("ends_at", ""))
-        if ends and ends <= now:
-            await _finalize_giveaway(g)
+    try:
+        now = datetime.now(timezone.utc)
+        state = load_state()
+        changed = False
+        for ann in state.get("scheduled_announcements", []):
+            try:
+                if ann.get("posted"):
+                    continue
+                when = _parse_iso(ann.get("scheduled_for", ""))
+                if not (when and when <= now):
+                    continue
+                # Reserve first to avoid duplicate posting on crash/restart.
+                ann["posted"] = True
+                ann["posted_at"] = _now_iso()
+                changed = True
+                save_state(state)
+                ok = await _post_scheduled(ann)
+                if not ok:
+                    # Mark failure so admins can see what happened, but keep
+                    # `posted=True` to avoid retry storms.
+                    ann["posted_at"] = None
+                    ann["last_error"] = "post_scheduled returned False"
+                    save_state(state)
+            except Exception as e:
+                logger.warning(f"[scheduler] announcement error: {e}")
+        if changed:
+            save_state(state)
+        for g in list(state.get("giveaways", [])):
+            try:
+                if g.get("ended"):
+                    continue
+                ends = _parse_iso(g.get("ends_at", ""))
+                if ends and ends <= now:
+                    await _finalize_giveaway(g)
+            except Exception as e:
+                logger.warning(f"[scheduler] giveaway finalize error: {e}")
+    except Exception as e:
+        logger.error(f"[scheduler_tick] iteration crashed: {e}")
 
 
 @tasks.loop(seconds=20)
 async def reminder_tick():
     if not bot.is_ready():
         return
-    state = load_state()
-    now = datetime.now(timezone.utc)
-    changed = False
-    for r in state["reminders"]:
-        if r.get("sent"):
-            continue
-        due = _parse_iso(r.get("due_at", ""))
-        if due and due <= now:
-            ch = bot.get_channel(int(r["channel_id"]))
-            if ch:
-                try:
-                    await ch.send(f"⏰ <@{r['user_id']}> reminder: {r['text']}")
-                except Exception:
-                    pass
-            r["sent"] = True
-            r["sent_at"] = _now_iso()
-            changed = True
-    if changed:
-        save_state(state)
+    try:
+        state = load_state()
+        now = datetime.now(timezone.utc)
+        changed = False
+        for r in state["reminders"]:
+            try:
+                if r.get("sent"):
+                    continue
+                due = _parse_iso(r.get("due_at", ""))
+                if not (due and due <= now):
+                    continue
+                # Mark as sent FIRST so a crash mid-send won't double-fire.
+                r["sent"] = True
+                r["sent_at"] = _now_iso()
+                changed = True
+                ch = bot.get_channel(int(r["channel_id"]))
+                if ch:
+                    try:
+                        await ch.send(f"⏰ <@{r['user_id']}> reminder: {r['text']}")
+                    except (discord.NotFound, discord.Forbidden) as e:
+                        logger.warning(f"[reminder] cannot deliver: {e}")
+                    except Exception as e:
+                        logger.warning(f"[reminder] send failed: {e}")
+            except Exception as e:
+                logger.warning(f"[reminder] item error: {e}")
+        if changed:
+            save_state(state)
+    except Exception as e:
+        logger.error(f"[reminder_tick] iteration crashed: {e}")
 
 
 @tasks.loop(hours=24)

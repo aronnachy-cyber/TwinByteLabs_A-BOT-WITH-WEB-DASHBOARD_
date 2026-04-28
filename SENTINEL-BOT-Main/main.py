@@ -166,8 +166,20 @@ def load_warnings():
 def save_warnings():
     # JSON acts as a fast in-memory mirror; the authoritative copy lives
     # in Supabase via supabase_save_warning() at every call site.
-    with open(warnings_file, "w") as f:
-        json.dump(warnings_db, f, indent=4)
+    # Atomic write: write to .tmp then os.replace so a crash mid-write can
+    # never leave a 0-byte / corrupted warnings.json behind.
+    tmp = warnings_file + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(warnings_db, f, indent=4)
+        os.replace(tmp, warnings_file)
+    except Exception as e:
+        print(f"[WARN] save_warnings failed: {e}")
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
 
 def _get_member_entry(guild_id: str, member_id: str) -> dict:
     if guild_id not in warnings_db:
@@ -275,12 +287,17 @@ async def check_warning_limit(member, count):
     owner_approval  = config.get("owner_approval", "OFF") == "ON"
     if count >= limit and owner_approval:
         await notify_owners_warning(member, count)
+    # Async, non-blocking dashboard ping (was sync `requests.post` which froze
+    # the event loop for up to 3s and could cause heartbeat / "Interaction
+    # Failed" errors on busy servers).
     try:
-        requests.post(
-            f"{DASHBOARD_URL}/api/add_warning",
-            json={"member_id": member.id, "username": str(member), "warnings": count},
-            timeout=3
-        )
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=3)
+        ) as sess:
+            await sess.post(
+                f"{DASHBOARD_URL}/api/add_warning",
+                json={"member_id": member.id, "username": str(member), "warnings": count},
+            )
     except Exception:
         pass
 
@@ -312,18 +329,23 @@ async def handle_ai_moderation(message):
             "Return only valid JSON: {\"flagged\": true, \"reason\": \"short reason\"} or {\"flagged\": false, \"reason\": \"safe\"}.\n\n"
             f"Message: {message.content}"
         )
-        res = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}",
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}
-            },
-            timeout=8
-        )
-        if not res.ok:
-            print(f"Gemini moderation error: HTTP {res.status_code}")
-            return
-        data = res.json()
+        # Async, non-blocking call (was sync `requests.post` which blocked the
+        # event loop for up to 8s per message — caused gateway lag, dropped
+        # heartbeats, and "Interaction Failed" replies on busy servers).
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=8)
+        ) as sess:
+            async with sess.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}",
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
+                },
+            ) as res:
+                if res.status != 200:
+                    print(f"Gemini moderation error: HTTP {res.status}")
+                    return
+                data = await res.json()
         text = (
             data.get("candidates", [{}])[0]
             .get("content", {})
@@ -357,59 +379,75 @@ _last_status     = ""
 
 @tasks.loop(seconds=60)
 async def sync_bot_settings():
+    """Pull dashboard config every minute and update presence/avatar.
+
+    Wrapped in a top-level try so a single bad iteration (network blip,
+    Discord API hiccup) can never kill the loop and leave the bot frozen
+    on an old presence forever.
+    """
     global _last_avatar_url, _last_status
-    refresh_config()
-    current_status = config.get("bot_status", "online")
-    if current_status != _last_status:
-        s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
-        try:
-            await bot.change_presence(status=s_map.get(current_status, discord.Status.online))
-            _last_status = current_status
-        except Exception:
-            pass
-    avatar_url = config.get("bot_avatar", "").strip()
-    if avatar_url and avatar_url != _last_avatar_url:
-        try:
-            async with aiohttp.ClientSession() as sess:
-                async with sess.get(avatar_url) as resp:
-                    if resp.status == 200:
-                        await bot.user.edit(avatar=await resp.read())
-                        _last_avatar_url = avatar_url
-                        dlog("🖼️ AVATAR", "Bot avatar updated")
-        except Exception as e:
-            print(f"Avatar update error: {e}")
+    try:
+        refresh_config()
+        current_status = config.get("bot_status", "online")
+        if current_status != _last_status:
+            s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
+            try:
+                await bot.change_presence(status=s_map.get(current_status, discord.Status.online))
+                _last_status = current_status
+            except Exception as e:
+                print(f"[sync_bot_settings] presence update failed: {e}")
+        avatar_url = config.get("bot_avatar", "").strip()
+        if avatar_url and avatar_url != _last_avatar_url:
+            try:
+                async with aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as sess:
+                    async with sess.get(avatar_url) as resp:
+                        if resp.status == 200:
+                            await bot.user.edit(avatar=await resp.read())
+                            _last_avatar_url = avatar_url
+                            dlog("🖼️ AVATAR", "Bot avatar updated")
+            except Exception as e:
+                print(f"[sync_bot_settings] avatar update error: {e}")
+    except Exception as e:
+        # Guard the whole loop — a discord.py tasks.loop dies silently if the
+        # body raises, leaving the bot stuck on stale settings forever.
+        print(f"[sync_bot_settings] iteration crashed: {e}")
 
 @tasks.loop(hours=24)
 async def daily_report_task():
-    refresh_config()
-    if config.get("daily_report") != "ON":
-        return
-    log_channel_id = config.get("log_channel", "").strip()
-    if not log_channel_id:
-        return
     try:
-        channel = bot.get_channel(int(log_channel_id))
-        if not channel:
+        refresh_config()
+        if config.get("daily_report") != "ON":
             return
-        total_warnings = sum(
-            (v.get("count", 0) if isinstance(v, dict) else v)
-            for guild in warnings_db.values()
-            for v in (guild.values() if isinstance(guild, dict) else [])
-        )
-        embed = discord.Embed(
-            title="📊 Daily Moderation Report",
-            description=(
-                f"**Date:** {datetime.now().strftime('%Y-%m-%d')}\n"
-                f"**Total Warnings (all-time):** {total_warnings}\n"
-                f"**Bot Status:** Online ✅"
-            ),
-            color=0x4f8ef7
-        )
-        embed.set_footer(text="SP4RK — Automated Daily Report")
-        await channel.send(embed=embed)
-        dlog("📊 DAILY-REPORT", "Daily report posted to log channel")
+        log_channel_id = config.get("log_channel", "").strip()
+        if not log_channel_id:
+            return
+        try:
+            channel = bot.get_channel(int(log_channel_id))
+            if not channel:
+                return
+            total_warnings = sum(
+                (v.get("count", 0) if isinstance(v, dict) else v)
+                for guild in warnings_db.values()
+                for v in (guild.values() if isinstance(guild, dict) else [])
+            )
+            embed = discord.Embed(
+                title="📊 Daily Moderation Report",
+                description=(
+                    f"**Date:** {datetime.now().strftime('%Y-%m-%d')}\n"
+                    f"**Total Warnings (all-time):** {total_warnings}\n"
+                    f"**Bot Status:** Online ✅"
+                ),
+                color=0x4f8ef7
+            )
+            embed.set_footer(text="SP4RK — Automated Daily Report")
+            await channel.send(embed=embed)
+            dlog("📊 DAILY-REPORT", "Daily report posted to log channel")
+        except Exception as e:
+            print(f"Daily report error: {e}")
     except Exception as e:
-        print(f"Daily report error: {e}")
+        print(f"[daily_report_task] iteration crashed: {e}")
 
 # ---------------- SLASH COMMANDS ----------------
 def build_help_embed(prefix):
@@ -461,6 +499,12 @@ def build_help_embed(prefix):
         "`/ticket [reason]` — open support ticket\n"
         "`/ticket-close` — close ticket\n"
         "`/setup-reaction-role <message_id> <emoji> <role>` — add reaction role"
+    ))
+    embed.add_field(name="⚡ Slash Equivalents", inline=False, value=(
+        "All major moderation actions are also available as slash commands:\n"
+        "`/warn` `/warnings` `/clearwarnings` `/kick` `/ban` `/unban`\n"
+        "`/timeout` `/untimeout` `/purge` `/userinfo` `/serverinfo`\n"
+        "`/avatar` `/banner` `/roleinfo`"
     ))
     embed.add_field(name="🤖 Bot / Setup", inline=False, value=(
         f"`{prefix}refresh` — reload dashboard config\n"
@@ -2249,6 +2293,462 @@ async def force_sync(ctx):
         ))
     except Exception as e:
         await msg.edit(content=f"❌ Sync failed: `{e}`")
+
+# ============================================================
+# 🛡️ SLASH-COMMAND COUNTERPARTS FOR MODERATION
+# ============================================================
+# These mirror the prefix commands above but expose the same actions through
+# Discord's slash UI. Each one re-uses the exact same helpers (add_warning,
+# _hierarchy_block, security.mass_action_prevent, supabase_save_mod_log) so
+# behaviour is identical to the `!` versions — no double maintenance.
+# ============================================================
+
+
+async def _slash_guard_guild(interaction: discord.Interaction) -> bool:
+    """Reject DM usage with a friendly message. Returns False if blocked."""
+    if not interaction.guild:
+        await interaction.response.send_message(
+            "❌ This command can only be used in a server.", ephemeral=True
+        )
+        return False
+    return True
+
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error):
+    """User-friendly slash command error replies (was: silent failures)."""
+    try:
+        if isinstance(error, app_commands.MissingPermissions):
+            msg = f"❌ You need the **{', '.join(error.missing_permissions)}** permission for that."
+        elif isinstance(error, app_commands.BotMissingPermissions):
+            msg = f"❌ I'm missing the **{', '.join(error.missing_permissions)}** permission."
+        elif isinstance(error, app_commands.CheckFailure):
+            msg = "❌ You don't have permission to use this command."
+        elif isinstance(error, app_commands.CommandOnCooldown):
+            msg = f"⏳ Slow down — try again in **{error.retry_after:.1f}s**."
+        else:
+            print(f"[slash error] {type(error).__name__}: {error}")
+            msg = f"❌ Something went wrong: `{type(error).__name__}`."
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(msg, ephemeral=True)
+    except Exception as e:
+        print(f"[slash error handler] failed: {e}")
+
+
+# ---------------- /warn ----------------
+@bot.tree.command(name="warn", description="Warn a member with an optional reason")
+@app_commands.describe(member="Who to warn", reason="Why")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_warn(interaction: discord.Interaction,
+                     member: discord.Member, reason: str = "Violation"):
+    if not await _slash_guard_guild(interaction):
+        return
+    # Mirror the !warn hierarchy checks (slash commands can't share ctx).
+    auth = interaction.user
+    ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
+    if not ok_bot:
+        return await interaction.response.send_message(
+            f"❌ Cannot warn {member.mention} — {why}.", ephemeral=True
+        )
+    if auth.id != interaction.guild.owner_id and member.top_role >= auth.top_role:
+        return await interaction.response.send_message(
+            f"❌ You cannot warn {member.mention} — their role is equal to or higher than yours.",
+            ephemeral=True,
+        )
+    await interaction.response.defer()
+    await add_warning(member, reason)
+    entry = _get_member_entry(str(interaction.guild.id), str(member.id))
+    count = entry["count"]
+    await interaction.followup.send(
+        f"⚠️ {member.mention} has been warned! Now at **{count}** warning(s).\nReason: {reason}"
+    )
+    await logs.log_event(
+        bot, config, "⚠️ Warning Issued",
+        f"{member} warned by {auth} | Reason: {reason}", color=0xf39c12,
+    )
+
+
+# ---------------- /warnings ----------------
+@bot.tree.command(name="warnings", description="Show a member's warning history")
+@app_commands.describe(member="Whose warnings to view")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_warnings(interaction: discord.Interaction, member: discord.Member):
+    if not await _slash_guard_guild(interaction):
+        return
+    entry   = _get_member_entry(str(interaction.guild.id), str(member.id))
+    count   = entry["count"]
+    history = entry["history"]
+    limit   = int(config.get("warning_limit", 30))
+    embed = discord.Embed(
+        title=f"⚠️ Warning History — {member}",
+        color=0xf39c12 if count > 0 else 0x2ecc71,
+    )
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="Total Warnings", value=f"**{count}**", inline=True)
+    embed.add_field(name="Warning Limit",  value=f"**{limit}**", inline=True)
+    embed.add_field(
+        name="Status",
+        value="🔴 Limit Reached" if count >= limit else
+              ("🟠 Watch" if count >= limit // 2 else "🟢 OK"),
+        inline=True,
+    )
+    if history:
+        last5 = history[-5:][::-1]
+        history_text = "\n".join(
+            f"`{i+1}.` {h['reason']} — *{h['time']}*"
+            for i, h in enumerate(last5)
+        )
+        embed.add_field(name=f"Recent History (last {len(last5)})", value=history_text, inline=False)
+    else:
+        embed.add_field(name="History", value="No warnings on record.", inline=False)
+    embed.set_footer(text=f"User ID: {member.id}")
+    await interaction.response.send_message(embed=embed)
+
+
+# ---------------- /clearwarnings ----------------
+@bot.tree.command(name="clearwarnings", description="Clear all warnings for a member")
+@app_commands.describe(member="Whose warnings to clear")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_clearwarnings(interaction: discord.Interaction, member: discord.Member):
+    if not await _slash_guard_guild(interaction):
+        return
+    guild_id, member_id = str(interaction.guild.id), str(member.id)
+    if guild_id in warnings_db and member_id in warnings_db[guild_id]:
+        warnings_db[guild_id][member_id] = {"count": 0, "history": []}
+        save_warnings()
+    supabase_clear_warnings(guild_id, member_id)
+    dlog("🧹 CLEAR-WARN", f"Warnings cleared for {member} by {interaction.user}")
+    await logs.log_event(
+        bot, config, "🧹 Warnings Cleared",
+        f"{member}'s warnings cleared by {interaction.user}", color=0x2ecc71,
+    )
+    await interaction.response.send_message(
+        f"✅ All warnings cleared for {member.mention}."
+    )
+
+
+# ---------------- /kick ----------------
+@bot.tree.command(name="kick", description="Kick a member from the server")
+@app_commands.describe(member="Who to kick", reason="Why")
+@app_commands.checks.has_permissions(kick_members=True)
+async def slash_kick(interaction: discord.Interaction,
+                     member: discord.Member, reason: str = "No reason provided"):
+    if not await _slash_guard_guild(interaction):
+        return
+    ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
+    if not ok_bot:
+        return await interaction.response.send_message(
+            f"❌ Cannot kick {member.mention} — {why}.", ephemeral=True
+        )
+    if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
+        return await interaction.response.send_message(
+            f"❌ You cannot kick {member.mention} — their role is equal to or higher than yours.",
+            ephemeral=True,
+        )
+    if not interaction.guild.me.guild_permissions.kick_members:
+        return await interaction.response.send_message(
+            "❌ I'm missing the **Kick Members** permission.", ephemeral=True
+        )
+    await interaction.response.defer()
+    try:
+        await member.kick(reason=reason)
+        await interaction.followup.send(
+            f"🚪 {member.mention} has been kicked! Reason: {reason}"
+        )
+        await logs.log_event(bot, config, "🚪 Kick",
+            f"{member} kicked by {interaction.user} | Reason: {reason}", color=0xe67e22)
+        await dm_owner("kick", str(member), reason, str(interaction.user))
+        supabase_save_mod_log(interaction.guild.id, "kick", str(member),
+            str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        dlog("🚪 KICK", f"{member} kicked by {interaction.user} — {reason}")
+    except discord.Forbidden:
+        await interaction.followup.send(
+            f"❌ I don't have permission to kick {member.mention}.", ephemeral=True
+        )
+    except Exception as e:
+        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+
+
+# ---------------- /ban ----------------
+@bot.tree.command(name="ban", description="Permanently ban a member from the server")
+@app_commands.describe(member="Who to ban", reason="Why")
+@app_commands.checks.has_permissions(ban_members=True)
+async def slash_ban(interaction: discord.Interaction,
+                    member: discord.Member, reason: str = "No reason provided"):
+    if not await _slash_guard_guild(interaction):
+        return
+    ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
+    if not ok_bot:
+        return await interaction.response.send_message(
+            f"❌ Cannot ban {member.mention} — {why}.", ephemeral=True
+        )
+    if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
+        return await interaction.response.send_message(
+            f"❌ You cannot ban {member.mention} — their role is equal to or higher than yours.",
+            ephemeral=True,
+        )
+    if not interaction.guild.me.guild_permissions.ban_members:
+        return await interaction.response.send_message(
+            "❌ I'm missing the **Ban Members** permission.", ephemeral=True
+        )
+    await interaction.response.defer()
+    try:
+        await member.ban(reason=reason)
+        await interaction.followup.send(
+            f"⛔ {member.mention} has been permanently banned! Reason: {reason}"
+        )
+        await logs.log_event(bot, config, "⛔ Ban",
+            f"{member} banned by {interaction.user} | Reason: {reason}", color=0xe74c3c)
+        await dm_owner("ban", str(member), reason, str(interaction.user))
+        supabase_save_mod_log(interaction.guild.id, "ban", str(member),
+            str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        dlog("⛔ BAN", f"{member} banned by {interaction.user} — {reason}")
+    except discord.Forbidden:
+        await interaction.followup.send(
+            f"❌ I don't have permission to ban {member.mention}.", ephemeral=True
+        )
+    except Exception as e:
+        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+
+
+# ---------------- /unban ----------------
+@bot.tree.command(name="unban", description="Unban a user by their ID")
+@app_commands.describe(user_id="The user's Discord ID", reason="Why")
+@app_commands.checks.has_permissions(ban_members=True)
+async def slash_unban(interaction: discord.Interaction,
+                      user_id: str, reason: str = "No reason provided"):
+    if not await _slash_guard_guild(interaction):
+        return
+    if not user_id.isdigit():
+        return await interaction.response.send_message(
+            "❌ User ID must be a number (right-click a user → Copy ID).",
+            ephemeral=True,
+        )
+    await interaction.response.defer()
+    try:
+        user = await bot.fetch_user(int(user_id))
+        await interaction.guild.unban(user, reason=reason)
+        await interaction.followup.send(f"✅ {user} has been unbanned. Reason: {reason}")
+        await logs.log_event(bot, config, "✅ Unban",
+            f"{user} unbanned by {interaction.user} | Reason: {reason}", color=0x2ecc71)
+        supabase_save_mod_log(interaction.guild.id, "unban", str(user),
+            str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        dlog("✅ UNBAN", f"{user} unbanned by {interaction.user}")
+    except discord.NotFound:
+        await interaction.followup.send("❌ User not found or not banned.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.followup.send(
+            "❌ I don't have permission to unban users.", ephemeral=True
+        )
+    except Exception as e:
+        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+
+
+# ---------------- /timeout ----------------
+@bot.tree.command(name="timeout", description="Temporarily mute a member with Discord's built-in timeout")
+@app_commands.describe(member="Who to time out", duration="e.g. 30s, 10m, 2h, 7d (max 28d)", reason="Why")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def slash_timeout(interaction: discord.Interaction,
+                        member: discord.Member, duration: str,
+                        reason: str = "No reason provided"):
+    if not await _slash_guard_guild(interaction):
+        return
+    ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
+    if not ok_bot:
+        return await interaction.response.send_message(
+            f"❌ Cannot time out {member.mention} — {why}.", ephemeral=True
+        )
+    if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
+        return await interaction.response.send_message(
+            f"❌ You cannot time out {member.mention} — their role is equal to or higher than yours.",
+            ephemeral=True,
+        )
+    seconds = parse_duration(duration)
+    if not seconds:
+        return await interaction.response.send_message(
+            "❌ Invalid duration! Use e.g. `30m`, `2h`, `1d`. Max 28 days.", ephemeral=True
+        )
+    if seconds > 2419200:
+        return await interaction.response.send_message(
+            "❌ Discord timeout limit is 28 days.", ephemeral=True
+        )
+    label = duration_label(seconds)
+    await interaction.response.defer()
+    try:
+        until = discord.utils.utcnow() + timedelta(seconds=seconds)
+        await member.timeout(until, reason=reason)
+        await interaction.followup.send(
+            f"⏱️ {member.mention} has been timed out for **{label}**. Reason: {reason}"
+        )
+        await logs.log_event(bot, config, "⏱️ Timeout",
+            f"{member} timed out by {interaction.user} for {label} | Reason: {reason}",
+            color=0xf39c12)
+        supabase_save_mod_log(interaction.guild.id, "timeout", str(member),
+            str(interaction.user), f"{label} — {reason}",
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        dlog("⏱️ TIMEOUT", f"{member} timed out for {label} by {interaction.user}")
+    except discord.Forbidden:
+        await interaction.followup.send(
+            f"❌ I don't have permission to time out {member.mention}.", ephemeral=True
+        )
+    except Exception as e:
+        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+
+
+# ---------------- /untimeout ----------------
+@bot.tree.command(name="untimeout", description="Remove a member's timeout")
+@app_commands.describe(member="Who to untimeout")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def slash_untimeout(interaction: discord.Interaction, member: discord.Member):
+    if not await _slash_guard_guild(interaction):
+        return
+    await interaction.response.defer()
+    try:
+        await member.timeout(None, reason=f"Timeout removed by {interaction.user}")
+        await interaction.followup.send(f"✅ Timeout removed for {member.mention}.")
+        await logs.log_event(bot, config, "✅ Timeout Removed",
+            f"{member}'s timeout removed by {interaction.user}", color=0x2ecc71)
+        dlog("✅ UNTIMEOUT", f"Timeout removed for {member} by {interaction.user}")
+    except discord.Forbidden:
+        await interaction.followup.send(
+            f"❌ I don't have permission to remove {member.mention}'s timeout.", ephemeral=True
+        )
+    except Exception as e:
+        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+
+
+# ---------------- /purge ----------------
+@bot.tree.command(name="purge", description="Bulk delete the most recent messages in this channel")
+@app_commands.describe(amount="How many to delete (1-200)")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_purge(interaction: discord.Interaction, amount: int = 10):
+    if not await _slash_guard_guild(interaction):
+        return
+    if amount < 1 or amount > 200:
+        return await interaction.response.send_message(
+            "❌ Amount must be between 1 and 200.", ephemeral=True
+        )
+    await interaction.response.defer(ephemeral=True)
+    try:
+        deleted = await interaction.channel.purge(limit=amount)
+        await interaction.followup.send(
+            f"🧹 Deleted **{len(deleted)}** message(s).", ephemeral=True
+        )
+        await logs.log_event(bot, config, "🧹 Purge",
+            f"{interaction.user} purged {len(deleted)} messages in #{interaction.channel.name}",
+            color=0x9b59b6)
+        dlog("🧹 PURGE",
+            f"{interaction.user} deleted {len(deleted)} messages in #{interaction.channel.name}")
+    except discord.Forbidden:
+        await interaction.followup.send(
+            "❌ I don't have permission to delete messages here.", ephemeral=True
+        )
+    except Exception as e:
+        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+
+
+# ============================================================
+# 🖼️ NEW UTILITY SLASH COMMANDS — /avatar /banner /roleinfo
+# ============================================================
+
+@bot.tree.command(name="avatar", description="Show a member's full-size avatar")
+@app_commands.describe(member="Whose avatar to show (defaults to yourself)")
+async def slash_avatar(interaction: discord.Interaction,
+                       member: discord.Member = None):
+    target = member or interaction.user
+    avatar = target.display_avatar
+    embed = discord.Embed(
+        title=f"🖼️ {target.display_name}'s Avatar",
+        color=getattr(target, "color", discord.Color(0x4f8ef7)) or discord.Color(0x4f8ef7),
+    )
+    embed.set_image(url=avatar.replace(size=1024).url)
+    links = [
+        f"[PNG]({avatar.replace(format='png', size=1024).url})",
+        f"[JPG]({avatar.replace(format='jpg', size=1024).url})",
+        f"[WEBP]({avatar.replace(format='webp', size=1024).url})",
+    ]
+    if avatar.is_animated():
+        links.append(f"[GIF]({avatar.replace(format='gif', size=1024).url})")
+    embed.description = " · ".join(links)
+    embed.set_footer(text=f"User ID: {target.id}")
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="banner", description="Show a member's profile banner (if they have one)")
+@app_commands.describe(member="Whose banner to show (defaults to yourself)")
+async def slash_banner(interaction: discord.Interaction,
+                       member: discord.Member = None):
+    target = member or interaction.user
+    # Fetch the full user object so banner is populated.
+    try:
+        full = await bot.fetch_user(target.id)
+    except Exception:
+        full = target
+    banner = getattr(full, "banner", None)
+    if not banner:
+        return await interaction.response.send_message(
+            f"😔 **{target}** doesn't have a profile banner set.",
+            ephemeral=True,
+        )
+    embed = discord.Embed(
+        title=f"🎴 {target.display_name}'s Banner",
+        color=getattr(target, "color", discord.Color(0x4f8ef7)) or discord.Color(0x4f8ef7),
+    )
+    embed.set_image(url=banner.replace(size=1024).url)
+    embed.set_footer(text=f"User ID: {target.id}")
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="roleinfo", description="Show detailed info about a role")
+@app_commands.describe(role="The role to inspect")
+async def slash_roleinfo(interaction: discord.Interaction, role: discord.Role):
+    if not await _slash_guard_guild(interaction):
+        return
+    members_with = [m for m in interaction.guild.members if role in m.roles]
+    perms_on = [name.replace("_", " ").title()
+                for name, val in role.permissions if val]
+    perms_str = ", ".join(perms_on[:15]) if perms_on else "_None_"
+    if len(perms_on) > 15:
+        perms_str += f"  …  **+{len(perms_on) - 15} more**"
+    color_hex = f"#{role.color.value:06x}" if role.color.value else "#000000 (default)"
+    embed = discord.Embed(
+        title=f"🎭 {role.name}",
+        description=(
+            f"{role.mention}\n"
+            f"🆔 Role ID: `{role.id}`"
+        ),
+        color=role.color if role.color.value else discord.Color(0x4f8ef7),
+        timestamp=datetime.now(),
+    )
+    embed.add_field(name="🎨 Color", value=f"`{color_hex}`", inline=True)
+    embed.add_field(name="📍 Position",
+                    value=f"#{role.position} of {len(interaction.guild.roles) - 1}",
+                    inline=True)
+    embed.add_field(name="👥 Members", value=f"**{len(members_with):,}**", inline=True)
+    embed.add_field(name="🪧 Hoisted",
+                    value="✅ Yes" if role.hoist else "❌ No", inline=True)
+    embed.add_field(name="📣 Mentionable",
+                    value="✅ Yes" if role.mentionable else "❌ No", inline=True)
+    embed.add_field(name="🤖 Managed",
+                    value="✅ By integration" if role.managed else "❌ No",
+                    inline=True)
+    embed.add_field(
+        name="📅 Created",
+        value=f"<t:{int(role.created_at.timestamp())}:D>\n<t:{int(role.created_at.timestamp())}:R>",
+        inline=False,
+    )
+    embed.add_field(
+        name=f"🔑 Permissions ({len(perms_on)})",
+        value=perms_str,
+        inline=False,
+    )
+    if role.icon:
+        embed.set_thumbnail(url=role.icon.url)
+    embed.set_footer(text=f"Requested by {interaction.user} • SP4RK")
+    await interaction.response.send_message(embed=embed)
+
 
 # ---------------- RUN ----------------
 _bot_thread = None
