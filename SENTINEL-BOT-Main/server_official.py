@@ -851,11 +851,16 @@ async def on_member_join(member: discord.Member):
         if ch:
             text = msg_tpl.replace("{user}", member.mention).replace("{server}", g.name).replace("{count}", str(g.member_count or 0))
             try:
-                await ch.send(embed=_embed("👋 Welcome", text, color=0x10b981))
+                e = _embed(f"👋 Welcome to {g.name}!", text, color=0x10b981)
+                e.set_thumbnail(url=member.display_avatar.url)
+                e.add_field(name="You are member", value=f"#{g.member_count or 0}", inline=True)
+                e.add_field(name="Account age", value=f"<t:{int(member.created_at.timestamp())}:R>", inline=True)
+                e.set_footer(text=f"Have a great time here, {member.display_name}!")
+                await ch.send(content=member.mention, embed=e)
             except Exception:
                 pass
 
-    await _post_log(g, "MEMBER_JOIN", f"{member.mention} joined ({g.member_count} members total)")
+    await _post_log(g, "MEMBER JOIN", f"✅ {member.mention} joined the server. Total members: **{g.member_count}**.")
 
     # Invite tracking
     state = load_state()
@@ -894,10 +899,14 @@ async def on_member_remove(member: discord.Member):
         if ch:
             text = msg_tpl.replace("{user}", f"**{member.display_name}**").replace("{server}", g.name)
             try:
-                await ch.send(embed=_embed("👋 Goodbye", text, color=0x6b7280))
+                e = _embed("👋 A member just left", text, color=0x6b7280)
+                e.set_thumbnail(url=member.display_avatar.url)
+                e.add_field(name="Members remaining", value=f"**{g.member_count or 0}**", inline=True)
+                e.set_footer(text=f"We'll miss you, {member.display_name}.")
+                await ch.send(embed=e)
             except Exception:
                 pass
-    await _post_log(g, "MEMBER_LEAVE", f"{member.display_name} left")
+    await _post_log(g, "MEMBER LEAVE", f"👋 **{member.display_name}** left the server. Members remaining: **{g.member_count}**.")
 
 
 @bot.event
@@ -1221,20 +1230,19 @@ async def slash_userinfo(interaction: discord.Interaction, user: Optional[discor
     member = user or interaction.user
     g = interaction.guild
     state = load_state()
-    xp_data = state["xp"].get(str(g.id), {}).get(str(member.id), {})
     daily = state["daily_checkins"].get(str(g.id), {}).get(str(member.id), {})
     invites = state["invite_counts"].get(str(g.id), {}).get(str(member.id), 0)
     msgs = state["activity_stats"].get(str(g.id), {}).get("msg_per_user", {}).get(str(member.id), 0)
     voice = state["activity_stats"].get(str(g.id), {}).get("voice_minutes", {}).get(str(member.id), 0)
+    joined = f"<t:{int(member.joined_at.timestamp())}:R>" if member.joined_at else "Unknown"
     desc = (
-        f"**Joined:** <t:{int(member.joined_at.timestamp())}:R>\n"
+        f"**Joined this server:** {joined}\n"
         f"**Account created:** <t:{int(member.created_at.timestamp())}:R>\n"
         f"**Roles:** {len(member.roles)-1}\n\n"
-        f"**XP:** {xp_data.get('xp', 0)} • **Level:** {xp_data.get('level', 1)}\n"
-        f"**Messages:** {msgs}\n"
+        f"**Messages sent:** {msgs:,}\n"
         f"**Voice minutes:** {round(voice, 1)}\n"
-        f"**Invites:** {invites}\n"
-        f"**Daily streak:** {daily.get('streak', 0)} 🔥"
+        f"**People invited:** {invites}\n"
+        f"**Daily check-in streak:** {daily.get('streak', 0)} 🔥"
     )
     e = _embed(f"👤 {member.display_name}", desc, color=0x5b8cff)
     e.set_thumbnail(url=member.display_avatar.url)
@@ -1283,8 +1291,9 @@ async def slash_announce(
     if not _need_manage_guild(interaction):
         return await interaction.response.send_message("❌ Manage Server required.", ephemeral=True)
     target = channel or interaction.channel
-    embed = _embed(title or "📣 Announcement", message)
-    embed.set_author(name=f"Posted by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+    embed = _embed(title or "📣 Announcement", message, color=0x3b82f6)
+    embed.set_author(name=f"From {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+    embed.set_footer(text=f"Posted in #{target.name} • Server Official")
     parts = []
     if ping_everyone:
         parts.append("@everyone")

@@ -75,8 +75,6 @@ DEFAULT_CONFIG = {
     "multi_channel": "",
     "owner_dm_id": "",
     "daily_report": "OFF",
-    "leveling": "ON",
-    "level_up_message": "{user} You have reached a milestone.upgraded to {level} discord.gg",
     "ticket_category": "",
     # --- Advanced automod ---
     "spam_filter": "OFF",
@@ -425,7 +423,7 @@ TOGGLE_KEYS = [
     "temp_lockdown", "discord_alerts", "twitter_alerts", "youtube_alerts",
     "daily_report",
     "spam_filter", "caps_filter", "emoji_filter", "duplicate_filter",
-    "wall_filter", "anti_zalgo", "grad_punish", "leveling",
+    "wall_filter", "anti_zalgo", "grad_punish",
 ]
 
 TEXT_KEYS = [
@@ -433,7 +431,7 @@ TEXT_KEYS = [
     "log_channel", "profanity_level", "mute_role", "auto_role",
     "auto_custom_blacklist", "auto_allowlist", "webhook_log", "banned_words",
     "youtube_channel_link", "youtube_notify_msg", "multi_channel",
-    "owner_dm_id", "ticket_category", "level_up_message",
+    "owner_dm_id", "ticket_category",
     "spam_threshold", "spam_window", "caps_percent",
     "emoji_limit", "wall_newlines", "wall_length",
 ]
@@ -1906,31 +1904,6 @@ def api_reaction_roles_remove():
         return jsonify({"status": "success", "removed": removed})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-# ---- API: XP LEADERBOARD ----
-@app.route('/api/xp/leaderboard')
-def api_xp_leaderboard():
-    if not session.get('logged_in'):
-        return jsonify({"error": "Unauthorized"}), 401
-    try:
-        import leveling as lev_mod
-        result = []
-        for uid, data in lev_mod.get_all_leaderboard(50):
-            total_xp = data.get("xp", 0)
-            level, xp_in, xp_needed = lev_mod.get_xp_progress(total_xp)
-            result.append({
-                "guild_id": data.get("guild_id", ""),
-                "user_id": uid,
-                "username": data.get("username", uid),
-                "xp": total_xp,
-                "level": level,
-                "messages": data.get("messages", 0),
-                "xp_in": xp_in,
-                "xp_needed": xp_needed
-            })
-        return jsonify(result)
-    except Exception as e:
-        return jsonify([])
 
 # ---- API: STATS OVERVIEW ----
 @app.route('/api/stats')

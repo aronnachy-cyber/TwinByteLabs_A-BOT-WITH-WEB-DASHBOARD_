@@ -22,7 +22,6 @@ import giveaway as giveaway_mod
 import tickets as tickets_mod
 import autoresponder as autoresponder_mod
 import reaction_roles as rr_mod
-import leveling as leveling_mod
 import server_template as template_mod
 
 BOT_START_TIME = datetime.utcnow()
@@ -95,8 +94,6 @@ DEFAULT_CONFIG = {
     "multi_channel": "",
     "owner_dm_id": "",
     "daily_report": "OFF",
-    "leveling": "ON",
-    "level_up_message": "{user} You have reached a milestone.upgraded to {level} discord.gg",
     "ticket_category": "",
     # Advanced automod
     "spam_filter": "OFF",
@@ -420,7 +417,7 @@ def build_help_embed(prefix):
         title="🛡️ SP4RK Help",
         description=(
             f"Current prefix: `{prefix}`\n"
-            "Use the sections below to find moderation, utility, leveling, ticket, giveaway, and setup commands."
+            "Use the sections below to find moderation, utility, ticket, giveaway, and setup commands."
         ),
         color=0x4f8ef7
     )
@@ -446,9 +443,16 @@ def build_help_embed(prefix):
         f"`{prefix}modlogs @user` — view moderation history\n"
         f"`{prefix}userinfo @user` — member information"
     ))
-    embed.add_field(name="⭐ Leveling / XP", inline=False, value=(
-        "`/rank [@user]` — check XP and level\n"
-        "`/leaderboard` — server XP leaderboard"
+    embed.add_field(name="🛡️ Advanced Moderation", inline=False, value=(
+        f"`{prefix}lock #channel` — lock a single channel\n"
+        f"`{prefix}unlock #channel` — unlock a single channel\n"
+        f"`{prefix}role add @user @role` — give a role\n"
+        f"`{prefix}role remove @user @role` — remove a role\n"
+        f"`{prefix}nick @user [name]` — change nickname\n"
+        f"`{prefix}voicekick @user` — disconnect from voice\n"
+        f"`{prefix}snipe` — show last deleted message\n"
+        f"`{prefix}massban id1 id2 ...` — ban many IDs (raid response)\n"
+        f"`{prefix}purgeuser @user <n>` — delete a user's recent messages"
     ))
     embed.add_field(name="🎉 Giveaways, Tickets & Roles", inline=False, value=(
         "`/giveaway <duration> <prize>` — start giveaway\n"
@@ -782,45 +786,6 @@ async def ar_list(interaction: discord.Interaction):
 
 bot.tree.add_command(autorespond_group)
 
-@bot.tree.command(name="rank", description="Check your XP and level")
-@app_commands.describe(member="Member to check (default: yourself)")
-async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
-    target = member or interaction.user
-    data   = leveling_mod.get_member_xp(interaction.guild.id, target.id)
-    total_xp = data.get("xp", 0)
-    level, xp_in, xp_needed = leveling_mod.get_xp_progress(total_xp)
-    bar = leveling_mod.make_progress_bar(xp_in, xp_needed)
-
-    embed = discord.Embed(
-        title=f"⭐ {target.display_name}",
-        color=0xf1c40f
-    )
-    embed.set_thumbnail(url=target.display_avatar.url)
-    embed.add_field(name="🏅 Level",    value=f"**{level}**",            inline=True)
-    embed.add_field(name="✨ Total XP", value=f"**{total_xp:,}**",       inline=True)
-    embed.add_field(name="💬 Messages", value=f"**{data.get('messages', 0):,}**", inline=True)
-    embed.add_field(
-        name=f"Progress to Level {level + 1}",
-        value=f"{bar}\n`{xp_in:,} / {xp_needed:,} XP`",
-        inline=False
-    )
-    embed.set_footer(text=f"SP4RK • Leveling System")
-    await interaction.response.send_message(embed=embed)
-
-@bot.tree.command(name="leaderboard", description="Show the XP leaderboard for this server")
-async def slash_leaderboard(interaction: discord.Interaction):
-    board = leveling_mod.get_leaderboard(interaction.guild.id, 10)
-    if not board:
-        await interaction.response.send_message("No XP data yet. Start chatting!", ephemeral=True)
-        return
-    desc = ""
-    medals = ["🥇", "🥈", "🥉"]
-    for i, (uid, data) in enumerate(board):
-        medal = medals[i] if i < 3 else f"`#{i+1}`"
-        desc += f"{medal} <@{uid}> — **Level {leveling_mod.get_level_from_xp(data.get('xp',0))}** ({data.get('xp',0)} XP)\n"
-    embed = discord.Embed(title=f"🏆 {interaction.guild.name} XP Leaderboard", description=desc, color=0xf1c40f)
-    await interaction.response.send_message(embed=embed)
-
 # ---------------- EVENTS ----------------
 @bot.event
 async def on_ready():
@@ -916,10 +881,23 @@ async def on_message_edit(before, after):
         print(f"Edit log error: {e}")
     dlog("✏️ MSG-EDIT", f"{before.author} edited a message in #{before.channel.name}")
 
+# Per-channel snipe cache: { channel_id: {"author": str, "content": str, "ts": datetime} }
+_snipe_cache = {}
+
 @bot.event
 async def on_message_delete(message):
     if message.author.bot:
         return
+    # Cache for !snipe
+    try:
+        _snipe_cache[message.channel.id] = {
+            "author": str(message.author),
+            "author_id": message.author.id,
+            "content": message.content or "(no text — likely embed/attachment)",
+            "ts": datetime.utcnow(),
+        }
+    except Exception:
+        pass
     refresh_config()
     log_ch = config.get("log_channel", "").strip()
     if not log_ch:
@@ -1088,7 +1066,6 @@ async def on_message(message):
     if not handled:
         await handle_ai_moderation(message)
         await autoresponder_mod.check_message(message)
-    await leveling_mod.process_message_xp(bot, message, config)
     await social.check_social_alerts(message, config, bot)
     await bot.process_commands(message)
 
@@ -1448,6 +1425,215 @@ async def purge(ctx, amount: int = 10):
     except Exception as e:
         await ctx.send(f"❌ Error: {e}")
 
+@bot.command(name="purgeuser")
+@commands.has_permissions(manage_messages=True)
+async def purge_user(ctx, member: discord.Member, amount: int = 50):
+    """Delete up to <amount> recent messages from a specific user. Usage: !purgeuser @user 50"""
+    if amount < 1 or amount > 500:
+        await ctx.send("❌ Amount must be between 1 and 500.", delete_after=5)
+        return
+    try:
+        deleted = await ctx.channel.purge(limit=amount, check=lambda m: m.author.id == member.id)
+        msg = await ctx.send(f"🧹 Deleted **{len(deleted)}** message(s) from {member.mention}.")
+        await asyncio.sleep(5)
+        try: await msg.delete()
+        except: pass
+        await logs.log_event(bot, config, "🧹 Purge User",
+            f"{ctx.author} purged {len(deleted)} messages from {member} in #{ctx.channel.name}",
+            color=0x9b59b6)
+        dlog("🧹 PURGEUSER", f"{ctx.author} purged {len(deleted)} from {member} in #{ctx.channel.name}")
+    except discord.Forbidden:
+        await ctx.send("❌ I don't have permission to delete messages here.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def lock(ctx, channel: discord.TextChannel = None):
+    """Lock a single channel (revoke @everyone send). Usage: !lock [#channel]"""
+    channel = channel or ctx.channel
+    try:
+        overwrite = channel.overwrites_for(ctx.guild.default_role)
+        overwrite.send_messages = False
+        await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite,
+                                       reason=f"Locked by {ctx.author}")
+        await ctx.send(f"🔒 {channel.mention} has been locked.")
+        await logs.log_event(bot, config, "🔒 Channel Locked",
+            f"#{channel.name} locked by {ctx.author}", color=0xe67e22)
+        dlog("🔒 LOCK", f"#{channel.name} locked by {ctx.author}")
+    except discord.Forbidden:
+        await ctx.send("❌ I don't have permission to edit that channel.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.command()
+@commands.has_permissions(manage_channels=True)
+async def unlock(ctx, channel: discord.TextChannel = None):
+    """Unlock a single channel. Usage: !unlock [#channel]"""
+    channel = channel or ctx.channel
+    try:
+        overwrite = channel.overwrites_for(ctx.guild.default_role)
+        overwrite.send_messages = None
+        await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite,
+                                       reason=f"Unlocked by {ctx.author}")
+        await ctx.send(f"🔓 {channel.mention} has been unlocked.")
+        await logs.log_event(bot, config, "🔓 Channel Unlocked",
+            f"#{channel.name} unlocked by {ctx.author}", color=0x2ecc71)
+        dlog("🔓 UNLOCK", f"#{channel.name} unlocked by {ctx.author}")
+    except discord.Forbidden:
+        await ctx.send("❌ I don't have permission to edit that channel.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.group(name="role", invoke_without_command=True)
+@commands.has_permissions(manage_roles=True)
+async def role_group(ctx):
+    """Role management. Usage: !role add @user @role  |  !role remove @user @role"""
+    await ctx.send(f"Usage: `{config.get('prefix','!')}role add @user @role` or `{config.get('prefix','!')}role remove @user @role`")
+
+@role_group.command(name="add")
+@commands.has_permissions(manage_roles=True)
+async def role_add(ctx, member: discord.Member, role: discord.Role):
+    if role >= ctx.guild.me.top_role:
+        await ctx.send(f"❌ I can't manage **{role.name}** — it's higher than my top role.")
+        return
+    if ctx.author.id != ctx.guild.owner_id and role >= ctx.author.top_role:
+        await ctx.send(f"❌ You can't assign **{role.name}** — it's equal to or higher than your top role.")
+        return
+    if role in member.roles:
+        await ctx.send(f"ℹ️ {member.mention} already has **{role.name}**.")
+        return
+    try:
+        await member.add_roles(role, reason=f"Added by {ctx.author}")
+        await ctx.send(f"✅ Gave **{role.name}** to {member.mention}.")
+        await logs.log_event(bot, config, "➕ Role Added",
+            f"{ctx.author} gave @{role.name} to {member}", color=0x2ecc71)
+        dlog("➕ ROLE-ADD", f"{ctx.author} gave @{role.name} to {member}")
+    except discord.Forbidden:
+        await ctx.send(f"❌ I don't have permission to assign that role.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@role_group.command(name="remove")
+@commands.has_permissions(manage_roles=True)
+async def role_remove(ctx, member: discord.Member, role: discord.Role):
+    if role >= ctx.guild.me.top_role:
+        await ctx.send(f"❌ I can't manage **{role.name}** — it's higher than my top role.")
+        return
+    if ctx.author.id != ctx.guild.owner_id and role >= ctx.author.top_role:
+        await ctx.send(f"❌ You can't remove **{role.name}** — it's equal to or higher than your top role.")
+        return
+    if role not in member.roles:
+        await ctx.send(f"ℹ️ {member.mention} doesn't have **{role.name}**.")
+        return
+    try:
+        await member.remove_roles(role, reason=f"Removed by {ctx.author}")
+        await ctx.send(f"✅ Removed **{role.name}** from {member.mention}.")
+        await logs.log_event(bot, config, "➖ Role Removed",
+            f"{ctx.author} removed @{role.name} from {member}", color=0xe67e22)
+        dlog("➖ ROLE-REM", f"{ctx.author} removed @{role.name} from {member}")
+    except discord.Forbidden:
+        await ctx.send(f"❌ I don't have permission to remove that role.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.command(name="nick")
+@commands.has_permissions(manage_nicknames=True)
+async def nick_cmd(ctx, member: discord.Member, *, name: str = None):
+    """Change a member's nickname. Usage: !nick @user New Name  (omit name to reset)"""
+    block = _hierarchy_block(ctx, member, "rename")
+    if block:
+        await ctx.send(block)
+        return
+    try:
+        await member.edit(nick=name, reason=f"Renamed by {ctx.author}")
+        if name:
+            await ctx.send(f"✅ Renamed {member.mention} to **{name}**.")
+        else:
+            await ctx.send(f"✅ Reset {member.mention}'s nickname.")
+        dlog("📝 NICK", f"{ctx.author} renamed {member} to {name or '(reset)'}")
+    except discord.Forbidden:
+        await ctx.send(f"❌ I don't have permission to rename {member.mention}.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.command(name="voicekick", aliases=["vkick", "vdc"])
+@commands.has_permissions(move_members=True)
+async def voicekick(ctx, member: discord.Member):
+    """Disconnect a member from voice. Usage: !voicekick @user"""
+    if not member.voice or not member.voice.channel:
+        await ctx.send(f"ℹ️ {member.mention} isn't in a voice channel.")
+        return
+    block = _hierarchy_block(ctx, member, "voice-kick")
+    if block:
+        await ctx.send(block)
+        return
+    try:
+        ch_name = member.voice.channel.name
+        await member.move_to(None, reason=f"Voice kick by {ctx.author}")
+        await ctx.send(f"🔌 Disconnected {member.mention} from **{ch_name}**.")
+        await logs.log_event(bot, config, "🔌 Voice Kick",
+            f"{ctx.author} disconnected {member} from #{ch_name}", color=0xf39c12)
+        dlog("🔌 VKICK", f"{ctx.author} disconnected {member} from {ch_name}")
+    except discord.Forbidden:
+        await ctx.send(f"❌ I don't have permission to move that member.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+
+@bot.command(name="snipe")
+@commands.has_permissions(manage_messages=True)
+async def snipe_cmd(ctx):
+    """Show the last deleted message in this channel."""
+    snipe = _snipe_cache.get(ctx.channel.id)
+    if not snipe:
+        await ctx.send("ℹ️ Nothing to snipe in this channel.")
+        return
+    embed = discord.Embed(
+        description=snipe["content"][:2000],
+        color=0x95a5a6,
+        timestamp=snipe["ts"]
+    )
+    embed.set_author(name=snipe["author"])
+    embed.set_footer(text="Deleted message")
+    await ctx.send(embed=embed)
+
+@bot.command(name="massban")
+@commands.has_permissions(administrator=True)
+async def massban(ctx, *user_ids: int):
+    """Ban many user IDs at once (raid response). Usage: !massban 123 456 789"""
+    if not user_ids:
+        await ctx.send("❌ Provide one or more user IDs. Usage: `!massban 123 456 789`")
+        return
+    if len(user_ids) > 50:
+        await ctx.send("❌ Max 50 IDs per command for safety.")
+        return
+    if not ctx.guild.me.guild_permissions.ban_members:
+        await ctx.send("❌ I'm missing the **Ban Members** permission.")
+        return
+    allowed = await security.mass_action_prevent(ctx, "ban", config, log_callback=dlog)
+    if not allowed:
+        return
+    confirm = await ctx.send(f"⚠️ About to ban **{len(user_ids)}** users. React ✅ within 15s to confirm.")
+    await confirm.add_reaction("✅")
+    def check(reaction, user):
+        return user == ctx.author and str(reaction.emoji) == "✅" and reaction.message.id == confirm.id
+    try:
+        await bot.wait_for("reaction_add", timeout=15.0, check=check)
+    except asyncio.TimeoutError:
+        await ctx.send("❌ Mass-ban cancelled (no confirmation).")
+        return
+    success, fail = 0, 0
+    for uid in user_ids:
+        try:
+            await ctx.guild.ban(discord.Object(id=uid), reason=f"Mass-ban by {ctx.author}")
+            success += 1
+        except Exception:
+            fail += 1
+    await ctx.send(f"⛔ Mass-ban complete: **{success}** banned, **{fail}** failed.")
+    await logs.log_event(bot, config, "⛔ Mass Ban",
+        f"{ctx.author} mass-banned {success} users ({fail} failed)", color=0xe74c3c)
+    dlog("⛔ MASSBAN", f"{ctx.author} mass-banned {success}/{len(user_ids)}")
+
 @bot.command()
 @commands.has_permissions(manage_channels=True)
 async def slowmode(ctx, seconds: int = 0):
@@ -1495,7 +1681,6 @@ async def userinfo(ctx, member: discord.Member = None):
     embed.set_thumbnail(url=member.display_avatar.url)
     embed.add_field(name="🆔 User ID",      value=f"`{member.id}`",                                 inline=True)
     embed.add_field(name="🏷️ Nickname",     value=member.nick or "None",                            inline=True)
-    embed.add_field(name="🤖 Bot",          value="Yes" if member.bot else "No",                    inline=True)
     embed.add_field(name="📅 Account Created",
         value=f"<t:{int(member.created_at.timestamp())}:D> (<t:{int(member.created_at.timestamp())}:R>)",
         inline=False

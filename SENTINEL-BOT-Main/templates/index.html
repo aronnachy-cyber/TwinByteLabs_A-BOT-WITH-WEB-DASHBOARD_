@@ -223,10 +223,6 @@ input:checked + .slider:before { transform: translateX(22px); }
         <i class="fas fa-smile"></i> Reaction Roles
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
       </div>
-      <div class="nav-item" onclick="showTab('leveling',this)" data-tab="leveling">
-        <i class="fas fa-star"></i> Leveling / XP
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
       {% if is_admin %}
       <div class="nav-item" onclick="showTab('users',this)" data-tab="users">
         <i class="fas fa-users"></i> Users
@@ -245,7 +241,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     </div>
     <span id="bot-status-label"><span class="status-dot" id="bot-status-dot" style="background:var(--muted);"></span><span id="bot-status-text" style="color:var(--muted);">Checking…</span></span>&nbsp;&nbsp;
     <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
-    <div style="margin-top:8px;font-size:0.7rem;color:var(--muted);opacity:.7;">SP4RK Bot <span style="color:var(--red);font-weight:600;">v26.4</span></div>
+    <div style="margin-top:8px;font-size:0.7rem;color:var(--muted);opacity:.7;">SP4RK Bot <span style="color:var(--red);font-weight:600;">v26.6</span></div>
   </div>
 </div>
 
@@ -313,10 +309,6 @@ input:checked + .slider:before { transform: translateX(22px); }
       <div class="row">
         <div class="row-label"><strong>Daily Report</strong>Post a moderation summary to log channel every 24 hours</div>
         <label class="toggle"><input type="checkbox" id="daily_report" {% if config.get('daily_report')=='ON' %}checked{% endif %}><span class="slider"></span></label>
-      </div>
-      <div class="row">
-        <div class="row-label"><strong>Leveling / XP</strong>Members earn XP for chatting — /rank and /leaderboard enabled</div>
-        <label class="toggle"><input type="checkbox" id="leveling_toggle" {% if config.get('leveling')=='ON' %}checked{% endif %}><span class="slider"></span></label>
       </div>
       <div class="row">
         <div class="row-label"><strong>Ticket Category ID</strong>Category channel where ticket channels are created</div>
@@ -896,47 +888,6 @@ input:checked + .slider:before { transform: translateX(22px); }
   </div>
 </div>
 
-<!-- ==================== LEVELING TAB ==================== -->
-<div id="leveling" class="tab-content">
-  <div class="card" style="margin-bottom:20px;">
-    <div class="card-title"><i class="fas fa-star"></i> Leveling & XP</div>
-    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:16px;">Members earn XP by chatting. The bot counts one XP gain per member every minute, updates levels automatically, and sends your milestone message when a member levels up.</p>
-    <div class="grid grid-3" style="margin-bottom:16px;">
-      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:14px;">
-        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Members tracked</div>
-        <div id="xp-total-members" style="font-size:1.6rem;font-weight:800;color:var(--accent);margin-top:6px;">0</div>
-      </div>
-      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:14px;">
-        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Messages counted</div>
-        <div id="xp-total-messages" style="font-size:1.6rem;font-weight:800;color:var(--accent);margin-top:6px;">0</div>
-      </div>
-      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:14px;">
-        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Total XP</div>
-        <div id="xp-total-xp" style="font-size:1.6rem;font-weight:800;color:var(--accent);margin-top:6px;">0</div>
-      </div>
-    </div>
-    <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;">
-      <div class="row" style="border-bottom:0;padding:0;margin-bottom:12px;">
-        <div class="row-label"><strong>Leveling Enabled</strong>Turn on XP counting and automatic level upgrades</div>
-        <label class="toggle"><input type="checkbox" id="leveling_tab_toggle" {% if config.get('leveling')=='ON' %}checked{% endif %}><span class="slider"></span></label>
-      </div>
-      <div class="row-label" style="margin-bottom:8px;"><strong>Level-up message</strong>Use <code>{user}</code> and <code>{level}</code></div>
-      <div class="input-wrap-full"><input type="text" id="level_up_message" value="{{ config.get('level_up_message','{user} You have reached a milestone.upgraded to {level} discord.gg') }}" placeholder="{user} You have reached a milestone.upgraded to {level} discord.gg"></div>
-      <button onclick="saveAll()" style="margin-top:12px;background:rgba(79,142,247,.15);color:var(--accent);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.82rem;"><i class="fas fa-save"></i> Save Leveling Settings</button>
-    </div>
-    <div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span style="color:var(--muted);font-size:0.85rem;">XP per counted message: <strong>15–25</strong> &nbsp;|&nbsp; Cooldown: <strong>60s</strong> &nbsp;|&nbsp; Level formula: <strong>100 × (level+1) XP</strong></span>
-      <button onclick="loadLeaderboard()" style="margin-left:auto;background:rgba(79,142,247,.15);color:var(--accent);border:1px solid var(--border);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.82rem;"><i class="fas fa-sync-alt"></i> Refresh</button>
-    </div>
-    <table class="warnings-table">
-      <thead><tr><th>#</th><th>User</th><th>Level</th><th>Total XP</th><th>Messages</th></tr></thead>
-      <tbody id="xp-table-body">
-        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Loading...</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
 <!-- ==================== ACCOUNT TAB ==================== -->
 <div id="account" class="tab-content">
   <div class="card" style="max-width:500px;">
@@ -967,7 +918,7 @@ const tabTitles = {
   social: 'Social Notifier', warnings: 'Live Warnings', logs: 'Action Logs',
   giveaways: 'Giveaways', tickets: 'Support Tickets',
   autoresponder: 'Auto-Responder', reactionroles: 'Reaction Roles',
-  leveling: 'Leveling & XP', account: 'Account Settings', users: 'User Management'
+  account: 'Account Settings', users: 'User Management'
 };
 
 function showTab(id, el) {
@@ -982,29 +933,9 @@ function showTab(id, el) {
   if (id === 'tickets') loadTickets();
   if (id === 'autoresponder') loadAutoResponder();
   if (id === 'reactionroles') loadReactionRoles();
-  if (id === 'leveling') loadLeaderboard();
   if (id === 'general') loadConnectionStatus();
   if (id === 'users') { {% if is_admin %}pollPendingUsers(); loadPendingList();{% endif %} }
 }
-
-function getLevelingEnabled() {
-  const tabToggle = document.getElementById('leveling_tab_toggle');
-  const generalToggle = document.getElementById('leveling_toggle');
-  return tabToggle ? tabToggle.checked : (generalToggle ? generalToggle.checked : false);
-}
-
-function syncLevelingToggles(value) {
-  const tabToggle = document.getElementById('leveling_tab_toggle');
-  const generalToggle = document.getElementById('leveling_toggle');
-  if (tabToggle) tabToggle.checked = value;
-  if (generalToggle) generalToggle.checked = value;
-}
-
-document.addEventListener('change', e => {
-  if (e.target && (e.target.id === 'leveling_toggle' || e.target.id === 'leveling_tab_toggle')) {
-    syncLevelingToggles(e.target.checked);
-  }
-});
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -1085,8 +1016,6 @@ function collectData() {
     youtube_alerts: getCheck('youtube_alerts'), youtube_channel_link: getText('youtube_channel_link'),
     youtube_notify_msg: getText('youtube_notify_msg'), multi_channel: getText('multi_channel'),
     daily_report: getCheck('daily_report'),
-    leveling: getLevelingEnabled(),
-    level_up_message: getText('level_up_message') || '{user} You have reached a milestone.upgraded to {level} discord.gg',
     ticket_category: getText('ticket_category')
   };
 }
@@ -1768,37 +1697,6 @@ async function removeReactionRole(messageId, emoji) {
     showToast('✅ Reaction role removed!');
     loadReactionRoles();
   } catch(e) { showToast('❌ Error', true); }
-}
-
-// ---- LEADERBOARD / XP ----
-async function loadLeaderboard() {
-  try {
-    const res = await fetch('/api/xp/leaderboard');
-    const data = await res.json();
-    const list = Array.isArray(data) ? data : [];
-    const tbody = document.getElementById('xp-table-body');
-    const totalMembers = list.length;
-    const totalMessages = list.reduce((sum, m) => sum + (parseInt(m.messages) || 0), 0);
-    const totalXp = list.reduce((sum, m) => sum + (parseInt(m.xp) || 0), 0);
-    document.getElementById('xp-total-members').textContent = totalMembers.toLocaleString();
-    document.getElementById('xp-total-messages').textContent = totalMessages.toLocaleString();
-    document.getElementById('xp-total-xp').textContent = totalXp.toLocaleString();
-    if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">No XP data yet. Enable leveling in General Settings and let members chat!</td></tr>';
-      return;
-    }
-    const medals = ['🥇','🥈','🥉'];
-    tbody.innerHTML = list.map((m,i) => `
-      <tr>
-        <td style="font-weight:700;color:${i<3?'var(--accent)':'var(--muted)'};">${medals[i]||('#'+(i+1))}</td>
-        <td style="font-weight:600;">${m.username||m.user_id}</td>
-        <td><span style="background:rgba(241,196,15,.12);color:#f1c40f;padding:3px 10px;border-radius:20px;font-size:0.8rem;font-weight:700;">Lv ${m.level||0}</span></td>
-        <td style="color:var(--accent);">${(m.xp||0).toLocaleString()} XP</td>
-        <td style="color:var(--muted);font-size:0.85rem;">${m.messages||0}</td>
-      </tr>`).join('');
-  } catch(e) {
-    document.getElementById('xp-table-body').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">Failed to load</td></tr>';
-  }
 }
 
 // ---- COPY UID ----
