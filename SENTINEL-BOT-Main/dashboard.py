@@ -642,9 +642,29 @@ def save_site_settings(updates: dict):
     return get_site_settings()
 
 # ---- BOT REQUESTS ("Ask for a Bot" inbox) ----
+# Storage strategy: prefer the Postgres `sentinel_form_submissions` table
+# (via db_forms) when DATABASE_URL is set. Fall back to the legacy JSON
+# file so existing data still works if the DB is ever unavailable.
 BOT_REQUESTS_FILE = "bot_requests.json"
 
+import db_forms as _db_forms  # noqa: E402
+
+# One-shot: copy any pre-existing JSON into the DB on first boot. Idempotent.
+if _db_forms.is_available() and os.path.exists(BOT_REQUESTS_FILE):
+    try:
+        _db_forms.migrate_from_json(BOT_REQUESTS_FILE)
+    except Exception as _e:
+        print(f"[forms] one-shot JSON→PG migration skipped: {_e}")
+
+
 def _load_bot_requests():
+    # 1) Postgres — preferred, persistent across redeploys.
+    if _db_forms.is_available():
+        try:
+            return _db_forms.list_all(form_type=_db_forms.FORM_TYPE_BOT_REQUEST, limit=1000)
+        except Exception as e:
+            print(f"⚠️ db_forms list_all error: {e}")
+    # 2) Legacy JSON file fallback.
     try:
         if os.path.exists(BOT_REQUESTS_FILE):
             with open(BOT_REQUESTS_FILE, "r", encoding="utf-8") as f:
@@ -655,6 +675,56 @@ def _load_bot_requests():
         print(f"⚠️ load bot_requests error: {e}")
     return []
 
+
+def _save_bot_request(entry):
+    """Persist a single submission. Used by the public POST route."""
+    if _db_forms.is_available():
+        if _db_forms.insert(entry, form_type=_db_forms.FORM_TYPE_BOT_REQUEST):
+            return
+    # JSON fallback: append + atomic replace.
+    items = []
+    try:
+        if os.path.exists(BOT_REQUESTS_FILE):
+            with open(BOT_REQUESTS_FILE, "r", encoding="utf-8") as f:
+                items = json.load(f) or []
+    except Exception:
+        items = []
+    items.insert(0, entry)
+    items = items[:1000]
+    try:
+        tmp = BOT_REQUESTS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(items, f, indent=2, default=str)
+        os.replace(tmp, BOT_REQUESTS_FILE)
+    except Exception as e:
+        print(f"⚠️ save bot_requests error: {e}")
+
+
+def _delete_bot_request(rid):
+    """Delete a single submission. Returns True when something was removed."""
+    if _db_forms.is_available():
+        if _db_forms.delete_by_id(rid):
+            return True
+    # JSON fallback.
+    try:
+        if not os.path.exists(BOT_REQUESTS_FILE):
+            return False
+        with open(BOT_REQUESTS_FILE, "r", encoding="utf-8") as f:
+            items = json.load(f) or []
+        new_items = [r for r in items if r.get("id") != rid]
+        if len(new_items) == len(items):
+            return False
+        tmp = BOT_REQUESTS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(new_items, f, indent=2, default=str)
+        os.replace(tmp, BOT_REQUESTS_FILE)
+        return True
+    except Exception as e:
+        print(f"⚠️ delete bot_request error: {e}")
+        return False
+
+
+# Kept for backwards compatibility with anything still calling the old API.
 def _save_bot_requests(items):
     try:
         tmp = BOT_REQUESTS_FILE + ".tmp"
@@ -1665,9 +1735,7 @@ def api_bot_request_submit():
         "status":         "new",
         "created_at":     datetime.now(timezone.utc).isoformat(),
     }
-    items = _load_bot_requests()
-    items.insert(0, entry)
-    _save_bot_requests(items[:1000])
+    _save_bot_request(entry)
     add_dashboard_log("BOT_REQUEST", f"{name} <{email}> — '{bot_name or 'Untitled bot'}'")
     return jsonify({"ok": True, "id": entry["id"]})
 
@@ -1697,13 +1765,30 @@ def api_bot_request_delete(rid):
     """Delete a bot request. Dev session required."""
     if not is_dev_session():
         return jsonify({"ok": False, "error": "Locked"}), 403
-    items = _load_bot_requests()
-    new_items = [r for r in items if r.get("id") != rid]
-    if len(new_items) == len(items):
+    if not _delete_bot_request(rid):
         return jsonify({"ok": False, "error": "Not found"}), 404
-    _save_bot_requests(new_items)
     add_dashboard_log("BOT_REQUEST", f"Deleted request {rid}")
     return jsonify({"ok": True})
+
+
+# ---- Dev-only "Forms" page ----
+# Dedicated full-page admin view for every form submission. Reachable from
+# the Developer Tools kebab menu under the "Forms" item. Outside of a
+# dev-unlocked session the page returns 404 to avoid leaking its existence.
+@app.route('/dev/forms', methods=['GET'])
+def dev_forms_page():
+    if not is_dev_session():
+        # Return a real 404 so unauthenticated visitors can't even confirm
+        # the page exists. Devs see the full inbox.
+        return render_template('login.html',
+                               error="Page not found.",
+                               discord_configured=bool(DISCORD_CLIENT_ID)), 404
+    storage = "Postgres" if _db_forms.is_available() else "Local JSON file"
+    return render_template(
+        'dev_forms.html',
+        dev_unlocked=True,
+        storage_backend=storage,
+    )
 
 # ---- AUTH: LOGIN (Discord-only) ----
 @app.route('/login')

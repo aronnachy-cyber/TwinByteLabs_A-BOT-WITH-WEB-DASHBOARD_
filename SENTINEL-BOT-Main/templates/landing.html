@@ -823,6 +823,9 @@ footer{
         <button type="button" class="dev-item" role="menuitem" onclick="openMaintenance(); closeDevMenu();">
           <i class="fas fa-robot"></i> Ask for a Bot
         </button>
+        <a class="dev-item" role="menuitem" href="{{ url_for('dev_forms_page') }}">
+          <i class="fas fa-inbox"></i> Forms
+        </a>
         <button type="button" class="dev-item" role="menuitem" id="maintToggleBtn" onclick="toggleMaintenanceMode()">
           <i class="fas fa-tools"></i>
           <span>Maintenance Mode:</span>

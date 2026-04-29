@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Forms · Developer Tools</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  :root{
+    --bg:#06101f; --bg2:#0a1830; --card:#0f213c; --border:#1c3257;
+    --text:#e8f0ff; --muted:#8295b8; --accent:#5b8cff; --accent2:#7eb1ff;
+    --good:#10b981; --warn:#f59e0b; --danger:#ef4444;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:linear-gradient(180deg,#04091a 0%,#06101f 60%);
+    color:var(--text); font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    min-height:100vh;
+  }
+  .topbar{
+    position:sticky; top:0; z-index:10;
+    display:flex; align-items:center; gap:14px; padding:14px 22px;
+    background:rgba(10,24,48,0.92); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .topbar h1{ margin:0; font-size:1.15rem; font-weight:700; display:flex; align-items:center; gap:10px; }
+  .topbar h1 i{ color:var(--accent2); }
+  .pill{
+    font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px;
+    background:rgba(91,140,255,0.14); color:var(--accent2);
+    border:1px solid rgba(91,140,255,0.32); padding:4px 10px; border-radius:999px;
+    font-weight:700;
+  }
+  .pill.warn{ background:rgba(245,158,11,0.14); color:#fbbf24; border-color:rgba(245,158,11,0.35); }
+  .topbar .spacer{ flex:1; }
+  .topbar a, .topbar button{
+    color:var(--text); background:transparent; border:1px solid var(--border);
+    border-radius:8px; padding:8px 14px; font-size:0.88rem; cursor:pointer;
+    text-decoration:none; display:inline-flex; align-items:center; gap:8px;
+    font-family:inherit;
+  }
+  .topbar a:hover, .topbar button:hover{ background:rgba(91,140,255,0.12); border-color:var(--accent); }
+
+  .wrap{ max-width:1100px; margin:0 auto; padding:24px 22px 64px; }
+
+  .toolbar{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    margin:0 0 18px;
+  }
+  .toolbar input, .toolbar select{
+    background:var(--bg2); color:var(--text); border:1px solid var(--border);
+    border-radius:8px; padding:9px 12px; font-size:0.88rem; font-family:inherit;
+  }
+  .toolbar input{ min-width:240px; }
+  .count-tag{ color:var(--muted); font-size:0.85rem; margin-left:auto; }
+
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--muted);
+    background:var(--card); border:1px dashed var(--border); border-radius:14px;
+  }
+  .empty i{ font-size:2.4rem; color:#3a527a; display:block; margin-bottom:14px; }
+
+  .form-card{
+    background:var(--card); border:1px solid var(--border);
+    border-radius:14px; padding:18px 20px; margin-bottom:14px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.18);
+  }
+  .form-head{
+    display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;
+    padding-bottom:12px; border-bottom:1px dashed var(--border); margin-bottom:14px;
+  }
+  .form-head .who{ flex:1; min-width:240px; }
+  .form-head .who-name{ font-weight:700; font-size:1.02rem; }
+  .form-head .who-meta{ color:var(--muted); font-size:0.82rem; margin-top:3px; }
+  .form-head .when{ color:var(--muted); font-size:0.82rem; }
+
+  .status-tag{
+    display:inline-block; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.6px;
+    font-weight:700; padding:3px 9px; border-radius:999px; vertical-align:middle;
+    margin-left:8px;
+  }
+  .status-new      { background:rgba(91,140,255,0.18); color:#9cc1ff; }
+  .status-replied  { background:rgba(16,185,129,0.18); color:#6ee7b7; }
+  .status-archived { background:rgba(130,149,184,0.18); color:#cbd5e1; }
+
+  .row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px 18px; margin:6px 0 12px; }
+  .row .lbl{ font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:2px; }
+  .row .val{ font-size:0.92rem; word-break:break-word; }
+  .row .val code{ background:var(--bg2); padding:3px 8px; border-radius:5px; font-size:0.82rem; color:#9cc1ff; }
+
+  .desc-block{
+    background:var(--bg2); border-radius:10px; padding:12px 14px; margin-top:8px;
+    border-left:3px solid var(--accent); font-size:0.92rem; line-height:1.55;
+    white-space:pre-wrap; max-height:260px; overflow-y:auto;
+  }
+  .desc-block + .desc-block{ margin-top:8px; border-left-color:var(--accent2); }
+  .desc-label{
+    font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px;
+    margin-top:14px; margin-bottom:4px;
+  }
+
+  .actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+  .btn{
+    background:var(--bg2); color:var(--text); border:1px solid var(--border);
+    border-radius:8px; padding:8px 14px; font-size:0.85rem; cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px; font-family:inherit;
+    transition:all 0.15s;
+  }
+  .btn:hover{ background:rgba(91,140,255,0.14); border-color:var(--accent); }
+  .btn.danger{ color:#fca5a5; border-color:rgba(239,68,68,0.4); }
+  .btn.danger:hover{ background:rgba(239,68,68,0.18); border-color:var(--danger); }
+  .btn.good{ color:#86efac; border-color:rgba(16,185,129,0.4); }
+  .btn.good:hover{ background:rgba(16,185,129,0.18); border-color:var(--good); }
+
+  .toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
+    background:var(--card); border:1px solid var(--border); padding:12px 18px;
+    border-radius:10px; opacity:0; transition:opacity 0.2s; pointer-events:none;
+    box-shadow:0 6px 18px rgba(0,0,0,0.3); font-size:0.88rem;
+  }
+  .toast.show{ opacity:1; }
+  .toast.err{ border-color:var(--danger); color:#fecaca; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1><i class="fas fa-inbox"></i> Forms <span class="pill">Developer</span></h1>
+  <span class="pill {% if storage_backend != 'Postgres' %}warn{% endif %}">
+    <i class="fas fa-database"></i> {{ storage_backend }}
+  </span>
+  <div class="spacer"></div>
+  <a href="{{ url_for('home') }}" title="Back to home"><i class="fas fa-arrow-left"></i> Back</a>
+  <button onclick="loadForms()" title="Refresh"><i class="fas fa-rotate"></i> Refresh</button>
+</div>
+
+<div class="wrap">
+  <div class="toolbar">
+    <input type="search" id="searchBox" placeholder="Search by name, email, bot, purpose…" oninput="renderForms()" />
+    <select id="statusFilter" onchange="renderForms()">
+      <option value="">All statuses</option>
+      <option value="new">New</option>
+      <option value="replied">Replied</option>
+      <option value="archived">Archived</option>
+    </select>
+    <span class="count-tag" id="countTag">—</span>
+  </div>
+
+  <div id="formsList">
+    <div class="empty">
+      <i class="fas fa-spinner fa-spin"></i>
+      Loading submissions…
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let _allForms = [];
+
+function _esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function toast(msg, kind){
+  const t = document.getElementById('toast');
+  t.className = 'toast show' + (kind === 'err' ? ' err' : '');
+  t.textContent = msg;
+  setTimeout(() => { t.className = 'toast' + (kind === 'err' ? ' err' : ''); }, 2400);
+}
+
+async function loadForms(){
+  const list = document.getElementById('formsList');
+  list.innerHTML = '<div class="empty"><i class="fas fa-spinner fa-spin"></i>Loading submissions…</div>';
+  try {
+    const r = await fetch('/api/bot_requests?limit=500', { credentials:'same-origin' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok){
+      list.innerHTML = `<div class="empty"><i class="fas fa-triangle-exclamation"></i>${_esc(j.error || 'Could not load')}</div>`;
+      return;
+    }
+    _allForms = j.items || [];
+    renderForms();
+  } catch(e){
+    list.innerHTML = '<div class="empty"><i class="fas fa-wifi"></i>Network error — please try again.</div>';
+  }
+}
+
+function renderForms(){
+  const list = document.getElementById('formsList');
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const st = document.getElementById('statusFilter').value;
+
+  let items = _allForms.slice();
+  if (st) items = items.filter(x => (x.status || 'new') === st);
+  if (q){
+    items = items.filter(x => {
+      const blob = [x.name, x.email, x.bot_name, x.bot_purpose, x.description, x.discord_handle, x.notes]
+        .filter(Boolean).join(' ').toLowerCase();
+      return blob.includes(q);
+    });
+  }
+
+  document.getElementById('countTag').textContent =
+    items.length + ' of ' + _allForms.length + ' submission' + (_allForms.length === 1 ? '' : 's');
+
+  if (!items.length){
+    list.innerHTML = '<div class="empty"><i class="fas fa-folder-open"></i>'
+      + (_allForms.length ? 'No submissions match the current filters.' : 'No submissions yet. They will appear here as users submit the public form.')
+      + '</div>';
+    return;
+  }
+
+  list.innerHTML = items.map(req => {
+    const when = req.created_at ? new Date(req.created_at).toLocaleString() : '—';
+    const status = (req.status || 'new').toLowerCase();
+    const dash = req.needs_dashboard
+      ? '<span style="color:#86efac;"><i class="fas fa-check"></i> Yes</span>'
+      : '<span style="color:#8295b8;"><i class="fas fa-minus"></i> No</span>';
+    const tok = req.bot_token_preview
+      ? '<code>' + _esc(req.bot_token_preview) + '</code>'
+      : '<span style="color:#8295b8;">—</span>';
+    return ''
+      + '<div class="form-card">'
+      +   '<div class="form-head">'
+      +     '<div class="who">'
+      +       '<div class="who-name">' + _esc(req.name || 'Anonymous')
+      +         '<span class="status-tag status-' + _esc(status) + '">' + _esc(status) + '</span>'
+      +       '</div>'
+      +       '<div class="who-meta">'
+      +         '<i class="fas fa-envelope"></i> ' + _esc(req.email || '—')
+      +         (req.discord_handle ? '  ·  <i class="fab fa-discord"></i> ' + _esc(req.discord_handle) : '')
+      +       '</div>'
+      +     '</div>'
+      +     '<div class="when"><i class="fas fa-clock"></i> ' + _esc(when) + '</div>'
+      +   '</div>'
+      +   '<div class="row">'
+      +     '<div><div class="lbl">Bot Name</div><div class="val">' + _esc(req.bot_name || '—') + '</div></div>'
+      +     '<div><div class="lbl">Purpose</div><div class="val">' + _esc(req.bot_purpose || '—') + '</div></div>'
+      +     '<div><div class="lbl">Timeline</div><div class="val">' + _esc(req.timeline || '—') + '</div></div>'
+      +     '<div><div class="lbl">Budget</div><div class="val">' + _esc(req.budget || '—') + '</div></div>'
+      +     '<div><div class="lbl">Dashboard</div><div class="val">' + dash + '</div></div>'
+      +     '<div><div class="lbl">Bot Token</div><div class="val">' + tok + '</div></div>'
+      +   '</div>'
+      +   (req.description ? '<div class="desc-label">Description</div><div class="desc-block">' + _esc(req.description) + '</div>' : '')
+      +   (req.features ? '<div class="desc-label">Required Features</div><div class="desc-block">' + _esc(req.features) + '</div>' : '')
+      +   (req.notes ? '<div class="desc-label">Notes</div><div class="desc-block">' + _esc(req.notes) + '</div>' : '')
+      +   '<div class="actions">'
+      +     '<button class="btn good" onclick="copyEmail(\'' + _esc(req.email) + '\')"><i class="fas fa-envelope"></i> Copy email</button>'
+      +     '<button class="btn" onclick="exportOne(' + JSON.stringify(JSON.stringify(req)).replace(/"/g,'&quot;') + ')"><i class="fas fa-download"></i> Export JSON</button>'
+      +     '<button class="btn danger" onclick="deleteForm(\'' + _esc(req.id) + '\')"><i class="fas fa-trash"></i> Delete</button>'
+      +   '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function copyEmail(addr){
+  if (!addr) return toast('No email on record', 'err');
+  navigator.clipboard.writeText(addr).then(() => toast('Email copied'));
+}
+
+function exportOne(jsonStr){
+  try {
+    const data = JSON.parse(jsonStr);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'form_' + (data.id || 'export') + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  } catch(e){ toast('Export failed','err'); }
+}
+
+async function deleteForm(id){
+  if (!confirm('Permanently delete this submission?')) return;
+  try {
+    const r = await fetch('/api/bot_requests/' + encodeURIComponent(id), {
+      method:'DELETE', credentials:'same-origin',
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.ok){
+      toast('Deleted');
+      _allForms = _allForms.filter(x => x.id !== id);
+      renderForms();
+    } else {
+      toast(j.error || 'Delete failed','err');
+    }
+  } catch(e){ toast('Network error','err'); }
+}
+
+loadForms();
+</script>
+
+</body>
+</html>
