@@ -30,8 +30,18 @@ Sentinel OS is a feature-rich AI-powered Discord bot (V2.5.0) with a web-based a
 - **SENTINEL-BOT-Main/reaction_roles.json** - Reaction role mappings
 - **SENTINEL-BOT-Main/xp.json** - XP/leveling data per guild/user
 
+## Public Landing (Byte Labs)
+`templates/bytelabs_landing.html` is the marketing page at `/`. All copy & theme are driven by `site_settings` (see `dev_state.json → site_settings`, defaults in `dashboard.py → SITE_SETTINGS_DEFAULTS`). Features:
+- **Mobile hamburger menu** (`#navBurger` + `#mobileMenu`) — visible <860px; auto-closes on link tap, outside click, and Escape.
+- **Dev kebab menu** (PIN-protected, `DEV_PIN` env, default `sp4rk2024`; session flag `dev_unlocked`). Items: Maintenance toggle, Site Theme, Edit Hero/Text, View Bot Requests.
+- **Site Settings modal** (`#settingsOverlay`) — live-edit brand name, 5 theme colors (with paired color picker + hex input → live `:root` CSS-var preview, including regenerated `--grad`), hero badge/title/lede, "What We Build" headline + lede, CTA strip headline + lede, footer tag. Saves to `/dev/site_settings`; reset via `/dev/site_settings/reset`.
+- **Public star-rating feedback** (`#feedback` section) — no login required; 5 stars + optional name + comment. POST `/api/public_feedback` (source=`landing`); the existing logged-in dashboard feedback (`/api/feedback`) is unchanged. Recent ratings + average shown live.
+- **"Ask for a Bot" registration form** (`#askOverlay`) — full intake: name, email, Discord handle, bot name, purpose, description (required), features list, needs_dashboard checkbox, bot_token (optional, masked in inbox), budget, timeline, notes. POST `/api/bot_request`. Stored in Supabase table `bot_requests` + local `bot_requests.json` fallback.
+- **Bot Requests Inbox modal** (`#reqOverlay`) — dev-only; lists submissions with masked bot tokens (`first6…last4`) and per-row delete. Endpoints `/api/bot_requests` (GET) and `/api/bot_requests/<id>` (DELETE) require `dev_unlocked`.
+
 ## Templates
-- **SENTINEL-BOT-Main/templates/landing.html** - Public landing page (/)
+- **SENTINEL-BOT-Main/templates/bytelabs_landing.html** - Public Byte Labs landing page (/)
+- **SENTINEL-BOT-Main/templates/landing.html** - SP4RK product page (/sp4rk)
 - **SENTINEL-BOT-Main/templates/login.html** - UID-based login page (/login)
 - **SENTINEL-BOT-Main/templates/register.html** - Registration request page (/register)
 - **SENTINEL-BOT-Main/templates/index.html** - Main dashboard (/dashboard) — 13 tabs

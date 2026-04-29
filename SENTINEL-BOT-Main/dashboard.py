@@ -568,6 +568,74 @@ def save_server_official(updates: dict):
     _save_dev_state(state)
     return get_server_official()
 
+# ---- SITE SETTINGS (theme + hero text — live "redesign in minutes") ----
+SITE_SETTINGS_DEFAULTS = {
+    # Theme colors (any valid CSS color)
+    "color_bg":      "#050b18",
+    "color_accent":  "#5b8cff",
+    "color_accent2": "#8b5cf6",
+    "color_accent3": "#22d3ee",
+    "color_text":    "#e8f0ff",
+    # Hero / brand text
+    "brand_name":      "Byte Labs",
+    "hero_badge":      "Building the future of community automation",
+    "hero_title_pre":  "We build",
+    "hero_title_grad": "intelligent bots",
+    "hero_title_post": "that power modern communities.",
+    "hero_lede": (
+        "Byte Labs designs and ships AI-driven bots, dashboards, and automation tools "
+        "that help Discord servers, communities, and creators run smoother — without "
+        "the busywork."
+    ),
+    # Section title under "What We Build"
+    "section_title": "Every Byte Labs bot follows the same principles.",
+    "section_lede":  "Beautiful dashboards, intelligent automation, rock-solid uptime, and full control in your hands.",
+    # CTA strip
+    "cta_title": "Ready to add a Byte Labs bot to your server?",
+    "cta_lede":  "Browse our growing lineup of bots and find the one that fits your community.",
+    # Footer tag
+    "footer_tag": "Crafted with care for communities.",
+}
+
+def get_site_settings():
+    state = _load_dev_state()
+    cfg = state.get("site_settings") or {}
+    merged = {**SITE_SETTINGS_DEFAULTS, **{k: v for k, v in cfg.items() if v not in (None, "")}}
+    return merged
+
+def save_site_settings(updates: dict):
+    state = _load_dev_state()
+    current = state.get("site_settings") or {}
+    for key in SITE_SETTINGS_DEFAULTS.keys():
+        if key in updates and updates[key] is not None:
+            current[key] = str(updates[key]).strip()
+    state["site_settings"] = current
+    _save_dev_state(state)
+    return get_site_settings()
+
+# ---- BOT REQUESTS ("Ask for a Bot" inbox) ----
+BOT_REQUESTS_FILE = "bot_requests.json"
+
+def _load_bot_requests():
+    try:
+        if os.path.exists(BOT_REQUESTS_FILE):
+            with open(BOT_REQUESTS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+    except Exception as e:
+        print(f"⚠️ load bot_requests error: {e}")
+    return []
+
+def _save_bot_requests(items):
+    try:
+        tmp = BOT_REQUESTS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(items, f, indent=2, default=str)
+        os.replace(tmp, BOT_REQUESTS_FILE)
+    except Exception as e:
+        print(f"⚠️ save bot_requests error: {e}")
+
 # ---- LANDING PAGES ----
 def _current_user_summary():
     """Return basic identity info for the navbar (login pill / logout)."""
@@ -600,6 +668,7 @@ def landing():
         dev_unlocked=is_dev_session(),
         maintenance_on=is_maintenance_mode(),
         discord_configured=bool(DISCORD_CLIENT_ID),
+        site=get_site_settings(),
         **_current_user_summary(),
     )
 
@@ -1440,6 +1509,174 @@ def dev_maintenance_toggle():
     state['maintenance'] = enabled
     _save_dev_state(state)
     return jsonify({"ok": True, "maintenance": enabled})
+
+# ---- DEV: SITE SETTINGS (theme + hero + section text) ----
+@app.route('/dev/site_settings', methods=['GET'])
+def dev_site_settings_get():
+    """Read current site settings (public — used to render landing page)."""
+    return jsonify({
+        "ok": True,
+        "settings": get_site_settings(),
+        "defaults": SITE_SETTINGS_DEFAULTS,
+    })
+
+@app.route('/dev/site_settings', methods=['POST'])
+def dev_site_settings_set():
+    """Update site settings. Requires unlocked dev session."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    payload = request.json or {}
+    updates = payload.get('settings') or {}
+    if not isinstance(updates, dict):
+        return jsonify({"ok": False, "error": "Bad payload"}), 400
+    saved = save_site_settings(updates)
+    add_dashboard_log("SITE_SETTINGS", f"Updated {len(updates)} field(s)")
+    return jsonify({"ok": True, "settings": saved})
+
+@app.route('/dev/site_settings/reset', methods=['POST'])
+def dev_site_settings_reset():
+    """Reset all site settings back to defaults. Requires unlocked dev session."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    state = _load_dev_state()
+    state['site_settings'] = {}
+    _save_dev_state(state)
+    add_dashboard_log("SITE_SETTINGS", "Reset to defaults")
+    return jsonify({"ok": True, "settings": get_site_settings()})
+
+# ---- PUBLIC FEEDBACK (no Discord login required) ----
+@app.route('/api/public_feedback', methods=['POST'])
+def api_public_feedback_submit():
+    """Public landing-page feedback. Anyone can submit."""
+    data = request.get_json(silent=True) or {}
+    try:
+        rating = int(data.get('rating', 0))
+    except (TypeError, ValueError):
+        rating = 0
+    if rating < 1 or rating > 5:
+        return jsonify({"ok": False, "error": "Rating must be between 1 and 5"}), 400
+    name = (data.get('name') or 'Anonymous').strip()[:80] or 'Anonymous'
+    comment = (data.get('comment') or '').strip()
+    if len(comment) > 2000:
+        comment = comment[:2000]
+    entry = {
+        "discord_id": "",
+        "user_name":  name,
+        "rating":     rating,
+        "comment":    comment,
+        "source":     "landing",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    saved_remote = supabase_save_feedback(entry)
+    items = _load_feedback_file()
+    items.insert(0, entry)
+    _save_feedback_file(items[:500])
+    add_dashboard_log("FEEDBACK", f"{name} rated {rating}/5 (landing)")
+    return jsonify({"ok": True, "remote": saved_remote})
+
+@app.route('/api/public_feedback', methods=['GET'])
+def api_public_feedback_list():
+    """List recent landing-page feedback (latest first)."""
+    try:
+        limit = max(1, min(int(request.args.get('limit', 6)), 30))
+    except (TypeError, ValueError):
+        limit = 6
+    rows = supabase_list_feedback(limit=200)
+    if rows is None:
+        rows = _load_feedback_file()[:200]
+    landing_only = [r for r in rows if (r.get('source') == 'landing')][:limit]
+    total = len(landing_only)
+    avg = round(sum((r.get('rating') or 0) for r in landing_only) / total, 2) if total else 0
+    return jsonify({"ok": True, "items": landing_only, "count": total, "average": avg})
+
+# ---- BOT REQUESTS ("Ask for a Bot" form) ----
+@app.route('/api/bot_request', methods=['POST'])
+def api_bot_request_submit():
+    """Public submission of a custom-bot request from the landing page."""
+    data = request.get_json(silent=True) or {}
+
+    def _s(key, max_len=500):
+        v = (data.get(key) or '').strip()
+        return v[:max_len]
+
+    name        = _s('name', 120)
+    email       = _s('email', 200)
+    discord     = _s('discord_handle', 120)
+    bot_name    = _s('bot_name', 120)
+    bot_purpose = _s('bot_purpose', 120)
+    description = _s('description', 4000)
+    features    = _s('features', 4000)
+    needs_dash  = bool(data.get('needs_dashboard'))
+    bot_token   = _s('bot_token', 200)
+    has_token   = bool(bot_token)
+    timeline    = _s('timeline', 80)
+    budget      = _s('budget', 80)
+    notes       = _s('notes', 2000)
+
+    # Required fields
+    missing = [k for k, v in (("name", name), ("email", email), ("description", description)) if not v]
+    if missing:
+        return jsonify({"ok": False, "error": f"Missing required: {', '.join(missing)}"}), 400
+    if "@" not in email or "." not in email:
+        return jsonify({"ok": False, "error": "Invalid email address"}), 400
+
+    entry = {
+        "id":             datetime.now(timezone.utc).strftime("req_%Y%m%d_%H%M%S_") + str(int(datetime.now(timezone.utc).timestamp() * 1000) % 100000),
+        "name":           name,
+        "email":          email,
+        "discord_handle": discord,
+        "bot_name":       bot_name,
+        "bot_purpose":    bot_purpose,
+        "description":    description,
+        "features":       features,
+        "needs_dashboard": needs_dash,
+        "bot_token":      bot_token,    # stored as-is; visible only in dev menu
+        "has_token":      has_token,
+        "timeline":       timeline,
+        "budget":         budget,
+        "notes":          notes,
+        "status":         "new",
+        "created_at":     datetime.now(timezone.utc).isoformat(),
+    }
+    items = _load_bot_requests()
+    items.insert(0, entry)
+    _save_bot_requests(items[:1000])
+    add_dashboard_log("BOT_REQUEST", f"{name} <{email}> — '{bot_name or 'Untitled bot'}'")
+    return jsonify({"ok": True, "id": entry["id"]})
+
+@app.route('/api/bot_requests', methods=['GET'])
+def api_bot_requests_list():
+    """List all bot requests. Dev session required (contains user emails / tokens)."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    try:
+        limit = max(1, min(int(request.args.get('limit', 50)), 500))
+    except (TypeError, ValueError):
+        limit = 50
+    items = _load_bot_requests()[:limit]
+    # Mask tokens by default; real value still in storage. Dev can see partial.
+    masked = []
+    for r in items:
+        rr = dict(r)
+        tok = rr.get("bot_token") or ""
+        if tok:
+            rr["bot_token_preview"] = (tok[:6] + "…" + tok[-4:]) if len(tok) > 12 else "set"
+        rr.pop("bot_token", None)
+        masked.append(rr)
+    return jsonify({"ok": True, "items": masked, "count": len(masked)})
+
+@app.route('/api/bot_requests/<rid>', methods=['DELETE'])
+def api_bot_request_delete(rid):
+    """Delete a bot request. Dev session required."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    items = _load_bot_requests()
+    new_items = [r for r in items if r.get("id") != rid]
+    if len(new_items) == len(items):
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    _save_bot_requests(new_items)
+    add_dashboard_log("BOT_REQUEST", f"Deleted request {rid}")
+    return jsonify({"ok": True})
 
 # ---- AUTH: LOGIN (Discord-only) ----
 @app.route('/login')

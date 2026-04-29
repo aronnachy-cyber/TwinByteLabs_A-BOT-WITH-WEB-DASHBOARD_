@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Byte Labs — Intelligent Bots for Modern Communities</title>
+<title>{{ site.brand_name }} — Intelligent Bots for Modern Communities</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,16 +13,16 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#050b18;
+  --bg:{{ site.color_bg }};
   --bg2:#0a1428;
   --bg3:#0f1d3a;
-  --accent:#5b8cff;
-  --accent2:#8b5cf6;
-  --accent3:#22d3ee;
-  --text:#e8f0ff;
+  --accent:{{ site.color_accent }};
+  --accent2:{{ site.color_accent2 }};
+  --accent3:{{ site.color_accent3 }};
+  --text:{{ site.color_text }};
   --muted:#8295b8;
   --border:rgba(91,140,255,0.18);
-  --grad:linear-gradient(135deg,#5b8cff 0%,#8b5cf6 50%,#22d3ee 100%);
+  --grad:linear-gradient(135deg, {{ site.color_accent }} 0%, {{ site.color_accent2 }} 50%, {{ site.color_accent3 }} 100%);
 }
 html,body{ overflow-x:hidden; }
 body{
@@ -809,14 +809,471 @@ footer{
 }
 .footer-socials a:hover{ color:#5b8cff; }
 
+/* ===== HAMBURGER (mobile) ===== */
+.nav-burger{
+  display:none;
+  width:42px; height:42px;
+  align-items:center; justify-content:center;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:10px;
+  color:#cfd9ee;
+  cursor:pointer;
+  transition:background .15s, border-color .15s, color .15s;
+  margin-left:6px;
+}
+.nav-burger:hover{
+  background:rgba(91,140,255,.14);
+  border-color:rgba(91,140,255,.5);
+  color:#fff;
+}
+.nav-burger .burger-bars{
+  position:relative;
+  width:20px; height:14px;
+}
+.nav-burger .burger-bars span{
+  position:absolute;
+  left:0; right:0;
+  height:2px;
+  background:currentColor;
+  border-radius:2px;
+  transition:transform .25s ease, opacity .2s ease, top .25s ease;
+}
+.nav-burger .burger-bars span:nth-child(1){ top:0; }
+.nav-burger .burger-bars span:nth-child(2){ top:6px; }
+.nav-burger .burger-bars span:nth-child(3){ top:12px; }
+.nav-burger.open .burger-bars span:nth-child(1){ top:6px; transform:rotate(45deg); }
+.nav-burger.open .burger-bars span:nth-child(2){ opacity:0; }
+.nav-burger.open .burger-bars span:nth-child(3){ top:6px; transform:rotate(-45deg); }
+
+/* Mobile slide-down menu (hidden by default, visible on small screens when open) */
+.mobile-menu{
+  position:fixed;
+  top:64px; left:0; right:0;
+  z-index:9;
+  background:linear-gradient(180deg,#0b1426,#070d1c);
+  border-bottom:1px solid var(--border);
+  padding:18px 22px 24px;
+  display:none;
+  flex-direction:column;
+  gap:14px;
+  transform:translateY(-12px);
+  opacity:0;
+  transition:transform .25s ease, opacity .25s ease;
+  box-shadow:0 24px 50px rgba(0,0,0,.55);
+}
+.mobile-menu.open{
+  display:flex;
+  transform:translateY(0);
+  opacity:1;
+}
+.mobile-menu a, .mobile-menu button{
+  display:flex; align-items:center; gap:10px;
+  padding:12px 14px;
+  border-radius:10px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  color:#e8f0ff;
+  text-decoration:none;
+  font-size:.98rem;
+  font-weight:600;
+  font-family:inherit;
+  cursor:pointer;
+  text-align:left;
+  width:100%;
+}
+.mobile-menu a:hover, .mobile-menu button:hover{
+  background:rgba(91,140,255,.14);
+  border-color:rgba(91,140,255,.4);
+}
+.mobile-menu .mm-cta{
+  background:var(--grad);
+  color:#fff;
+  border:none;
+  justify-content:center;
+  font-weight:700;
+}
+.mobile-menu .mm-discord{
+  background:#5865F2;
+  color:#fff;
+  border:none;
+  justify-content:center;
+  font-weight:700;
+}
+.mobile-menu .mm-section{
+  font-size:.7rem;
+  text-transform:uppercase;
+  letter-spacing:1.4px;
+  color:#7fb6ff;
+  padding:6px 4px 0;
+  background:none;
+  border:none;
+}
+
+/* ===== ASK FOR A BOT — FULL FORM ===== */
+.ask-card.ask-form-card{
+  width:min(640px, 94vw);
+  max-height:90vh;
+  overflow-y:auto;
+  text-align:left;
+  padding:26px 24px 22px;
+}
+.ask-form-card .ask-head{
+  display:flex; align-items:center; gap:12px;
+  margin-bottom:6px;
+}
+.ask-form-card .ask-head-ic{
+  width:42px; height:42px; border-radius:11px;
+  background:linear-gradient(135deg,#ff8a1f,#ff3b1d);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.2rem; color:#fff;
+  box-shadow:0 8px 22px rgba(255,80,30,.4);
+}
+.ask-form-card h3{
+  text-align:left; margin:0; font-size:1.25rem;
+}
+.ask-form-card .ask-sub{
+  color:var(--muted); font-size:.92rem; margin:8px 0 18px; line-height:1.55;
+}
+.ask-form-card .field-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px 14px;
+}
+.ask-form-card .field{
+  display:flex; flex-direction:column; gap:6px;
+}
+.ask-form-card .field.full{ grid-column:1 / -1; }
+.ask-form-card label{
+  font-size:.78rem;
+  font-weight:700;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  color:#a5c0ff;
+}
+.ask-form-card label .req{ color:#ff8585; margin-left:3px; }
+.ask-form-card input[type="text"],
+.ask-form-card input[type="email"],
+.ask-form-card input[type="password"],
+.ask-form-card select,
+.ask-form-card textarea{
+  width:100%;
+  padding:11px 13px;
+  background:#06101f;
+  border:1px solid rgba(91,140,255,.22);
+  color:var(--text);
+  border-radius:10px;
+  font-family:inherit;
+  font-size:.95rem;
+  resize:vertical;
+}
+.ask-form-card input:focus,
+.ask-form-card select:focus,
+.ask-form-card textarea:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(91,140,255,.14);
+}
+.ask-form-card textarea{ min-height:90px; line-height:1.5; }
+.ask-form-card .help{
+  font-size:.76rem; color:var(--muted); margin-top:2px;
+}
+.ask-form-card .check-row{
+  display:flex; align-items:center; gap:10px;
+  padding:11px 13px;
+  background:#06101f;
+  border:1px solid rgba(91,140,255,.22);
+  border-radius:10px;
+  cursor:pointer;
+}
+.ask-form-card .check-row input{ width:18px; height:18px; accent-color:var(--accent); }
+.ask-form-card .check-row span{ font-size:.93rem; color:var(--text); }
+
+.ask-form-card .submit-row{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:14px; margin-top:18px; flex-wrap:wrap;
+}
+.ask-form-card .submit-msg{
+  font-size:.85rem; color:var(--muted); flex:1; min-width:0;
+}
+.ask-form-card .submit-msg.ok{ color:#7CFFB2; }
+.ask-form-card .submit-msg.err{ color:#ff8585; }
+.ask-form-card .submit-btn{
+  display:inline-flex; align-items:center; gap:9px;
+  padding:12px 22px;
+  border-radius:10px;
+  background:linear-gradient(135deg,#ff8a1f,#ff3b1d);
+  border:none;
+  color:#fff;
+  font-weight:700;
+  font-family:inherit;
+  font-size:.95rem;
+  cursor:pointer;
+  box-shadow:0 8px 22px rgba(255,80,30,.35);
+  transition:transform .15s, box-shadow .2s, opacity .15s;
+}
+.ask-form-card .submit-btn:hover:not(:disabled){
+  transform:translateY(-1px);
+  box-shadow:0 12px 28px rgba(255,80,30,.5);
+}
+.ask-form-card .submit-btn:disabled{ opacity:.55; cursor:not-allowed; }
+.ask-form-card .thank-you{
+  text-align:center;
+  padding:30px 18px 12px;
+}
+.ask-form-card .thank-you i{
+  font-size:3rem;
+  background:linear-gradient(135deg,#10b981,#22d3ee);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+  margin-bottom:14px;
+}
+.ask-form-card .thank-you h4{
+  font-size:1.2rem; margin:0 0 8px; color:#fff;
+}
+.ask-form-card .thank-you p{ color:var(--muted); margin:0 auto; max-width:380px; }
+
+/* ===== FEEDBACK SECTION ===== */
+.feedback-section{
+  position:relative; z-index:5;
+  max-width:1100px;
+  margin:0 auto;
+  padding:60px 48px 20px;
+}
+.fb-grid{
+  display:grid;
+  grid-template-columns:1.1fr 1fr;
+  gap:26px;
+  align-items:start;
+}
+.fb-card{
+  background:linear-gradient(180deg, rgba(15,29,58,0.7), rgba(10,20,40,0.5));
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:30px 28px;
+}
+.fb-card h3{
+  font-size:1.2rem; font-weight:800; margin:0 0 6px;
+  letter-spacing:-.3px;
+}
+.fb-card .fb-sub{
+  color:var(--muted); font-size:.9rem; margin:0 0 18px; line-height:1.5;
+}
+.fb-stars{
+  display:flex; gap:6px; margin:6px 0 14px;
+  font-size:1.85rem;
+}
+.fb-stars i{
+  cursor:pointer;
+  color:#3a4b6a;
+  transition:color .12s, transform .12s;
+}
+.fb-stars i:hover{ transform:scale(1.12); }
+.fb-stars i.on{ color:#ffc107; text-shadow:0 0 12px rgba(255,193,7,.45); }
+.fb-card input[type="text"],
+.fb-card textarea{
+  width:100%;
+  background:#06101f;
+  border:1px solid rgba(91,140,255,.22);
+  color:var(--text);
+  border-radius:10px;
+  padding:11px 13px;
+  font-family:inherit;
+  font-size:.95rem;
+  margin-bottom:12px;
+  resize:vertical;
+}
+.fb-card input:focus,
+.fb-card textarea:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(91,140,255,.14);
+}
+.fb-card textarea{ min-height:80px; line-height:1.5; }
+.fb-card .fb-submit{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:11px 22px;
+  border-radius:10px;
+  background:var(--grad);
+  border:none; color:#fff;
+  font-weight:700; font-family:inherit; font-size:.95rem;
+  cursor:pointer;
+  box-shadow:0 8px 22px rgba(91,140,255,.35);
+  transition:transform .15s, box-shadow .2s, opacity .15s;
+}
+.fb-card .fb-submit:hover:not(:disabled){ transform:translateY(-1px); }
+.fb-card .fb-submit:disabled{ opacity:.55; cursor:not-allowed; }
+.fb-card .fb-msg{ font-size:.83rem; color:var(--muted); margin-top:8px; min-height:18px; }
+.fb-card .fb-msg.ok{ color:#7CFFB2; }
+.fb-card .fb-msg.err{ color:#ff8585; }
+
+.fb-list-card{
+  background:linear-gradient(180deg, rgba(15,29,58,0.55), rgba(10,20,40,0.4));
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:24px 22px;
+  max-height:420px;
+  overflow:auto;
+}
+.fb-list-card .fb-head{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:14px;
+}
+.fb-list-card .fb-head h4{
+  margin:0; font-size:1.05rem; font-weight:700;
+}
+.fb-avg{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:5px 11px;
+  border-radius:99px;
+  background:rgba(255,193,7,.1);
+  border:1px solid rgba(255,193,7,.32);
+  color:#ffd76a;
+  font-size:.85rem;
+  font-weight:700;
+}
+.fb-item{
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:12px;
+  padding:12px 14px;
+  margin-bottom:10px;
+}
+.fb-item .fb-row{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:6px;
+}
+.fb-item .fb-name{
+  font-weight:700; color:#fff; font-size:.9rem;
+}
+.fb-item .fb-stars-mini{ color:#ffc107; font-size:.85rem; letter-spacing:1px; }
+.fb-item .fb-stars-mini .off{ color:#3a4b6a; }
+.fb-item .fb-comment{
+  color:#cfd8e6; font-size:.88rem; line-height:1.5;
+}
+.fb-empty{
+  color:var(--muted); font-size:.9rem; padding:24px 6px; text-align:center;
+}
+
+/* ===== DEV: SETTINGS PANEL ===== */
+.settings-card{
+  width:min(680px, 94vw);
+  max-height:88vh;
+  overflow-y:auto;
+  text-align:left;
+}
+.settings-card h3{
+  text-align:left; margin:0 0 4px; font-size:1.2rem;
+}
+.settings-card .ss-sub{
+  color:var(--muted); font-size:.9rem; margin-bottom:18px;
+}
+.settings-card .ss-section{
+  font-size:.72rem; font-weight:700; letter-spacing:1.5px;
+  text-transform:uppercase; color:#7fb6ff;
+  margin:14px 0 8px;
+  padding-bottom:6px;
+  border-bottom:1px solid rgba(91,140,255,.2);
+}
+.settings-card .ss-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.settings-card .ss-field{
+  display:flex; flex-direction:column; gap:5px;
+}
+.settings-card .ss-field.full{ grid-column:1 / -1; }
+.settings-card .ss-field label{
+  font-size:.75rem; font-weight:700; letter-spacing:.4px;
+  text-transform:uppercase; color:#a5c0ff;
+}
+.settings-card .ss-field input[type="text"],
+.settings-card .ss-field textarea{
+  width:100%;
+  padding:9px 11px;
+  background:#06101f;
+  border:1px solid rgba(91,140,255,.22);
+  color:var(--text);
+  border-radius:8px;
+  font-family:inherit; font-size:.92rem;
+  resize:vertical;
+}
+.settings-card .ss-field textarea{ min-height:64px; line-height:1.5; }
+.settings-card .ss-color{
+  display:flex; align-items:center; gap:8px;
+}
+.settings-card .ss-color input[type="color"]{
+  width:42px; height:38px;
+  border:1px solid rgba(91,140,255,.22);
+  border-radius:8px;
+  background:#06101f;
+  cursor:pointer; padding:2px;
+}
+.settings-card .ss-color input[type="text"]{ flex:1; font-family:'Inter',monospace; }
+.settings-card .ss-actions{
+  display:flex; gap:10px; justify-content:flex-end;
+  margin-top:18px; flex-wrap:wrap;
+}
+.settings-card .ss-actions button{
+  padding:10px 18px; border-radius:9px; border:none;
+  font-weight:700; font-family:inherit; font-size:.9rem; cursor:pointer;
+}
+.ss-btn-cancel{ background:rgba(255,255,255,.06); color:#cfd8e6; }
+.ss-btn-reset{ background:rgba(255,80,80,.14); color:#ff8585; border:1px solid rgba(255,80,80,.3) !important; }
+.ss-btn-save{ background:var(--grad); color:#fff; }
+.ss-msg{ flex:1; align-self:center; font-size:.83rem; color:var(--muted); }
+.ss-msg.ok{ color:#7CFFB2; }
+.ss-msg.err{ color:#ff8585; }
+
+/* ===== DEV: BOT REQUESTS PANEL ===== */
+.req-card{
+  width:min(760px, 95vw);
+  max-height:88vh;
+  overflow-y:auto;
+  text-align:left;
+}
+.req-card .req-list{ margin-top:14px; }
+.req-item{
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  padding:14px 16px;
+  margin-bottom:10px;
+}
+.req-item .req-head{
+  display:flex; justify-content:space-between; align-items:center;
+  gap:10px; margin-bottom:6px;
+}
+.req-item .req-name{ font-weight:700; color:#fff; font-size:.98rem; }
+.req-item .req-meta{ font-size:.78rem; color:var(--muted); }
+.req-item .req-line{ font-size:.85rem; color:#cfd8e6; margin:4px 0; line-height:1.5; }
+.req-item .req-line b{ color:#a5c0ff; font-weight:600; }
+.req-item .req-actions{ margin-top:8px; }
+.req-item .req-del{
+  background:rgba(255,80,80,.12); color:#ff8585;
+  border:1px solid rgba(255,80,80,.3);
+  border-radius:8px; padding:5px 10px;
+  font-size:.78rem; font-weight:700; cursor:pointer; font-family:inherit;
+}
+
 @media (max-width:760px){
-  nav{ padding:16px 22px; }
+  nav{ padding:14px 18px; }
   .nav-links{ display:none; }
+  .nav-auth-group .nav-cta:not(:last-child),
+  .nav-auth-group .nav-discord,
+  .nav-auth-group .nav-user-name{ display:none; }
+  .nav-auth-group .nav-cta:last-child{ display:none; }
+  .nav-burger{ display:inline-flex; }
   .hero{ padding:80px 22px 60px; }
   .stats{ padding:0 22px; }
   .section{ padding:60px 22px; }
+  .feedback-section{ padding:40px 22px 0; }
+  .fb-grid{ grid-template-columns:1fr; gap:18px; }
   .cta-strip{ margin:20px 22px 60px; padding:38px 26px; }
   footer{ padding:22px; }
+  .ask-form-card .field-grid{ grid-template-columns:1fr; }
+  .settings-card .ss-row{ grid-template-columns:1fr; }
 }
 </style>
 </head>
@@ -834,12 +1291,16 @@ footer{
 <!-- ===== NAV ===== -->
 <nav>
   <a class="nav-logo" href="{{ url_for('landing') }}">
-    <div class="nav-logo-mark">B/L</div>
-    <div class="nav-logo-name">Byte<span>Labs</span></div>
+    <div class="nav-logo-mark">{{ (site.brand_name|default('B/L', true))[:1]|upper }}/{{ ((site.brand_name|default('B/L', true)).split(' ')[-1] if ' ' in site.brand_name else site.brand_name)[:1]|upper }}</div>
+    <div class="nav-logo-name">
+      {% set _parts = site.brand_name.split(' ', 1) %}
+      {{ _parts[0] }}{% if _parts|length > 1 %}<span>{{ _parts[1] }}</span>{% endif %}
+    </div>
   </a>
   <div class="nav-links">
     <a href="{{ url_for('bots_showcase') }}">Our Bots</a>
     <a href="#what-we-build">What We Build</a>
+    <a href="#feedback">Feedback</a>
     <a href="#contact">Contact</a>
   </div>
   <!-- Dev kebab menu (hidden until PIN-unlocked via secret gesture) -->
@@ -853,11 +1314,20 @@ footer{
         <i class="fas fa-user-shield"></i>
         <span>Developer Tools</span>
       </div>
+      <button type="button" class="dev-item" role="menuitem" onclick="openSiteSettings(); closeDevMenu();">
+        <i class="fas fa-palette"></i> Site Theme &amp; Colors
+      </button>
+      <button type="button" class="dev-item" role="menuitem" onclick="openSiteSettings('text'); closeDevMenu();">
+        <i class="fas fa-pen-fancy"></i> Edit Hero &amp; Text
+      </button>
       <a class="dev-item" role="menuitem" href="{{ url_for('bots_showcase') }}">
         <i class="fas fa-pen-to-square"></i> Edit Server Official
       </a>
       <button type="button" class="dev-item" role="menuitem" onclick="openAskForBot(); closeDevMenu();">
-        <i class="fas fa-robot"></i> Ask for a Bot (preview)
+        <i class="fas fa-robot"></i> Preview "Ask for a Bot"
+      </button>
+      <button type="button" class="dev-item" role="menuitem" onclick="openBotRequests(); closeDevMenu();">
+        <i class="fas fa-inbox"></i> View Bot Requests
       </button>
       <button type="button" class="dev-item" role="menuitem" id="maintToggleBtn" onclick="toggleMaintenanceMode()">
         <i class="fas fa-tools"></i>
@@ -898,24 +1368,46 @@ footer{
     <a class="nav-cta" href="{{ url_for('bots_showcase') }}">
       Explore Bots <i class="fas fa-arrow-right"></i>
     </a>
+    <!-- Mobile hamburger (3 bars) -->
+    <button type="button" class="nav-burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
+      <span class="burger-bars" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </span>
+    </button>
   </div>
 </nav>
+
+<!-- Mobile slide-down menu -->
+<div class="mobile-menu" id="mobileMenu" role="menu" aria-hidden="true">
+  <div class="mm-section">Explore</div>
+  <a href="{{ url_for('bots_showcase') }}"><i class="fas fa-th-large"></i> Our Bots</a>
+  <a href="#what-we-build"><i class="fas fa-circle-info"></i> What We Build</a>
+  <a href="#feedback"><i class="fas fa-star"></i> Leave Feedback</a>
+  <a href="#contact"><i class="fas fa-envelope"></i> Contact</a>
+  <div class="mm-section">Get Started</div>
+  <button type="button" class="mm-cta" onclick="closeMobileMenu(); openAskForBot();">
+    <i class="fas fa-robot"></i> Ask for a Bot
+  </button>
+  {% if logged_in %}
+    <a href="{{ url_for('logout') }}"><i class="fas fa-right-from-bracket"></i> Log out ({{ user_name }})</a>
+  {% elif discord_configured %}
+    <a class="mm-discord" href="{{ url_for('auth_discord') }}"><i class="fab fa-discord"></i> Login with Discord</a>
+  {% else %}
+    <a class="mm-cta" href="{{ url_for('login') }}"><i class="fas fa-arrow-right"></i> Login</a>
+  {% endif %}
+</div>
 
 <!-- ===== HERO ===== -->
 <section class="hero">
   <div class="hero-badge">
     <span class="dot"></span>
-    <span>Building the future of community automation</span>
+    <span>{{ site.hero_badge }}</span>
   </div>
   <h1>
-    We build <span class="grad">intelligent bots</span><br>
-    that power modern communities.
+    {{ site.hero_title_pre }} <span class="grad">{{ site.hero_title_grad }}</span><br>
+    {{ site.hero_title_post }}
   </h1>
-  <p class="lede">
-    Byte Labs designs and ships AI-driven bots, dashboards, and automation tools
-    that help Discord servers, communities, and creators run smoother — without
-    the busywork.
-  </p>
+  <p class="lede">{{ site.hero_lede }}</p>
   <div class="hero-cta-row">
     <a class="btn-primary" href="{{ url_for('bots_showcase') }}">
       <i class="fas fa-th-large"></i> Our Bots
@@ -929,21 +1421,135 @@ footer{
   </div>
 </section>
 
-<!-- ===== "Ask for a Bot" modal ===== -->
+<!-- ===== "Ask for a Bot" — full registration form ===== -->
 <div class="ask-overlay" id="askOverlay" role="dialog" aria-modal="true" aria-labelledby="askTitle"
      onclick="if(event.target===this)closeAskForBot()">
-  <div class="ask-card">
+  <div class="ask-card ask-form-card">
     <button type="button" class="ask-close" aria-label="Close" onclick="closeAskForBot()">
       <i class="fas fa-xmark"></i>
     </button>
-    <div class="ask-gears" aria-hidden="true">
-      <i class="fas fa-gear gear-big"></i>
-      <i class="fas fa-cog gear-small"></i>
+
+    <!-- Form view -->
+    <div id="askFormWrap">
+      <div class="ask-head">
+        <div class="ask-head-ic"><i class="fas fa-robot"></i></div>
+        <div>
+          <h3 id="askTitle">Ask for a custom bot</h3>
+          <p class="ask-sub" style="margin:2px 0 0;">Tell us what you need — we'll get back to you with a quote &amp; timeline.</p>
+        </div>
+      </div>
+
+      <form id="askForm" onsubmit="submitBotRequest(event)" autocomplete="on">
+        <div class="field-grid">
+          <div class="field">
+            <label for="bf_name">Your Name <span class="req">*</span></label>
+            <input id="bf_name" name="name" type="text" required maxlength="120" placeholder="Jane Doe">
+          </div>
+          <div class="field">
+            <label for="bf_email">Email <span class="req">*</span></label>
+            <input id="bf_email" name="email" type="email" required maxlength="200" placeholder="you@example.com">
+          </div>
+
+          <div class="field">
+            <label for="bf_discord">Discord Handle</label>
+            <input id="bf_discord" name="discord_handle" type="text" maxlength="120" placeholder="@username">
+          </div>
+          <div class="field">
+            <label for="bf_botname">Bot Name (working title)</label>
+            <input id="bf_botname" name="bot_name" type="text" maxlength="120" placeholder="MyServerBot">
+          </div>
+
+          <div class="field">
+            <label for="bf_purpose">Bot Purpose / Category</label>
+            <select id="bf_purpose" name="bot_purpose">
+              <option value="">— Select —</option>
+              <option>Moderation &amp; Anti-raid</option>
+              <option>Community Engagement (XP, Levels)</option>
+              <option>Tickets &amp; Support</option>
+              <option>Giveaways &amp; Polls</option>
+              <option>Music / Voice</option>
+              <option>AI Chatbot / Assistant</option>
+              <option>Server Management</option>
+              <option>Economy / Games</option>
+              <option>Notifications (YT, Twitch, X)</option>
+              <option>Custom / Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="bf_timeline">Desired Timeline</label>
+            <select id="bf_timeline" name="timeline">
+              <option value="">— Select —</option>
+              <option>ASAP (within 1 week)</option>
+              <option>2 weeks</option>
+              <option>1 month</option>
+              <option>2-3 months</option>
+              <option>Flexible</option>
+            </select>
+          </div>
+
+          <div class="field full">
+            <label for="bf_desc">Bot Description <span class="req">*</span></label>
+            <textarea id="bf_desc" name="description" required maxlength="4000"
+                      placeholder="What should this bot do? Describe the experience you want for your server."></textarea>
+          </div>
+
+          <div class="field full">
+            <label for="bf_features">Required Features (one per line)</label>
+            <textarea id="bf_features" name="features" maxlength="4000"
+                      placeholder="e.g.&#10;- /warn, /kick, /ban moderation&#10;- Auto-delete invite links&#10;- Daily welcome embed&#10;- Web dashboard with role permissions"></textarea>
+          </div>
+
+          <div class="field">
+            <label class="check-row" for="bf_dash">
+              <input id="bf_dash" name="needs_dashboard" type="checkbox" value="1">
+              <span><i class="fas fa-display" style="margin-right:6px;color:var(--accent);"></i>Needs a web dashboard</span>
+            </label>
+          </div>
+          <div class="field">
+            <label for="bf_budget">Budget (USD)</label>
+            <select id="bf_budget" name="budget">
+              <option value="">— Select —</option>
+              <option>Under $50</option>
+              <option>$50 – $150</option>
+              <option>$150 – $500</option>
+              <option>$500 – $1,500</option>
+              <option>$1,500+</option>
+              <option>Let's discuss</option>
+            </select>
+          </div>
+
+          <div class="field full">
+            <label for="bf_token">Bot Token (optional)</label>
+            <input id="bf_token" name="bot_token" type="password" maxlength="200"
+                   placeholder="If you already created a Discord application, paste the token here">
+            <span class="help"><i class="fas fa-shield-halved"></i> Stored privately. Leave blank if you'd like us to create the application for you.</span>
+          </div>
+
+          <div class="field full">
+            <label for="bf_notes">Anything else?</label>
+            <textarea id="bf_notes" name="notes" maxlength="2000"
+                      placeholder="Inspiration, examples, hosting preferences, integrations…"></textarea>
+          </div>
+        </div>
+
+        <div class="submit-row">
+          <div class="submit-msg" id="bf_msg">All fields with <span class="req">*</span> are required.</div>
+          <button type="submit" class="submit-btn" id="bf_submit">
+            <i class="fas fa-paper-plane"></i> Submit Request
+          </button>
+        </div>
+      </form>
     </div>
-    <span class="ask-tag"><span class="askdot"></span> Under Development</span>
-    <h3 id="askTitle">We're building this feature</h3>
-    <p>Custom bot requests are not available yet. Our engineers are crafting it — check back soon!</p>
-    <div class="ask-bar" aria-hidden="true"></div>
+
+    <!-- Thank-you view -->
+    <div id="askThankYou" class="thank-you" style="display:none;">
+      <i class="fas fa-circle-check"></i>
+      <h4>Request received!</h4>
+      <p>Thanks — we've logged your bot request and will get back to you by email within a couple of days.</p>
+      <button type="button" class="submit-btn" style="margin-top:18px;" onclick="closeAskForBot()">
+        <i class="fas fa-xmark"></i> Close
+      </button>
+    </div>
   </div>
 </div>
 
@@ -971,8 +1577,8 @@ footer{
 <section class="section" id="what-we-build">
   <div class="section-head">
     <div class="eyebrow">What We Build</div>
-    <h2>Every Byte Labs bot follows the same principles.</h2>
-    <p>Beautiful dashboards, intelligent automation, rock-solid uptime, and full control in your hands.</p>
+    <h2>{{ site.section_title }}</h2>
+    <p>{{ site.section_lede }}</p>
   </div>
   <div class="pillar-grid">
     <div class="pillar">
@@ -1008,23 +1614,199 @@ footer{
   </div>
 </section>
 
+<!-- ===== FEEDBACK ===== -->
+<section class="feedback-section" id="feedback">
+  <div class="section-head" style="margin-bottom:30px;">
+    <div class="eyebrow">Community</div>
+    <h2 style="font-size:clamp(1.7rem,2.6vw,2.1rem);">Tell us what you think</h2>
+    <p>Rate your experience and help us make {{ site.brand_name }} better.</p>
+  </div>
+  <div class="fb-grid">
+    <div class="fb-card">
+      <h3><i class="fas fa-comment-dots" style="margin-right:8px;color:var(--accent);"></i>Leave a rating</h3>
+      <p class="fb-sub">No login required. Be honest — we read every one.</p>
+
+      <div class="fb-stars" id="fbStars" role="radiogroup" aria-label="Rating">
+        <i class="far fa-star" data-v="1" role="radio" aria-checked="false" tabindex="0" title="Bad"></i>
+        <i class="far fa-star" data-v="2" role="radio" aria-checked="false" tabindex="0" title="Meh"></i>
+        <i class="far fa-star" data-v="3" role="radio" aria-checked="false" tabindex="0" title="OK"></i>
+        <i class="far fa-star" data-v="4" role="radio" aria-checked="false" tabindex="0" title="Great"></i>
+        <i class="far fa-star" data-v="5" role="radio" aria-checked="false" tabindex="0" title="Loved it!"></i>
+      </div>
+
+      <input id="fbName" type="text" maxlength="80" placeholder="Your name (optional)">
+      <textarea id="fbComment" maxlength="2000" placeholder="What worked? What could be better? (optional)"></textarea>
+
+      <button type="button" class="fb-submit" id="fbSubmit" onclick="submitFeedback()">
+        <i class="fas fa-paper-plane"></i> Send feedback
+      </button>
+      <div class="fb-msg" id="fbMsg">Pick a star to enable submit.</div>
+    </div>
+
+    <div class="fb-list-card">
+      <div class="fb-head">
+        <h4><i class="fas fa-comments" style="margin-right:6px;color:var(--accent);"></i>Recent ratings</h4>
+        <span class="fb-avg" id="fbAvg" style="display:none;">
+          <i class="fas fa-star"></i> <span id="fbAvgVal">—</span> avg
+        </span>
+      </div>
+      <div id="fbList">
+        <div class="fb-empty">Loading…</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ===== CTA ===== -->
 <section class="cta-strip" id="contact">
-  <h2>Ready to add a Byte Labs bot to your server?</h2>
-  <p>Browse our growing lineup of bots and find the one that fits your community.</p>
+  <h2>{{ site.cta_title }}</h2>
+  <p>{{ site.cta_lede }}</p>
   <a class="btn-primary" href="{{ url_for('bots_showcase') }}">
     See All Our Bots <i class="fas fa-arrow-right"></i>
   </a>
 </section>
 
 <footer>
-  <div>© <span id="yr"></span> Byte Labs. Crafted with care for communities.</div>
+  <div>© <span id="yr"></span> {{ site.brand_name }}. {{ site.footer_tag }}</div>
   <div class="footer-socials">
     <a href="#" aria-label="Discord"><i class="fa-brands fa-discord"></i></a>
     <a href="#" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
     <a href="#" aria-label="X"><i class="fa-brands fa-x-twitter"></i></a>
   </div>
 </footer>
+
+<!-- ===== DEV: Site Settings modal ===== -->
+<div class="ask-overlay" id="settingsOverlay" role="dialog" aria-modal="true"
+     onclick="if(event.target===this)closeSiteSettings()">
+  <div class="ask-card settings-card">
+    <button type="button" class="ask-close" aria-label="Close" onclick="closeSiteSettings()">
+      <i class="fas fa-xmark"></i>
+    </button>
+    <h3><i class="fas fa-wand-magic-sparkles" style="margin-right:8px;color:var(--accent);"></i>Site Settings</h3>
+    <p class="ss-sub">Change the brand colors and copy across the whole landing page in seconds. Saved instantly.</p>
+
+    <div class="ss-section">Brand</div>
+    <div class="ss-row">
+      <div class="ss-field full">
+        <label>Brand name</label>
+        <input type="text" data-key="brand_name" value="{{ site.brand_name }}">
+      </div>
+    </div>
+
+    <div class="ss-section">Theme colors</div>
+    <div class="ss-row">
+      <div class="ss-field">
+        <label>Background</label>
+        <div class="ss-color">
+          <input type="color" data-bind="color_bg" value="{{ site.color_bg }}">
+          <input type="text" data-key="color_bg" value="{{ site.color_bg }}">
+        </div>
+      </div>
+      <div class="ss-field">
+        <label>Text color</label>
+        <div class="ss-color">
+          <input type="color" data-bind="color_text" value="{{ site.color_text }}">
+          <input type="text" data-key="color_text" value="{{ site.color_text }}">
+        </div>
+      </div>
+      <div class="ss-field">
+        <label>Accent 1 (primary)</label>
+        <div class="ss-color">
+          <input type="color" data-bind="color_accent" value="{{ site.color_accent }}">
+          <input type="text" data-key="color_accent" value="{{ site.color_accent }}">
+        </div>
+      </div>
+      <div class="ss-field">
+        <label>Accent 2</label>
+        <div class="ss-color">
+          <input type="color" data-bind="color_accent2" value="{{ site.color_accent2 }}">
+          <input type="text" data-key="color_accent2" value="{{ site.color_accent2 }}">
+        </div>
+      </div>
+      <div class="ss-field">
+        <label>Accent 3</label>
+        <div class="ss-color">
+          <input type="color" data-bind="color_accent3" value="{{ site.color_accent3 }}">
+          <input type="text" data-key="color_accent3" value="{{ site.color_accent3 }}">
+        </div>
+      </div>
+    </div>
+
+    <div class="ss-section">Hero</div>
+    <div class="ss-row">
+      <div class="ss-field full">
+        <label>Hero badge text</label>
+        <input type="text" data-key="hero_badge" value="{{ site.hero_badge }}">
+      </div>
+      <div class="ss-field">
+        <label>Title — start</label>
+        <input type="text" data-key="hero_title_pre" value="{{ site.hero_title_pre }}">
+      </div>
+      <div class="ss-field">
+        <label>Title — gradient word(s)</label>
+        <input type="text" data-key="hero_title_grad" value="{{ site.hero_title_grad }}">
+      </div>
+      <div class="ss-field full">
+        <label>Title — end</label>
+        <input type="text" data-key="hero_title_post" value="{{ site.hero_title_post }}">
+      </div>
+      <div class="ss-field full">
+        <label>Hero subtitle (lede)</label>
+        <textarea data-key="hero_lede">{{ site.hero_lede }}</textarea>
+      </div>
+    </div>
+
+    <div class="ss-section">Sections</div>
+    <div class="ss-row">
+      <div class="ss-field full">
+        <label>"What We Build" headline</label>
+        <input type="text" data-key="section_title" value="{{ site.section_title }}">
+      </div>
+      <div class="ss-field full">
+        <label>"What We Build" subtitle</label>
+        <textarea data-key="section_lede">{{ site.section_lede }}</textarea>
+      </div>
+      <div class="ss-field full">
+        <label>CTA strip headline</label>
+        <input type="text" data-key="cta_title" value="{{ site.cta_title }}">
+      </div>
+      <div class="ss-field full">
+        <label>CTA strip subtitle</label>
+        <textarea data-key="cta_lede">{{ site.cta_lede }}</textarea>
+      </div>
+      <div class="ss-field full">
+        <label>Footer tag</label>
+        <input type="text" data-key="footer_tag" value="{{ site.footer_tag }}">
+      </div>
+    </div>
+
+    <div class="ss-actions">
+      <span class="ss-msg" id="ssMsg"></span>
+      <button type="button" class="ss-btn-reset" onclick="resetSiteSettings()">
+        <i class="fas fa-rotate-left"></i> Reset to defaults
+      </button>
+      <button type="button" class="ss-btn-cancel" onclick="closeSiteSettings()">Cancel</button>
+      <button type="button" class="ss-btn-save" onclick="saveSiteSettings()">
+        <i class="fas fa-floppy-disk"></i> Save &amp; reload
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DEV: Bot Requests inbox modal ===== -->
+<div class="ask-overlay" id="reqOverlay" role="dialog" aria-modal="true"
+     onclick="if(event.target===this)closeBotRequests()">
+  <div class="ask-card req-card">
+    <button type="button" class="ask-close" aria-label="Close" onclick="closeBotRequests()">
+      <i class="fas fa-xmark"></i>
+    </button>
+    <h3 style="text-align:left;"><i class="fas fa-inbox" style="margin-right:8px;color:var(--accent);"></i>Bot Requests Inbox</h3>
+    <p class="ss-sub">All custom-bot submissions from the landing page.</p>
+    <div class="req-list" id="reqList">
+      <div class="fb-empty">Loading…</div>
+    </div>
+  </div>
+</div>
 
 <!-- "Unlocked" toast -->
 <div class="dev-toast" id="devToast" role="status" aria-live="polite">
@@ -1281,8 +2063,383 @@ footer{
       closeAskForBot();
       closeDevMenu();
       closePinModal();
+      closeSiteSettings();
+      closeBotRequests();
+      closeMobileMenu();
     }
   });
+
+  /* ================== MOBILE HAMBURGER MENU ================== */
+  const navBurger = document.getElementById('navBurger');
+  const mobileMenu = document.getElementById('mobileMenu');
+  function openMobileMenu(){
+    if (!mobileMenu || !navBurger) return;
+    mobileMenu.classList.add('open');
+    navBurger.classList.add('open');
+    navBurger.setAttribute('aria-expanded', 'true');
+    mobileMenu.setAttribute('aria-hidden', 'false');
+  }
+  function closeMobileMenu(){
+    if (!mobileMenu || !navBurger) return;
+    mobileMenu.classList.remove('open');
+    navBurger.classList.remove('open');
+    navBurger.setAttribute('aria-expanded', 'false');
+    mobileMenu.setAttribute('aria-hidden', 'true');
+  }
+  function toggleMobileMenu(){
+    if (mobileMenu && mobileMenu.classList.contains('open')) closeMobileMenu();
+    else openMobileMenu();
+  }
+  if (navBurger) navBurger.addEventListener('click', function(e){ e.stopPropagation(); toggleMobileMenu(); });
+  if (mobileMenu) {
+    mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMobileMenu));
+  }
+  document.addEventListener('click', function(e){
+    if (!mobileMenu || !mobileMenu.classList.contains('open')) return;
+    if (mobileMenu.contains(e.target) || (navBurger && navBurger.contains(e.target))) return;
+    closeMobileMenu();
+  });
+
+  /* ================== ASK-FOR-A-BOT FORM SUBMIT ================== */
+  async function submitBotRequest(ev){
+    ev.preventDefault();
+    const form   = document.getElementById('askForm');
+    const msgEl  = document.getElementById('bf_msg');
+    const btn    = document.getElementById('bf_submit');
+    msgEl.classList.remove('ok','err');
+    msgEl.textContent = 'Submitting…';
+    btn.disabled = true;
+
+    const data = {
+      name:           document.getElementById('bf_name').value.trim(),
+      email:          document.getElementById('bf_email').value.trim(),
+      discord_handle: document.getElementById('bf_discord').value.trim(),
+      bot_name:       document.getElementById('bf_botname').value.trim(),
+      bot_purpose:    document.getElementById('bf_purpose').value,
+      timeline:       document.getElementById('bf_timeline').value,
+      description:    document.getElementById('bf_desc').value.trim(),
+      features:       document.getElementById('bf_features').value.trim(),
+      needs_dashboard:document.getElementById('bf_dash').checked,
+      budget:         document.getElementById('bf_budget').value,
+      bot_token:      document.getElementById('bf_token').value.trim(),
+      notes:          document.getElementById('bf_notes').value.trim(),
+    };
+
+    try {
+      const r = await fetch('/api/bot_request', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(data),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) {
+        document.getElementById('askFormWrap').style.display = 'none';
+        document.getElementById('askThankYou').style.display = 'block';
+        form.reset();
+      } else {
+        msgEl.classList.add('err');
+        msgEl.textContent = j.error || 'Could not submit. Try again.';
+        btn.disabled = false;
+      }
+    } catch (err) {
+      msgEl.classList.add('err');
+      msgEl.textContent = 'Network error. Try again.';
+      btn.disabled = false;
+    }
+  }
+
+  // Reset modal back to form view when closing
+  const _origCloseAsk = closeAskForBot;
+  closeAskForBot = function(){
+    _origCloseAsk();
+    setTimeout(() => {
+      const wrap = document.getElementById('askFormWrap');
+      const ty   = document.getElementById('askThankYou');
+      const btn  = document.getElementById('bf_submit');
+      const msg  = document.getElementById('bf_msg');
+      if (wrap) wrap.style.display = 'block';
+      if (ty)   ty.style.display = 'none';
+      if (btn)  btn.disabled = false;
+      if (msg) {
+        msg.classList.remove('ok','err');
+        msg.innerHTML = 'All fields with <span class="req">*</span> are required.';
+      }
+    }, 250);
+  };
+
+  /* ================== STAR FEEDBACK WIDGET ================== */
+  let fbRating = 0;
+  const fbStarsEl = document.getElementById('fbStars');
+  function paintStars(active){
+    if (!fbStarsEl) return;
+    fbStarsEl.querySelectorAll('i').forEach(i => {
+      const v = parseInt(i.dataset.v, 10);
+      const on = v <= active;
+      i.classList.toggle('fas', on);
+      i.classList.toggle('far', !on);
+      i.classList.toggle('on', on);
+      i.setAttribute('aria-checked', v === fbRating ? 'true' : 'false');
+    });
+  }
+  if (fbStarsEl) {
+    fbStarsEl.querySelectorAll('i').forEach(star => {
+      const v = parseInt(star.dataset.v, 10);
+      star.addEventListener('mouseenter', () => paintStars(v));
+      star.addEventListener('mouseleave', () => paintStars(fbRating));
+      star.addEventListener('click', () => {
+        fbRating = v;
+        paintStars(fbRating);
+        const msg = document.getElementById('fbMsg');
+        msg.classList.remove('ok','err');
+        msg.textContent = 'Selected: ' + v + '/5 — ready to submit.';
+      });
+      star.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); star.click(); }
+      });
+    });
+  }
+  async function submitFeedback(){
+    const msg = document.getElementById('fbMsg');
+    const btn = document.getElementById('fbSubmit');
+    msg.classList.remove('ok','err');
+    if (!fbRating) { msg.classList.add('err'); msg.textContent = 'Please pick a star rating first.'; return; }
+    btn.disabled = true;
+    msg.textContent = 'Sending…';
+    try {
+      const r = await fetch('/api/public_feedback', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          rating:  fbRating,
+          name:    document.getElementById('fbName').value.trim(),
+          comment: document.getElementById('fbComment').value.trim(),
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) {
+        msg.classList.add('ok');
+        msg.textContent = 'Thanks for the feedback!';
+        document.getElementById('fbName').value = '';
+        document.getElementById('fbComment').value = '';
+        fbRating = 0;
+        paintStars(0);
+        loadFeedbackList();
+      } else {
+        msg.classList.add('err');
+        msg.textContent = j.error || 'Could not send. Try again.';
+      }
+    } catch(e) {
+      msg.classList.add('err');
+      msg.textContent = 'Network error.';
+    }
+    btn.disabled = false;
+  }
+  function _esc(s){
+    return String(s||'').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function _starsMini(n){
+    n = Math.max(0, Math.min(5, parseInt(n||0,10)));
+    let html = '';
+    for (let i=1;i<=5;i++) html += '<i class="fas fa-star ' + (i<=n?'':'off') + '"></i>';
+    return html;
+  }
+  async function loadFeedbackList(){
+    const list = document.getElementById('fbList');
+    const avgEl= document.getElementById('fbAvg');
+    const avgV = document.getElementById('fbAvgVal');
+    try {
+      const r = await fetch('/api/public_feedback?limit=8');
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok) throw new Error(j.error || 'load failed');
+      if (!j.items || !j.items.length) {
+        list.innerHTML = '<div class="fb-empty">No feedback yet — be the first!</div>';
+        avgEl.style.display = 'none';
+        return;
+      }
+      avgEl.style.display = 'inline-flex';
+      avgV.textContent = j.average;
+      list.innerHTML = j.items.map(it => {
+        const when = it.created_at ? new Date(it.created_at).toLocaleDateString() : '';
+        const cmt = it.comment ? '<div class="fb-comment">' + _esc(it.comment) + '</div>' : '';
+        return ''
+          + '<div class="fb-item">'
+          +   '<div class="fb-row">'
+          +     '<span class="fb-name">' + _esc(it.user_name || 'Anonymous') + '</span>'
+          +     '<span class="fb-stars-mini">' + _starsMini(it.rating) + '</span>'
+          +   '</div>'
+          +   cmt
+          +   (when ? '<div class="fb-comment" style="font-size:.74rem;color:#7a8aa8;margin-top:4px;">' + when + '</div>' : '')
+          + '</div>';
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="fb-empty">Could not load feedback.</div>';
+    }
+  }
+  loadFeedbackList();
+
+  /* ================== DEV: SITE SETTINGS PANEL ================== */
+  const ssOverlay = document.getElementById('settingsOverlay');
+  function openSiteSettings(focus){
+    if (!ssOverlay) return;
+    ssOverlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    if (focus === 'text') {
+      const t = ssOverlay.querySelector('[data-key="hero_badge"]');
+      if (t) setTimeout(() => t.focus(), 80);
+    }
+  }
+  function closeSiteSettings(){
+    if (!ssOverlay) return;
+    ssOverlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  // Sync color-picker <-> hex text input + live preview on :root
+  if (ssOverlay) {
+    ssOverlay.querySelectorAll('input[type="color"][data-bind]').forEach(picker => {
+      const key = picker.dataset.bind;
+      const text = ssOverlay.querySelector('[data-key="' + key + '"]');
+      picker.addEventListener('input', () => {
+        if (text) text.value = picker.value;
+        livePreviewColor(key, picker.value);
+      });
+      if (text) {
+        text.addEventListener('input', () => {
+          const v = text.value.trim();
+          if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+            picker.value = v;
+            livePreviewColor(key, v);
+          }
+        });
+      }
+    });
+  }
+  function livePreviewColor(key, v){
+    const rs = document.documentElement.style;
+    if (key === 'color_bg')      rs.setProperty('--bg', v);
+    if (key === 'color_text')    rs.setProperty('--text', v);
+    if (key === 'color_accent')  { rs.setProperty('--accent', v); rebuildGrad(); }
+    if (key === 'color_accent2') { rs.setProperty('--accent2', v); rebuildGrad(); }
+    if (key === 'color_accent3') { rs.setProperty('--accent3', v); rebuildGrad(); }
+  }
+  function rebuildGrad(){
+    const cs = getComputedStyle(document.documentElement);
+    const a  = cs.getPropertyValue('--accent').trim();
+    const b  = cs.getPropertyValue('--accent2').trim();
+    const c  = cs.getPropertyValue('--accent3').trim();
+    document.documentElement.style.setProperty('--grad',
+      'linear-gradient(135deg,' + a + ' 0%,' + b + ' 50%,' + c + ' 100%)');
+  }
+  async function saveSiteSettings(){
+    if (!ssOverlay) return;
+    const msg = document.getElementById('ssMsg');
+    msg.classList.remove('ok','err');
+    msg.textContent = 'Saving…';
+    const updates = {};
+    ssOverlay.querySelectorAll('[data-key]').forEach(el => {
+      updates[el.dataset.key] = el.value;
+    });
+    try {
+      const r = await fetch('/dev/site_settings', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ settings: updates }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) {
+        msg.classList.add('ok');
+        msg.textContent = 'Saved! Reloading…';
+        setTimeout(() => location.reload(), 500);
+      } else {
+        msg.classList.add('err');
+        msg.textContent = j.error || 'Save failed.';
+      }
+    } catch(e) {
+      msg.classList.add('err');
+      msg.textContent = 'Network error.';
+    }
+  }
+  async function resetSiteSettings(){
+    if (!confirm('Reset every site setting back to defaults? This cannot be undone.')) return;
+    const msg = document.getElementById('ssMsg');
+    msg.classList.remove('ok','err');
+    msg.textContent = 'Resetting…';
+    try {
+      const r = await fetch('/dev/site_settings/reset', { method:'POST' });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) {
+        msg.classList.add('ok');
+        msg.textContent = 'Reset! Reloading…';
+        setTimeout(() => location.reload(), 500);
+      } else {
+        msg.classList.add('err');
+        msg.textContent = j.error || 'Reset failed.';
+      }
+    } catch(e) {
+      msg.classList.add('err');
+      msg.textContent = 'Network error.';
+    }
+  }
+
+  /* ================== DEV: BOT REQUESTS INBOX ================== */
+  const reqOverlay = document.getElementById('reqOverlay');
+  function openBotRequests(){
+    if (!reqOverlay) return;
+    reqOverlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    loadBotRequests();
+  }
+  function closeBotRequests(){
+    if (!reqOverlay) return;
+    reqOverlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  async function loadBotRequests(){
+    const list = document.getElementById('reqList');
+    list.innerHTML = '<div class="fb-empty">Loading…</div>';
+    try {
+      const r = await fetch('/api/bot_requests?limit=100');
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) {
+        list.innerHTML = '<div class="fb-empty">'+(j.error||'Could not load')+'</div>';
+        return;
+      }
+      if (!j.items || !j.items.length) {
+        list.innerHTML = '<div class="fb-empty">No bot requests yet.</div>';
+        return;
+      }
+      list.innerHTML = j.items.map(req => {
+        const when = req.created_at ? new Date(req.created_at).toLocaleString() : '';
+        const dash = req.needs_dashboard ? '<span style="color:#7CFFB2;">Yes</span>' : '<span style="color:#8295b8;">No</span>';
+        const tok = req.bot_token_preview ? '<code style="background:#06101f;padding:2px 6px;border-radius:5px;">' + _esc(req.bot_token_preview) + '</code>' : '<span style="color:#8295b8;">—</span>';
+        return ''
+          + '<div class="req-item">'
+          +   '<div class="req-head">'
+          +     '<span class="req-name">' + _esc(req.name) + ' &lt;' + _esc(req.email) + '&gt;</span>'
+          +     '<span class="req-meta">' + _esc(when) + '</span>'
+          +   '</div>'
+          +   '<div class="req-line"><b>Bot:</b> ' + _esc(req.bot_name || '—') + '  ·  <b>Purpose:</b> ' + _esc(req.bot_purpose || '—') + '</div>'
+          +   '<div class="req-line"><b>Description:</b> ' + _esc(req.description || '') + '</div>'
+          +   (req.features ? '<div class="req-line"><b>Features:</b><br>' + _esc(req.features).replace(/\n/g,'<br>') + '</div>' : '')
+          +   '<div class="req-line"><b>Dashboard:</b> ' + dash + '  ·  <b>Token:</b> ' + tok + '  ·  <b>Budget:</b> ' + _esc(req.budget||'—') + '  ·  <b>Timeline:</b> ' + _esc(req.timeline||'—') + '</div>'
+          +   (req.discord_handle ? '<div class="req-line"><b>Discord:</b> ' + _esc(req.discord_handle) + '</div>' : '')
+          +   (req.notes ? '<div class="req-line"><b>Notes:</b> ' + _esc(req.notes) + '</div>' : '')
+          +   '<div class="req-actions"><button class="req-del" onclick="deleteBotRequest(\'' + _esc(req.id) + '\')"><i class="fas fa-trash"></i> Delete</button></div>'
+          + '</div>';
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="fb-empty">Network error.</div>';
+    }
+  }
+  async function deleteBotRequest(id){
+    if (!confirm('Delete this bot request?')) return;
+    try {
+      const r = await fetch('/api/bot_requests/' + encodeURIComponent(id), { method:'DELETE' });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) loadBotRequests();
+    } catch(e) {}
+  }
 </script>
 
 </body>
