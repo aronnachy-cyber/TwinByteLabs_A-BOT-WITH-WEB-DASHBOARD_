@@ -40,7 +40,7 @@ logging.basicConfig(level=logging.INFO)
 # STORAGE — local JSON (working copy) + Supabase (durable)
 # ============================================================
 _STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server_official_state.json")
-_state_lock = threading.Lock()
+_state_lock = threading.RLock()  # reentrant: callers can wrap full read-modify-write
 
 # --- Supabase client (single row JSONB mirror of the local state) ---
 SUPABASE_TABLE = "server_official_state"
@@ -773,58 +773,126 @@ def delete_backup(backup_id: str) -> bool:
 # ANALYTICS HELPERS
 # ============================================================
 def _bump_messages_for(guild_id: str, user_id: str) -> None:
-    state = load_state()
-    gs = state["activity_stats"].setdefault(str(guild_id), {})
-    gs.setdefault("messages_per_day", {})
-    gs.setdefault("msg_per_user", {})
-    today = _today()
-    gs["messages_per_day"][today] = gs["messages_per_day"].get(today, 0) + 1
-    gs["msg_per_user"][str(user_id)] = gs["msg_per_user"].get(str(user_id), 0) + 1
-    # trim history to last 60 days
-    cutoff = (date.today() - timedelta(days=60)).isoformat()
-    gs["messages_per_day"] = {d: v for d, v in gs["messages_per_day"].items() if d >= cutoff}
-    save_state(state)
+    # Hold the state lock across the whole read-modify-write so two messages
+    # arriving on different threads can't both read the same value, each add
+    # 1, and overwrite each other (which silently undercounted activity).
+    with _state_lock:
+        state = load_state()
+        gs = state["activity_stats"].setdefault(str(guild_id), {})
+        gs.setdefault("messages_per_day", {})
+        gs.setdefault("msg_per_user", {})
+        today = _today()
+        gs["messages_per_day"][today] = gs["messages_per_day"].get(today, 0) + 1
+        gs["msg_per_user"][str(user_id)] = gs["msg_per_user"].get(str(user_id), 0) + 1
+        # trim history to last 60 days (only the per-day buckets — per-user is all-time)
+        cutoff = (date.today() - timedelta(days=60)).isoformat()
+        gs["messages_per_day"] = {d: v for d, v in gs["messages_per_day"].items() if d >= cutoff}
+        save_state(state)
 
 
 def _bump_join(guild_id: str) -> None:
-    state = load_state()
-    gs = state["activity_stats"].setdefault(str(guild_id), {})
-    gs.setdefault("joins_per_day", {})
-    today = _today()
-    gs["joins_per_day"][today] = gs["joins_per_day"].get(today, 0) + 1
-    save_state(state)
+    with _state_lock:
+        state = load_state()
+        gs = state["activity_stats"].setdefault(str(guild_id), {})
+        gs.setdefault("joins_per_day", {})
+        today = _today()
+        gs["joins_per_day"][today] = gs["joins_per_day"].get(today, 0) + 1
+        # Trim to the same 60-day window the chart shows so the file can't grow forever.
+        cutoff = (date.today() - timedelta(days=60)).isoformat()
+        gs["joins_per_day"] = {d: v for d, v in gs["joins_per_day"].items() if d >= cutoff}
+        save_state(state)
 
 
 def _bump_leave(guild_id: str) -> None:
-    state = load_state()
-    gs = state["activity_stats"].setdefault(str(guild_id), {})
-    gs.setdefault("leaves_per_day", {})
-    today = _today()
-    gs["leaves_per_day"][today] = gs["leaves_per_day"].get(today, 0) + 1
-    save_state(state)
+    with _state_lock:
+        state = load_state()
+        gs = state["activity_stats"].setdefault(str(guild_id), {})
+        gs.setdefault("leaves_per_day", {})
+        today = _today()
+        gs["leaves_per_day"][today] = gs["leaves_per_day"].get(today, 0) + 1
+        cutoff = (date.today() - timedelta(days=60)).isoformat()
+        gs["leaves_per_day"] = {d: v for d, v in gs["leaves_per_day"].items() if d >= cutoff}
+        save_state(state)
 
 
 def _add_voice_minutes(guild_id: str, user_id: str, minutes: float) -> None:
     if minutes <= 0:
         return
-    state = load_state()
-    gs = state["activity_stats"].setdefault(str(guild_id), {})
-    gs.setdefault("voice_minutes", {})
-    gs["voice_minutes"][str(user_id)] = round(gs["voice_minutes"].get(str(user_id), 0) + minutes, 2)
-    save_state(state)
+    with _state_lock:
+        state = load_state()
+        gs = state["activity_stats"].setdefault(str(guild_id), {})
+        gs.setdefault("voice_minutes", {})
+        gs["voice_minutes"][str(user_id)] = round(gs["voice_minutes"].get(str(user_id), 0) + minutes, 2)
+        save_state(state)
+
+
+def _resolve_user_name(guild_id: Optional[str], user_id: str) -> str:
+    """Look up a user's actual display name through the live bot cache.
+
+    Tries (in order): guild member nickname → guild member display_name →
+    global User.name → "User …last4" placeholder. Never raises.
+    """
+    try:
+        uid_int = int(user_id)
+    except (TypeError, ValueError):
+        return f"User {user_id}"
+    # 1) Per-guild member (gives nickname / server display name).
+    if guild_id:
+        try:
+            gid_int = int(guild_id)
+            g = bot.get_guild(gid_int) if bot is not None else None
+            if g is not None:
+                m = g.get_member(uid_int)
+                if m is not None:
+                    return m.display_name or m.name or f"User {user_id}"
+        except Exception:
+            pass
+    # 2) Try every guild the bot can see (covers cross-guild aggregate view).
+    if bot is not None:
+        try:
+            for g in bot.guilds:
+                m = g.get_member(uid_int)
+                if m is not None:
+                    return m.display_name or m.name or f"User {user_id}"
+        except Exception:
+            pass
+        # 3) Global user cache.
+        try:
+            u = bot.get_user(uid_int)
+            if u is not None:
+                return u.global_name or u.name or f"User {user_id}"
+        except Exception:
+            pass
+    # 4) Last-resort placeholder.
+    s = str(user_id)
+    return f"User …{s[-4:]}" if len(s) > 4 else (s or "Unknown")
+
+
+def _name_top_entries(entries, guild_id: Optional[str]):
+    """Decorate sorted (uid, value) tuples with a resolved display name.
+
+    Returns a list of [uid, value, name] triples — the chart code on the
+    dashboard reads index 2 first and falls back to index 0.
+    """
+    out = []
+    for uid, val in entries:
+        out.append([uid, val, _resolve_user_name(guild_id, uid)])
+    return out
 
 
 def get_analytics(guild_id: Optional[str] = None) -> Dict[str, Any]:
     state = load_state()
     if guild_id:
         gs = state["activity_stats"].get(str(guild_id), {})
+        chatters = sorted(gs.get("msg_per_user", {}).items(), key=lambda kv: kv[1], reverse=True)[:10]
+        voice    = sorted(gs.get("voice_minutes", {}).items(), key=lambda kv: kv[1], reverse=True)[:10]
         return {
             "guild_id": str(guild_id),
             "messages_per_day": gs.get("messages_per_day", {}),
             "joins_per_day": gs.get("joins_per_day", {}),
             "leaves_per_day": gs.get("leaves_per_day", {}),
-            "top_chatters": sorted(gs.get("msg_per_user", {}).items(), key=lambda kv: kv[1], reverse=True)[:10],
-            "top_voice": sorted(gs.get("voice_minutes", {}).items(), key=lambda kv: kv[1], reverse=True)[:10],
+            "top_chatters": _name_top_entries(chatters, guild_id),
+            "top_voice":    _name_top_entries(voice,    guild_id),
         }
     # aggregate across all guilds
     msg_per_day: Dict[str, int] = {}
@@ -843,13 +911,15 @@ def get_analytics(guild_id: Optional[str] = None) -> Dict[str, Any]:
             top_chatters[uid] = top_chatters.get(uid, 0) + n
         for uid, n in (gs.get("voice_minutes") or {}).items():
             top_voice[uid] = top_voice.get(uid, 0) + n
+    chatters = sorted(top_chatters.items(), key=lambda kv: kv[1], reverse=True)[:10]
+    voice    = sorted(top_voice.items(),    key=lambda kv: kv[1], reverse=True)[:10]
     return {
         "guild_id": None,
         "messages_per_day": msg_per_day,
         "joins_per_day": joins_per_day,
         "leaves_per_day": leaves_per_day,
-        "top_chatters": sorted(top_chatters.items(), key=lambda kv: kv[1], reverse=True)[:10],
-        "top_voice": sorted(top_voice.items(), key=lambda kv: kv[1], reverse=True)[:10],
+        "top_chatters": _name_top_entries(chatters, None),
+        "top_voice":    _name_top_entries(voice,    None),
     }
 
 

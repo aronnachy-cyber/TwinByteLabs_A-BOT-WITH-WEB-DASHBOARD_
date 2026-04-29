@@ -974,12 +974,18 @@ function makeBarChart(id, labels, data, label, yTitle='Count', yUnit=''){
   });
 }
 
-/* Resolve numeric Discord user IDs to display names from the guild option list. */
+/* Resolve a numeric Discord user ID to its display name.
+   The analytics API now returns a 3rd element on each top-chatter / top-voice
+   tuple containing the bot-resolved name (nickname → display name → username).
+   This helper is just a safety fallback used when the server didn't ship a name. */
 function nameForUserId(uid){
-  // Best-effort: server picker only knows guilds, so use the last 4 digits of the ID
-  // as a friendly tag (User ...1234) until the bot exposes a member roster.
   const s = String(uid || '');
   return s.length > 4 ? `User …${s.slice(-4)}` : (s || 'Unknown');
+}
+function labelForTopEntry(t){
+  // t = [user_id, value, resolved_name?]
+  if (Array.isArray(t) && t.length >= 3 && t[2]) return String(t[2]);
+  return nameForUserId(t && t[0]);
 }
 
 /* Drop a friendly "no data yet" overlay on top of an empty chart canvas
@@ -1035,11 +1041,11 @@ async function loadAnalytics(){
   makeLineChart('joinChart', days, [joinDS, leaveDS], 'Members', 'per day');
   makeLineChart('joinChart2', days, [joinDS, leaveDS], 'Members', 'per day');
 
-  const chatLabels = (a.top_chatters||[]).map(t => nameForUserId(t[0]));
+  const chatLabels = (a.top_chatters||[]).map(labelForTopEntry);
   const chatData   = (a.top_chatters||[]).map(t => t[1]);
   makeBarChart('topChattersChart', chatLabels, chatData, 'Messages sent (all-time)', 'Messages');
 
-  const voiceLabels = (a.top_voice||[]).map(t => nameForUserId(t[0]));
+  const voiceLabels = (a.top_voice||[]).map(labelForTopEntry);
   const voiceData   = (a.top_voice||[]).map(t => Math.round(t[1]));
   makeBarChart('voiceChart', voiceLabels, voiceData, 'Voice time (minutes)', 'Voice time', 'minutes');
 
