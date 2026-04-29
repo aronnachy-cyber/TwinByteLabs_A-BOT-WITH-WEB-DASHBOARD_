@@ -490,6 +490,10 @@ html.bl-compact .page-header { margin-bottom: 18px; }
         <i class="fas fa-star"></i> Feedback
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
       </div>
+      <div class="nav-item" onclick="showTab('embeds',this)" data-tab="embeds">
+        <i class="fas fa-paint-brush"></i> Embed Editor
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
       <div class="nav-item" onclick="showTab('account',this)" data-tab="account">
         <i class="fas fa-user-circle"></i> Account
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
@@ -1255,6 +1259,211 @@ html.bl-compact .page-header { margin-bottom: 18px; }
 .fb-item .body { color:var(--text); font-size:.9rem; white-space:pre-wrap; word-break:break-word; }
 .fb-item .empty { color:var(--muted); font-style:italic; }
 </style>
+
+<!-- ==================== EMBED EDITOR TAB ==================== -->
+<style>
+.emb-grid { display:grid; grid-template-columns: 280px 1fr; gap:18px; }
+@media (max-width: 980px) { .emb-grid { grid-template-columns: 1fr; } }
+.emb-list { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px; max-height:75vh; overflow-y:auto; }
+.emb-cat { font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; padding:10px 8px 4px; }
+.emb-row { padding:9px 10px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:0.88rem; }
+.emb-row:hover { background:rgba(255,255,255,0.04); }
+.emb-row.active { background:rgba(79,142,247,0.15); border:1px solid rgba(79,142,247,0.4); }
+.emb-row .pill { background:#f59e0b; color:#000; font-size:0.62rem; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:0.5px; }
+.emb-edit { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px; }
+.emb-edit label { display:block; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin:12px 0 6px; }
+.emb-edit input[type=text], .emb-edit textarea { width:100%; background:var(--bg-deep); color:#fff; border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:inherit; font-size:0.92rem; box-sizing:border-box; }
+.emb-edit textarea { min-height:90px; resize:vertical; }
+.emb-edit .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.emb-placeholder-chip { display:inline-block; background:rgba(79,142,247,0.12); border:1px solid rgba(79,142,247,0.35); color:#7eb1ff; padding:3px 9px; border-radius:14px; font-size:0.74rem; margin:3px 4px 3px 0; cursor:pointer; font-family:monospace; }
+.emb-placeholder-chip:hover { background:rgba(79,142,247,0.25); }
+.emb-preview { background:#36393f; border-left:4px solid #4f8ef7; border-radius:4px; padding:14px 16px; margin-top:14px; color:#dcddde; font-family: 'gg sans', 'Whitney', 'Helvetica Neue', sans-serif; }
+.emb-preview .pv-title { font-weight:600; font-size:1rem; margin-bottom:6px; color:#fff; }
+.emb-preview .pv-desc { font-size:0.92rem; white-space:pre-wrap; line-height:1.4; }
+.emb-preview .pv-footer { margin-top:10px; font-size:0.75rem; color:#a3a6aa; }
+.emb-preview img.pv-thumb { float:right; max-width:80px; max-height:80px; border-radius:6px; margin-left:14px; }
+.emb-actions { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+.emb-actions button { padding:9px 16px; border-radius:8px; border:none; font-weight:600; cursor:pointer; font-size:0.88rem; }
+.emb-btn-save { background:#10b981; color:#fff; }
+.emb-btn-reset { background:#374151; color:#fff; }
+.emb-btn-preview { background:#4f8ef7; color:#fff; }
+</style>
+<div id="embeds" class="tab-content">
+  <div class="card-title"><i class="fas fa-paint-brush"></i> Embed Editor — Customize SP4RK Messages</div>
+  <p style="color:var(--muted); margin-bottom:18px;">Edit the title, description, color and footer of any embed SP4RK sends. Changes apply globally across all servers SP4RK is in. Use the placeholder chips below to insert dynamic values.</p>
+  <div class="emb-grid">
+    <div class="emb-list" id="emb-list"><div style="padding:14px; color:var(--muted);">Loading templates…</div></div>
+    <div class="emb-edit" id="emb-edit"><div style="color:var(--muted); padding:30px; text-align:center;">← Pick a template on the left to start editing.</div></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const EMB_API = '/api/embeds';
+  let _embTemplates = [];
+  let _embSelected = null;
+
+  async function embLoad() {
+    const r = await fetch(EMB_API);
+    const j = await r.json();
+    if (!j.ok) return;
+    _embTemplates = j.items || [];
+    embRenderList();
+  }
+
+  function embRenderList() {
+    const host = document.getElementById('emb-list');
+    if (!host) return;
+    const byCat = {};
+    _embTemplates.forEach(t => {
+      const c = t.category || 'Other';
+      (byCat[c] = byCat[c] || []).push(t);
+    });
+    let html = '';
+    Object.keys(byCat).forEach(cat => {
+      html += `<div class="emb-cat">${cat}</div>`;
+      byCat[cat].forEach(t => {
+        const active = (_embSelected === t.key) ? ' active' : '';
+        const pill = t.has_override ? '<span class="pill">edited</span>' : '';
+        html += `<div class="emb-row${active}" onclick="embSelect('${t.key}')">
+          <span>${t.label}</span>${pill}
+        </div>`;
+      });
+    });
+    host.innerHTML = html;
+  }
+
+  window.embSelect = function(key) {
+    _embSelected = key;
+    const t = _embTemplates.find(x => x.key === key);
+    if (!t) return;
+    embRenderList();
+    embRenderEditor(t);
+  };
+
+  function embRenderEditor(t) {
+    const host = document.getElementById('emb-edit');
+    const eff = t.effective || t.default || {};
+    const colorHex = '#' + (eff.color || 0).toString(16).padStart(6, '0');
+    const placeholders = (t.placeholders || []).map(p =>
+      `<span class="emb-placeholder-chip" onclick="embInsert('{${p}}')">{${p}}</span>`
+    ).join('');
+    host.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div>
+          <div style="font-size:1.1rem; font-weight:700;">${t.label}</div>
+          <div style="color:var(--muted); font-size:0.85rem; margin-top:3px;">${t.description || ''}</div>
+        </div>
+        <code style="background:var(--bg-deep); padding:4px 10px; border-radius:6px; font-size:0.75rem; color:#7eb1ff;">${t.key}</code>
+      </div>
+      ${placeholders ? `<div style="margin-top:14px;"><div style="font-size:0.78rem; color:var(--muted); margin-bottom:6px;">Click to insert into the focused field:</div>${placeholders}</div>` : ''}
+      <label>Title</label>
+      <input type="text" id="emb-f-title" value="${embEsc(eff.title || '')}" />
+      <label>Description</label>
+      <textarea id="emb-f-description">${embEsc(eff.description || '')}</textarea>
+      <div class="row2">
+        <div>
+          <label>Color</label>
+          <input type="color" id="emb-f-color" value="${colorHex}" style="width:100%; height:42px; background:var(--bg-deep); border:1px solid var(--border); border-radius:8px; cursor:pointer;" />
+        </div>
+        <div>
+          <label>Footer</label>
+          <input type="text" id="emb-f-footer" value="${embEsc(eff.footer || '')}" />
+        </div>
+      </div>
+      <label>Thumbnail URL <span style="color:var(--muted); text-transform:none; font-size:0.7rem;">(supports placeholders like {user_avatar})</span></label>
+      <input type="text" id="emb-f-thumbnail" value="${embEsc(eff.thumbnail || '')}" />
+      <div class="emb-actions">
+        <button class="emb-btn-preview" onclick="embPreview()"><i class="fas fa-eye"></i> Preview</button>
+        <button class="emb-btn-save" onclick="embSave()"><i class="fas fa-save"></i> Save</button>
+        <button class="emb-btn-reset" onclick="embReset()"><i class="fas fa-undo"></i> Reset to Default</button>
+      </div>
+      <div id="emb-preview-box"></div>
+    `;
+    embPreview();
+  }
+
+  function embEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function embCollect() {
+    const colorHex = (document.getElementById('emb-f-color').value || '#3a8ff7').replace('#','');
+    return {
+      title: document.getElementById('emb-f-title').value,
+      description: document.getElementById('emb-f-description').value,
+      color: parseInt(colorHex, 16),
+      footer: document.getElementById('emb-f-footer').value,
+      thumbnail: document.getElementById('emb-f-thumbnail').value,
+    };
+  }
+
+  let _embFocused = null;
+  document.addEventListener('focusin', (e) => {
+    if (e.target.id && e.target.id.startsWith('emb-f-') && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+      _embFocused = e.target;
+    }
+  });
+
+  window.embInsert = function(token) {
+    const el = _embFocused;
+    if (!el) return;
+    const start = el.selectionStart || 0, end = el.selectionEnd || 0;
+    el.value = el.value.slice(0, start) + token + el.value.slice(end);
+    el.focus();
+    el.setSelectionRange(start + token.length, start + token.length);
+  };
+
+  window.embPreview = async function() {
+    if (!_embSelected) return;
+    const r = await fetch(EMB_API + '/preview', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ key: _embSelected, override: embCollect() })
+    });
+    const j = await r.json();
+    if (!j.ok) return;
+    const p = j.preview || {};
+    const colorHex = '#' + (p.color || 0).toString(16).padStart(6, '0');
+    const box = document.getElementById('emb-preview-box');
+    box.innerHTML = `
+      <div class="emb-preview" style="border-left-color:${colorHex};">
+        ${p.thumbnail ? `<img class="pv-thumb" src="${p.thumbnail}" alt="" onerror="this.style.display='none'"/>` : ''}
+        ${p.title ? `<div class="pv-title">${embEsc(p.title)}</div>` : ''}
+        ${p.description ? `<div class="pv-desc">${embEsc(p.description)}</div>` : ''}
+        ${p.footer ? `<div class="pv-footer">${embEsc(p.footer)}</div>` : ''}
+      </div>`;
+  };
+
+  window.embSave = async function() {
+    if (!_embSelected) return;
+    const r = await fetch(EMB_API, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ key: _embSelected, override: embCollect() })
+    });
+    const j = await r.json();
+    if (j.ok) { showToast && showToast('Embed saved', 'success'); embLoad(); }
+    else      { alert('Save failed: ' + (j.error || 'unknown')); }
+  };
+
+  window.embReset = async function() {
+    if (!_embSelected) return;
+    if (!confirm('Reset this embed to the default template? Your custom text will be lost.')) return;
+    const r = await fetch(EMB_API, {
+      method: 'DELETE', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ key: _embSelected })
+    });
+    const j = await r.json();
+    if (j.ok) {
+      showToast && showToast('Reset to default', 'success');
+      await embLoad();
+      const t = _embTemplates.find(x => x.key === _embSelected);
+      if (t) embRenderEditor(t);
+    }
+  };
+
+  // Lazy-load when the user first opens the tab.
+  const navItem = document.querySelector('[data-tab="embeds"]');
+  if (navItem) navItem.addEventListener('click', () => { if (!_embTemplates.length) embLoad(); });
+})();
+</script>
 
 <!-- ==================== ACCOUNT TAB ==================== -->
 <div id="account" class="tab-content">

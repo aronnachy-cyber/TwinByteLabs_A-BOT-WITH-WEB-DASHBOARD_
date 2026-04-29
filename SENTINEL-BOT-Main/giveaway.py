@@ -143,20 +143,20 @@ def _upsert(record):
 async def start_giveaway(bot, channel, duration_seconds, prize, host, winners=1):
     ends_at_dt = datetime.utcnow() + timedelta(seconds=duration_seconds)
     ends_at = ends_at_dt.isoformat()
-    embed = discord.Embed(
-        title="🎉 GIVEAWAY 🎉",
-        description=(
-            f"**Prize:** {prize}\n"
-            f"**Winners:** {winners}\n"
-            f"**Hosted by:** {host.mention}\n"
-            f"**Ends:** <t:{int(ends_at_dt.timestamp())}:R>\n\n"
-            f"React with 🎉 to enter!"
-        ),
-        color=0x3a8fff,
+    import embeds as _emb
+    embed = _emb.render(
+        "sp4rk.giveaway_active",
+        guild_id=getattr(channel.guild, "id", None),
+        prize=prize, winners=winners, host=host,
+        ends_at_relative=f"<t:{int(ends_at_dt.timestamp())}:R>",
+        ends_at_absolute=f"{ends_at_dt.strftime('%Y-%m-%d %H:%M')} UTC",
     )
-    embed.set_footer(text=f"Ends at {ends_at_dt.strftime('%Y-%m-%d %H:%M')} UTC")
     msg = await channel.send(embed=embed)
-    await msg.add_reaction("🎉")
+    try:
+        await msg.add_reaction("🎉")
+    except discord.Forbidden:
+        # Bot lacks "Add Reactions" — leave the giveaway alive but warn in console.
+        print(f"[giveaway] could not add 🎉 reaction in #{channel.name} — missing Add Reactions permission.")
 
     giveaway = {
         "id": msg.id,
@@ -246,27 +246,27 @@ async def end_giveaway(bot, message_id, channel_id, force=False):
                     entries.append(user)
 
         num_winners = giveaway.get("winners", 1)
+        import embeds as _emb
+        gid_for_render = getattr(channel.guild, "id", None)
         if entries:
             winners = random.sample(entries, min(num_winners, len(entries)))
             winner_mentions = ", ".join(w.mention for w in winners)
             winner_names = ", ".join(str(w) for w in winners)
-            embed = discord.Embed(
-                title="🎉 Giveaway Ended!",
-                description=(
-                    f"**Prize:** {giveaway['prize']}\n"
-                    f"**Winner(s):** {winner_mentions}\n"
-                    f"**Hosted by:** <@{giveaway['host_id']}>"
-                ),
-                color=0x2ecc71,
+            embed = _emb.render(
+                "sp4rk.giveaway_ended",
+                guild_id=gid_for_render,
+                prize=giveaway["prize"],
+                winners_mentions=winner_mentions,
+                host=f"<@{giveaway['host_id']}>",
             )
             await message.edit(embed=embed)
             await channel.send(f"🎉 Congratulations {winner_mentions}! You won **{giveaway['prize']}**!")
             giveaway["winner_names"] = winner_names
         else:
-            embed = discord.Embed(
-                title="🎉 Giveaway Ended",
-                description=f"**Prize:** {giveaway['prize']}\nNo valid entries. No winner.",
-                color=0xe74c3c,
+            embed = _emb.render(
+                "sp4rk.giveaway_no_entries",
+                guild_id=gid_for_render,
+                prize=giveaway["prize"],
             )
             await message.edit(embed=embed)
             await channel.send("😔 No one entered the giveaway. No winner.")

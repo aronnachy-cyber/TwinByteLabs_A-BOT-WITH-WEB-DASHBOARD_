@@ -1042,7 +1042,7 @@ async def on_member_join(member):
     await moderation.handle_auto_role(member, config)
     await security.anti_raid_check(member, config, dm_callback=dm_all_owners, log_callback=dlog)
     await social.send_welcome_message(bot, member, config)
-    await logs.log_event(bot, config, "👋 New Member", f"{member.mention} joined **{member.guild.name}**")
+    await logs.log_template(bot, config, "sp4rk.welcome", user=member, server=member.guild)
     dlog("👋 JOIN", f"{member} joined {member.guild.name}")
 
 @bot.event
@@ -1053,13 +1053,13 @@ async def on_member_update(before, after):
 @bot.event
 async def on_member_ban(guild, user):
     refresh_config()
-    await logs.log_event(bot, config, "⛔ Member Banned", f"{user} was banned from **{guild.name}**", color=0xe74c3c)
+    await logs.log_template(bot, config, "sp4rk.member_banned", user=user, server=guild)
     dlog("⛔ BAN", f"{user} banned from {guild.name}")
 
 @bot.event
 async def on_member_remove(member):
     refresh_config()
-    await logs.log_event(bot, config, "🚪 Member Left", f"{member.mention} left **{member.guild.name}**", color=0xe67e22)
+    await logs.log_template(bot, config, "sp4rk.leave", user=member, server=member.guild)
     dlog("🚪 LEAVE", f"{member} left {member.guild.name}")
 
 @bot.event
@@ -1084,23 +1084,13 @@ async def on_message_edit(before, after):
     log_ch = config.get("log_channel", "").strip()
     if not log_ch:
         return
-    try:
-        channel = bot.get_channel(int(log_ch))
-        if channel:
-            embed = discord.Embed(
-                title="✏️ Message Edited",
-                color=0x3498db,
-                timestamp=datetime.utcnow()
-            )
-            embed.add_field(name="Author",  value=f"{before.author.mention} (`{before.author}`)", inline=False)
-            embed.add_field(name="Channel", value=before.channel.mention, inline=False)
-            embed.add_field(name="Before",  value=before.content[:1000] or "*empty*", inline=False)
-            embed.add_field(name="After",   value=after.content[:1000]  or "*empty*", inline=False)
-            embed.add_field(name="Jump",    value=f"[Go to message]({after.jump_url})", inline=False)
-            embed.set_footer(text=f"User ID: {before.author.id}")
-            await channel.send(embed=embed)
-    except Exception as e:
-        print(f"Edit log error: {e}")
+    await logs.log_template(
+        bot, config, "sp4rk.message_edit",
+        user=before.author, channel=before.channel,
+        before=(before.content[:1000] or "*empty*"),
+        after=(after.content[:1000] or "*empty*"),
+        jump_url=after.jump_url,
+    )
     dlog("✏️ MSG-EDIT", f"{before.author} edited a message in #{before.channel.name}")
 
 # Per-channel snipe cache: { channel_id: {"author": str, "content": str, "ts": datetime} }
@@ -1124,21 +1114,11 @@ async def on_message_delete(message):
     log_ch = config.get("log_channel", "").strip()
     if not log_ch:
         return
-    try:
-        channel = bot.get_channel(int(log_ch))
-        if channel:
-            embed = discord.Embed(
-                title="🗑️ Message Deleted",
-                color=0xe74c3c,
-                timestamp=datetime.utcnow()
-            )
-            embed.add_field(name="Author",  value=f"{message.author.mention} (`{message.author}`)", inline=False)
-            embed.add_field(name="Channel", value=message.channel.mention, inline=False)
-            embed.add_field(name="Content", value=message.content[:1000] or "*empty / attachment*", inline=False)
-            embed.set_footer(text=f"User ID: {message.author.id}")
-            await channel.send(embed=embed)
-    except Exception as e:
-        print(f"Delete log error: {e}")
+    await logs.log_template(
+        bot, config, "sp4rk.message_delete",
+        user=message.author, channel=message.channel,
+        content=(message.content[:1000] or "*empty / attachment*"),
+    )
     dlog("🗑️ MSG-DELETE", f"{message.author} deleted a message in #{message.channel.name}")
 
 @bot.event
@@ -1152,38 +1132,20 @@ async def on_voice_state_update(member, before, after):
         return
 
     try:
-        channel = bot.get_channel(int(log_ch))
-        if not channel:
-            return
         if before.channel is None:
-            # Joined VC
-            embed = discord.Embed(
-                title="🔊 Joined Voice",
-                description=f"{member.mention} joined **{after.channel.name}**",
-                color=0x2ecc71,
-                timestamp=datetime.utcnow()
-            )
+            await logs.log_template(bot, config, "sp4rk.voice_join",
+                                    user=member, channel=after.channel)
             dlog("🔊 VC-JOIN", f"{member} joined VC: {after.channel.name}")
         elif after.channel is None:
-            # Left VC
-            embed = discord.Embed(
-                title="🔇 Left Voice",
-                description=f"{member.mention} left **{before.channel.name}**",
-                color=0xe74c3c,
-                timestamp=datetime.utcnow()
-            )
+            await logs.log_template(bot, config, "sp4rk.voice_leave",
+                                    user=member, channel=before.channel)
             dlog("🔇 VC-LEAVE", f"{member} left VC: {before.channel.name}")
         else:
-            # Moved VC
-            embed = discord.Embed(
-                title="🔀 Moved Voice Channel",
-                description=f"{member.mention} moved from **{before.channel.name}** → **{after.channel.name}**",
-                color=0xf39c12,
-                timestamp=datetime.utcnow()
-            )
+            # Moved VC — reuse leave template with combined channel string
+            move_chan = f"**{before.channel.name}** → **{after.channel.name}**"
+            await logs.log_template(bot, config, "sp4rk.voice_leave",
+                                    user=member, channel=move_chan)
             dlog("🔀 VC-MOVE", f"{member} moved: {before.channel.name} → {after.channel.name}")
-        embed.set_footer(text=f"User ID: {member.id}")
-        await channel.send(embed=embed)
     except Exception as e:
         print(f"Voice log error: {e}")
 
@@ -1348,7 +1310,9 @@ async def warn(ctx, member: discord.Member, *, reason="Violation"):
     entry = _get_member_entry(str(ctx.guild.id), str(member.id))
     count = entry["count"]
     await ctx.send(f"⚠️ {member.mention} has been warned! Now at **{count}** warning(s).\nReason: {reason}")
-    await logs.log_event(bot, config, "⚠️ Warning Issued", f"{member} warned by {ctx.author} | Reason: {reason}", color=0xf39c12)
+    await logs.log_template(bot, config, "sp4rk.warn",
+                            user=member, moderator=ctx.author,
+                            reason=reason, warn_count=count)
 
 @bot.command()
 @commands.has_permissions(manage_messages=True)
@@ -1419,7 +1383,9 @@ async def timeout_member(ctx, member: discord.Member, duration: str, *, reason="
         until = discord.utils.utcnow() + timedelta(seconds=seconds)
         await member.timeout(until, reason=reason)
         await ctx.send(f"⏱️ {member.mention} has been timed out for **{label}**. Reason: {reason}")
-        await logs.log_event(bot, config, "⏱️ Timeout", f"{member} timed out by {ctx.author} for {label} | Reason: {reason}", color=0xf39c12)
+        await logs.log_template(bot, config, "sp4rk.timeout",
+                                user=member, moderator=ctx.author,
+                                duration=label, reason=reason)
         supabase_save_mod_log(ctx.guild.id, "timeout", str(member), str(ctx.author), f"{label} — {reason}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("⏱️ TIMEOUT", f"{member} timed out for {label} by {ctx.author}")
     except discord.Forbidden:
@@ -1449,7 +1415,8 @@ async def unban_member(ctx, user_id: int, *, reason="No reason provided"):
         user = await bot.fetch_user(user_id)
         await ctx.guild.unban(user, reason=reason)
         await ctx.send(f"✅ {user} has been unbanned. Reason: {reason}")
-        await logs.log_event(bot, config, "✅ Unban", f"{user} unbanned by {ctx.author} | Reason: {reason}", color=0x2ecc71)
+        await logs.log_template(bot, config, "sp4rk.unban",
+                                user=user, moderator=ctx.author, reason=reason)
         supabase_save_mod_log(ctx.guild.id, "unban", str(user), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("✅ UNBAN", f"{user} unbanned by {ctx.author}")
     except discord.NotFound:
@@ -1536,7 +1503,8 @@ async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
     try:
         await member.kick(reason=reason)
         await ctx.send(f"🚪 {member.mention} has been kicked! Reason: {reason}")
-        await logs.log_event(bot, config, "🚪 Kick", f"{member} kicked by {ctx.author} | Reason: {reason}", color=0xe67e22)
+        await logs.log_template(bot, config, "sp4rk.kick",
+                                user=member, moderator=ctx.author, reason=reason)
         await dm_owner("kick", str(member), reason, str(ctx.author))
         supabase_save_mod_log(ctx.guild.id, "kick", str(member), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("🚪 KICK", f"{member} kicked by {ctx.author} — {reason}")
@@ -1561,7 +1529,8 @@ async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
     try:
         await member.ban(reason=reason)
         await ctx.send(f"⛔ {member.mention} has been permanently banned! Reason: {reason}")
-        await logs.log_event(bot, config, "⛔ Ban", f"{member} banned by {ctx.author} | Reason: {reason}", color=0xe74c3c)
+        await logs.log_template(bot, config, "sp4rk.ban",
+                                user=member, moderator=ctx.author, reason=reason)
         await dm_owner("ban", str(member), reason, str(ctx.author))
         supabase_save_mod_log(ctx.guild.id, "ban", str(member), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("⛔ BAN", f"{member} banned by {ctx.author} — {reason}")
@@ -1958,15 +1927,16 @@ def _build_userinfo_embed(member: discord.Member, requester: discord.abc.User) -
             activity_str = f"🎯 {verb} **{act.name}**"
             break
 
-    # Acknowledgements / badges
+    # Acknowledgements / badges — guard against User (not Member) which has no guild_permissions
+    is_member = isinstance(member, discord.Member)
     acks = []
-    if guild.owner_id == member.id:
+    if is_member and guild.owner_id == member.id:
         acks.append("👑 Server Owner")
-    if member.guild_permissions.administrator:
+    if is_member and member.guild_permissions.administrator:
         acks.append("🛡️ Administrator")
-    elif member.guild_permissions.manage_guild:
+    elif is_member and member.guild_permissions.manage_guild:
         acks.append("⚙️ Manage Server")
-    elif member.guild_permissions.manage_messages or member.guild_permissions.kick_members:
+    elif is_member and (member.guild_permissions.manage_messages or member.guild_permissions.kick_members):
         acks.append("🔧 Moderator")
     if member.bot:
         acks.append("🤖 Bot")
@@ -1974,9 +1944,9 @@ def _build_userinfo_embed(member: discord.Member, requester: discord.abc.User) -
         acks.append("🚀 Server Booster")
     ack_str = " · ".join(acks) if acks else "_Member_"
 
-    # Key permissions (compact)
+    # Key permissions (compact) — only available on Member objects
     perms = []
-    gp = member.guild_permissions
+    gp = member.guild_permissions if is_member else None
     perm_map = [
         (gp.administrator,    "Administrator"),
         (gp.manage_guild,     "Manage Server"),
@@ -1986,14 +1956,15 @@ def _build_userinfo_embed(member: discord.Member, requester: discord.abc.User) -
         (gp.ban_members,      "Ban Members"),
         (gp.kick_members,     "Kick Members"),
         (gp.mention_everyone, "Mention Everyone"),
-    ]
+    ] if gp is not None else []
     for has, label in perm_map:
         if has:
             perms.append(label)
     perms_str = ", ".join(perms) if perms else "_None_"
 
     # Embed color from top role, fallback to brand blue
-    color = member.color if str(member.color) != "#000000" else discord.Color(0x4f8ef7)
+    member_color = getattr(member, "color", None)
+    color = member_color if (member_color and member_color != discord.Color.default()) else discord.Color(0x4f8ef7)
 
     embed = discord.Embed(
         title=f"👤 {member.display_name}",

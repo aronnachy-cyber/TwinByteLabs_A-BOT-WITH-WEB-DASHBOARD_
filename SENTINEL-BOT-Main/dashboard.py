@@ -2401,6 +2401,137 @@ def so_api_avatar_delete():
     return jsonify({"ok": True, "data": result})
 
 
+# ============================================================
+# 🎨 EMBED EDITOR API (shared by SP4RK + Server Official)
+# ============================================================
+import embeds as _embeds_mod
+
+
+def _embeds_for_bot(bot: str, guild_id=None):
+    """Return [{key, label, default, override, effective, ...}] for a bot."""
+    items = []
+    for entry in _embeds_mod.list_for_bot(bot):
+        key = entry["key"]
+        items.append({
+            "key": key,
+            "label": entry.get("label", key),
+            "category": entry.get("category", ""),
+            "description": entry.get("description", ""),
+            "placeholders": entry.get("placeholders", []),
+            "default": entry["default"],
+            "override": _embeds_mod.get_override(key, guild_id=guild_id),
+            "effective": _embeds_mod.get_effective(key, guild_id=guild_id),
+            "has_override": _embeds_mod.has_override(key, guild_id=guild_id),
+        })
+    return items
+
+
+@app.route('/api/embeds', methods=['GET'])
+def api_embeds_list():
+    """List SP4RK embed templates (with optional ?guild_id=)."""
+    gid = request.args.get("guild_id")
+    return jsonify({"ok": True, "items": _embeds_for_bot("sp4rk", guild_id=gid)})
+
+
+@app.route('/api/embeds', methods=['POST'])
+def api_embeds_save():
+    """Save an SP4RK embed override. Body: {key, override:{title,description,color,footer,...}, guild_id?}"""
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    override = body.get("override") or {}
+    gid = body.get("guild_id")
+    if not key or not key.startswith("sp4rk."):
+        return jsonify({"ok": False, "error": "invalid key"}), 400
+    try:
+        _embeds_mod.save_override(key, override, guild_id=gid)
+        actor = _current_actor() if "_current_actor" in globals() else "dashboard"
+        try:
+            so.add_bot_action("embed_edit", f"Edited embed {key}" + (f" (guild {gid})" if gid else " (global)"), actor)
+        except Exception:
+            pass
+        return jsonify({"ok": True, "effective": _embeds_mod.get_effective(key, guild_id=gid)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route('/api/embeds', methods=['DELETE'])
+def api_embeds_reset():
+    """Reset an SP4RK embed override to default. Body: {key, guild_id?}"""
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    gid = body.get("guild_id")
+    if not key:
+        return jsonify({"ok": False, "error": "missing key"}), 400
+    _embeds_mod.reset_override(key, guild_id=gid)
+    return jsonify({"ok": True, "effective": _embeds_mod.get_effective(key, guild_id=gid)})
+
+
+@app.route('/api/embeds/preview', methods=['POST'])
+def api_embeds_preview():
+    """Preview an embed (rendered with sample placeholders).
+    Body: {key, override?, guild_id?}  — override is the unsaved draft.
+    Returns the rendered embed as a dict for client-side preview."""
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "missing key"}), 400
+    try:
+        preview = _embeds_mod.preview(key, payload=body.get("override"), guild_id=body.get("guild_id"))
+        return jsonify({"ok": True, "preview": preview})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+# ---- Server Official embed editor (same logic, namespaced) ----
+@app.route('/server-official/api/embeds', methods=['GET'])
+def so_api_embeds_list():
+    gid = request.args.get("guild_id")
+    return jsonify({"ok": True, "items": _embeds_for_bot("server_official", guild_id=gid)})
+
+
+@app.route('/server-official/api/embeds', methods=['POST'])
+def so_api_embeds_save():
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    override = body.get("override") or {}
+    gid = body.get("guild_id")
+    if not key or not key.startswith("so."):
+        return jsonify({"ok": False, "error": "invalid key"}), 400
+    try:
+        _embeds_mod.save_override(key, override, guild_id=gid)
+        try:
+            so.add_bot_action("embed_edit", f"Edited embed {key}" + (f" (guild {gid})" if gid else " (global)"), _current_actor())
+        except Exception:
+            pass
+        return jsonify({"ok": True, "effective": _embeds_mod.get_effective(key, guild_id=gid)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route('/server-official/api/embeds', methods=['DELETE'])
+def so_api_embeds_reset():
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    gid = body.get("guild_id")
+    if not key:
+        return jsonify({"ok": False, "error": "missing key"}), 400
+    _embeds_mod.reset_override(key, guild_id=gid)
+    return jsonify({"ok": True, "effective": _embeds_mod.get_effective(key, guild_id=gid)})
+
+
+@app.route('/server-official/api/embeds/preview', methods=['POST'])
+def so_api_embeds_preview():
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "missing key"}), 400
+    try:
+        preview = _embeds_mod.preview(key, payload=body.get("override"), guild_id=body.get("guild_id"))
+        return jsonify({"ok": True, "preview": preview})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
 # ---- HEALTH CHECK ----
 @app.route('/health')
 def health():

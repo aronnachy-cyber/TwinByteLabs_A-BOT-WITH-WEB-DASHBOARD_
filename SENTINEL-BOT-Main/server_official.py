@@ -950,7 +950,14 @@ async def _post_log(guild: discord.Guild, log_type: str, description: str):
         ch = guild.get_channel(int(cid)) if cid.isdigit() else None
         if ch:
             try:
-                await ch.send(embed=_embed(f"📋 {log_type}", description, color=0x6366f1))
+                import embeds as _emb
+                e = _emb.render(
+                    "so.log_event",
+                    guild_id=guild.id,
+                    log_type=log_type,
+                    description=description,
+                )
+                await ch.send(embed=e)
             except Exception:
                 pass
 
@@ -979,11 +986,18 @@ async def on_member_join(member: discord.Member):
         if ch:
             text = msg_tpl.replace("{user}", member.mention).replace("{server}", g.name).replace("{count}", str(g.member_count or 0))
             try:
-                e = _embed(f"👋 Welcome to {g.name}!", text, color=0x10b981)
-                e.set_thumbnail(url=member.display_avatar.url)
-                e.add_field(name="You are member", value=f"#{g.member_count or 0}", inline=True)
-                e.add_field(name="Account age", value=f"<t:{int(member.created_at.timestamp())}:R>", inline=True)
-                e.set_footer(text=f"Have a great time here, {member.display_name}!")
+                import embeds as _emb
+                e = _emb.render(
+                    "so.welcome",
+                    guild_id=g.id,
+                    user=member,
+                    server=g,
+                    welcome_text=text,
+                    member_number=g.member_count or 0,
+                    account_age=f"<t:{int(member.created_at.timestamp())}:R>",
+                )
+                if not e.thumbnail or not e.thumbnail.url:
+                    e.set_thumbnail(url=member.display_avatar.url)
                 await ch.send(content=member.mention, embed=e)
             except Exception:
                 pass
@@ -1027,10 +1041,17 @@ async def on_member_remove(member: discord.Member):
         if ch:
             text = msg_tpl.replace("{user}", f"**{member.display_name}**").replace("{server}", g.name)
             try:
-                e = _embed("👋 A member just left", text, color=0x6b7280)
-                e.set_thumbnail(url=member.display_avatar.url)
-                e.add_field(name="Members remaining", value=f"**{g.member_count or 0}**", inline=True)
-                e.set_footer(text=f"We'll miss you, {member.display_name}.")
+                import embeds as _emb
+                e = _emb.render(
+                    "so.leave",
+                    guild_id=g.id,
+                    user=member,
+                    server=g,
+                    leave_text=text,
+                    members_remaining=g.member_count or 0,
+                )
+                if not e.thumbnail or not e.thumbnail.url:
+                    e.set_thumbnail(url=member.display_avatar.url)
                 await ch.send(embed=e)
             except Exception:
                 pass
@@ -1907,7 +1928,14 @@ async def reminder_tick():
 async def daily_backup_tick():
     if not bot.is_ready():
         return
-    create_backup(label="auto-daily")
+    try:
+        create_backup(label="auto-daily")
+    except Exception as e:
+        # Never let a backup failure (disk full, perm error, etc) kill the loop.
+        try:
+            logger.error(f"[daily_backup_tick] backup failed: {e}")
+        except Exception:
+            print(f"[daily_backup_tick] backup failed: {e}")
 
 
 @tasks.loop(hours=6)

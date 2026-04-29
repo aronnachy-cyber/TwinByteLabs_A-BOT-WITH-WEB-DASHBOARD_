@@ -232,3 +232,24 @@ Enhanced `templates/bots.html` while keeping all existing IDs/classes intact:
 - **Banner shimmer sweep** on hover; **icon halo glow** with pulse animation on Coming Soon cards.
 - **Build-progress bar** on Tempo (65%) and Pulse (40%) with shimmer fill, animated in via IntersectionObserver.
 - All new CSS uses `bx-` prefix to avoid colliding with the existing `bot-`/`so*` names used by the dev edit modal.
+
+## V2.8.3 — Embed Editor + Bot Hardening (Apr 2026)
+**New: Centralized Embed System (`embeds.py`)** — 22 editable embed templates (17 SP4RK + 5 Server Official) covering welcome/leave, all moderation actions, message logs, voice events, tickets, giveaways, starboard, and SO log/announcement. Stored as default ← global override ← per-guild override in `embed_templates.json` (atomic write via tmp+os.replace, thread-safe). Placeholder substitution for `{user_mention}`, `{server_name}`, `{moderator}`, `{reason}`, `{warn_count}`, `{ticket_id}`, `{prize}`, etc.
+
+**Wired callsites**: `main.py` (warn/kick/ban/timeout/unban + welcome/leave/member_ban + message_edit/message_delete + voice events), `tickets.py` (open/close), `giveaway.py` (active/ended/no_entries), `server_official.py` (welcome/leave + `_post_log` helper), `so_extras.py` (starboard). Bots now render every embed through `embeds.render(key, ...)` or `logs.log_template(bot, config, key, ...)`.
+
+**Dashboard Embed Editor tab** in both `/dashboard` (SP4RK) and `/server-official`:
+- Sidebar nav item with paint-brush icon
+- Two-pane layout: category-grouped template list (with "edited" pill for customized ones) + editor
+- Fields: title, description, color picker, footer, thumbnail URL
+- Click-to-insert placeholder chips that target the focused field
+- Live Discord-style preview rendered server-side (`embeds.preview()` returns rendered JSON)
+- Save / Reset to Default / Preview buttons
+- Backend: `GET/POST/DELETE /api/embeds`, `POST /api/embeds/preview` (SP4RK); same under `/server-official/api/embeds` (SO). Save logs an `embed_edit` audit entry via `so.add_bot_action`.
+
+**Bug fixes shipped this round**:
+- `automod_ai.py`: switched from blocking `requests.post` to `aiohttp` so AI moderation no longer freezes the bot's event loop on slow Gemini calls.
+- `reaction_roles.py`: `_local_save` now writes via tmp + `os.replace` so a crash mid-write can't corrupt the persistence file.
+- `main.py` `userinfo`: guards against `discord.User` (vs `Member`) and uses `discord.Color.default()` comparison instead of comparing `.value` against `0`.
+- `server_official.py` `daily_backup_tick`: wrapped the body in try/except so a single failed backup can't kill the recurring task.
+- `giveaway.py`: added `discord.Forbidden` guard around `add_reaction("🎉")` so a missing "Add Reactions" perm logs a warning instead of crashing the start command.

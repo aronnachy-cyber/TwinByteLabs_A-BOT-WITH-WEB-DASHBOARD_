@@ -397,6 +397,7 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
   <button class="sb-item" data-section="automation"><i class="fas fa-robot"></i> Automation</button>
   <button class="sb-item" data-section="integrations"><i class="fas fa-plug"></i> Integrations</button>
   <button class="sb-item" data-section="backups"><i class="fas fa-cloud-arrow-down"></i> Backups</button>
+  <button class="sb-item" data-section="embeds"><i class="fas fa-paint-brush"></i> Embed Editor</button>
   <div class="sb-foot">
     Bot: <span id="botStatusFoot">{{ 'ONLINE' if bot_running else 'OFFLINE' }}</span><br>
     <a href="{{ url_for('bots_showcase') }}" style="color:var(--accent);">← All bots</a>
@@ -786,6 +787,20 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
       <h2><i class="fas fa-circle-exclamation"></i> One-click Reset</h2>
       <p class="help">Wipes all server-official state for the selected server (configs, notes, goals, etc). Use with caution. A backup is created first.</p>
       <button class="btn btn-danger" onclick="if(confirm('Wipe state for selected server?')) resetGuild()"><i class="fas fa-trash"></i> Reset selected server</button>
+    </div>
+  </section>
+
+  <!-- ==================== EMBED EDITOR SECTION ==================== -->
+  <section class="section" data-section="embeds">
+    <h2 class="page-title"><i class="fas fa-paint-brush"></i> Embed Editor</h2>
+    <p class="help">Customize the title, description, color, and footer of every embedded message Server Official sends. Click any template on the left to start editing — changes apply globally across all servers.</p>
+    <div style="display:grid; grid-template-columns:280px 1fr; gap:18px; margin-top:16px;" id="so-emb-grid">
+      <div id="so-emb-list" class="card" style="padding:10px; max-height:75vh; overflow-y:auto;">
+        <div style="padding:14px; color:var(--muted);">Loading templates…</div>
+      </div>
+      <div id="so-emb-edit" class="card" style="padding:18px;">
+        <div style="color:var(--muted); padding:30px; text-align:center;">← Pick a template on the left to start editing.</div>
+      </div>
     </div>
   </section>
 
@@ -1411,6 +1426,161 @@ async function blPingHealth(){
   } catch(e){ toast('Health check failed', 'err'); }
 }
 {% endif %}
+
+/* ============ EMBED EDITOR ============ */
+const SO_EMB_API = '/server-official/api/embeds';
+let _soEmbTemplates = [];
+let _soEmbSelected = null;
+let _soEmbFocused = null;
+
+function soEmbEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+async function soEmbLoad(){
+  try {
+    const r = await fetch(SO_EMB_API);
+    const j = await r.json();
+    if (!j.ok) return;
+    _soEmbTemplates = j.items || [];
+    soEmbRenderList();
+  } catch(e){ /* silent */ }
+}
+
+function soEmbRenderList(){
+  const host = document.getElementById('so-emb-list'); if (!host) return;
+  if (!_soEmbTemplates.length) { host.innerHTML = '<div style="padding:14px; color:var(--muted);">No editable embeds for this bot yet.</div>'; return; }
+  const byCat = {};
+  _soEmbTemplates.forEach(t => { (byCat[t.category || 'Other'] = byCat[t.category || 'Other'] || []).push(t); });
+  let html = '';
+  Object.keys(byCat).forEach(cat => {
+    html += `<div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; padding:10px 8px 4px;">${cat}</div>`;
+    byCat[cat].forEach(t => {
+      const active = (_soEmbSelected === t.key) ? 'background:rgba(91,140,255,0.18); border:1px solid rgba(91,140,255,0.45);' : '';
+      const pill = t.has_override ? '<span style="background:#f59e0b; color:#000; font-size:0.62rem; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase;">edited</span>' : '';
+      html += `<div onclick="soEmbSelect('${t.key}')" style="padding:9px 10px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:0.88rem; ${active}" onmouseover="if(_soEmbSelected!=='${t.key}')this.style.background='rgba(255,255,255,0.04)'" onmouseout="if(_soEmbSelected!=='${t.key}')this.style.background='transparent'"><span>${t.label}</span>${pill}</div>`;
+    });
+  });
+  host.innerHTML = html;
+}
+
+function soEmbSelect(key){
+  _soEmbSelected = key;
+  const t = _soEmbTemplates.find(x => x.key === key); if (!t) return;
+  soEmbRenderList();
+  soEmbRenderEditor(t);
+}
+
+function soEmbRenderEditor(t){
+  const host = document.getElementById('so-emb-edit');
+  const eff = t.effective || t.default || {};
+  const colorHex = '#' + (eff.color || 0).toString(16).padStart(6, '0');
+  const placeholders = (t.placeholders || []).map(p => `<span onclick="soEmbInsert('{${p}}')" style="display:inline-block; background:rgba(91,140,255,0.12); border:1px solid rgba(91,140,255,0.35); color:#7eb1ff; padding:3px 9px; border-radius:14px; font-size:0.74rem; margin:3px 4px 3px 0; cursor:pointer; font-family:monospace;">{${p}}</span>`).join('');
+  host.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div>
+        <div style="font-size:1.1rem; font-weight:700;">${t.label}</div>
+        <div style="color:var(--muted); font-size:0.85rem; margin-top:3px;">${t.description || ''}</div>
+      </div>
+      <code style="background:var(--bg2); padding:4px 10px; border-radius:6px; font-size:0.75rem; color:#7eb1ff;">${t.key}</code>
+    </div>
+    ${placeholders ? `<div style="margin-top:14px;"><div style="font-size:0.78rem; color:var(--muted); margin-bottom:6px;">Click to insert into the focused field:</div>${placeholders}</div>` : ''}
+    <label style="display:block; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin:12px 0 6px;">Title</label>
+    <input type="text" id="so-emb-f-title" value="${soEmbEsc(eff.title || '')}" style="width:100%; background:var(--bg2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:inherit; font-size:0.92rem; box-sizing:border-box;" />
+    <label style="display:block; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin:12px 0 6px;">Description</label>
+    <textarea id="so-emb-f-description" style="width:100%; min-height:90px; background:var(--bg2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:inherit; font-size:0.92rem; box-sizing:border-box; resize:vertical;">${soEmbEsc(eff.description || '')}</textarea>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div>
+        <label style="display:block; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin:12px 0 6px;">Color</label>
+        <input type="color" id="so-emb-f-color" value="${colorHex}" style="width:100%; height:42px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; cursor:pointer;" />
+      </div>
+      <div>
+        <label style="display:block; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin:12px 0 6px;">Footer</label>
+        <input type="text" id="so-emb-f-footer" value="${soEmbEsc(eff.footer || '')}" style="width:100%; background:var(--bg2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:inherit; font-size:0.92rem; box-sizing:border-box;" />
+      </div>
+    </div>
+    <label style="display:block; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin:12px 0 6px;">Thumbnail URL <span style="text-transform:none; font-size:0.7rem;">(supports placeholders like {user_avatar})</span></label>
+    <input type="text" id="so-emb-f-thumbnail" value="${soEmbEsc(eff.thumbnail || '')}" style="width:100%; background:var(--bg2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:inherit; font-size:0.92rem; box-sizing:border-box;" />
+    <div style="display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="soEmbPreview()"><i class="fas fa-eye"></i> Preview</button>
+      <button class="btn btn-success" onclick="soEmbSave()"><i class="fas fa-save"></i> Save</button>
+      <button class="btn" onclick="soEmbReset()"><i class="fas fa-undo"></i> Reset to Default</button>
+    </div>
+    <div id="so-emb-preview-box"></div>
+  `;
+  soEmbPreview();
+}
+
+function soEmbCollect(){
+  const colorHex = (document.getElementById('so-emb-f-color').value || '#5b8cff').replace('#','');
+  return {
+    title: document.getElementById('so-emb-f-title').value,
+    description: document.getElementById('so-emb-f-description').value,
+    color: parseInt(colorHex, 16),
+    footer: document.getElementById('so-emb-f-footer').value,
+    thumbnail: document.getElementById('so-emb-f-thumbnail').value,
+  };
+}
+
+document.addEventListener('focusin', (e) => {
+  if (e.target.id && e.target.id.startsWith('so-emb-f-') && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+    _soEmbFocused = e.target;
+  }
+});
+
+function soEmbInsert(token){
+  const el = _soEmbFocused; if (!el) return;
+  const start = el.selectionStart || 0, end = el.selectionEnd || 0;
+  el.value = el.value.slice(0, start) + token + el.value.slice(end);
+  el.focus(); el.setSelectionRange(start + token.length, start + token.length);
+}
+
+async function soEmbPreview(){
+  if (!_soEmbSelected) return;
+  const r = await fetch(SO_EMB_API + '/preview', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ key: _soEmbSelected, override: soEmbCollect() })
+  });
+  const j = await r.json(); if (!j.ok) return;
+  const p = j.preview || {};
+  const colorHex = '#' + (p.color || 0).toString(16).padStart(6, '0');
+  document.getElementById('so-emb-preview-box').innerHTML = `
+    <div style="background:#36393f; border-left:4px solid ${colorHex}; border-radius:4px; padding:14px 16px; margin-top:14px; color:#dcddde; font-family:'gg sans','Whitney','Helvetica Neue',sans-serif;">
+      ${p.thumbnail ? `<img src="${p.thumbnail}" alt="" style="float:right; max-width:80px; max-height:80px; border-radius:6px; margin-left:14px;" onerror="this.style.display='none'"/>` : ''}
+      ${p.title ? `<div style="font-weight:600; font-size:1rem; margin-bottom:6px; color:#fff;">${soEmbEsc(p.title)}</div>` : ''}
+      ${p.description ? `<div style="font-size:0.92rem; white-space:pre-wrap; line-height:1.4;">${soEmbEsc(p.description)}</div>` : ''}
+      ${p.footer ? `<div style="margin-top:10px; font-size:0.75rem; color:#a3a6aa;">${soEmbEsc(p.footer)}</div>` : ''}
+    </div>`;
+}
+
+async function soEmbSave(){
+  if (!_soEmbSelected) return;
+  const r = await fetch(SO_EMB_API, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ key: _soEmbSelected, override: soEmbCollect() })
+  });
+  const j = await r.json();
+  if (j.ok) { toast('Embed saved'); soEmbLoad(); }
+  else      { toast('Save failed: ' + (j.error || 'unknown'), 'err'); }
+}
+
+async function soEmbReset(){
+  if (!_soEmbSelected) return;
+  if (!confirm('Reset this embed to the default template?')) return;
+  const r = await fetch(SO_EMB_API, {
+    method:'DELETE', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ key: _soEmbSelected })
+  });
+  const j = await r.json();
+  if (j.ok) {
+    toast('Reset to default');
+    await soEmbLoad();
+    const t = _soEmbTemplates.find(x => x.key === _soEmbSelected);
+    if (t) soEmbRenderEditor(t);
+  }
+}
+
+document.querySelectorAll('.sb-item[data-section="embeds"]').forEach(b => {
+  b.addEventListener('click', () => { if (!_soEmbTemplates.length) soEmbLoad(); });
+});
 </script>
 
 {% if dev_unlocked %}

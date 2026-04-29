@@ -22,8 +22,19 @@ def _local_load():
     return {"rules": []}
 
 def _local_save(data):
-    with open(_LOCAL_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+    """Atomic write — temp file + os.replace so a crash mid-write can't truncate the JSON."""
+    tmp = _LOCAL_FILE + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+        os.replace(tmp, _LOCAL_FILE)
+    except Exception as e:
+        print(f"Reaction roles save error: {e}")
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
 
 # ── Public API ───────────────────────────────────────────────────────────────
 

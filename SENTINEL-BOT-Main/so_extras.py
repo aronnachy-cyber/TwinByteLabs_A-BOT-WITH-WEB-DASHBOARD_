@@ -149,21 +149,22 @@ def setup(bot, load_state, save_state, get_guild_config, set_guild_config) -> No
         star_chan = guild.get_channel(int(ch_id))
         if not star_chan:
             return
-        embed = discord.Embed(
-            description=message.content[:2000] if message.content else "",
-            color=0xfacc15,
-            timestamp=message.created_at,
+        import embeds as _emb
+        embed = _emb.render(
+            "so.starboard",
+            guild_id=guild.id,
+            content=(message.content[:2000] if message.content else ""),
+            jump_url=message.jump_url,
+            channel=message.channel,
+            star_count=star_reaction.count,
+            message_id=message.id,
         )
+        # Author + timestamp + image are runtime-only (not template-overridable).
+        embed.timestamp = message.created_at
         embed.set_author(
             name=message.author.display_name,
             icon_url=message.author.display_avatar.url,
         )
-        embed.add_field(
-            name="Source",
-            value=f"[Jump to message]({message.jump_url}) · {message.channel.mention}",
-            inline=False,
-        )
-        # Attach first image if present.
         if message.attachments:
             for att in message.attachments:
                 ct = (att.content_type or "").lower()
@@ -172,7 +173,6 @@ def setup(bot, load_state, save_state, get_guild_config, set_guild_config) -> No
                 ):
                     embed.set_image(url=att.url)
                     break
-        embed.set_footer(text=f"⭐ {star_reaction.count} • ID {message.id}")
         try:
             star_msg = await star_chan.send(
                 content=f"⭐ **{star_reaction.count}** · {message.channel.mention}",

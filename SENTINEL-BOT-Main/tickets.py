@@ -194,18 +194,14 @@ async def create_ticket(guild, member, config, reason="General Support"):
         print(f"Ticket channel creation error: {e}")
         raise
 
-    embed = discord.Embed(
-        title=f"🎫 Ticket #{ticket_num:04d}",
-        description=(
-            f"Welcome {member.mention}! Staff will be with you shortly.\n\n"
-            f"**Reason:** {reason}\n"
-            f"**Opened by:** {member.mention}\n\n"
-            f"React with 🔒 or use `/ticket-close` to close this ticket."
-        ),
-        color=0x3a8fff,
-        timestamp=datetime.utcnow()
+    import embeds
+    embed = embeds.render(
+        "sp4rk.ticket_open",
+        guild_id=guild.id,
+        user=member,
+        ticket_id=f"{ticket_num:04d}",
+        reason=reason,
     )
-    embed.set_footer(text="SP4RK Ticket System")
     close_btn_view = TicketCloseView()
     await channel.send(embed=embed, view=close_btn_view)
 
@@ -229,10 +225,12 @@ async def close_ticket(channel, closer, transcript=True):
     if not ticket:
         return False
 
-    embed = discord.Embed(
-        title="🔒 Ticket Closing",
-        description=f"This ticket is being closed by {closer.mention}.\nChannel will be deleted in 5 seconds.",
-        color=0xe74c3c,
+    import embeds
+    embed = embeds.render(
+        "sp4rk.ticket_close",
+        guild_id=getattr(channel.guild, "id", None),
+        moderator=closer,
+        ticket_id=f"{ticket.get('id', 0):04d}",
     )
     await channel.send(embed=embed)
 
