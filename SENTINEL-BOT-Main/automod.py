@@ -395,13 +395,31 @@ async def handle_message(message, config, add_warning_fn=None):
         return False
 
     async def _punish(reason, log_title, log_desc, dm=True):
-        # SP4RK no longer warns the offending user directly — staff are notified instead.
-        # We still delete the message and record the warning for staff/mods.
+        # Delete the offending message, record the warning for staff/mods,
+        # and post a short, auto-vanishing in-channel warning so the
+        # offender knows *why* their message disappeared.
+        #
+        # NOTE: This block only runs for "normal" members — the hierarchy
+        # guard above already returned early for the server owner, staff,
+        # bots, and anyone with a role equal to or higher than SP4RK's,
+        # so we never warn protected members here.
         await safe_delete(message)
         count = None
         if add_warning_fn:
             count = await add_warning_fn(author, reason)
         await send_webhook_log(config, log_title, log_desc)
+
+        # In-channel warning to the offending member.
+        try:
+            warn_text = (
+                f"⚠️ {author.mention} your message was removed — **{reason}**."
+            )
+            if count:
+                warn_text += f" (Warning **#{count}**)"
+            await channel.send(warn_text, delete_after=8)
+        except Exception as e:
+            print(f"[automod] in-channel warn failed: {e}")
+
         if count and config.get("grad_punish") == "ON":
             await apply_graduated_punishment(message, config, count, add_warning_fn)
         return True
