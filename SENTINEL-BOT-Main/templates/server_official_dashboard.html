@@ -10,131 +10,223 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#050b18; --bg2:#0a1428; --bg3:#0f1d3a;
+  --bg:#050b18; --bg2:#0a1428; --bg3:#0f1d3a; --bg-card:#0c1a35;
   --accent:#5b8cff; --accent2:#8b5cf6; --accent3:#22d3ee;
-  --text:#e8f0ff; --muted:#8295b8;
-  --border:rgba(91,140,255,0.18);
+  --accent-soft:rgba(91,140,255,.14); --accent-glow:rgba(91,140,255,.35);
+  --text:#e8f0ff; --muted:#8295b8; --muted-soft:#5e7397;
+  --border:rgba(91,140,255,0.16); --border-strong:rgba(91,140,255,0.32);
   --grad:linear-gradient(135deg,#5b8cff 0%,#8b5cf6 50%,#22d3ee 100%);
   --ok:#10b981; --warn:#f59e0b; --bad:#ef4444;
+  --shadow-sm:0 2px 10px rgba(0,0,0,.25);
+  --shadow-md:0 8px 28px rgba(0,0,0,.32);
+  --shadow-lg:0 16px 48px rgba(0,0,0,.45);
+  --radius:14px;
 }
-body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+html,body{font-family:'Inter',system-ui,-apple-system,sans-serif;letter-spacing:-0.005em;}
+body{
+  background:var(--bg);color:var(--text);min-height:100vh;display:flex;
+  background-image:
+    radial-gradient(1100px 700px at 110% -10%, rgba(139,92,246,.08), transparent 65%),
+    radial-gradient(900px 600px at -10% 110%, rgba(34,211,238,.06), transparent 60%);
+  background-attachment:fixed;
+}
 
 /* ===== SIDEBAR ===== */
 .sidebar{
-  width:240px; background:var(--bg2);
+  width:240px;
+  background:linear-gradient(180deg, var(--bg2) 0%, #07101f 100%);
   border-right:1px solid var(--border);
-  padding:24px 16px; flex-shrink:0;
-  position:sticky; top:0; height:100vh; overflow-y:auto;
+  padding:22px 14px;flex-shrink:0;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  box-shadow:4px 0 30px rgba(0,0,0,.3);
 }
-.sb-brand{display:flex;align-items:center;gap:12px;margin-bottom:30px;padding:0 8px;}
-.sb-brand-mark{width:38px;height:38px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;}
-.sb-brand-name{font-weight:800;font-size:1.05rem;}
-.sb-section{margin-top:18px;font-size:.7rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);padding:0 8px;}
+.sidebar::-webkit-scrollbar{width:6px;}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(91,140,255,.18);border-radius:3px;}
+.sb-brand{display:flex;align-items:center;gap:12px;margin-bottom:24px;padding:0 8px;}
+.sb-brand-mark{
+  width:42px;height:42px;border-radius:11px;background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;color:#fff;letter-spacing:.5px;
+  box-shadow:0 6px 18px rgba(91,140,255,.4);
+}
+.sb-brand-name{font-weight:800;font-size:1.05rem;line-height:1.15;letter-spacing:.2px;}
+.sb-section{
+  margin-top:18px;font-size:.66rem;text-transform:uppercase;
+  letter-spacing:1.6px;color:var(--muted-soft);padding:0 12px;font-weight:700;
+}
 .sb-item{
   display:flex;align-items:center;gap:11px;
   padding:10px 12px;margin:3px 0;
   border-radius:9px;color:var(--muted);
   text-decoration:none;font-weight:500;font-size:.92rem;
   cursor:pointer;border:none;background:transparent;width:100%;text-align:left;font-family:inherit;
-  transition:background .15s,color .15s;
+  position:relative;
+  transition:background .18s ease, color .18s ease, padding-left .15s ease;
 }
-.sb-item:hover{background:rgba(91,140,255,.08);color:var(--text);}
-.sb-item.active{background:rgba(91,140,255,.16);color:var(--text);box-shadow:inset 3px 0 0 var(--accent);}
-.sb-item i{width:18px;text-align:center;}
-.sb-foot{margin-top:30px;padding:14px 8px;font-size:.78rem;color:var(--muted);border-top:1px solid var(--border);}
+.sb-item:hover{background:rgba(91,140,255,.08);color:var(--text);padding-left:14px;}
+.sb-item.active{
+  background:linear-gradient(90deg, rgba(91,140,255,.20), rgba(139,92,246,.06));
+  color:var(--text);font-weight:600;
+  box-shadow:inset 3px 0 0 var(--accent), 0 0 0 1px rgba(91,140,255,.05);
+}
+.sb-item.active i{color:var(--accent);filter:drop-shadow(0 0 6px rgba(91,140,255,.5));}
+.sb-item i{width:18px;text-align:center;transition:color .15s;}
+.sb-foot{margin-top:30px;padding:14px 8px;font-size:.76rem;color:var(--muted);border-top:1px solid var(--border);line-height:1.5;}
 
 /* ===== MAIN ===== */
-.main{flex:1;padding:30px 38px;overflow-x:hidden;}
-.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
-.topbar h1{font-size:1.6rem;font-weight:800;letter-spacing:-.4px;}
-.topbar .crumb{color:var(--muted);font-size:.85rem;}
+.main{flex:1;padding:32px 40px;overflow-x:hidden;}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:26px;padding-bottom:18px;
+  border-bottom:1px solid var(--border);
+  gap:18px;flex-wrap:wrap;
+}
+.topbar h1{font-size:1.65rem;font-weight:800;letter-spacing:-.5px;}
+.topbar .crumb{color:var(--muted);font-size:.85rem;margin-top:4px;}
 .topbar a{color:var(--accent);text-decoration:none;}
+.topbar a:hover{text-decoration:underline;}
 
-.bot-status{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:99px;font-size:.78rem;font-weight:700;}
-.bot-status.on{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3);}
-.bot-status.off{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);}
-.bot-status .dot{width:8px;height:8px;border-radius:50%;background:currentColor;}
+.bot-status{display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:99px;font-size:.78rem;font-weight:700;letter-spacing:.3px;}
+.bot-status.on{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.35);box-shadow:0 0 12px rgba(16,185,129,.18);}
+.bot-status.off{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.35);}
+.bot-status .dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;}
 
 /* Cards */
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:20px;}
-.card h2{font-size:1.1rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
-.card h2 i{color:var(--accent);}
-.card .help{font-size:.85rem;color:var(--muted);margin-bottom:14px;}
+.card{
+  background:linear-gradient(180deg, rgba(15,29,58,.85) 0%, rgba(10,20,40,.92) 100%);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:24px;margin-bottom:20px;
+  box-shadow:var(--shadow-sm);
+  transition:border-color .2s ease, box-shadow .2s ease, transform .15s ease;
+}
+.card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-md);}
+.card h2{
+  font-size:1.08rem;font-weight:700;margin-bottom:14px;
+  display:flex;align-items:center;gap:11px;letter-spacing:-.1px;
+}
+.card h2 i{color:var(--accent);filter:drop-shadow(0 0 8px rgba(91,140,255,.4));}
+.card .help{font-size:.86rem;color:var(--muted);margin-bottom:14px;line-height:1.55;}
+.card .help code{background:rgba(91,140,255,.12);color:#cfe0ff;padding:1px 6px;border-radius:5px;font-family:'JetBrains Mono',ui-monospace,Consolas,monospace;font-size:.85em;}
 
 .grid{display:grid;gap:18px;}
-.grid-3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));}
+.grid-3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
 .grid-2{grid-template-columns:repeat(auto-fit,minmax(360px,1fr));}
 
-.stat{background:linear-gradient(180deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-radius:14px;padding:18px;}
-.stat-label{font-size:.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.6px;}
-.stat-value{font-size:1.8rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-top:6px;}
-.stat-sub{font-size:.78rem;color:var(--muted);margin-top:4px;}
+.stat{
+  background:linear-gradient(180deg,var(--bg-card),var(--bg3));
+  border:1px solid var(--border);border-radius:var(--radius);padding:20px;
+  transition:border-color .2s ease, transform .15s ease;
+}
+.stat:hover{border-color:var(--border-strong);transform:translateY(-2px);}
+.stat-label{font-size:.74rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.8px;}
+.stat-value{font-size:1.95rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-top:6px;letter-spacing:-1px;line-height:1.1;}
+.stat-sub{font-size:.78rem;color:var(--muted);margin-top:6px;}
 
 /* Forms */
-label{display:block;font-size:.82rem;font-weight:600;color:var(--muted);margin-bottom:6px;}
-input[type="text"],input[type="number"],input[type="datetime-local"],input[type="url"],textarea,select{
-  width:100%;background:#07101f;color:var(--text);border:1px solid var(--border);
-  border-radius:9px;padding:10px 12px;font-family:inherit;font-size:.92rem;
+label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+input[type="text"],input[type="number"],input[type="datetime-local"],input[type="url"],input[type="password"],input[type="email"],textarea,select{
+  width:100%;background:#070f22;color:var(--text);border:1px solid var(--border);
+  border-radius:9px;padding:10px 13px;font-family:inherit;font-size:.92rem;
+  transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
-input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);}
-textarea{min-height:80px;resize:vertical;}
-.row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+input:hover,textarea:hover,select:hover{border-color:rgba(91,140,255,.3);}
+input:focus,textarea:focus,select:focus{
+  outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft);
+  background:#08122b;
+}
+input::placeholder,textarea::placeholder{color:#4f6488;}
+textarea{min-height:90px;resize:vertical;line-height:1.5;}
+input[type="color"]{width:54px;height:42px;padding:3px;cursor:pointer;border-radius:9px;background:#070f22;border:1px solid var(--border);}
+input[type="file"]{padding:8px 12px;background:#070f22;border:1px dashed var(--border);border-radius:9px;color:var(--muted);font-size:.86rem;cursor:pointer;}
+input[type="file"]::file-selector-button{background:rgba(91,140,255,.12);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:6px 12px;margin-right:10px;cursor:pointer;font-weight:600;font-size:.82rem;}
+input[type="file"]::file-selector-button:hover{background:rgba(91,140,255,.22);}
+
+.row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-start;}
 .row > *{flex:1;min-width:160px;}
 .row > .grow{flex:2;}
+
+/* Help-text utility (extends .help) */
+.help-text{font-size:.78rem;color:var(--muted);margin-top:6px;line-height:1.5;}
+.help-text i{color:var(--accent);font-size:.78rem;margin-right:3px;}
+.help-text code{background:rgba(91,140,255,.12);color:#cfe0ff;padding:1px 6px;border-radius:5px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.85em;}
 
 button.btn,a.btn{
   display:inline-flex;align-items:center;gap:8px;
   padding:10px 18px;background:var(--grad);
   color:#fff;border:none;border-radius:9px;
-  font-weight:700;cursor:pointer;font-family:inherit;font-size:.9rem;
+  font-weight:700;cursor:pointer;font-family:inherit;font-size:.9rem;letter-spacing:.1px;
   text-decoration:none;
-  transition:transform .12s,box-shadow .12s;
+  box-shadow:0 4px 14px rgba(91,140,255,.32);
+  transition:transform .12s ease, box-shadow .2s ease, opacity .15s ease;
 }
-button.btn:hover,a.btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(91,140,255,.4);}
-button.btn-ghost,a.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
-button.btn-danger{background:linear-gradient(135deg,#ef4444,#b91c1c);}
-button.btn-sm{padding:6px 12px;font-size:.82rem;}
+button.btn:hover,a.btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(91,140,255,.45);}
+button.btn:active,a.btn:active{transform:translateY(0);}
+button.btn:disabled,a.btn[disabled]{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none;}
+button.btn-ghost,a.btn-ghost{background:rgba(91,140,255,.08);border:1px solid var(--border);color:var(--text);box-shadow:none;}
+button.btn-ghost:hover,a.btn-ghost:hover{background:rgba(91,140,255,.16);border-color:var(--border-strong);box-shadow:none;}
+button.btn-danger{background:linear-gradient(135deg,#ef4444,#b91c1c);box-shadow:0 4px 14px rgba(239,68,68,.32);}
+button.btn-danger:hover{box-shadow:0 10px 24px rgba(239,68,68,.45);}
+button.btn-sm{padding:6px 12px;font-size:.82rem;border-radius:7px;}
 
 .toast{
-  position:fixed;bottom:30px;right:30px;background:var(--bg3);border:1px solid var(--border);
-  padding:14px 18px;border-radius:10px;font-weight:600;font-size:.9rem;color:#fff;
-  box-shadow:0 12px 36px rgba(0,0,0,.4);opacity:0;transform:translateY(20px);
+  position:fixed;bottom:30px;right:30px;
+  background:linear-gradient(135deg, var(--bg3), #0a1830);
+  border:1px solid var(--border);
+  padding:14px 20px;border-radius:11px;font-weight:600;font-size:.9rem;color:#fff;
+  box-shadow:var(--shadow-lg);opacity:0;transform:translateY(20px);
   transition:opacity .25s,transform .25s;pointer-events:none;z-index:9999;
 }
 .toast.show{opacity:1;transform:translateY(0);}
-.toast.ok{border-color:rgba(16,185,129,.4);}
-.toast.err{border-color:rgba(239,68,68,.4);color:#fca5a5;}
+.toast.ok{border-color:rgba(16,185,129,.5);box-shadow:0 12px 36px rgba(16,185,129,.18), var(--shadow-lg);}
+.toast.err{border-color:rgba(239,68,68,.5);color:#fca5a5;box-shadow:0 12px 36px rgba(239,68,68,.18), var(--shadow-lg);}
 
 /* Lists */
 .list-item{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 14px;background:#07101f;border:1px solid var(--border);
-  border-radius:10px;margin-bottom:8px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:13px 16px;
+  background:linear-gradient(180deg, rgba(7,16,31,.85), rgba(7,16,31,.6));
+  border:1px solid var(--border);
+  border-radius:11px;margin-bottom:8px;
+  transition:border-color .15s ease, transform .12s ease;
 }
-.list-item .meta{font-size:.78rem;color:var(--muted);}
-.list-item code{background:rgba(255,255,255,.05);padding:2px 7px;border-radius:5px;color:var(--accent);font-size:.78rem;}
+.list-item:hover{border-color:var(--border-strong);transform:translateX(2px);}
+.list-item .meta{font-size:.78rem;color:var(--muted);margin-top:3px;}
+.list-item code{background:rgba(91,140,255,.10);padding:2px 7px;border-radius:5px;color:#9bbcff;font-size:.78rem;font-family:'JetBrains Mono',ui-monospace,monospace;}
 
 /* Tabs */
-.section{display:none;}
+.section{display:none;animation:fadeIn .25s ease;}
 .section.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 
 table{width:100%;border-collapse:collapse;font-size:.88rem;}
-th,td{text-align:left;padding:10px;border-bottom:1px solid var(--border);}
-th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.6px;}
+th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--border);}
+th{color:var(--muted);font-size:.74rem;text-transform:uppercase;letter-spacing:.7px;font-weight:700;background:rgba(91,140,255,.04);}
+tr{transition:background .15s ease;}
+tbody tr:hover td{background:rgba(91,140,255,.03);}
 
 .chart-box{height:280px;position:relative;}
 
+/* Compact mode */
+html.bl-compact .card{padding:16px;margin-bottom:14px;}
+html.bl-compact .main{padding:22px;}
+html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
+
 /* Responsive */
 @media(max-width:900px){
-  .sidebar{position:fixed;left:0;top:0;z-index:100;transform:translateX(-100%);transition:transform .2s;}
+  .sidebar{position:fixed;left:0;top:0;z-index:100;transform:translateX(-100%);transition:transform .25s ease;width:240px;}
   .sidebar.open{transform:translateX(0);}
   .main{padding:20px;}
   .menu-toggle{display:inline-flex;}
+  .topbar h1{font-size:1.3rem;}
 }
-.menu-toggle{display:none;background:rgba(91,140,255,.15);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:9px;align-items:center;justify-content:center;cursor:pointer;}
+.menu-toggle{display:none;background:rgba(91,140,255,.15);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:9px;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease;}
+.menu-toggle:hover{background:rgba(91,140,255,.25);}
 
-.guild-pick{display:inline-flex;align-items:center;gap:8px;}
-.guild-pick select{padding:7px 10px;font-size:.85rem;}
+.guild-pick{display:inline-flex;align-items:center;gap:10px;}
+.guild-pick select{padding:8px 12px;font-size:.86rem;min-width:200px;}
+.muted{color:var(--muted);font-size:.86rem;}
 </style>
 </head>
 <script>
@@ -415,18 +507,33 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
     </div>
     <div class="card">
       <h2><i class="fas fa-handshake"></i> Welcome / Leave Configuration</h2>
+      <p class="help"><i class="fas fa-circle-info"></i> Greet new members automatically and post farewell notes when someone leaves. To grab any ID: enable Discord Developer Mode (<em>Settings → Advanced</em>), then right-click a channel or role and pick <em>Copy ID</em>.</p>
       <div class="row">
-        <div><label>Welcome Channel ID</label><input id="cfgWelcomeChan" placeholder="123…" /></div>
-        <div><label>Welcome Role ID</label><input id="cfgWelcomeRole" placeholder="123…" /></div>
-        <div><label>Log Channel ID</label><input id="cfgLogChan" placeholder="123…" /></div>
+        <div>
+          <label>Welcome Channel ID</label>
+          <input id="cfgWelcomeChan" placeholder="e.g. 1234567890123456789" />
+          <div class="help-text"><i class="fas fa-hashtag"></i> The channel where greetings post.</div>
+        </div>
+        <div>
+          <label>Welcome Role ID</label>
+          <input id="cfgWelcomeRole" placeholder="e.g. 1234567890123456789" />
+          <div class="help-text"><i class="fas fa-user-tag"></i> Role auto-applied to every new member.</div>
+        </div>
+        <div>
+          <label>Log Channel ID</label>
+          <input id="cfgLogChan" placeholder="e.g. 1234567890123456789" />
+          <div class="help-text"><i class="fas fa-list-ul"></i> Where bot actions &amp; mod logs go.</div>
+        </div>
       </div>
-      <label>Welcome Message <span class="help" style="display:inline;font-weight:400;">— use {user}, {server}, {count}</span></label>
-      <textarea id="cfgWelcomeMsg"></textarea>
-      <label style="margin-top:10px;">Leave Message</label>
-      <textarea id="cfgLeaveMsg"></textarea>
-      <div style="margin-top:14px;display:flex;gap:10px;">
-        <button class="btn" onclick="saveGuildConfig()"><i class="fas fa-save"></i> Save</button>
-        <button class="btn btn-ghost" onclick="loadGuildConfig()"><i class="fas fa-rotate"></i> Reload</button>
+      <label style="margin-top:6px;">Welcome Message</label>
+      <textarea id="cfgWelcomeMsg" placeholder="👋 Welcome {user} to {server}! You're member #{count}."></textarea>
+      <div class="help-text">Variables: <code>{user}</code> mention · <code>{server}</code> server name · <code>{count}</code> member count</div>
+      <label style="margin-top:14px;">Leave Message</label>
+      <textarea id="cfgLeaveMsg" placeholder="👋 {user} just left {server}. We'll miss them!"></textarea>
+      <div class="help-text">Same variables as above. Leave blank to disable goodbye messages.</div>
+      <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn" onclick="saveGuildConfig()"><i class="fas fa-save"></i> Save Configuration</button>
+        <button class="btn btn-ghost" onclick="loadGuildConfig()"><i class="fas fa-rotate"></i> Reload from server</button>
       </div>
     </div>
     <div class="card">
@@ -515,9 +622,10 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
     </div>
     <div class="card">
       <h2><i class="fas fa-thumbtack"></i> Sticky Messages</h2>
+      <p class="help">Pin a message to the bottom of a channel — every time someone posts, the bot re-posts your sticky so it stays visible. Great for rules reminders or important links.</p>
       <div class="row">
-        <input id="stChan" placeholder="Channel ID"/>
-        <input id="stMsg" placeholder="Sticky message text" class="grow"/>
+        <input id="stChan" placeholder="Channel ID (e.g. 1234567890123456789)"/>
+        <input id="stMsg" placeholder="Sticky message text — supports markdown & emojis" class="grow"/>
         <button class="btn" onclick="setSticky()"><i class="fas fa-thumbtack"></i> Set</button>
       </div>
       <div id="stList" style="margin-top:12px;"></div>
@@ -532,13 +640,28 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
     </div>
     <div class="card">
       <h2><i class="fas fa-pen-ruler"></i> Embed Builder</h2>
+      <p class="help">Send a polished, colored embed to any channel. Great for rules, FAQs, or pinned highlights.</p>
       <div class="row">
-        <input id="embChan" placeholder="Channel ID"/>
-        <input id="embTitle" placeholder="Title"/>
-        <input id="embColor" type="text" placeholder="Color hex (e.g. 5b8cff)"/>
+        <div>
+          <label>Channel ID</label>
+          <input id="embChan" placeholder="e.g. 1234567890123456789"/>
+        </div>
+        <div class="grow">
+          <label>Embed Title</label>
+          <input id="embTitle" placeholder="📌 Server Rules"/>
+        </div>
+        <div style="flex:0 0 150px;min-width:140px;">
+          <label>Side-bar Color</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="embColor" type="text" placeholder="5b8cff" style="flex:1;font-family:'JetBrains Mono',monospace;text-transform:lowercase;" oninput="syncEmbColor(this.value)"/>
+            <input id="embColorPick" type="color" value="#5b8cff" oninput="document.getElementById('embColor').value=this.value.replace('#','')" style="flex:0 0 44px;height:42px;padding:2px;"/>
+          </div>
+        </div>
       </div>
-      <textarea id="embBody" placeholder="Body…"></textarea>
-      <div style="margin-top:12px;"><button class="btn" onclick="postEmbed()"><i class="fas fa-paper-plane"></i> Post embed</button></div>
+      <label>Body</label>
+      <textarea id="embBody" placeholder="Body text. Markdown is supported — **bold**, *italic*, ~~strike~~, and links."></textarea>
+      <div class="help-text">Tip: Discord supports a subset of Markdown. Newlines are preserved.</div>
+      <div style="margin-top:14px;"><button class="btn" onclick="postEmbed()"><i class="fas fa-paper-plane"></i> Post embed</button></div>
     </div>
   </section>
 
@@ -596,34 +719,51 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
   <section class="section" data-section="integrations">
     <div class="card">
       <h2><i class="fas fa-keyboard"></i> Custom Commands</h2>
-      <p class="help">Define <code>!trigger</code> → response. Bot auto-replies in the server.</p>
+      <p class="help">Define your own <code>!trigger</code> → reply pairs. When anyone types the trigger in chat, the bot answers with your text. Perfect for FAQs, rules summaries, or recurring jokes.</p>
       <div class="row">
-        <input id="ccTrig" placeholder="trigger (no !)"/>
-        <input id="ccResp" placeholder="response text" class="grow"/>
-        <button class="btn" onclick="addCustomCmd()">Add</button>
+        <input id="ccTrig" placeholder="trigger (without the leading !)"/>
+        <input id="ccResp" placeholder="response text shown in chat" class="grow"/>
+        <button class="btn" onclick="addCustomCmd()"><i class="fas fa-plus"></i> Add</button>
       </div>
-      <div id="ccList" style="margin-top:12px;"></div>
+      <div id="ccList" style="margin-top:14px;"></div>
     </div>
     <div class="card">
       <h2><i class="fas fa-arrow-right-to-bracket"></i> Incoming Webhooks</h2>
-      <p class="help">Generate a secret URL — POST to it to fire announcements from outside Discord.</p>
+      <p class="help">Generate a secret URL you can <code>POST</code> to from any external service. Whatever payload you send becomes a Discord announcement in the channel you pick. Useful for Zapier, GitHub, custom scripts, etc.</p>
       <div class="row">
-        <input id="whName" placeholder="Webhook name"/>
-        <input id="whChan" placeholder="Channel ID"/>
-        <button class="btn" onclick="createWebhook()">Create</button>
+        <div>
+          <label>Webhook Name</label>
+          <input id="whName" placeholder="e.g. github-deploys"/>
+        </div>
+        <div>
+          <label>Channel ID</label>
+          <input id="whChan" placeholder="e.g. 1234567890123456789"/>
+        </div>
+        <button class="btn" onclick="createWebhook()" style="align-self:flex-end;"><i class="fas fa-key"></i> Create</button>
       </div>
-      <div id="whList" style="margin-top:12px;"></div>
+      <div class="help-text"><i class="fas fa-shield-halved"></i> Each webhook has a unique secret in its URL — keep it private.</div>
+      <div id="whList" style="margin-top:14px;"></div>
     </div>
     <div class="card">
       <h2><i class="fas fa-cloud-arrow-up"></i> External API Hooks (outgoing)</h2>
-      <p class="help">When the bot does X, POST a webhook to your URL. Events: <code>announcement_posted</code></p>
+      <p class="help">Push events <em>out</em> of Discord — when the bot does something, it <code>POST</code>s a JSON payload to your URL. Useful for analytics, mirroring to another platform, or building automations.</p>
       <div class="row">
-        <input id="hookName" placeholder="Hook name"/>
-        <input id="hookUrl" placeholder="https://your.api/endpoint" type="url" class="grow"/>
-        <input id="hookEvents" placeholder="announcement_posted"/>
-        <button class="btn" onclick="addHook()">Add</button>
+        <div>
+          <label>Hook Name</label>
+          <input id="hookName" placeholder="e.g. zapier-bridge"/>
+        </div>
+        <div class="grow">
+          <label>Endpoint URL</label>
+          <input id="hookUrl" placeholder="https://your.api/endpoint" type="url"/>
+        </div>
+        <div>
+          <label>Events (comma-separated)</label>
+          <input id="hookEvents" placeholder="announcement_posted"/>
+        </div>
+        <button class="btn" onclick="addHook()" style="align-self:flex-end;"><i class="fas fa-plus"></i> Add</button>
       </div>
-      <div id="hookList" style="margin-top:12px;"></div>
+      <div class="help-text"><i class="fas fa-circle-info"></i> Currently supported events: <code>announcement_posted</code>. More coming soon.</div>
+      <div id="hookList" style="margin-top:14px;"></div>
     </div>
     <div class="card">
       <h2><i class="fab fa-telegram"></i> Discord ↔ Telegram Bridge</h2>
@@ -1170,6 +1310,14 @@ async function makeBackup(){ await api('POST','/server-official/api/backups',{la
 async function restoreBackup(id){ if(!confirm('Restore this backup? Current state will be replaced.'))return; await api('POST',`/server-official/api/backups/${id}/restore`,{},'Restored'); }
 async function delBackup(id){ await api('DELETE',`/server-official/api/backups/${id}`,null,'Deleted'); loadBackups(); }
 async function resetGuild(){ if(!currentGuildId)return toast('Select a server','err'); await api('POST','/server-official/api/reset_guild',{guild_id:currentGuildId},'Reset'); }
+
+/* ============ EMBED COLOR SYNC ============ */
+function syncEmbColor(v){
+  const pick = document.getElementById('embColorPick');
+  if (!pick) return;
+  let h = String(v||'').replace('#','').trim();
+  if (/^[0-9a-fA-F]{6}$/.test(h)) pick.value = '#' + h;
+}
 
 /* ============ HELPERS ============ */
 function escapeHtml(s){

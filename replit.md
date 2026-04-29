@@ -103,6 +103,16 @@ All slash mod commands enforce both `app_commands.checks.has_permissions` AND th
 ## Prefix Commands (default: !)
 warn, warnings, clearwarnings, kick, ban, tempban, mute (timed), unmute, timeout, untimeout, unban, purge, purgeuser, slowmode, lockdown, unlockdown, lock, unlock, role, nick, voicekick, snipe, massban, note, notes, modlogs, userinfo (alias whois/ui), serverinfo (alias si), refresh
 
+## V2.8.2 — Dashboard UX Polish (SP4RK + Server Official)
+Both admin dashboards (`templates/index.html` and `templates/server_official_dashboard.html`) were refreshed for clarity and visual consistency, with no behavioral changes to backend routes, IDs, or JS handlers.
+
+- **Modernized design tokens** — both dashboards now share gradient accents (`--grad`), softer card depth, focus rings, gradient stat numbers, hover lifts, and a `fadeIn` tab transition. SP4RK keeps its blue identity (#3a8fff); SO keeps its emerald/cyan/purple gradient. SP4RK's `bl_theme` localStorage dev panel still drives the live CSS-var overrides.
+- **Help text everywhere** — every configurable input now has a `.help-text` line explaining what it does, what format Discord expects, where to copy IDs from, and what variables are available (e.g. `{user}`, `{server}`, `{title}`, `{url}`). Cards that wrap multiple options got a short intro paragraph.
+- **Rewritten cards with how-to docs** — Reaction Roles, Tickets, and Auto-Responder on SP4RK now lead with a "How it works" card (3-step setup, code-styled command snippets, copy-message-ID tip). Tickets uses the new `.stat-grid` for open/closed counts. Auto-Responder rule editor switched from inline-styled inputs to the shared `.btn` / form classes.
+- **Server Official cards polished** — Welcome/Leave Configuration, Embed Builder (now with paired hex + native color picker via `syncEmbColor`), Sticky Messages, Custom Commands, Incoming Webhooks, and Outgoing Hooks all gained labeled fields + per-input help text.
+
+Every existing element ID, function name, onclick handler, and Jinja variable was preserved (`showTab`, `saveAll`, `restartBot`, `loadGiveaways`, `embColor`, `cfgWelcomeChan`, `addAutoResponder`, `setSticky`, `addCustomCmd`, `createWebhook`, `addHook`, etc.) so all dashboard JS continues to work unchanged.
+
 ## V2.8.1 — Server Official Landing Page Refresh
 The Server Official public landing page (`/server-official`) has been rebuilt to match SP4RK's depth and richness while keeping its own emerald/cyan identity (vs SP4RK's blue/orange):
 
