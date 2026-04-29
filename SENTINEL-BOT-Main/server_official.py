@@ -2124,23 +2124,66 @@ def list_polls(guild_id: Optional[str] = None) -> List[Dict[str, Any]]:
     return items
 
 
-def get_full_overview() -> Dict[str, Any]:
-    """Snapshot for the overview tab."""
+def get_full_overview(guild_id: Optional[str] = None) -> Dict[str, Any]:
+    """Snapshot for the overview tab.
+
+    When `guild_id` is provided every count is filtered to that single
+    guild so the dashboard cards reflect the currently-selected server
+    instead of bot-wide totals.
+    """
     state = load_state()
+
+    def _gmatch(item: Dict[str, Any]) -> bool:
+        if not guild_id:
+            return True
+        return str(item.get("guild_id") or "") == str(guild_id)
+
+    if guild_id:
+        gid = str(guild_id)
+        sticky_items = [v for v in state["sticky_messages"].values()
+                        if str((v or {}).get("guild_id") or "") == gid]
+        custom_cmd_count = len(state["custom_commands"].get(gid, {}) or {})
+        # Logs and webhook lists carry a guild_id field where applicable.
+        server_logs = [l for l in state["server_logs"]
+                       if str((l or {}).get("guild_id") or "") == gid]
+        bot_actions = [l for l in state["bot_action_logs"]
+                       if str((l or {}).get("guild_id") or "") == gid]
+        ext_hooks = [h for h in state["external_hooks"]
+                     if str((h or {}).get("guild_id") or "") == gid]
+        in_hooks = [w for w in state["webhooks_in"]
+                    if str((w or {}).get("guild_id") or "") == gid]
+        templates = [t for t in state["announcement_templates"]
+                     if str((t or {}).get("guild_id") or "") in (gid, "")]
+        backups = [b for b in state["config_backups"]
+                   if str((b or {}).get("guild_id") or "") in (gid, "")]
+    else:
+        sticky_items = list(state["sticky_messages"].values())
+        custom_cmd_count = sum(len(v or {}) for v in state["custom_commands"].values())
+        server_logs = state["server_logs"]
+        bot_actions = state["bot_action_logs"]
+        ext_hooks = state["external_hooks"]
+        in_hooks = state["webhooks_in"]
+        templates = state["announcement_templates"]
+        backups = state["config_backups"]
+
     return {
-        "scheduled_count": len([a for a in state["scheduled_announcements"] if not a.get("posted")]),
-        "active_giveaways": len([g for g in state["giveaways"] if not g.get("ended")]),
-        "templates_count": len(state["announcement_templates"]),
-        "polls_active": len([p for p in state["polls"] if not p.get("ended")]),
-        "reminders_pending": len([r for r in state["reminders"] if not r.get("sent")]),
-        "stickies": len(state["sticky_messages"]),
-        "goals_count": len(state["server_goals"]),
-        "backups_count": len(state["config_backups"]),
-        "custom_commands_count": sum(len(v) for v in state["custom_commands"].values()),
-        "external_hooks": len(state["external_hooks"]),
-        "incoming_webhooks": len(state["webhooks_in"]),
-        "logs_count": len(state["server_logs"]),
-        "bot_actions_count": len(state["bot_action_logs"]),
+        "scheduled_count": len([a for a in state["scheduled_announcements"]
+                                if not a.get("posted") and _gmatch(a)]),
+        "active_giveaways": len([g for g in state["giveaways"]
+                                 if not g.get("ended") and _gmatch(g)]),
+        "templates_count": len(templates),
+        "polls_active": len([p for p in state["polls"]
+                             if not p.get("ended") and _gmatch(p)]),
+        "reminders_pending": len([r for r in state["reminders"]
+                                  if not r.get("sent") and _gmatch(r)]),
+        "stickies": len(sticky_items),
+        "goals_count": len([g for g in state["server_goals"] if _gmatch(g)]),
+        "backups_count": len(backups),
+        "custom_commands_count": custom_cmd_count,
+        "external_hooks": len(ext_hooks),
+        "incoming_webhooks": len(in_hooks),
+        "logs_count": len(server_logs),
+        "bot_actions_count": len(bot_actions),
     }
 
 

@@ -430,16 +430,19 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
 
   <!-- ============ OVERVIEW ============ -->
   <section class="section active" data-section="overview">
+    <p class="help" id="ovScopeHint" style="margin:0 0 10px;">
+      Showing bot-wide totals across all servers.
+    </p>
     <div class="grid grid-3" id="overviewStats">
-      <div class="stat"><div class="stat-label">Servers</div><div class="stat-value">{{ live.guilds_count }}</div><div class="stat-sub">{{ live.members_count }} members</div></div>
-      <div class="stat"><div class="stat-label">Active Giveaways</div><div class="stat-value">{{ overview.active_giveaways }}</div></div>
-      <div class="stat"><div class="stat-label">Pending Schedules</div><div class="stat-value">{{ overview.scheduled_count }}</div></div>
-      <div class="stat"><div class="stat-label">Active Polls</div><div class="stat-value">{{ overview.polls_active }}</div></div>
-      <div class="stat"><div class="stat-label">Pending Reminders</div><div class="stat-value">{{ overview.reminders_pending }}</div></div>
-      <div class="stat"><div class="stat-label">Sticky Messages</div><div class="stat-value">{{ overview.stickies }}</div></div>
-      <div class="stat"><div class="stat-label">Server Goals</div><div class="stat-value">{{ overview.goals_count }}</div></div>
-      <div class="stat"><div class="stat-label">Custom Commands</div><div class="stat-value">{{ overview.custom_commands_count }}</div></div>
-      <div class="stat"><div class="stat-label">Backups</div><div class="stat-value">{{ overview.backups_count }}</div></div>
+      <div class="stat"><div class="stat-label" id="ovServersLabel">Servers</div><div class="stat-value" id="ovServers">{{ live.guilds_count }}</div><div class="stat-sub" id="ovServersSub">{{ live.members_count }} members</div></div>
+      <div class="stat"><div class="stat-label">Active Giveaways</div><div class="stat-value" id="ovGiveaways">{{ overview.active_giveaways }}</div></div>
+      <div class="stat"><div class="stat-label">Pending Schedules</div><div class="stat-value" id="ovSchedules">{{ overview.scheduled_count }}</div></div>
+      <div class="stat"><div class="stat-label">Active Polls</div><div class="stat-value" id="ovPolls">{{ overview.polls_active }}</div></div>
+      <div class="stat"><div class="stat-label">Pending Reminders</div><div class="stat-value" id="ovReminders">{{ overview.reminders_pending }}</div></div>
+      <div class="stat"><div class="stat-label">Sticky Messages</div><div class="stat-value" id="ovStickies">{{ overview.stickies }}</div></div>
+      <div class="stat"><div class="stat-label">Server Goals</div><div class="stat-value" id="ovGoals">{{ overview.goals_count }}</div></div>
+      <div class="stat"><div class="stat-label">Custom Commands</div><div class="stat-value" id="ovCustomCmds">{{ overview.custom_commands_count }}</div></div>
+      <div class="stat"><div class="stat-label">Backups</div><div class="stat-value" id="ovBackups">{{ overview.backups_count }}</div></div>
     </div>
     <div class="grid grid-2" style="margin-top:20px;">
       <div class="card">
@@ -831,6 +834,7 @@ let currentGuildId = "";
 function currentGuild(){ return currentGuildId; }
 function onGuildChange(){
   currentGuildId = $('#guildPick').value;
+  loadOverviewStats();
   loadGuildConfig();
   loadAvatarPanel();
   loadAnalytics();
@@ -842,6 +846,48 @@ function onGuildChange(){
   // hint and override pills so the user always sees what they're editing.
   if (typeof soEmbUpdateScopeHint === 'function') soEmbUpdateScopeHint();
   if (typeof soEmbLoad === 'function' && _soEmbTemplates && _soEmbTemplates.length) soEmbLoad();
+}
+
+/* ============ OVERVIEW STATS (per-server aware) ============
+ * The stat cards on the Overview tab are server-rendered with bot-wide
+ * totals on first paint. Whenever the user picks a server in the top-bar
+ * dropdown we re-fetch the counts filtered to that guild and update the
+ * card values + scope hint in place. */
+async function loadOverviewStats(){
+  const url = '/server-official/api/overview' + (currentGuildId ? `?guild_id=${encodeURIComponent(currentGuildId)}` : '');
+  const r = await api('GET', url);
+  if (!r || !r.ok) return;
+  const o = r.data || {};
+  const live = r.live || {};
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el != null) el.textContent = (v == null ? '0' : v); };
+
+  // Header: when a server is picked, show that server's name + members.
+  // Otherwise show the bot-wide totals (number of servers + total members).
+  const hasServer = !!currentGuildId;
+  const serversLabel = document.getElementById('ovServersLabel');
+  const serversVal   = document.getElementById('ovServers');
+  const serversSub   = document.getElementById('ovServersSub');
+  const scopeHint    = document.getElementById('ovScopeHint');
+  if (hasServer){
+    if (serversLabel) serversLabel.textContent = 'Server Members';
+    if (serversVal)   serversVal.textContent   = live.selected_member_count || 0;
+    if (serversSub)   serversSub.textContent   = live.selected_name || 'Selected server';
+    if (scopeHint)    scopeHint.innerHTML      = '<i class="fas fa-bullseye"></i> Showing stats for <strong>' + escapeHtml(live.selected_name || 'this server') + '</strong> only.';
+  } else {
+    if (serversLabel) serversLabel.textContent = 'Servers';
+    if (serversVal)   serversVal.textContent   = live.guilds_count || 0;
+    if (serversSub)   serversSub.textContent   = (live.members_count || 0) + ' members';
+    if (scopeHint)    scopeHint.innerHTML      = '<i class="fas fa-globe"></i> Showing bot-wide totals across all servers.';
+  }
+
+  setVal('ovGiveaways',  o.active_giveaways);
+  setVal('ovSchedules',  o.scheduled_count);
+  setVal('ovPolls',      o.polls_active);
+  setVal('ovReminders',  o.reminders_pending);
+  setVal('ovStickies',   o.stickies);
+  setVal('ovGoals',      o.goals_count);
+  setVal('ovCustomCmds', o.custom_commands_count);
+  setVal('ovBackups',    o.backups_count);
 }
 
 function toast(msg, kind='ok'){

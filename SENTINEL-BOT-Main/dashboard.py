@@ -832,10 +832,20 @@ def _so_module():
         return None
 
 
-def _so_live_state():
-    """Pull live guild list / counts straight from the running bot (if any)."""
+def _so_live_state(guild_id: str = ""):
+    """Pull live guild list / counts straight from the running bot (if any).
+
+    When `guild_id` is supplied, `selected_name` and `selected_member_count`
+    are populated so the dashboard's overview cards can show per-server
+    numbers instead of bot-wide totals.
+    """
     so = _so_module()
-    out = {"guilds_count": 0, "members_count": 0, "guilds": []}
+    out = {
+        "guilds_count": 0, "members_count": 0, "guilds": [],
+        "selected_id": str(guild_id or ""),
+        "selected_name": "",
+        "selected_member_count": 0,
+    }
     if not so:
         return out
     try:
@@ -844,12 +854,16 @@ def _so_live_state():
             guilds = []
             total_members = 0
             for g in b.guilds:
+                gm = g.member_count or 0
                 guilds.append({
                     "id": str(g.id),
                     "name": g.name,
-                    "member_count": g.member_count or 0,
+                    "member_count": gm,
                 })
-                total_members += g.member_count or 0
+                total_members += gm
+                if guild_id and str(g.id) == str(guild_id):
+                    out["selected_name"] = g.name
+                    out["selected_member_count"] = gm
             out["guilds_count"] = len(guilds)
             out["members_count"] = total_members
             out["guilds"] = sorted(guilds, key=lambda x: x["member_count"], reverse=True)
@@ -1039,7 +1053,10 @@ def so_api_analytics():
 def so_api_overview():
     so, err = _so_require_login()
     if err: return err
-    return jsonify({"ok": True, "data": so.get_full_overview()})
+    gid = (request.args.get('guild_id') or '').strip()
+    overview = so.get_full_overview(gid or None)
+    live = _so_live_state(gid)
+    return jsonify({"ok": True, "data": overview, "live": live})
 
 
 # --- Guild Config ---
