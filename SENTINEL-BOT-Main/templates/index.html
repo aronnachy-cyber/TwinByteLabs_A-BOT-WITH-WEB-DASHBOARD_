@@ -808,6 +808,34 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       </div>
     </div>
 
+    <div class="card" style="border:1px solid #c084fc;">
+      <div class="card-title" style="color:#c084fc;"><i class="fas fa-gavel"></i> Automod (Auto-Action)</div>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px;">
+        When ON, SP4RK automatically mutes / tempbans / kicks members based on their warning count.
+        When OFF, nothing changes — warnings still get logged to staff but no automatic punishment is applied.
+        Owners, staff and equal/higher-role members are never affected.
+      </p>
+      <div class="row">
+        <div class="row-label"><strong>Enable Automod</strong>Master switch for automatic punishments</div>
+        <label class="toggle"><input type="checkbox" id="automod_on" {% if config.get('automod_on')=='ON' %}checked{% endif %}><span class="slider"></span></label>
+      </div>
+      <div style="margin-top:14px;background:rgba(192,132,252,0.08);border:1px solid rgba(192,132,252,0.25);border-radius:10px;padding:12px 14px;">
+        <div style="font-weight:600;color:#c084fc;margin-bottom:8px;font-size:.88rem;">
+          <i class="fas fa-list-ol"></i> Escalation chart
+        </div>
+        <table style="width:100%;font-size:.85rem;border-collapse:collapse;">
+          <tr><td style="padding:4px 0;color:var(--muted);">5 warnings</td>
+              <td style="padding:4px 0;text-align:right;">⏱️ 5-minute mute</td></tr>
+          <tr><td style="padding:4px 0;color:var(--muted);">10 warnings</td>
+              <td style="padding:4px 0;text-align:right;">⏱️ 10-minute mute</td></tr>
+          <tr><td style="padding:4px 0;color:var(--muted);">20 warnings</td>
+              <td style="padding:4px 0;text-align:right;">⛔ 30-minute tempban</td></tr>
+          <tr><td style="padding:4px 0;color:var(--muted);">30 warnings</td>
+              <td style="padding:4px 0;text-align:right;">👢 kick</td></tr>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1833,6 +1861,7 @@ function collectData() {
     auto_block_mentions: getCheck('auto_block_mentions'), auto_dm_warning: getCheck('auto_dm_warning'),
     auto_custom_blacklist: getText('auto_custom_blacklist'), auto_allowlist: getText('auto_allowlist'), webhook_log: getText('webhook_log'),
     warning_limit: parseInt(getText('warning_limit')) || 30, owner_approval: getCheck('owner_approval'),
+    automod_on: getCheck('automod_on'),
     anti_raid: getCheck('anti_raid'), security_2fa: getCheck('security_2fa'),
     role_monitor: getCheck('role_monitor'), mass_ban_prevent: getCheck('mass_ban_prevent'),
     temp_lockdown: getCheck('temp_lockdown'), banned_words: getText('banned_words'),

@@ -90,6 +90,11 @@ DEFAULT_CONFIG = {
     "wall_length": 1000,
     "anti_zalgo": "OFF",
     "grad_punish": "OFF",
+    # --- Master "Automod" auto-action toggle ---
+    # When ON, SP4RK auto-mutes / tempbans / kicks based on warning count
+    # using the chart below (5 → 5min mute, 10 → 10min mute,
+    # 20 → 30min tempban, 30 → kick). When OFF, behaviour is unchanged.
+    "automod_on": "OFF",
 }
 
 config = {**DEFAULT_CONFIG}
@@ -510,7 +515,7 @@ TOGGLE_KEYS = [
     "temp_lockdown", "discord_alerts", "twitter_alerts", "youtube_alerts",
     "daily_report",
     "spam_filter", "caps_filter", "emoji_filter", "duplicate_filter",
-    "wall_filter", "anti_zalgo", "grad_punish",
+    "wall_filter", "anti_zalgo", "grad_punish", "automod_on",
 ]
 
 TEXT_KEYS = [

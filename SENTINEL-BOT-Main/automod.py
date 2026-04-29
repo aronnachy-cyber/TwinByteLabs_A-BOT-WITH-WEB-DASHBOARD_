@@ -1,3 +1,4 @@
+import asyncio
 import discord
 import requests
 import re
@@ -244,8 +245,28 @@ async def auto_dm_warning_user(member, reason, guild_name):
     return
 
 async def apply_graduated_punishment(message, config, count, add_warning_fn):
-    """Apply escalating punishments based on warning count."""
-    if config.get("grad_punish") != "ON":
+    """Apply escalating punishments based on warning count.
+
+    Two independent escalation modes can drive auto-actions; both are OFF by
+    default so the bot does nothing extra unless the server explicitly opts in.
+
+    1) `automod_on` (NEW master toggle, configured from the dashboard).
+       Uses the simple chart the user requested:
+           5 warns  → 5-minute mute
+          10 warns  → 10-minute mute
+          20 warns  → 30-minute tempban (real ban + scheduled unban)
+          30 warns  → kick
+       This takes precedence over `grad_punish` when both are ON.
+
+    2) `grad_punish` (legacy graduated chart). Preserved for backward
+       compatibility — only runs when `automod_on` is OFF.
+
+    When BOTH are OFF the function is a no-op, which matches today's
+    behaviour exactly (per the user's "nothing will be changed" requirement).
+    """
+    automod_on  = config.get("automod_on")  == "ON"
+    legacy_on   = config.get("grad_punish") == "ON"
+    if not (automod_on or legacy_on):
         return
 
     member = message.author
@@ -262,6 +283,82 @@ async def apply_graduated_punishment(message, config, count, add_warning_fn):
         )
         return
 
+    # ---- NEW Automod chart (takes precedence) ----
+    if automod_on:
+        try:
+            if count >= 30:
+                await member.kick(reason=f"SP4RK Automod: Auto-kick ({count} warnings)")
+                await message.channel.send(
+                    f"👢 {member.mention} has been **kicked** after {count} warnings.",
+                    delete_after=10,
+                )
+                await send_webhook_log(
+                    config, "👢 Automod Auto-Kick",
+                    f"**User:** {member} ({member.id})\n**Warnings:** {count}",
+                )
+            elif count >= 20:
+                # 30-minute tempban: real ban + scheduled unban via background task.
+                await member.ban(
+                    reason=f"SP4RK Automod: 30-min tempban ({count} warnings)",
+                    delete_message_days=0,
+                )
+                await message.channel.send(
+                    f"⛔ {member.mention} has been **temp-banned for 30 minutes** ({count} warnings).",
+                    delete_after=10,
+                )
+                await send_webhook_log(
+                    config, "⛔ Automod Tempban (30 min)",
+                    f"**User:** {member} ({member.id})\n**Warnings:** {count}",
+                )
+
+                async def _unban_later(g, m_id, mention):
+                    try:
+                        await asyncio.sleep(30 * 60)
+                        await g.unban(
+                            discord.Object(id=m_id),
+                            reason="SP4RK Automod: 30-min tempban expired",
+                        )
+                        await send_webhook_log(
+                            config, "✅ Automod Tempban Expired",
+                            f"**User ID:** {m_id} — auto-unbanned after 30 minutes.",
+                        )
+                    except Exception as e:
+                        print(f"[automod] tempban auto-unban failed: {e}")
+
+                asyncio.create_task(_unban_later(guild, member.id, member.mention))
+            elif count >= 10:
+                duration = discord.utils.utcnow() + timedelta(minutes=10)
+                await member.timeout(duration, reason=f"SP4RK Automod: 10-min mute ({count} warnings)")
+                await message.channel.send(
+                    f"⏱️ {member.mention} has been **muted for 10 minutes** ({count} warnings).",
+                    delete_after=10,
+                )
+                await send_webhook_log(
+                    config, "⏱️ Automod Mute (10 min)",
+                    f"**User:** {member} ({member.id})\n**Warnings:** {count}",
+                )
+            elif count >= 5:
+                duration = discord.utils.utcnow() + timedelta(minutes=5)
+                await member.timeout(duration, reason=f"SP4RK Automod: 5-min mute ({count} warnings)")
+                await message.channel.send(
+                    f"⏱️ {member.mention} has been **muted for 5 minutes** ({count} warnings).",
+                    delete_after=10,
+                )
+                await send_webhook_log(
+                    config, "⏱️ Automod Mute (5 min)",
+                    f"**User:** {member} ({member.id})\n**Warnings:** {count}",
+                )
+        except discord.Forbidden:
+            await send_webhook_log(
+                config, "⚠️ Automod Action Failed (Forbidden)",
+                f"**User:** {member} ({member.id})\n**Warnings:** {count}\n"
+                f"SP4RK lacks the required permission. Check role hierarchy.",
+            )
+        except Exception as e:
+            print(f"[automod] auto-action error: {e}")
+        return  # NEW chart handled — don't also run the legacy one.
+
+    # ---- LEGACY grad_punish chart (only when automod_on is OFF) ----
     try:
         if count >= 10:
             await member.ban(reason=f"SP4RK: Auto-ban ({count} warnings)")
@@ -276,14 +373,14 @@ async def apply_graduated_punishment(message, config, count, add_warning_fn):
                 delete_after=10
             )
         elif count >= 5:
-            duration = discord.utils.utcnow() + discord.timedelta(hours=1)
+            duration = discord.utils.utcnow() + timedelta(hours=1)
             await member.timeout(duration, reason=f"SP4RK: Auto-timeout ({count} warnings)")
             await message.channel.send(
                 f"⏱️ {member.mention} has been **timed out for 1 hour** ({count} warnings).",
                 delete_after=10
             )
         elif count >= 3:
-            duration = discord.utils.utcnow() + discord.timedelta(minutes=10)
+            duration = discord.utils.utcnow() + timedelta(minutes=10)
             await member.timeout(duration, reason=f"SP4RK: Auto-timeout ({count} warnings)")
             await message.channel.send(
                 f"⏱️ {member.mention} has been **timed out for 10 minutes** ({count} warnings).",

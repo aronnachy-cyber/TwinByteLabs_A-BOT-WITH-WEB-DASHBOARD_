@@ -109,6 +109,9 @@ DEFAULT_CONFIG = {
     "wall_length": 1000,
     "anti_zalgo": "OFF",
     "grad_punish": "OFF",
+    # Master Automod auto-action toggle (5/10/20/30 escalation chart).
+    # OFF preserves the current behaviour exactly.
+    "automod_on": "OFF",
 }
 
 # Bootstrap from the dashboard's Supabase-backed config (already loaded at import time)
