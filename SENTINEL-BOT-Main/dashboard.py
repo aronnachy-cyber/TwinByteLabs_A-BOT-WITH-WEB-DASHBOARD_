@@ -365,13 +365,30 @@ def _from_db_row(r):
         'last_login':       r.get('last_login') or '',
     })
 
+# ---- Postgres-backed user store (preferred when DATABASE_URL is set) ----
+import db_users as _db_users
+
+# One-shot migration of any pre-existing users.json into Postgres.
+# Safe: uses upsert, so re-running this on every boot is a no-op once empty.
+if _db_users.is_available() and os.path.exists(USERS_FILE):
+    try:
+        _db_users.migrate_from_json(USERS_FILE)
+    except Exception as _e:
+        print(f"[users] one-shot JSON→PG migration skipped: {_e}")
+
+
 def load_users():
+    # 1) Postgres (DATABASE_URL) — preferred persistent store.
+    if _db_users.is_available():
+        return _db_users.load_all()
+    # 2) Supabase REST — legacy path, still supported when env vars are set.
     if supabase:
         try:
             res = supabase.table("sentinel_users").select("*").execute()
             return [u for u in (_from_db_row(r) for r in (res.data or [])) if u]
         except Exception as e:
             print(f"⚠️ Supabase load_users error: {e}")
+    # 3) JSON file fallback.
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, 'r') as f:
             try:
@@ -385,17 +402,21 @@ def load_users():
 def save_single_user(u):
     if not _normalize_user(u):
         return
+    # 1) Postgres.
+    if _db_users.is_available():
+        if _db_users.upsert(u):
+            return
+    # 2) Supabase REST.
     if supabase:
         try:
             row = _to_db_row(u)
-            # Upsert keeps it idempotent: insert on first login, update on every
-            # subsequent login (refreshes username + last_login).
             supabase.table("sentinel_users").upsert(
                 row, on_conflict="discord_id"
             ).execute()
             return
         except Exception as e:
             print(f"⚠️ Supabase save_single_user error: {e}")
+    # 3) JSON file fallback.
     users = load_users()
     for i, existing in enumerate(users):
         if str(existing.get("discord_id")) == u["discord_id"]:
@@ -408,6 +429,12 @@ def save_single_user(u):
 
 def find_user_by_discord_id(discord_id):
     discord_id = str(discord_id)
+    # 1) Postgres.
+    if _db_users.is_available():
+        u = _db_users.find_by_discord_id(discord_id)
+        if u:
+            return u
+    # 2) Supabase REST.
     if supabase:
         try:
             res = (
@@ -421,6 +448,7 @@ def find_user_by_discord_id(discord_id):
                 return _from_db_row(res.data[0])
         except Exception as e:
             print(f"⚠️ Supabase find_user_by_discord_id error: {e}")
+    # 3) JSON scan fallback.
     for u in load_users():
         if str(u.get('discord_id')) == discord_id:
             return u
@@ -1400,7 +1428,6 @@ def so_api_reset_guild():
     so.create_backup(label=f"pre-reset-{gid}")
     state = so.load_state()
     state["server_configs"].pop(gid, None)
-    state["xp"].pop(gid, None)
     state["daily_checkins"].pop(gid, None)
     state["custom_commands"].pop(gid, None)
     state["admin_notes"].pop(gid, None)

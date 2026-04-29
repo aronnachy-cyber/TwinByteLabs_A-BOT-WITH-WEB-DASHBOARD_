@@ -7,7 +7,7 @@ Pure server management (no moderation). Features:
   3. Server Analytics (messages/day, top chatters, voice activity)
   4. Announcement System (announce, schedule, broadcast, templates)
   5. Utility Tools (polls, reminders, sticky, notes, embed builder)
-  6. Engagement (XP/levels, daily check-in, server goals)
+  6. Engagement (daily check-in, server goals)
   7. Logging (channel/role create/delete, bot actions)
   8. Configuration Dashboard (web UI)
   9. Automation (welcome msgs, auto pin, auto cleanup, scheduled backups)

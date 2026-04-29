@@ -22,7 +22,7 @@ if _token_present and not _disabled:
     threading.Thread(target=_start_bot, daemon=True).start()
 elif not _token_present:
     print("[WSGI] DISCORD_TOKEN not set — Discord bot will not start. "
-          "Giveaways, XP/leveling, autoresponder, reaction roles, and tickets need the bot running.")
+          "Giveaways, autoresponder, reaction roles, and tickets need the bot running.")
 
 # ---- Server Official (second bot, separate token) ----
 def _start_server_official():

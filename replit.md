@@ -253,3 +253,12 @@ Enhanced `templates/bots.html` while keeping all existing IDs/classes intact:
 - `main.py` `userinfo`: guards against `discord.User` (vs `Member`) and uses `discord.Color.default()` comparison instead of comparing `.value` against `0`.
 - `server_official.py` `daily_backup_tick`: wrapped the body in try/except so a single failed backup can't kill the recurring task.
 - `giveaway.py`: added `discord.Forbidden` guard around `add_reaction("🎉")` so a missing "Add Reactions" perm logs a warning instead of crashing the start command.
+
+## V2.8.4 — User DB on Postgres + Per-Server Embeds + Leveling Removed (Apr 2026)
+**Postgres user store (`db_users.py`)** — When `DATABASE_URL` is set (Replit Postgres), users are persisted in a real `sentinel_users` table via `psycopg2` connection pool. Auto-creates the schema on first boot, includes one-shot migration of any pre-existing `users.json`, and exposes `load_all`, `upsert`, `find_by_discord_id`, `delete`. `dashboard.py` `load_users` / `save_single_user` / `find_user_by_discord_id` now prefer Postgres → Supabase REST → JSON file (full backwards compat).
+
+**Per-server embed scoping fix** — Server Official's Embed Editor previously sent edits without a `guild_id`, so picking a server in the top bar then editing an embed silently overwrote the global default. Added a "Apply changes to: [This server only / All servers]" radio in the embed editor card that defaults to the selected server, disables the per-server option when no server is picked, and threads `guild_id` through every call (`soEmbLoad`, `soEmbSave`, `soEmbReset`, `soEmbPreview`). Changing the top-bar guild also auto-refreshes the editor list and override pills.
+
+**Server Official analytics empty-state** — `loadAnalytics` now overlays a friendly "No data yet — bot needs to be online" badge on each chart when the API succeeds with empty buckets, and a separate "Analytics unavailable" message when the API call itself fails. New `setChartEmptyState(canvasId, message)` helper handles overlay lifecycle.
+
+**Leveling removed** — Deleted orphaned `leveling.py` + `xp.json`. Cleaned dead reference `state["xp"].pop(gid, None)` in `dashboard.py` `reset_guild`. Updated `wsgi.py` warning message and `server_official.py` module docstring. Removed XP/Leveling chips, descriptions, feature card, and pricing list items from `landing.html`, `bots.html`, and `bytelabs_landing.html`.

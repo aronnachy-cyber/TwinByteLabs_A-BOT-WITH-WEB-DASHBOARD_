@@ -793,7 +793,23 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
   <!-- ==================== EMBED EDITOR SECTION ==================== -->
   <section class="section" data-section="embeds">
     <h2 class="page-title"><i class="fas fa-paint-brush"></i> Embed Editor</h2>
-    <p class="help">Customize the title, description, color, and footer of every embedded message Server Official sends. Click any template on the left to start editing — changes apply globally across all servers.</p>
+    <p class="help">Customize the title, description, color, and footer of every embedded message Server Official sends. Pick a scope below — server-specific edits override the global default for that server only.</p>
+
+    <!-- Scope selector: "this server" vs "all servers" -->
+    <div class="card" style="padding:14px 16px; margin:14px 0; display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
+      <i class="fas fa-bullseye" style="color:#7eb1ff;"></i>
+      <strong style="font-size:0.95rem;">Apply changes to:</strong>
+      <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+        <input type="radio" name="so-emb-scope" value="guild" id="so-emb-scope-guild" checked />
+        <span>This server only</span>
+      </label>
+      <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+        <input type="radio" name="so-emb-scope" value="global" id="so-emb-scope-global" />
+        <span>All servers (global default)</span>
+      </label>
+      <span id="so-emb-scope-hint" style="margin-left:auto; color:var(--muted); font-size:0.85rem;"></span>
+    </div>
+
     <div style="display:grid; grid-template-columns:280px 1fr; gap:18px; margin-top:16px;" id="so-emb-grid">
       <div id="so-emb-list" class="card" style="padding:10px; max-height:75vh; overflow-y:auto;">
         <div style="padding:14px; color:var(--muted);">Loading templates…</div>
@@ -822,6 +838,10 @@ function onGuildChange(){
   loadNotes();
   loadCustomCmds();
   loadGoals();
+  // Embed editor depends on the selected server too — refresh its scope
+  // hint and override pills so the user always sees what they're editing.
+  if (typeof soEmbUpdateScopeHint === 'function') soEmbUpdateScopeHint();
+  if (typeof soEmbLoad === 'function' && _soEmbTemplates && _soEmbTemplates.length) soEmbLoad();
 }
 
 function toast(msg, kind='ok'){
@@ -962,10 +982,35 @@ function nameForUserId(uid){
   return s.length > 4 ? `User …${s.slice(-4)}` : (s || 'Unknown');
 }
 
+/* Drop a friendly "no data yet" overlay on top of an empty chart canvas
+   so the user understands why the line is flat. Removes any prior overlay. */
+function setChartEmptyState(canvasId, message){
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  const parent = ctx.parentElement;
+  if (!parent) return;
+  if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+  let badge = parent.querySelector('.chart-empty-overlay');
+  if (!message){ if (badge) badge.remove(); return; }
+  if (!badge){
+    badge = document.createElement('div');
+    badge.className = 'chart-empty-overlay';
+    badge.style.cssText = 'position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; color:#a7b6d4; font-size:0.9rem; text-align:center; padding:18px; background:rgba(7,16,31,.55); border-radius:10px;';
+    parent.appendChild(badge);
+  }
+  badge.textContent = message;
+}
+
 async function loadAnalytics(){
   const url = '/server-official/api/analytics' + (currentGuildId ? `?guild_id=${currentGuildId}` : '');
   const res = await api('GET', url);
-  if (!res || res.ok === false) return;
+  if (!res || res.ok === false){
+    // API failed (most often: not signed in / bot not running). Surface that
+    // on every chart so the user isn't staring at a blank panel.
+    ['msgChart','msgChart2','joinChart','joinChart2','topChattersChart','voiceChart']
+      .forEach(id => setChartEmptyState(id, 'Analytics unavailable — make sure the Server Official bot is running.'));
+    return;
+  }
   const a = res.data;
 
   // Always show a steady 30-day window so empty days are visible (no jagged gaps).
@@ -997,6 +1042,21 @@ async function loadAnalytics(){
   const voiceLabels = (a.top_voice||[]).map(t => nameForUserId(t[0]));
   const voiceData   = (a.top_voice||[]).map(t => Math.round(t[1]));
   makeBarChart('voiceChart', voiceLabels, voiceData, 'Voice time (minutes)', 'Voice time', 'minutes');
+
+  // Show a friendly "no data yet" badge over each chart that has nothing to plot.
+  // Use a single message so the cause is obvious (bot needs to be online to collect stats).
+  const noTraffic = msgData.every(v => v === 0);
+  const noJoins   = days.map(d=>a.joins_per_day[d]||0).every(v => v === 0)
+                 && days.map(d=>a.leaves_per_day[d]||0).every(v => v === 0);
+  const trafficMsg = currentGuildId
+    ? 'No activity recorded yet for this server. Stats appear once the bot sees messages.'
+    : 'No activity recorded yet. Stats appear once the Server Official bot is online and seeing messages.';
+  setChartEmptyState('msgChart',  noTraffic ? trafficMsg : '');
+  setChartEmptyState('msgChart2', noTraffic ? trafficMsg : '');
+  setChartEmptyState('joinChart',  noJoins ? 'No member join/leave events recorded yet.' : '');
+  setChartEmptyState('joinChart2', noJoins ? 'No member join/leave events recorded yet.' : '');
+  setChartEmptyState('topChattersChart', chatData.length === 0 ? 'No chatter data yet — stats appear after the bot logs messages.' : '');
+  setChartEmptyState('voiceChart',       voiceData.length === 0 ? 'No voice activity recorded yet.' : '');
 }
 
 function loadOverviewCharts(){ loadAnalytics(); }
@@ -1435,15 +1495,58 @@ let _soEmbFocused = null;
 
 function soEmbEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+/* Returns "" for global scope, or the selected guild id for per-server scope.
+   Falls back to "" (global) if no server is currently selected. */
+function soEmbScopedGuildId(){
+  const guildRadio = document.getElementById('so-emb-scope-guild');
+  if (guildRadio && guildRadio.checked && currentGuildId) return String(currentGuildId);
+  return '';
+}
+
+/* Updates the right-side hint and disables "this server" radio when no
+   server is picked yet, so the user can't accidentally write nowhere. */
+function soEmbUpdateScopeHint(){
+  const hint = document.getElementById('so-emb-scope-hint');
+  const guildRadio = document.getElementById('so-emb-scope-guild');
+  const globalRadio = document.getElementById('so-emb-scope-global');
+  if (!hint || !guildRadio || !globalRadio) return;
+  if (!currentGuildId){
+    guildRadio.disabled = true;
+    if (guildRadio.checked){ guildRadio.checked = false; globalRadio.checked = true; }
+    hint.textContent = 'Pick a server in the top bar to edit per-server overrides.';
+    hint.style.color = '#f59e0b';
+  } else {
+    guildRadio.disabled = false;
+    const selected = soEmbScopedGuildId();
+    hint.textContent = selected
+      ? 'Edits below will only affect the selected server.'
+      : 'Edits below will affect every server (default template).';
+    hint.style.color = '';
+  }
+}
+
 async function soEmbLoad(){
   try {
-    const r = await fetch(SO_EMB_API);
+    soEmbUpdateScopeHint();
+    const gid = soEmbScopedGuildId();
+    const url = SO_EMB_API + (gid ? `?guild_id=${encodeURIComponent(gid)}` : '');
+    const r = await fetch(url);
     const j = await r.json();
     if (!j.ok) return;
     _soEmbTemplates = j.items || [];
     soEmbRenderList();
+    if (_soEmbSelected){
+      const t = _soEmbTemplates.find(x => x.key === _soEmbSelected);
+      if (t) soEmbRenderEditor(t);
+    }
   } catch(e){ /* silent */ }
 }
+
+/* Re-load whenever the scope radios change, so the editor reflects the
+   correct override (per-server vs global) immediately. */
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.name === 'so-emb-scope') soEmbLoad();
+});
 
 function soEmbRenderList(){
   const host = document.getElementById('so-emb-list'); if (!host) return;
@@ -1535,9 +1638,12 @@ function soEmbInsert(token){
 
 async function soEmbPreview(){
   if (!_soEmbSelected) return;
+  const gid = soEmbScopedGuildId();
+  const body = { key: _soEmbSelected, override: soEmbCollect() };
+  if (gid) body.guild_id = gid;
   const r = await fetch(SO_EMB_API + '/preview', {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ key: _soEmbSelected, override: soEmbCollect() })
+    body: JSON.stringify(body)
   });
   const j = await r.json(); if (!j.ok) return;
   const p = j.preview || {};
@@ -1553,33 +1659,47 @@ async function soEmbPreview(){
 
 async function soEmbSave(){
   if (!_soEmbSelected) return;
+  const gid = soEmbScopedGuildId();
+  const guildRadio = document.getElementById('so-emb-scope-guild');
+  // Guard: user picked "this server" but no server is selected.
+  if (guildRadio && guildRadio.checked && !currentGuildId){
+    return toast('Pick a server in the top bar first, or switch scope to "All servers".','err');
+  }
+  const body = { key: _soEmbSelected, override: soEmbCollect() };
+  if (gid) body.guild_id = gid;
   const r = await fetch(SO_EMB_API, {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ key: _soEmbSelected, override: soEmbCollect() })
+    body: JSON.stringify(body)
   });
   const j = await r.json();
-  if (j.ok) { toast('Embed saved'); soEmbLoad(); }
-  else      { toast('Save failed: ' + (j.error || 'unknown'), 'err'); }
+  if (j.ok) {
+    toast(gid ? 'Saved for this server' : 'Saved as global default');
+    soEmbLoad();
+  } else {
+    toast('Save failed: ' + (j.error || 'unknown'), 'err');
+  }
 }
 
 async function soEmbReset(){
   if (!_soEmbSelected) return;
-  if (!confirm('Reset this embed to the default template?')) return;
+  const gid = soEmbScopedGuildId();
+  const scopeLabel = gid ? "this server's override" : "the global default";
+  if (!confirm(`Reset ${scopeLabel} for this embed back to the built-in template?`)) return;
+  const body = { key: _soEmbSelected };
+  if (gid) body.guild_id = gid;
   const r = await fetch(SO_EMB_API, {
     method:'DELETE', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ key: _soEmbSelected })
+    body: JSON.stringify(body)
   });
   const j = await r.json();
   if (j.ok) {
     toast('Reset to default');
     await soEmbLoad();
-    const t = _soEmbTemplates.find(x => x.key === _soEmbSelected);
-    if (t) soEmbRenderEditor(t);
   }
 }
 
 document.querySelectorAll('.sb-item[data-section="embeds"]').forEach(b => {
-  b.addEventListener('click', () => { if (!_soEmbTemplates.length) soEmbLoad(); });
+  b.addEventListener('click', () => { soEmbUpdateScopeHint(); if (!_soEmbTemplates.length) soEmbLoad(); });
 });
 </script>
 
