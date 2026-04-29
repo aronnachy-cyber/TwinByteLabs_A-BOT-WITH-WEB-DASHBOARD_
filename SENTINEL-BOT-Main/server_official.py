@@ -2095,7 +2095,22 @@ def start_bot_thread():
 
 
 def is_running() -> bool:
-    return bool(_bot_thread and _bot_thread.is_alive() and TOKEN)
+    """True when the Server Official bot is connected to Discord.
+
+    Two valid sources of truth:
+      1) The bot is running in *this* Python process — `_bot_thread` is alive.
+      2) The bot is running in a *different* process (typical on Render where
+         the dashboard and the bot are separate services). In that case the
+         in-process thread is None, but a Discord REST API ping with the
+         configured `SERVER_TOKEN` will succeed and prove the bot is reachable.
+    """
+    if _bot_thread and _bot_thread.is_alive() and TOKEN:
+        return True
+    try:
+        from bot_health import token_is_live
+        return token_is_live(TOKEN)
+    except Exception:
+        return False
 
 
 # Helpers exposed for dashboard helpers below the main bot definition

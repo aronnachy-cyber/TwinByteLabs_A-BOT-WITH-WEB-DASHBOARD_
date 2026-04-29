@@ -2220,8 +2220,24 @@ def confirm_action():
 def bot_status():
     if not session.get('logged_in'):
         return jsonify({"error": "Unauthorized"}), 401
-    alive = _bot_restart_callback is not None
-    return jsonify({"status": "ok", "restart_available": alive})
+    # The dashboard treats the main bot as "online" if either (a) it lives
+    # in this Python process (the restart callback is wired up) or (b) the
+    # configured DISCORD_TOKEN is valid and Discord is reachable — which
+    # covers the common Render setup where the bot runs as a separate
+    # service. The restart button itself only makes sense for case (a).
+    in_process = _bot_restart_callback is not None
+    token_ok = False
+    try:
+        from bot_health import token_is_live
+        token_ok = token_is_live(os.environ.get("DISCORD_TOKEN", ""))
+    except Exception:
+        token_ok = False
+    return jsonify({
+        "status": "ok",
+        "restart_available": bool(in_process or token_ok),
+        "in_process": in_process,
+        "remote_online": token_ok and not in_process,
+    })
 
 @app.route('/api/connection_status')
 def connection_status():
