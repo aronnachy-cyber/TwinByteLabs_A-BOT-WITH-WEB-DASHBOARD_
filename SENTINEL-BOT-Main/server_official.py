@@ -971,8 +971,14 @@ async def _refresh_invite_cache():
 # ============================================================
 # EVENTS
 # ============================================================
+_BOT_STARTED_AT: Optional[datetime] = None  # set on first on_ready, used by /uptime
+
+
 @bot.event
 async def on_ready():
+    global _BOT_STARTED_AT
+    if _BOT_STARTED_AT is None:
+        _BOT_STARTED_AT = datetime.now(timezone.utc)
     logger.info(f"[server_official] Logged in as {bot.user} (id={bot.user.id})")
     await _refresh_invite_cache()
     try:
@@ -1812,6 +1818,246 @@ async def slash_stats(interaction: discord.Interaction):
     await interaction.response.send_message(embed=e)
 
 
+# ============================================================
+# SLASH COMMANDS — INFO & UTILITY (added)
+# ============================================================
+@bot.tree.command(name="ping", description="Show the bot's current latency to Discord.")
+async def slash_ping(interaction: discord.Interaction):
+    ms = round(bot.latency * 1000)
+    await interaction.response.send_message(
+        embed=_embed("🏓 Pong!", f"Gateway latency: **{ms} ms**", color=0x10b981),
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(name="uptime", description="Show how long the bot has been running since its last restart.")
+async def slash_uptime(interaction: discord.Interaction):
+    if _BOT_STARTED_AT is None:
+        return await interaction.response.send_message(
+            embed=_embed("⏱️ Uptime", "Bot has not finished starting up yet.", color=0x6b7280),
+            ephemeral=True,
+        )
+    delta = datetime.now(timezone.utc) - _BOT_STARTED_AT
+    total = int(delta.total_seconds())
+    days, rem = divmod(total, 86400)
+    hours, rem = divmod(rem, 3600)
+    mins, secs = divmod(rem, 60)
+    parts = []
+    if days:  parts.append(f"{days}d")
+    if hours: parts.append(f"{hours}h")
+    if mins:  parts.append(f"{mins}m")
+    parts.append(f"{secs}s")
+    await interaction.response.send_message(
+        embed=_embed("⏱️ Uptime", f"Online for **{' '.join(parts)}**\nSince <t:{int(_BOT_STARTED_AT.timestamp())}:F>",
+                     color=0x10b981),
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(name="membercount", description="Show a quick member breakdown for this server.")
+async def slash_membercount(interaction: discord.Interaction):
+    g = interaction.guild
+    if not g:
+        return await interaction.response.send_message("❌ Use this in a server.", ephemeral=True)
+    total = g.member_count or 0
+    humans = sum(1 for m in g.members if not m.bot)
+    bots = sum(1 for m in g.members if m.bot)
+    online = sum(1 for m in g.members if m.status != discord.Status.offline) if g.members else 0
+    desc = (
+        f"👥 **Total:** {total}\n"
+        f"🧑 **Humans:** {humans}\n"
+        f"🤖 **Bots:** {bots}\n"
+        f"🟢 **Online (cached):** {online}"
+    )
+    await interaction.response.send_message(embed=_embed(f"👥 {g.name} — Members", desc, color=0x5b8cff))
+
+
+@bot.tree.command(name="roleinfo", description="Show details about a role.")
+@discord.app_commands.describe(role="The role to inspect")
+async def slash_roleinfo(interaction: discord.Interaction, role: discord.Role):
+    perms = [p.replace("_", " ").title() for p, v in role.permissions if v]
+    perm_text = ", ".join(perms[:12]) + (" …" if len(perms) > 12 else "") if perms else "_None_"
+    desc = (
+        f"**ID:** `{role.id}`\n"
+        f"**Members:** {len(role.members)}\n"
+        f"**Color:** `#{role.color.value:06x}`\n"
+        f"**Mentionable:** {'Yes' if role.mentionable else 'No'}\n"
+        f"**Hoisted:** {'Yes' if role.hoist else 'No'}\n"
+        f"**Position:** {role.position}\n"
+        f"**Created:** <t:{int(role.created_at.timestamp())}:R>\n"
+        f"**Key permissions:** {perm_text}"
+    )
+    embed = _embed(f"🏷️ Role — {role.name}", desc, color=role.color.value or 0x5b8cff)
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="channelinfo", description="Show details about a channel.")
+@discord.app_commands.describe(channel="Defaults to the current channel")
+async def slash_channelinfo(interaction: discord.Interaction, channel: Optional[discord.abc.GuildChannel] = None):
+    ch = channel or interaction.channel
+    kind = type(ch).__name__.replace("Channel", "")
+    desc = [
+        f"**ID:** `{ch.id}`",
+        f"**Type:** {kind}",
+        f"**Position:** {getattr(ch, 'position', '—')}",
+        f"**Created:** <t:{int(ch.created_at.timestamp())}:R>",
+    ]
+    if isinstance(ch, discord.TextChannel):
+        desc.append(f"**Slowmode:** {ch.slowmode_delay}s" if ch.slowmode_delay else "**Slowmode:** Off")
+        desc.append(f"**NSFW:** {'Yes' if ch.nsfw else 'No'}")
+        if ch.topic: desc.append(f"**Topic:** {ch.topic[:200]}")
+    if isinstance(ch, discord.VoiceChannel):
+        desc.append(f"**Bitrate:** {ch.bitrate // 1000} kbps")
+        desc.append(f"**User limit:** {ch.user_limit or 'Unlimited'}")
+    await interaction.response.send_message(
+        embed=_embed(f"📺 #{ch.name}", "\n".join(desc), color=0x5b8cff)
+    )
+
+
+@bot.tree.command(name="avatar", description="Show a member's full-size avatar.")
+@discord.app_commands.describe(member="Defaults to yourself")
+async def slash_avatar(interaction: discord.Interaction, member: Optional[discord.Member] = None):
+    target = member or interaction.user
+    av = target.display_avatar.replace(size=1024)
+    embed = _embed(f"🖼️ {target.display_name}'s avatar", f"[Open original]({av.url})", color=0x5b8cff)
+    embed.set_image(url=av.url)
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="serverbanner", description="Show the server's banner image (if set).")
+async def slash_serverbanner(interaction: discord.Interaction):
+    g = interaction.guild
+    if not g:
+        return await interaction.response.send_message("❌ Use this in a server.", ephemeral=True)
+    if not g.banner:
+        return await interaction.response.send_message(
+            embed=_embed("🖼️ Server Banner", "_This server doesn't have a banner set._", color=0x6b7280),
+            ephemeral=True,
+        )
+    url = g.banner.replace(size=2048).url
+    embed = _embed(f"🖼️ {g.name} — Banner", f"[Open original]({url})", color=0x5b8cff)
+    embed.set_image(url=url)
+    await interaction.response.send_message(embed=embed)
+
+
+# ============================================================
+# SLASH COMMANDS — SERVER MANAGEMENT (added)
+# ============================================================
+@bot.tree.command(name="say", description="Make the bot post a plain message in a channel.")
+@discord.app_commands.describe(message="What the bot should say", channel="Defaults to current channel")
+async def slash_say(interaction: discord.Interaction, message: str, channel: Optional[discord.TextChannel] = None):
+    if not _need_manage_guild(interaction):
+        return await interaction.response.send_message("❌ Manage Server required.", ephemeral=True)
+    target = channel or interaction.channel
+    try:
+        await target.send(message[:2000], allowed_mentions=discord.AllowedMentions.none())
+        add_bot_action("say", f"/say used in #{getattr(target, 'name', target.id)}", str(interaction.user))
+        await interaction.response.send_message(f"✅ Sent in {target.mention}", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message(f"❌ I can't post in {target.mention}.", ephemeral=True)
+
+
+@bot.tree.command(name="dm", description="Send a direct message to a member as the bot.")
+@discord.app_commands.describe(member="Recipient", message="Message body")
+async def slash_dm(interaction: discord.Interaction, member: discord.Member, message: str):
+    if not _need_manage_guild(interaction):
+        return await interaction.response.send_message("❌ Manage Server required.", ephemeral=True)
+    if member.bot:
+        return await interaction.response.send_message("❌ Can't DM other bots.", ephemeral=True)
+    try:
+        embed = _embed(f"📬 Message from {interaction.guild.name}", message[:1900], color=0x5b8cff)
+        embed.set_footer(text=f"Sent via Server Official by {interaction.user}")
+        await member.send(embed=embed)
+        add_bot_action("dm", f"DM sent to {member} ({member.id})", str(interaction.user))
+        await interaction.response.send_message(f"✅ DM sent to {member.mention}", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            f"❌ Could not DM {member.mention} — they may have DMs disabled.", ephemeral=True
+        )
+
+
+@bot.tree.command(name="slowmode", description="Set slowmode (in seconds) on a channel. Use 0 to disable.")
+@discord.app_commands.describe(seconds="0 to disable, max 21600 (6 hours)", channel="Defaults to current channel")
+async def slash_slowmode(interaction: discord.Interaction, seconds: int,
+                         channel: Optional[discord.TextChannel] = None):
+    if not interaction.user.guild_permissions.manage_channels:
+        return await interaction.response.send_message("❌ Manage Channels required.", ephemeral=True)
+    if seconds < 0 or seconds > 21600:
+        return await interaction.response.send_message("❌ Seconds must be between 0 and 21600.", ephemeral=True)
+    target = channel or interaction.channel
+    if not isinstance(target, discord.TextChannel):
+        return await interaction.response.send_message("❌ That's not a text channel.", ephemeral=True)
+    try:
+        await target.edit(slowmode_delay=seconds, reason=f"slowmode by {interaction.user}")
+        add_bot_action("slowmode", f"Slowmode set to {seconds}s in #{target.name}", str(interaction.user))
+        msg = "Slowmode disabled" if seconds == 0 else f"Slowmode set to **{seconds}s**"
+        await interaction.response.send_message(f"✅ {msg} in {target.mention}.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to edit that channel.", ephemeral=True)
+
+
+@bot.tree.command(name="lock", description="Prevent @everyone from sending messages in a channel.")
+@discord.app_commands.describe(channel="Defaults to current channel")
+async def slash_lock(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
+    if not interaction.user.guild_permissions.manage_channels:
+        return await interaction.response.send_message("❌ Manage Channels required.", ephemeral=True)
+    target = channel or interaction.channel
+    if not isinstance(target, discord.TextChannel):
+        return await interaction.response.send_message("❌ That's not a text channel.", ephemeral=True)
+    try:
+        overwrite = target.overwrites_for(interaction.guild.default_role)
+        overwrite.send_messages = False
+        await target.set_permissions(interaction.guild.default_role, overwrite=overwrite,
+                                     reason=f"locked by {interaction.user}")
+        add_bot_action("channel_lock", f"Locked #{target.name}", str(interaction.user))
+        await interaction.response.send_message(f"🔒 Locked {target.mention} for @everyone.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to edit that channel.", ephemeral=True)
+
+
+@bot.tree.command(name="unlock", description="Allow @everyone to send messages in a channel again.")
+@discord.app_commands.describe(channel="Defaults to current channel")
+async def slash_unlock(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
+    if not interaction.user.guild_permissions.manage_channels:
+        return await interaction.response.send_message("❌ Manage Channels required.", ephemeral=True)
+    target = channel or interaction.channel
+    if not isinstance(target, discord.TextChannel):
+        return await interaction.response.send_message("❌ That's not a text channel.", ephemeral=True)
+    try:
+        overwrite = target.overwrites_for(interaction.guild.default_role)
+        overwrite.send_messages = None  # reset to default
+        await target.set_permissions(interaction.guild.default_role, overwrite=overwrite,
+                                     reason=f"unlocked by {interaction.user}")
+        add_bot_action("channel_unlock", f"Unlocked #{target.name}", str(interaction.user))
+        await interaction.response.send_message(f"🔓 Unlocked {target.mention} for @everyone.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to edit that channel.", ephemeral=True)
+
+
+@bot.tree.command(name="nick", description="Change a member's nickname (leave blank to clear).")
+@discord.app_commands.describe(member="Who to rename", nickname="New nickname (max 32 chars). Empty to reset.")
+async def slash_nick(interaction: discord.Interaction, member: discord.Member,
+                     nickname: Optional[str] = None):
+    if not interaction.user.guild_permissions.manage_nicknames:
+        return await interaction.response.send_message("❌ Manage Nicknames required.", ephemeral=True)
+    new_nick = (nickname or "").strip()[:32] or None
+    try:
+        await member.edit(nick=new_nick, reason=f"renamed by {interaction.user}")
+        add_bot_action("nick_change",
+                       f"{member} → {new_nick or '(reset)'}", str(interaction.user))
+        if new_nick:
+            await interaction.response.send_message(
+                f"✅ Renamed {member.mention} to **{new_nick}**.", ephemeral=True)
+        else:
+            await interaction.response.send_message(
+                f"✅ Cleared nickname for {member.mention}.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "❌ I can't rename that member. My role must be higher than theirs and have **Manage Nicknames**.",
+            ephemeral=True,
+        )
+
+
 @bot.tree.command(name="help", description="What Server Official can do.")
 async def slash_help(interaction: discord.Interaction):
     desc = (
@@ -1823,6 +2069,10 @@ async def slash_help(interaction: discord.Interaction):
         "`/goal` `/giveaway` `/list_giveaways` `/end_giveaway`\n\n"
         "**🛠️ Utilities**\n"
         "`/poll` `/remind` `/sticky` `/note` `/invites` `/stats`\n\n"
+        "**ℹ️ Info**\n"
+        "`/ping` `/uptime` `/membercount` `/roleinfo` `/channelinfo` `/avatar` `/serverbanner`\n\n"
+        "**⚙️ Server Management**\n"
+        "`/say` `/dm` `/slowmode` `/lock` `/unlock` `/nick`\n\n"
         "_Looking for `/userinfo` or `/serverinfo`? Those are handled by **SP4RK** — "
         "Server Official focuses on official server duties only._\n\n"
         "Manage everything from the dashboard at **/server-official/dashboard**."
