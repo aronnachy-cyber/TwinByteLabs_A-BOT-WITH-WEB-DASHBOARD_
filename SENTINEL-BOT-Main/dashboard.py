@@ -1118,9 +1118,37 @@ def so_api_set_config():
     gid = (payload.pop('guild_id', '') or '').strip()
     if not gid:
         return jsonify({"ok": False, "error": "guild_id required"}), 400
+
+    # Save to local state first so the dashboard's stored value stays in sync
+    # even if Discord rejects the live update (e.g. permission missing).
     cfg = so.update_guild_config(gid, payload)
     so.add_bot_action("config_update", f"Updated config for guild {gid}", _current_actor())
-    return jsonify({"ok": True, "data": cfg})
+
+    # If the user changed the bot's display name, ALSO push the rename to
+    # Discord so the bot is actually renamed on the server (not just in the
+    # dashboard view). We surface the live status back to the UI.
+    discord_status = None
+    if 'display_name' in payload:
+        try:
+            nick_result = so.set_guild_bot_nickname(gid, payload.get('display_name') or '')
+            discord_status = nick_result.get('discord_status')
+            if not nick_result.get('ok', True):
+                # Soft-fail: keep the saved config, but tell the UI Discord
+                # rejected the rename so the user can fix permissions.
+                return jsonify({
+                    "ok": False,
+                    "data": cfg,
+                    "discord_status": discord_status,
+                    "error": discord_status or "Discord rejected the rename",
+                }), 200
+        except Exception as e:
+            app.logger.warning(f"[server-official] nickname push failed: {e}")
+            discord_status = f"Saved locally; Discord update failed ({e.__class__.__name__})"
+
+    resp = {"ok": True, "data": cfg}
+    if discord_status:
+        resp["discord_status"] = discord_status
+    return jsonify(resp)
 
 
 # --- Broadcast ---

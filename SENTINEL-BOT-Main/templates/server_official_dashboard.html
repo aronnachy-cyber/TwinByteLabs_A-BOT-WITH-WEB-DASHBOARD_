@@ -570,9 +570,9 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
   <section class="section" data-section="members">
     <div class="card">
       <h2><i class="fas fa-signature"></i> Bot Display Name (this server only)</h2>
-      <p class="help">Rename the bot in your server's dashboard view. Only affects the selected server — other servers keep "Server Official".</p>
+      <p class="help">Rename the bot inside this server. Saving changes the bot's actual nickname on Discord — other servers keep "Server Official". Max 32 characters. The bot's role needs the <b>Change Nickname</b> permission for this to take effect.</p>
       <div class="row">
-        <input id="cfgDisplayName" placeholder="e.g. ByteHelper, Mod Buddy, ServerKit…" class="grow"/>
+        <input id="cfgDisplayName" placeholder="e.g. ByteHelper, Mod Buddy, ServerKit…" maxlength="32" class="grow"/>
         <button class="btn" onclick="saveDisplayName()"><i class="fas fa-save"></i> Save Name</button>
         <button class="btn btn-ghost" onclick="resetDisplayName()"><i class="fas fa-rotate-left"></i> Reset</button>
       </div>
@@ -1250,14 +1250,25 @@ function applyDisplayName(name){
 }
 async function saveDisplayName(){
   if (!currentGuildId) return toast('Select a server first','err');
-  const newName = ($('#cfgDisplayName').value || '').trim().slice(0,40);
-  await api('POST','/server-official/api/config',{guild_id:currentGuildId, display_name:newName},'Name saved');
+  const newName = ($('#cfgDisplayName').value || '').trim().slice(0,32);
+  $('#cfgDisplayName').value = newName;
+  const r = await api('POST','/server-official/api/config',{guild_id:currentGuildId, display_name:newName});
+  if (r && r.discord_status){
+    toast(r.discord_status, r.ok === false ? 'err' : 'ok');
+  } else if (r && r.ok !== false){
+    toast('Name saved');
+  }
   applyDisplayName(newName);
 }
 async function resetDisplayName(){
   if (!currentGuildId) return toast('Select a server first','err');
   $('#cfgDisplayName').value = '';
-  await api('POST','/server-official/api/config',{guild_id:currentGuildId, display_name:''},'Reset to Server Official');
+  const r = await api('POST','/server-official/api/config',{guild_id:currentGuildId, display_name:''});
+  if (r && r.discord_status){
+    toast(r.discord_status, r.ok === false ? 'err' : 'ok');
+  } else if (r && r.ok !== false){
+    toast('Reset to Server Official');
+  }
   applyDisplayName('');
 }
 

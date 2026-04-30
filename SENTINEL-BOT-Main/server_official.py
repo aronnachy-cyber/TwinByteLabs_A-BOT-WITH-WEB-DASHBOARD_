@@ -2316,3 +2316,55 @@ def delete_guild_avatar(guild_id: str) -> Dict[str, Any]:
     except Exception as e:
         discord_status = f"Local avatar removed; Discord reset skipped ({e.__class__.__name__})"
     return {"ok": True, "removed": removed, "discord_status": discord_status}
+
+
+def set_guild_bot_nickname(guild_id: str, nickname: str) -> Dict[str, Any]:
+    """Apply a per-guild nickname to the bot user on Discord.
+
+    Discord nicknames are limited to 32 characters. Pass an empty string (or
+    None) to clear the nickname — Discord will then fall back to the bot's
+    global username for that server.
+
+    Returns a dict with `ok`, `nickname` (what was actually applied) and a
+    `discord_status` describing whether it landed on Discord or only in
+    local state.
+    """
+    raw = (nickname or "").strip()
+    new_nick = raw[:32] if raw else None  # discord.py expects None to clear
+
+    out = {
+        "ok": True,
+        "nickname": new_nick or "",
+        "discord_status": "Saved locally; bot not running",
+    }
+
+    try:
+        if not (bot and bot.is_ready()):
+            return out
+        g = bot.get_guild(int(guild_id))
+        if not g or not getattr(g, "me", None):
+            out["discord_status"] = "Bot is not a member of that server"
+            return out
+
+        fut = _asyncio.run_coroutine_threadsafe(
+            g.me.edit(nick=new_nick),
+            bot.loop
+        )
+        try:
+            fut.result(timeout=10)
+            out["discord_status"] = (
+                f"Renamed bot to “{new_nick}” on this server"
+                if new_nick else "Reset bot nickname to default on this server"
+            )
+        except Exception as inner:
+            # Most common cause: bot lacks the CHANGE_NICKNAME permission.
+            cls = inner.__class__.__name__
+            out["ok"] = False
+            out["discord_status"] = (
+                f"Saved locally; Discord rejected the rename ({cls}). "
+                f"Make sure the bot's role has the “Change Nickname” permission."
+            )
+    except Exception as e:
+        out["ok"] = False
+        out["discord_status"] = f"Saved locally; Discord update skipped ({e.__class__.__name__})"
+    return out
