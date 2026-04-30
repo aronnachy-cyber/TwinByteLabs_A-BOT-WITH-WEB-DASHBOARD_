@@ -837,12 +837,35 @@ def _so_module():
         return None
 
 
-def _so_live_state(guild_id: str = ""):
+def _user_admin_guild_ids():
+    """Return the user's admin guild ids, or None if we don't know yet.
+
+    Populated by the OAuth callback (`identify guilds` scope).
+
+    Returns:
+      - `None` if the session predates the new OAuth flow (the key was never
+        written). Callers should treat this as "skip filtering" so legacy
+        sessions don't suddenly see an empty server list.
+      - A `set[str]` (possibly empty) when the OAuth callback has run.
+        An empty set means "user manages no servers we have access to".
+    """
+    if 'user_admin_guild_ids' not in session:
+        return None
+    raw = session.get('user_admin_guild_ids') or []
+    return {str(x) for x in raw if x}
+
+
+def _so_live_state(guild_id: str = "", user_guild_ids=None):
     """Pull live guild list / counts straight from the running bot (if any).
 
     When `guild_id` is supplied, `selected_name` and `selected_member_count`
     are populated so the dashboard's overview cards can show per-server
     numbers instead of bot-wide totals.
+
+    When `user_guild_ids` is a set/iterable of guild ids, the returned list
+    is filtered to ONLY those servers (intersection of "bot is in" AND
+    "user can administer"). Pass `None` to skip filtering (public/landing
+    contexts where we just want bot-wide counts).
     """
     so = _so_module()
     out = {
@@ -853,20 +876,30 @@ def _so_live_state(guild_id: str = ""):
     }
     if not so:
         return out
+
+    # Normalize the filter (None → no filtering; otherwise coerce to set[str]).
+    filter_ids = None
+    if user_guild_ids is not None:
+        filter_ids = {str(x) for x in user_guild_ids if x}
+
     try:
         b = so.bot
         if b and b.is_ready():
             guilds = []
             total_members = 0
             for g in b.guilds:
+                gid_str = str(g.id)
+                # Skip guilds the user has no admin access to.
+                if filter_ids is not None and gid_str not in filter_ids:
+                    continue
                 gm = g.member_count or 0
                 guilds.append({
-                    "id": str(g.id),
+                    "id": gid_str,
                     "name": g.name,
                     "member_count": gm,
                 })
                 total_members += gm
-                if guild_id and str(g.id) == str(guild_id):
+                if guild_id and gid_str == str(guild_id):
                     out["selected_name"] = g.name
                     out["selected_member_count"] = gm
             out["guilds_count"] = len(guilds)
@@ -934,7 +967,8 @@ def server_official_dashboard():
         return redirect(url_for('login'))
 
     so = _so_module()
-    live = _so_live_state()
+    # Scope the server picker to ONLY guilds the logged-in user can administer.
+    live = _so_live_state(user_guild_ids=_user_admin_guild_ids())
     overview = so.get_full_overview() if so else {
         "scheduled_count": 0, "active_giveaways": 0, "templates_count": 0,
         "polls_active": 0, "reminders_pending": 0, "stickies": 0,
@@ -1060,7 +1094,8 @@ def so_api_overview():
     if err: return err
     gid = (request.args.get('guild_id') or '').strip()
     overview = so.get_full_overview(gid or None)
-    live = _so_live_state(gid)
+    # Filter the live guild list to ONLY the logged-in user's admin servers.
+    live = _so_live_state(gid, user_guild_ids=_user_admin_guild_ids())
     return jsonify({"ok": True, "data": overview, "live": live})
 
 
@@ -1855,7 +1890,10 @@ def auth_discord():
         "client_id":     DISCORD_CLIENT_ID,
         "redirect_uri":  redirect_uri,
         "response_type": "code",
-        "scope":         "identify",
+        # `guilds` lets us read the user's server list so the Server Official
+        # dashboard can show only the servers THEY have access to (instead of
+        # every guild the bot is in).
+        "scope":         "identify guilds",
         "state":         state,
     }
     oauth_url = "https://discord.com/api/oauth2/authorize?" + urlencode(params)
@@ -1908,6 +1946,33 @@ def auth_discord_callback():
     except Exception as e:
         return _login_error(f"Could not fetch Discord profile: {e}")
 
+    # Fetch the user's guild list so we can scope dashboards (e.g. Server
+    # Official) to only the servers this user actually has access to.
+    # We keep guilds where the user is the owner OR has Manage Server (0x20).
+    # Best-effort: failures here MUST NOT block login.
+    user_admin_guild_ids = []
+    try:
+        guilds_res = http_requests.get(
+            f"{DISCORD_API_BASE}/users/@me/guilds",
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10
+        )
+        guilds_payload = guilds_res.json() if guilds_res.status_code == 200 else []
+        if isinstance(guilds_payload, list):
+            MANAGE_GUILD = 0x20
+            ADMINISTRATOR = 0x8
+            for g in guilds_payload:
+                try:
+                    perms = int(g.get('permissions', 0))
+                except (TypeError, ValueError):
+                    perms = 0
+                if g.get('owner') or (perms & (MANAGE_GUILD | ADMINISTRATOR)):
+                    gid = str(g.get('id', '')).strip()
+                    if gid:
+                        user_admin_guild_ids.append(gid)
+    except Exception as e:
+        app.logger.warning(f"[oauth] could not fetch user guilds: {e}")
+
     discord_id       = str(discord_user.get('id', ''))
     discord_username = discord_user.get('username', 'Unknown')
     discord_global   = discord_user.get('global_name') or discord_username
@@ -1947,6 +2012,10 @@ def auth_discord_callback():
     session['logged_in'] = True
     session['discord_id'] = discord_id
     session['user_name'] = discord_global
+    # Cache the user's admin/owner guild ids on the session so per-user
+    # dashboards (Server Official, etc.) can scope correctly without an extra
+    # Discord API call on every request.
+    session['user_admin_guild_ids'] = user_admin_guild_ids
     session.modified = True
     add_dashboard_log("✅ LOGIN", f"{discord_global} logged in via Discord")
     # Honor a "return to" target set before login (e.g. /server-official/dashboard)
