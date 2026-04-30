@@ -668,7 +668,22 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
         <input id="schTitle" placeholder="Title (optional)" class="grow"/>
         <input id="schWhen" type="datetime-local"/>
       </div>
-      <textarea id="schMsg" placeholder="Body…"></textarea>
+      <textarea id="schMsg" placeholder="Body… use **bold**, *italic*, `code`, links, etc."></textarea>
+      <div class="help-text" style="margin-top:6px;">
+        <i class="fas fa-circle-info"></i> Markdown is supported in the body — wrap text in <code>**double asterisks**</code> for <b>bold</b>. The Title is rendered as a bold heading automatically.
+      </div>
+      <div class="row" style="margin-top:12px;align-items:center;">
+        <label class="btn btn-ghost" for="schImgFile" style="cursor:pointer;">
+          <i class="fas fa-image"></i> <span id="schImgLabel">Add a picture (optional)</span>
+        </label>
+        <input id="schImgFile" type="file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="onSchImageSelected(event)"/>
+        <button class="btn btn-ghost" id="schImgClear" type="button" onclick="clearSchImage()" style="display:none;"><i class="fas fa-trash"></i> Remove image</button>
+        <span id="schImgStatus" class="help" style="margin-left:6px;"></span>
+      </div>
+      <div id="schImgPreviewWrap" style="margin-top:10px;display:none;">
+        <img id="schImgPreview" alt="Preview" style="max-width:240px;max-height:160px;border-radius:8px;border:1px solid var(--border);object-fit:cover;"/>
+      </div>
+      <input type="hidden" id="schImgUrl" value=""/>
       <div style="margin-top:12px;"><button class="btn" onclick="createSchedule()"><i class="fas fa-paper-plane"></i> Schedule</button></div>
     </div>
     <div class="card">
@@ -1388,15 +1403,69 @@ async function loadSchedules(){
   if (!r.ok) return;
   const list = r.data || [];
   $('#schList').innerHTML = list.length === 0 ? '<p class="help">No pending schedules.</p>' :
-    list.map(a=>`<div class="list-item"><div><strong>${escapeHtml(a.title)}</strong><div class="meta">${escapeHtml(a.scheduled_for)} · #${a.channel_id} · <code>${a.id}</code></div></div><button class="btn btn-sm btn-danger" onclick="delSchedule('${a.id}')">Delete</button></div>`).join('');
+    list.map(a=>{
+      const thumb = a.image_url
+        ? `<img src="${escapeHtml(a.image_url)}" alt="" style="width:48px;height:48px;border-radius:6px;object-fit:cover;margin-right:10px;border:1px solid var(--border);"/>`
+        : '';
+      return `<div class="list-item"><div style="display:flex;align-items:center;">${thumb}<div><strong>${escapeHtml(a.title)}</strong><div class="meta">${escapeHtml(a.scheduled_for)} · #${a.channel_id} · <code>${a.id}</code>${a.image_url ? ' · <i class="fas fa-image"></i> image attached' : ''}</div></div></div><button class="btn btn-sm btn-danger" onclick="delSchedule('${a.id}')">Delete</button></div>`;
+    }).join('');
+}
+async function onSchImageSelected(ev){
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024){
+    toast('Image too large (max 10 MB)','err');
+    ev.target.value = '';
+    return;
+  }
+  $('#schImgStatus').textContent = 'Uploading…';
+  const fd = new FormData();
+  fd.append('image', file);
+  try {
+    const resp = await fetch('/server-official/api/announcements/upload_image', {
+      method:'POST', body:fd, credentials:'same-origin'
+    });
+    const j = await resp.json().catch(()=>({}));
+    if (!resp.ok || j.ok === false){
+      $('#schImgStatus').textContent = '';
+      toast(j.error || 'Upload failed','err');
+      ev.target.value = '';
+      return;
+    }
+    const url = (j.data && j.data.url) || '';
+    $('#schImgUrl').value = url;
+    $('#schImgPreview').src = url;
+    $('#schImgPreviewWrap').style.display = 'block';
+    $('#schImgClear').style.display = 'inline-flex';
+    $('#schImgLabel').textContent = 'Replace picture';
+    $('#schImgStatus').textContent = 'Image attached';
+  } catch(e){
+    $('#schImgStatus').textContent = '';
+    toast('Upload failed','err');
+    ev.target.value = '';
+  }
+}
+function clearSchImage(){
+  $('#schImgFile').value = '';
+  $('#schImgUrl').value = '';
+  $('#schImgPreview').src = '';
+  $('#schImgPreviewWrap').style.display = 'none';
+  $('#schImgClear').style.display = 'none';
+  $('#schImgLabel').textContent = 'Add a picture (optional)';
+  $('#schImgStatus').textContent = '';
 }
 async function createSchedule(){
   const when = $('#schWhen').value;
   const iso = when ? new Date(when).toISOString() : '';
-  await api('POST', '/server-official/api/announcements', {
+  const r = await api('POST', '/server-official/api/announcements', {
     channel_id: $('#schChan').value, title: $('#schTitle').value,
     message: $('#schMsg').value, scheduled_for: iso, guild_id: currentGuildId,
+    image_url: $('#schImgUrl').value || null,
   }, 'Scheduled');
+  if (r && r.ok !== false){
+    // Reset image picker on successful schedule so the next one starts clean.
+    clearSchImage();
+  }
   loadSchedules();
 }
 async function delSchedule(id){

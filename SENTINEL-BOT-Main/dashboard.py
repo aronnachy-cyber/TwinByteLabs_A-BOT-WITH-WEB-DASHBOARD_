@@ -1010,6 +1010,7 @@ def server_official_api_create_announcement():
     title = (payload.get("title") or "").strip() or None
     guild_id = (payload.get("guild_id") or "") or None
     color = payload.get("color")
+    image_url = (payload.get("image_url") or "").strip() or None
 
     if not channel_id or not channel_id.isdigit():
         return jsonify({"ok": False, "error": "channel_id must be a numeric Discord channel ID"}), 400
@@ -1026,6 +1027,11 @@ def server_official_api_create_announcement():
     if when <= datetime.now(timezone.utc):
         return jsonify({"ok": False, "error": "scheduled_for must be in the future"}), 400
 
+    # If the user uploaded a relative path (e.g. "/static/announcement_images/abc.png"),
+    # promote it to an absolute URL so Discord's CDN can fetch it at post time.
+    if image_url and image_url.startswith("/"):
+        image_url = request.host_url.rstrip("/") + image_url
+
     item = so.add_scheduled_announcement(
         guild_id=str(guild_id) if guild_id else None,
         channel_id=channel_id,
@@ -1034,8 +1040,31 @@ def server_official_api_create_announcement():
         scheduled_for_iso=when.isoformat(),
         color=int(color) if color is not None else None,
         created_by="dashboard",
+        image_url=image_url,
     )
     return jsonify({"ok": True, "data": item})
+
+
+@app.route('/server-official/api/announcements/upload_image', methods=['POST'])
+def server_official_api_upload_announcement_image():
+    """Accept a single image upload for use as the picture on a scheduled
+    announcement. Returns a public URL (absolute) the caller stores and then
+    sends back inside the schedule POST."""
+    so, err = _so_require_login()
+    if err: return err
+    if 'image' not in request.files:
+        return jsonify({"ok": False, "error": "No image uploaded"}), 400
+    f = request.files['image']
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "Empty file"}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else 'png'
+    data = f.read()
+    result = so.save_announcement_image(data, ext)
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": result.get("error", "Save failed")}), 400
+    rel = result["path"]
+    absolute = request.host_url.rstrip("/") + rel
+    return jsonify({"ok": True, "data": {"url": absolute, "relative_url": rel, "filename": result["filename"]}})
 
 
 @app.route('/server-official/api/announcements/<announce_id>', methods=['DELETE'])

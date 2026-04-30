@@ -383,6 +383,7 @@ def add_scheduled_announcement(
     scheduled_for_iso: str,
     color: Optional[int] = None,
     created_by: str = "dashboard",
+    image_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     state = load_state()
     item = {
@@ -396,6 +397,7 @@ def add_scheduled_announcement(
         "posted": False,
         "created_by": created_by,
         "created_at": _now_iso(),
+        "image_url": (image_url or "").strip() or None,
     }
     state["scheduled_announcements"].append(item)
     save_state(state)
@@ -1841,9 +1843,15 @@ async def _post_scheduled(item: Dict[str, Any]) -> bool:
             return False
     embed = _embed(item.get("title") or "📣 Announcement", item["message"], color=item.get("color", 0x10b981))
     embed.set_author(name="Scheduled Announcement")
+    img_url = (item.get("image_url") or "").strip()
+    if img_url:
+        try:
+            embed.set_image(url=img_url)
+        except Exception as e:
+            logger.warning(f"[server_official] scheduled post: invalid image_url ignored ({e})")
     try:
         await chan.send(embed=embed)
-        fire_external_hooks("announcement_posted", {"channel_id": str(chan.id), "title": item.get("title"), "message": item["message"]})
+        fire_external_hooks("announcement_posted", {"channel_id": str(chan.id), "title": item.get("title"), "message": item["message"], "image_url": img_url or None})
         return True
     except Exception as e:
         logger.warning(f"[server_official] scheduled post failed: {e}")
@@ -2209,6 +2217,29 @@ import asyncio as _asyncio
 
 AVATAR_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "server_avatars")
 os.makedirs(AVATAR_DIR, exist_ok=True)
+
+ANNOUNCEMENT_IMG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "announcement_images")
+os.makedirs(ANNOUNCEMENT_IMG_DIR, exist_ok=True)
+
+
+def save_announcement_image(image_bytes: bytes, ext: str) -> Dict[str, Any]:
+    """Persist an announcement image and return its public-relative URL.
+
+    Used by the scheduled-announcement form so users can attach a picture
+    that the bot then renders via embed.set_image() at post time.
+    """
+    ext = (ext or "png").lower().lstrip(".")
+    if ext == "jpeg":
+        ext = "jpg"
+    if ext not in ("png", "jpg", "gif", "webp"):
+        return {"ok": False, "error": "Unsupported image format. Use PNG, JPG, GIF, or WEBP."}
+    if len(image_bytes) > 10 * 1024 * 1024:
+        return {"ok": False, "error": "Image too large (max 10 MB)"}
+    fname = f"{_gen_id()}.{ext}"
+    path = os.path.join(ANNOUNCEMENT_IMG_DIR, fname)
+    with open(path, "wb") as f:
+        f.write(image_bytes)
+    return {"ok": True, "filename": fname, "path": f"/static/announcement_images/{fname}"}
 
 
 def member_can_manage_bot(guild_id: str, user_id: str) -> Dict[str, Any]:
