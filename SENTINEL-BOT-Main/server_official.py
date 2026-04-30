@@ -613,27 +613,87 @@ def list_stickies() -> List[Dict[str, Any]]:
 # ============================================================
 # CUSTOM COMMANDS / WEBHOOKS / HOOKS / BACKUPS
 # ============================================================
-def add_custom_command(guild_id: str, trigger: str, response: str) -> Dict[str, Any]:
+def _coerce_cc_payload(raw: Any) -> Dict[str, Any]:
+    """Accept either legacy bare-string or new dict format."""
+    if isinstance(raw, str):
+        return {"description": "", "result": raw, "use_embed": False, "created_at": None}
+    if isinstance(raw, dict):
+        return {
+            "description": str(raw.get("description") or "").strip(),
+            "result":      str(raw.get("result") or raw.get("response") or "").strip(),
+            "use_embed":   bool(raw.get("use_embed", False)),
+            "created_at":  raw.get("created_at"),
+        }
+    return {"description": "", "result": "", "use_embed": False, "created_at": None}
+
+
+def add_custom_command(guild_id: str, trigger: str, response: str = "",
+                       description: str = "", use_embed: bool = False,
+                       result: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Store a custom command.
+
+    `result` (preferred) or `response` (legacy alias) is the source text the AI
+    will turn into the chat reply. `description` is the admin's note on intent.
+    `use_embed` controls whether the polished reply is posted as a Discord embed.
+    """
     state = load_state()
     cmds = state["custom_commands"].setdefault(str(guild_id), {})
-    cmds[trigger.lower()] = response
+    text = (result if result is not None else response) or ""
+    text = text.strip()
+    if not text:
+        raise ValueError("result required")
+    trig = trigger.strip().lower()
+    if trig.startswith("!"):
+        trig = trig[1:]
+    if not trig:
+        raise ValueError("trigger required")
+
+    payload = {
+        "description": (description or "").strip(),
+        "result":      text,
+        "use_embed":   bool(use_embed),
+        "created_at":  int(time.time()),
+    }
+    cmds[trig] = payload
     save_state(state)
-    return {"trigger": trigger.lower(), "response": response}
+    return {"trigger": trig, **payload}
 
 
 def remove_custom_command(guild_id: str, trigger: str) -> bool:
     state = load_state()
     cmds = state["custom_commands"].get(str(guild_id), {})
-    if trigger.lower() in cmds:
-        cmds.pop(trigger.lower())
+    trig = trigger.strip().lower()
+    if trig.startswith("!"):
+        trig = trig[1:]
+    if trig in cmds:
+        cmds.pop(trig)
         save_state(state)
         return True
     return False
 
 
-def list_custom_commands(guild_id: str) -> Dict[str, str]:
+def list_custom_commands(guild_id: str) -> List[Dict[str, Any]]:
+    """Return list of {trigger, description, result, use_embed, created_at}."""
     state = load_state()
-    return state["custom_commands"].get(str(guild_id), {})
+    raw = state["custom_commands"].get(str(guild_id), {})
+    out = []
+    for trig, val in raw.items():
+        out.append({"trigger": trig, **_coerce_cc_payload(val)})
+    out.sort(key=lambda x: x["trigger"])
+    return out
+
+
+def get_custom_command(guild_id: str, trigger: str) -> Optional[Dict[str, Any]]:
+    state = load_state()
+    raw = state["custom_commands"].get(str(guild_id), {})
+    trig = trigger.strip().lower()
+    if trig.startswith("!"):
+        trig = trig[1:]
+    val = raw.get(trig)
+    if val is None:
+        return None
+    return {"trigger": trig, **_coerce_cc_payload(val)}
 
 
 def add_external_hook(name: str, url: str, events: List[str]) -> Dict[str, Any]:
@@ -1146,15 +1206,36 @@ async def on_message(message: discord.Message):
     # Activity tracking
     _bump_messages_for(str(g.id), str(message.author.id))
 
-    # Custom commands (! prefix)
-    cmds = list_custom_commands(str(g.id))
-    if message.content.startswith("!") and cmds:
-        trig = message.content[1:].split()[0].lower() if len(message.content) > 1 else ""
-        if trig in cmds:
+    # Custom commands (! prefix) — uses AI to polish the stored "result"
+    if message.content.startswith("!") and len(message.content) > 1:
+        trig = message.content[1:].split()[0].lower()
+        cmd = get_custom_command(str(g.id), trig)
+        if cmd:
             try:
-                await message.channel.send(cmds[trig])
-            except Exception:
-                pass
+                import custom_commands as _cc_mod
+                polished = None
+                if _cc_mod.cooldown_ok(message.channel.id):
+                    polished = _cc_mod.ai_format_response(
+                        cmd.get("description", ""),
+                        cmd.get("result", ""),
+                        message.content,
+                    )
+                # Fall back to the raw stored result if AI is unavailable
+                reply_text = polished or cmd.get("result", "")
+                if cmd.get("use_embed"):
+                    e = discord.Embed(
+                        title=f"!{cmd['trigger']}",
+                        description=reply_text[:4000],
+                        color=0x5b8cff,
+                    )
+                    if cmd.get("description"):
+                        e.set_footer(text=cmd["description"][:200])
+                    await message.channel.send(embed=e)
+                else:
+                    # Discord caps plain messages at 2000 chars
+                    await message.channel.send(reply_text[:2000])
+            except Exception as ex:
+                print(f"[SO] custom command '{trig}' failed: {ex}")
 
     # Sticky message refresh
     state = load_state()

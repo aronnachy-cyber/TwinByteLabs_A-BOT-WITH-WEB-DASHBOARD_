@@ -476,6 +476,10 @@ html.bl-compact .page-header { margin-bottom: 18px; }
         <i class="fas fa-comments"></i> Auto-Responder
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
       </div>
+      <div class="nav-item" onclick="showTab('customcommands',this)" data-tab="customcommands">
+        <i class="fas fa-keyboard"></i> Custom Commands
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
       <div class="nav-item" onclick="showTab('reactionroles',this)" data-tab="reactionroles">
         <i class="fas fa-smile"></i> Reaction Roles
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
@@ -1192,6 +1196,44 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   </div>
 </div>
 
+<!-- ==================== CUSTOM COMMANDS TAB ==================== -->
+<div id="customcommands" class="tab-content">
+  <div class="page-header">
+    <h2>Custom Commands</h2>
+    <p>Define your own <code>!trigger</code> commands. The bot uses AI to summarise your reference text into a clean Discord reply — posted as an embed or plain message, your call.</p>
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><i class="fas fa-plus-circle"></i> Add a New Command</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:1;min-width:160px;">
+        <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;">Trigger</label>
+        <input id="cc-trigger" type="text" placeholder="without the leading !  (e.g. rules)">
+      </div>
+      <div style="flex:2;min-width:220px;">
+        <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;">Description</label>
+        <input id="cc-description" type="text" placeholder="what this command is for">
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;">Result (reference text)</label>
+      <textarea id="cc-result" rows="5" placeholder="The reference text the AI will summarise into a friendly reply." style="width:100%;resize:vertical;"></textarea>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--muted);">
+        <input id="cc-embed" type="checkbox"/> Post reply as an embed
+      </label>
+      <button class="btn btn-primary" onclick="addCustomCommand()" style="height:42px;"><i class="fas fa-plus"></i> Add Command</button>
+    </div>
+    <p class="help-text" style="margin-top:10px;"><i class="fas fa-wand-magic-sparkles"></i> Powered by Gemini. If the AI key isn't configured the bot falls back to posting your reference text verbatim. Per-channel cooldown of 5s prevents spam.</p>
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="fas fa-list-ul"></i> Active Commands</div>
+    <div id="cc-list" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</div>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== REACTION ROLES TAB ==================== -->
 <div id="reactionroles" class="tab-content">
   <div class="page-header">
@@ -1522,7 +1564,7 @@ const tabTitles = {
   automod: 'Automod Settings', security: 'Security & Anti-Raid',
   social: 'Social Notifier', warnings: 'Live Warnings', logs: 'Action Logs',
   giveaways: 'Giveaways', tickets: 'Support Tickets',
-  autoresponder: 'Auto-Responder', reactionroles: 'Reaction Roles',
+  autoresponder: 'Auto-Responder', customcommands: 'Custom Commands', reactionroles: 'Reaction Roles',
   account: 'Account Settings', users: 'User Management',
   feedback: 'Feedback'
 };
@@ -1538,6 +1580,7 @@ function showTab(id, el) {
   if (id === 'giveaways') loadGiveaways();
   if (id === 'tickets') loadTickets();
   if (id === 'autoresponder') loadAutoResponder();
+  if (id === 'customcommands') loadCustomCommands();
   if (id === 'reactionroles') loadReactionRoles();
   if (id === 'general') loadConnectionStatus();
   if (id === 'users') { {% if is_admin %}pollPendingUsers(); loadPendingList();{% endif %} }
@@ -2514,6 +2557,75 @@ async function removeAutoResponder(trigger) {
     showToast('✅ Removed!');
     loadAutoResponder();
   } catch(e) { showToast('❌ Error', true); }
+}
+
+// ---- CUSTOM COMMANDS ----
+function _ccEsc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function loadCustomCommands(){
+  const list = document.getElementById('cc-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</div>';
+  try {
+    const res = await fetch('/api/custom_commands');
+    const j = await res.json();
+    const items = (j && j.ok && Array.isArray(j.data)) ? j.data : [];
+    if (!items.length){
+      list.innerHTML = '<div class="empty-state" style="padding:20px;color:var(--muted);">No custom commands yet. Add one above.</div>';
+      return;
+    }
+    list.innerHTML = items.map(c => `
+      <div class="card" style="margin:0;padding:14px 16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <code style="background:var(--bg);padding:4px 10px;border-radius:6px;color:var(--accent);font-weight:600;">!${_ccEsc(c.trigger)}</code>
+            <span style="font-size:.7rem;padding:2px 8px;border-radius:10px;background:${c.use_embed?'rgba(91,140,255,.18)':'rgba(255,255,255,.06)'};color:${c.use_embed?'#5b8cff':'var(--muted)'};font-weight:700;letter-spacing:.5px;">
+              ${c.use_embed ? 'EMBED' : 'PLAIN'}
+            </span>
+          </div>
+          <button onclick="deleteCustomCommand('${encodeURIComponent(c.trigger)}')" style="background:rgba(231,76,60,.12);color:#e74c3c;border:1px solid rgba(231,76,60,.25);border-radius:6px;padding:5px 14px;cursor:pointer;font-size:0.78rem;">Remove</button>
+        </div>
+        ${c.description ? `<div style="margin-top:8px;font-size:.85rem;color:var(--muted);"><i class="fas fa-info-circle"></i> ${_ccEsc(c.description)}</div>` : ''}
+        <div style="margin-top:8px;font-size:.85rem;white-space:pre-wrap;background:rgba(0,0,0,.18);padding:10px 12px;border-radius:6px;border-left:2px solid rgba(91,140,255,.4);max-height:160px;overflow:auto;">${_ccEsc(c.result || '')}</div>
+      </div>`).join('');
+  } catch(e){
+    list.innerHTML = '<div class="empty-state" style="color:#e74c3c;">Failed to load</div>';
+  }
+}
+
+async function addCustomCommand(){
+  const trigger = (document.getElementById('cc-trigger').value || '').trim();
+  const description = (document.getElementById('cc-description').value || '').trim();
+  const result = (document.getElementById('cc-result').value || '').trim();
+  const use_embed = document.getElementById('cc-embed').checked;
+  if (!trigger || !result){ showToast('❌ Trigger and result are required.', true); return; }
+  try {
+    const res = await fetch('/api/custom_commands', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({trigger, description, result, use_embed})
+    });
+    const j = await res.json();
+    if (j && j.ok){
+      showToast('✅ Command saved!');
+      document.getElementById('cc-trigger').value = '';
+      document.getElementById('cc-description').value = '';
+      document.getElementById('cc-result').value = '';
+      document.getElementById('cc-embed').checked = false;
+      loadCustomCommands();
+    } else {
+      showToast('❌ ' + (j.error || 'Error'), true);
+    }
+  } catch(e){ showToast('❌ Error: ' + e.message, true); }
+}
+
+async function deleteCustomCommand(triggerEnc){
+  const trigger = decodeURIComponent(triggerEnc);
+  if (!confirm(`Remove command "!${trigger}"?`)) return;
+  try {
+    await fetch('/api/custom_commands?trigger=' + triggerEnc, {method: 'DELETE'});
+    showToast('✅ Removed!');
+    loadCustomCommands();
+  } catch(e){ showToast('❌ Error', true); }
 }
 
 // ---- REACTION ROLES ----

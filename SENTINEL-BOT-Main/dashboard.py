@@ -1442,6 +1442,53 @@ def so_api_setup_template():
     return jsonify({"ok": True, "data": summary})
 
 
+# --- SP4RK Custom Commands (global; applies to all SP4RK guilds) ---
+def _sp4rk_require_login():
+    """Require a logged-in dashboard session for SP4RK custom-commands routes."""
+    if not session.get('logged_in'):
+        return None, (jsonify({"ok": False, "error": "not authenticated"}), 401)
+    return True, None
+
+
+@app.route('/api/custom_commands', methods=['GET'])
+def sp4rk_api_cc_list():
+    _, err = _sp4rk_require_login()
+    if err: return err
+    import custom_commands as _cc
+    return jsonify({"ok": True, "data": _cc.list_commands("sp4rk", _cc.GLOBAL_GID)})
+
+
+@app.route('/api/custom_commands', methods=['POST'])
+def sp4rk_api_cc_add():
+    _, err = _sp4rk_require_login()
+    if err: return err
+    import custom_commands as _cc
+    p = request.get_json(silent=True) or {}
+    trig = (p.get('trigger') or '').strip()
+    result_text = (p.get('result') or p.get('response') or '').strip()
+    description = (p.get('description') or '').strip()
+    use_embed = bool(p.get('use_embed', False))
+    if not trig or not result_text:
+        return jsonify({"ok": False, "error": "trigger and result required"}), 400
+    try:
+        data = _cc.add_command("sp4rk", _cc.GLOBAL_GID, trig,
+                               description=description, result=result_text, use_embed=use_embed)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    return jsonify({"ok": True, "data": data})
+
+
+@app.route('/api/custom_commands', methods=['DELETE'])
+def sp4rk_api_cc_del():
+    _, err = _sp4rk_require_login()
+    if err: return err
+    import custom_commands as _cc
+    trig = (request.args.get('trigger') or '').strip()
+    if not trig:
+        return jsonify({"ok": False, "error": "trigger required"}), 400
+    return jsonify({"ok": _cc.remove_command("sp4rk", _cc.GLOBAL_GID, trig)})
+
+
 # --- Custom Commands ---
 @app.route('/server-official/api/custom_commands', methods=['GET'])
 def so_api_cc_list():
@@ -1460,10 +1507,18 @@ def so_api_cc_add():
     p = request.get_json(silent=True) or {}
     gid = (p.get('guild_id') or '').strip()
     trig = (p.get('trigger') or '').strip()
-    resp = (p.get('response') or '').strip()
-    if not gid or not trig or not resp:
-        return jsonify({"ok": False, "error": "guild_id, trigger, response required"}), 400
-    return jsonify({"ok": True, "data": so.add_custom_command(gid, trig, resp)})
+    # Accept both "result" (new) and "response" (legacy)
+    result_text = (p.get('result') or p.get('response') or '').strip()
+    description = (p.get('description') or '').strip()
+    use_embed = bool(p.get('use_embed', False))
+    if not gid or not trig or not result_text:
+        return jsonify({"ok": False, "error": "guild_id, trigger, result required"}), 400
+    try:
+        data = so.add_custom_command(gid, trig, result=result_text,
+                                     description=description, use_embed=use_embed)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    return jsonify({"ok": True, "data": data})
 
 
 @app.route('/server-official/api/custom_commands', methods=['DELETE'])

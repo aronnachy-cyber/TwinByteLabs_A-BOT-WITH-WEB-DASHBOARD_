@@ -1249,6 +1249,35 @@ async def on_message(message):
             return
 
     refresh_config()
+
+    # ---- Custom Commands (! prefix, AI-formatted reply) ----
+    try:
+        import custom_commands as _cc_mod
+        gid = str(message.guild.id) if message.guild else None
+        cmd = _cc_mod.match_message("sp4rk", gid, message.content or "")
+        if cmd:
+            polished = None
+            if _cc_mod.cooldown_ok(message.channel.id):
+                polished = _cc_mod.ai_format_response(
+                    cmd.get("description", ""),
+                    cmd.get("result", ""),
+                    message.content or "",
+                )
+            reply_text = polished or cmd.get("result", "")
+            if cmd.get("use_embed"):
+                e = discord.Embed(
+                    title=f"!{cmd['trigger']}",
+                    description=reply_text[:4000],
+                    color=0x3a8fff,
+                )
+                if cmd.get("description"):
+                    e.set_footer(text=cmd["description"][:200])
+                await message.channel.send(embed=e)
+            else:
+                await message.channel.send(reply_text[:2000])
+    except Exception as _cc_err:
+        print(f"[SP4RK] custom command failed: {_cc_err}")
+
     handled = await automod.handle_message(message, config, add_warning_fn=add_warning)
     if not handled:
         await handle_ai_moderation(message)

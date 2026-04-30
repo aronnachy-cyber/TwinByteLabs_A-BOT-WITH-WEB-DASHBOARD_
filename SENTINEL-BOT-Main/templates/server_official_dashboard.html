@@ -823,12 +823,21 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
   <section class="section" data-section="integrations">
     <div class="card">
       <h2><i class="fas fa-keyboard"></i> Custom Commands</h2>
-      <p class="help">Define your own <code>!trigger</code> → reply pairs. When anyone types the trigger in chat, the bot answers with your text. Perfect for FAQs, rules summaries, or recurring jokes.</p>
+      <p class="help">Define your own <code>!trigger</code> commands. Give a short description and the reference text — when someone types the trigger in chat, the bot uses AI to summarise your text into a polished reply (posted as an embed or plain message, your choice).</p>
       <div class="row">
         <input id="ccTrig" placeholder="trigger (without the leading !)"/>
-        <input id="ccResp" placeholder="response text shown in chat" class="grow"/>
-        <button class="btn" onclick="addCustomCmd()"><i class="fas fa-plus"></i> Add</button>
+        <input id="ccDesc" placeholder="description (what this command is for)" class="grow"/>
       </div>
+      <div class="row" style="margin-top:10px;">
+        <textarea id="ccResp" placeholder="result — the reference text the AI will summarise into a reply" rows="4" style="width:100%;resize:vertical;"></textarea>
+      </div>
+      <div class="row" style="margin-top:10px;align-items:center;justify-content:space-between;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--muted);">
+          <input id="ccEmbed" type="checkbox"/> Post reply as an embed
+        </label>
+        <button class="btn" onclick="addCustomCmd()"><i class="fas fa-plus"></i> Add Command</button>
+      </div>
+      <div class="help-text" style="margin-top:8px;"><i class="fas fa-wand-magic-sparkles"></i> Powered by Gemini. If the AI key isn't configured, the bot falls back to posting your reference text verbatim.</div>
       <div id="ccList" style="margin-top:14px;"></div>
     </div>
     <div class="card">
@@ -1595,11 +1604,39 @@ async function updateAutomation(field){
 async function loadCustomCmds(){
   if (!currentGuildId){ $('#ccList').innerHTML='<p class="help">Pick a server.</p>'; return; }
   const r = await api('GET', `/server-official/api/custom_commands?guild_id=${currentGuildId}`); if (!r.ok) return;
-  const data = r.data || {};
-  $('#ccList').innerHTML = Object.keys(data).map(t=>`<div class="list-item"><div><code>!${t}</code> → ${escapeHtml(data[t])}</div><button class="btn btn-sm btn-danger" onclick="delCC('${t}')">×</button></div>`).join('') || '<p class="help">None defined.</p>';
+  const items = Array.isArray(r.data) ? r.data : Object.entries(r.data || {}).map(([t,v]) => (typeof v === 'string' ? {trigger:t, description:'', result:v, use_embed:false} : {trigger:t, ...v}));
+  if (!items.length){ $('#ccList').innerHTML = '<p class="help">None defined.</p>'; return; }
+  $('#ccList').innerHTML = items.map(c => `
+    <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <code style="font-weight:600;">!${escapeHtml(c.trigger)}</code>
+          <span style="font-size:.72rem;padding:2px 8px;border-radius:10px;background:${c.use_embed?'rgba(91,140,255,.15)':'rgba(255,255,255,.06)'};color:${c.use_embed?'#5b8cff':'var(--muted)'};">
+            ${c.use_embed ? 'EMBED' : 'PLAIN'}
+          </span>
+        </div>
+        <button class="btn btn-sm btn-danger" onclick="delCC('${encodeURIComponent(c.trigger)}')">×</button>
+      </div>
+      ${c.description ? `<div style="font-size:.85rem;color:var(--muted);"><i class="fas fa-info-circle"></i> ${escapeHtml(c.description)}</div>` : ''}
+      <div style="font-size:.85rem;white-space:pre-wrap;background:rgba(255,255,255,.03);padding:8px 10px;border-radius:6px;border-left:2px solid rgba(91,140,255,.4);">${escapeHtml(c.result || '')}</div>
+    </div>`).join('');
 }
-async function addCustomCmd(){ if(!currentGuildId)return toast('Select a server','err'); await api('POST','/server-official/api/custom_commands',{guild_id:currentGuildId, trigger:$('#ccTrig').value, response:$('#ccResp').value},'Added'); loadCustomCmds(); }
-async function delCC(t){ await api('DELETE',`/server-official/api/custom_commands?guild_id=${currentGuildId}&trigger=${encodeURIComponent(t)}`,null,'Removed'); loadCustomCmds(); }
+async function addCustomCmd(){
+  if(!currentGuildId) return toast('Select a server','err');
+  const trig = ($('#ccTrig').value || '').trim();
+  const desc = ($('#ccDesc').value || '').trim();
+  const resp = ($('#ccResp').value || '').trim();
+  const useEmbed = $('#ccEmbed').checked;
+  if (!trig || !resp){ return toast('Trigger and result are required','err'); }
+  const r = await api('POST','/server-official/api/custom_commands',{
+    guild_id:currentGuildId, trigger:trig, description:desc, result:resp, use_embed:useEmbed
+  },'Added');
+  if (r && r.ok){
+    $('#ccTrig').value=''; $('#ccDesc').value=''; $('#ccResp').value=''; $('#ccEmbed').checked=false;
+  }
+  loadCustomCmds();
+}
+async function delCC(t){ await api('DELETE',`/server-official/api/custom_commands?guild_id=${currentGuildId}&trigger=${t}`,null,'Removed'); loadCustomCmds(); }
 
 async function loadWebhooks(){
   const r = await api('GET','/server-official/api/webhooks_in'); if (!r.ok) return;
