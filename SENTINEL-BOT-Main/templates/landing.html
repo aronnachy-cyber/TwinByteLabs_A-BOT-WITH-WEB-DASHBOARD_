@@ -824,9 +824,6 @@ footer{
           <i class="fas fa-user-shield"></i>
           <span>Developer Tools</span>
         </div>
-        <button type="button" class="dev-item" role="menuitem" onclick="openMaintenance(); closeDevMenu();">
-          <i class="fas fa-robot"></i> Ask for a Bot
-        </button>
         <a class="dev-item" role="menuitem" href="{{ url_for('dev_forms_page') }}">
           <i class="fas fa-inbox"></i> Forms
         </a>
@@ -880,9 +877,6 @@ footer{
       <i class="fab fa-discord"></i> Add to Discord
     </a>
     {% endif %}
-    <button type="button" class="btn-askbot" onclick="openMaintenance()">
-      <i class="fas fa-robot"></i> Ask for a Bot
-    </button>
     <a class="btn-ghost" href="#features">See Features</a>
   </div>
 </section>
@@ -1450,10 +1444,10 @@ footer{
         </a>
         <span class="invite-help"><i class="fas fa-shield-halved"></i> Recommended permissions pre-selected · You stay in control</span>
       {% else %}
-        <button type="button" class="btn-discord btn-discord-xl" onclick="openMaintenance()">
-          <i class="fas fa-envelope-open-text"></i> Request Early Access
+        <button type="button" class="btn-discord btn-discord-xl" disabled style="opacity:.55;cursor:not-allowed;">
+          <i class="fas fa-hourglass-half"></i> Setup In Progress
         </button>
-        <span class="invite-help"><i class="fas fa-circle-info"></i> Public invites are being prepared — request one and we'll get you in.</span>
+        <span class="invite-help"><i class="fas fa-circle-info"></i> Public invites coming soon — set <code>DISCORD_CLIENT_ID</code> to enable.</span>
       {% endif %}
     </div>
   </div>
