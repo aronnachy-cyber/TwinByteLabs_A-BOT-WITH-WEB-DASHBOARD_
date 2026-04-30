@@ -376,6 +376,70 @@ async def handle_ai_moderation(message):
     except Exception as e:
         print(f"Gemini moderation error (ignored): {e}")
 
+# ---------------- AI MENTION REPLY ----------------
+# When SP4RK is @mentioned in a message, reply with a Gemini-generated answer.
+import time as _ai_time
+_ai_mention_last = {}             # user_id -> last reply timestamp
+AI_MENTION_COOLDOWN_SEC = 6       # per-user spam guard
+
+async def handle_ai_mention(message):
+    """Reply conversationally with Gemini when the bot is @mentioned."""
+    if not GEMINI_KEY:
+        return
+    if bot.user is None:
+        return
+
+    # Strip every form of the bot's mention so the prompt is clean.
+    text = message.content or ""
+    for form in (f"<@{bot.user.id}>", f"<@!{bot.user.id}>"):
+        text = text.replace(form, "")
+    text = text.strip()
+    if not text:
+        text = "Say hi briefly and tell the user they can ask you anything."
+
+    # Per-user cooldown — prevents mention spam from flooding the channel.
+    now = _ai_time.time()
+    if now - _ai_mention_last.get(message.author.id, 0) < AI_MENTION_COOLDOWN_SEC:
+        return
+    _ai_mention_last[message.author.id] = now
+
+    prompt = (
+        "You are SP4RK, a friendly Discord moderation and utility bot. "
+        "Reply to the user in a short, helpful, conversational way. "
+        "Keep replies under 1500 characters. Use plain Discord-friendly text — "
+        "light markdown (bold, lists) is fine, no headings or code fences unless asked.\n\n"
+        f"User ({message.author.display_name}): {text}"
+    )
+    try:
+        async with message.channel.typing():
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=15)
+            ) as sess:
+                async with sess.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}",
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.8, "maxOutputTokens": 400},
+                    },
+                ) as res:
+                    if res.status != 200:
+                        print(f"[SP4RK] AI mention reply HTTP {res.status}")
+                        return
+                    data = await res.json()
+        reply = (
+            data.get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+            .strip()
+        )
+        if not reply:
+            return
+        await message.reply(reply[:1900], mention_author=False)
+        dlog("💬 AI-MENTION", f"{message.author} → {text[:80]}")
+    except Exception as e:
+        print(f"[SP4RK] AI mention reply error (ignored): {e}")
+
 # ---------------- BACKGROUND TASKS ----------------
 _last_avatar_url = ""
 _last_status     = ""
@@ -1279,11 +1343,13 @@ async def on_message(message):
     refresh_config()
 
     # ---- Custom Commands (! prefix, AI-formatted reply) ----
+    custom_cmd_handled = False
     try:
         import custom_commands as _cc_mod
         gid = str(message.guild.id) if message.guild else None
         cmd = _cc_mod.match_message("sp4rk", gid, message.content or "")
         if cmd:
+            custom_cmd_handled = True
             polished = None
             if _cc_mod.cooldown_ok(message.channel.id):
                 polished = _cc_mod.ai_format_response(
@@ -1305,6 +1371,23 @@ async def on_message(message):
                 await message.channel.send(reply_text[:2000])
     except Exception as _cc_err:
         print(f"[SP4RK] custom command failed: {_cc_err}")
+
+    # ---- AI mention reply: @SP4RK in a message → Gemini answers ----
+    # Skips if a custom command already replied, if @everyone was used,
+    # or if the message is actually a prefix command.
+    try:
+        prefix = config.get("prefix", "!")
+        is_prefix_command = (message.content or "").lstrip().startswith(prefix)
+        if (
+            not custom_cmd_handled
+            and not is_prefix_command
+            and bot.user is not None
+            and bot.user in message.mentions
+            and not message.mention_everyone
+        ):
+            await handle_ai_mention(message)
+    except Exception as _mention_err:
+        print(f"[SP4RK] mention handler failed: {_mention_err}")
 
     handled = await automod.handle_message(message, config, add_warning_fn=add_warning)
     if not handled:
