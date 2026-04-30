@@ -2141,24 +2141,71 @@ async def slash_nick(interaction: discord.Interaction, member: discord.Member,
 
 @bot.tree.command(name="help", description="What Server Official can do.")
 async def slash_help(interaction: discord.Interaction):
-    desc = (
-        "**🛠️ Setup**\n"
-        "`/setup_roles` `/setup_channels` `/setup_template` `/set_welcome_role` `/set_log_channel`\n\n"
-        "**📣 Announcements**\n"
-        "`/announce` `/broadcast` `/schedule` `/list_schedules` `/cancel_schedule`\n\n"
-        "**🎉 Engagement**\n"
-        "`/goal` `/giveaway` `/list_giveaways` `/end_giveaway`\n\n"
-        "**🛠️ Utilities**\n"
-        "`/poll` `/remind` `/sticky` `/note` `/invites` `/stats`\n\n"
-        "**ℹ️ Info**\n"
-        "`/ping` `/uptime` `/membercount` `/roleinfo` `/channelinfo` `/avatar` `/serverbanner`\n\n"
-        "**⚙️ Server Management**\n"
-        "`/say` `/dm` `/slowmode` `/lock` `/unlock` `/nick`\n\n"
-        "_Looking for `/userinfo` or `/serverinfo`? Those are handled by **SP4RK** — "
-        "Server Official focuses on official server duties only._\n\n"
-        "Manage everything from the dashboard at **/server-official/dashboard**."
+    embed = _embed(
+        "🛡️ Server Official — Full Command Reference",
+        "All slash commands appear in Discord's `/` menu. "
+        "Manage everything from the dashboard at **/server-official/dashboard**.",
     )
-    await interaction.response.send_message(embed=_embed("🛡️ Server Official — Help", desc))
+    embed.add_field(
+        name="🛠️ Setup",
+        value="`/setup_roles` `/setup_channels` `/setup_template`\n"
+              "`/set_welcome_role` `/set_log_channel`",
+        inline=False,
+    )
+    embed.add_field(
+        name="📣 Announcements",
+        value="`/announce` `/broadcast` `/schedule`\n"
+              "`/list_schedules` `/cancel_schedule`",
+        inline=False,
+    )
+    embed.add_field(
+        name="🎉 Engagement",
+        value="`/goal` `/giveaway` `/list_giveaways` `/end_giveaway`",
+        inline=False,
+    )
+    embed.add_field(
+        name="🛠️ Utilities",
+        value="`/poll` `/remind` `/sticky` `/note` `/invites` `/stats`",
+        inline=False,
+    )
+    embed.add_field(
+        name="ℹ️ Info",
+        value="`/ping` `/uptime` `/membercount` `/roleinfo` "
+              "`/channelinfo` `/avatar` `/serverbanner`",
+        inline=False,
+    )
+    embed.add_field(
+        name="⚙️ Server Management",
+        value="`/say` `/dm` `/slowmode` `/lock` `/unlock` `/nick`",
+        inline=False,
+    )
+    embed.add_field(
+        name="⭐ Starboard",
+        value="`/setup-starboard <channel> [threshold]` — turn on the starboard\n"
+              "`/disable-starboard` — turn it off\n"
+              "`/starboard-stats` — show config and totals",
+        inline=False,
+    )
+    embed.add_field(
+        name="🎨 Embed Builder",
+        value="`/embed [title] [description] [color] [image_url] …` — "
+              "post a rich embed to any channel (no dashboard needed)",
+        inline=False,
+    )
+    embed.add_field(
+        name="🤖 Custom Commands (AI)",
+        value="Define `!trigger` commands from the dashboard. The bot reads "
+              "your reference text, runs it through Gemini and posts a polished "
+              "reply.\nTrigger any one with `!<trigger>` in chat.",
+        inline=False,
+    )
+    embed.add_field(
+        name="ℹ️ Note",
+        value="_Looking for `/userinfo` or `/serverinfo`? Those are handled "
+              "by **SP4RK** — Server Official focuses on official server duties._",
+        inline=False,
+    )
+    await interaction.response.send_message(embed=embed)
 
 
 # ============================================================

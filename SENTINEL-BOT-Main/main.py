@@ -455,78 +455,106 @@ async def daily_report_task():
 # ---------------- SLASH COMMANDS ----------------
 def build_help_embed(prefix):
     embed = discord.Embed(
-        title="🛡️ SP4RK Help",
+        title="🛡️ SP4RK — Full Command Reference",
         description=(
-            f"Current prefix: `{prefix}`\n"
-            "Use the sections below to find moderation, utility, ticket, giveaway, and setup commands."
+            f"Current prefix: `{prefix}`  ·  All slash commands also work via Discord's `/` menu.\n"
+            "Sections below cover moderation, utilities, custom commands, tickets, giveaways and setup."
         ),
         color=0x4f8ef7
     )
-    embed.add_field(name="⚖️ Moderation", inline=False, value=(
+    embed.add_field(name="⚖️ Moderation (prefix)", inline=False, value=(
         f"`{prefix}warn @user [reason]` — warn a member\n"
         f"`{prefix}warnings @user` — show warning history\n"
         f"`{prefix}clearwarnings @user` — clear warnings\n"
         f"`{prefix}kick @user [reason]` — kick a member\n"
         f"`{prefix}ban @user [reason]` — ban a member\n"
+        f"`{prefix}unban <user_id>` — unban by ID\n"
         f"`{prefix}tempban @user <duration> [reason]` — temporary ban\n"
         f"`{prefix}timeout @user <duration> [reason]` — Discord timeout\n"
         f"`{prefix}untimeout @user` — remove timeout"
     ))
-    embed.add_field(name="🧹 Channel Control", inline=False, value=(
+    embed.add_field(name="🧹 Channel Control (prefix)", inline=False, value=(
         f"`{prefix}purge <1-200>` — bulk delete messages\n"
+        f"`{prefix}purgeuser @user <n>` — delete a user's recent messages\n"
         f"`{prefix}slowmode <seconds>` — set slowmode\n"
-        f"`{prefix}lockdown` — lock text channels\n"
-        f"`{prefix}unlockdown` — unlock text channels"
+        f"`{prefix}lock [#channel]` — lock a channel\n"
+        f"`{prefix}unlock [#channel]` — unlock a channel\n"
+        f"`{prefix}lockdown` — lock all text channels\n"
+        f"`{prefix}unlockdown` — unlock all text channels"
     ))
-    embed.add_field(name="📌 Logs & Notes", inline=False, value=(
+    embed.add_field(name="📌 Logs, Notes & Info (prefix)", inline=False, value=(
         f"`{prefix}note @user <note>` — add private mod note\n"
         f"`{prefix}notes @user` — view mod notes\n"
-        f"`{prefix}modlogs @user` — view moderation history\n"
-        f"`{prefix}userinfo @user` — member information"
+        f"`{prefix}modlogs @user` — moderation history\n"
+        f"`{prefix}userinfo @user` — member info  (alias `!whois`, `!ui`)\n"
+        f"`{prefix}serverinfo` — full server snapshot  (alias `!si`)\n"
+        f"`{prefix}snipe` — show last deleted message"
     ))
-    embed.add_field(name="🛡️ Advanced Moderation", inline=False, value=(
-        f"`{prefix}lock #channel` — lock a single channel\n"
-        f"`{prefix}unlock #channel` — unlock a single channel\n"
+    embed.add_field(name="🛡️ Advanced Mod (prefix)", inline=False, value=(
         f"`{prefix}role add @user @role` — give a role\n"
         f"`{prefix}role remove @user @role` — remove a role\n"
         f"`{prefix}nick @user [name]` — change nickname\n"
-        f"`{prefix}voicekick @user` — disconnect from voice\n"
-        f"`{prefix}snipe` — show last deleted message\n"
-        f"`{prefix}massban id1 id2 ...` — ban many IDs (raid response)\n"
-        f"`{prefix}purgeuser @user <n>` — delete a user's recent messages"
+        f"`{prefix}voicekick @user` — disconnect from voice  (alias `!vkick`, `!vdc`)\n"
+        f"`{prefix}massban id1 id2 ...` — ban many IDs (raid response)"
     ))
-    embed.add_field(name="🎉 Giveaways, Tickets & Roles", inline=False, value=(
+    embed.add_field(name="⚡ Slash — Moderation", inline=False, value=(
+        "`/warn` `/warnings` `/clearwarnings` `/kick` `/ban` `/unban`\n"
+        "`/softban` — ban+unban to wipe recent messages\n"
+        "`/timeout` `/untimeout` `/purge`"
+    ))
+    embed.add_field(name="🔍 Slash — Info", inline=False, value=(
+        "`/userinfo @user` — detailed profile card\n"
+        "`/serverinfo` — full server snapshot\n"
+        "`/avatar @user` — full-size avatar\n"
+        "`/banner @user` — profile banner\n"
+        "`/roleinfo @role` — role details"
+    ))
+    embed.add_field(name="🎉 Giveaways & Tickets", inline=False, value=(
         "`/giveaway <duration> <prize>` — start giveaway\n"
         "`/giveaway-end <message_id>` — end giveaway\n"
         "`/giveaway-reroll <message_id>` — reroll winner\n"
+        "`/poll <question> <options>` — reaction poll\n"
         "`/ticket [reason]` — open support ticket\n"
-        "`/ticket-close` — close ticket\n"
-        "`/setup-reaction-role <message_id> <emoji> <role>` — add reaction role"
+        "`/ticket-close` — close ticket"
     ))
-    embed.add_field(name="⚡ Slash Equivalents", inline=False, value=(
-        "All major moderation actions are also available as slash commands:\n"
-        "`/warn` `/warnings` `/clearwarnings` `/kick` `/ban` `/unban` `/softban`\n"
-        "`/timeout` `/untimeout` `/purge` `/userinfo` `/serverinfo`\n"
-        "`/avatar` `/banner` `/roleinfo`"
+    embed.add_field(name="🎭 Reaction Roles", inline=False, value=(
+        "`/setup-reaction-role <message_id> <emoji> <role>` — add\n"
+        "`/remove-reaction-role <message_id> <emoji>` — remove\n"
+        "`/list-reaction-roles` — list all in this server"
+    ))
+    embed.add_field(name="🗣️ Auto-Responder", inline=False, value=(
+        "`/autorespond add <trigger> <response> [match]` — new rule\n"
+        "`/autorespond remove <trigger>` — remove rule\n"
+        "`/autorespond list` — list all rules"
+    ))
+    embed.add_field(name="🤖 Custom Commands (AI)", inline=False, value=(
+        f"Define `!trigger` commands from the dashboard. The bot reads your "
+        f"reference text, runs it through Gemini and posts a polished reply.\n"
+        f"Trigger any one with `!<trigger>` in chat."
     ))
     embed.add_field(name="🏷️ Tags (Dyno/Carl-bot style)", inline=False, value=(
-        "`/tag show <name>` — show a tag (or `!tag <name>`)\n"
-        "`/tag create <name> <content>` — create a snippet anyone can call\n"
+        "`/tag show <name>` — show a tag  (or `!tag <name>`)\n"
+        "`/tag create <name> <content>` — create a snippet\n"
         "`/tag edit | delete | list | info`"
     ))
-    embed.add_field(name="🔔 Quality of life", inline=False, value=(
+    embed.add_field(name="🔔 Quality of Life", inline=False, value=(
         "`/afk [reason]` — bot replies when you're mentioned\n"
-        "`/highlight add <keyword>` — get DM'd when your word appears\n"
+        "`/highlight add <keyword>` — DM you when keyword appears\n"
         "`/highlight remove | list | clear`"
+    ))
+    embed.add_field(name="🧬 Server Templates", inline=False, value=(
+        "`/copy` — snapshot this server's structure into a template\n"
+        "`/paste <template>` — recreate a copied template here\n"
+        "`/delete-template` — remove channels/roles added by `/paste`"
     ))
     embed.add_field(name="🤖 Bot / Setup", inline=False, value=(
         f"`{prefix}refresh` — reload dashboard config\n"
-        f"`{prefix}help` — show this menu\n"
+        f"`{prefix}help` — show this menu  (alias `!commands`, `!cmds`)\n"
+        "`/commands` — slash version of this menu\n"
         "`/bot` — bot stats\n"
-        "`/dashboard` — dashboard link\n"
-        "`/commands` — slash version of this command list"
+        "`/dashboard` — admin dashboard link"
     ))
-    embed.set_footer(text="Tip: if you change the prefix from the dashboard, run the bot with DASHBOARD_URL set to your dashboard URL when using a separate worker.")
+    embed.set_footer(text="Tip: change the prefix or manage custom commands in the dashboard at /dashboard.")
     return embed
 
 @bot.tree.command(name="commands", description="List all SP4RK commands")
