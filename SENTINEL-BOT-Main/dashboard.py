@@ -1588,6 +1588,7 @@ def sp4rk_landing():
         invite_url=invite_url,
         dev_unlocked=is_dev_session(),
         maintenance_on=is_maintenance_mode(),
+        logged_in=bool(session.get('logged_in')),
     )
 
 # ---- DEV ROUTES (PIN-protected) ----

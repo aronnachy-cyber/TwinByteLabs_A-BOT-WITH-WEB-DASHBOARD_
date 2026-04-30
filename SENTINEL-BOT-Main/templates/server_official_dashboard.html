@@ -213,20 +213,102 @@ html.bl-compact .card{padding:16px;margin-bottom:14px;}
 html.bl-compact .main{padding:22px;}
 html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
 
-/* Responsive */
-@media(max-width:900px){
-  .sidebar{position:fixed;left:0;top:0;z-index:100;transform:translateX(-100%);transition:transform .25s ease;width:240px;}
-  .sidebar.open{transform:translateX(0);}
-  .main{padding:20px;}
-  .menu-toggle{display:inline-flex;}
-  .topbar h1{font-size:1.3rem;}
-}
+/* Menu toggle button (hidden on desktop, shown on mobile via media query below) */
 .menu-toggle{display:none;background:rgba(91,140,255,.15);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:9px;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease;}
 .menu-toggle:hover{background:rgba(91,140,255,.25);}
+
+/* Backdrop shown behind sidebar on mobile */
+.sidebar-backdrop{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(2,6,18,.55);
+  backdrop-filter:blur(2px);
+  z-index:99;
+  opacity:0;transition:opacity .2s ease;
+}
+.sidebar-backdrop.open{display:block;opacity:1;}
 
 .guild-pick{display:inline-flex;align-items:center;gap:10px;}
 .guild-pick select{padding:8px 12px;font-size:.86rem;min-width:200px;}
 .muted{color:var(--muted);font-size:.86rem;}
+
+/* ====================================================================== */
+/* MOBILE RESPONSIVE — phones, small tablets                              */
+/* ====================================================================== */
+
+/* Tablet & medium screens: collapse sidebar into off-canvas drawer */
+@media(max-width:900px){
+  .sidebar{
+    position:fixed;left:0;top:0;z-index:100;
+    transform:translateX(-100%);transition:transform .25s ease;
+    width:260px;max-width:80vw;
+    box-shadow:6px 0 30px rgba(0,0,0,.55);
+  }
+  .sidebar.open{transform:translateX(0);}
+  .main{padding:18px;}
+  .menu-toggle{display:inline-flex;}
+  .topbar{margin-bottom:18px;padding-bottom:14px;}
+  .topbar > div:first-child{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .topbar h1{font-size:1.25rem;}
+  .topbar .crumb{display:none;}
+  .grid-2{grid-template-columns:1fr;}
+}
+
+/* Phone-sized screens: stack form rows, single-column grids, smaller chrome */
+@media(max-width:640px){
+  .main{padding:14px 12px 80px;}
+  .card{padding:18px 16px;margin-bottom:14px;border-radius:12px;}
+  .card h2{font-size:.98rem;gap:8px;}
+  .topbar{gap:12px;flex-direction:column;align-items:stretch;}
+  .topbar > div{width:100%;}
+  .topbar > div:last-child{flex-wrap:wrap;justify-content:space-between;gap:10px;}
+  .topbar h1{font-size:1.15rem;}
+  .grid{gap:12px;}
+  .grid-2,.grid-3{grid-template-columns:1fr;}
+  .stat{padding:16px;}
+  .stat-value{font-size:1.55rem;}
+
+  /* Form rows stack vertically on phones */
+  .row{flex-direction:column;gap:10px;}
+  .row > *,.row > .grow{flex:1 1 100%;width:100%;min-width:0;}
+
+  /* Buttons: full width when grouped */
+  button.btn,a.btn{width:100%;justify-content:center;}
+  button.btn-sm{width:auto;}
+
+  /* Inputs: comfortable touch targets */
+  input[type="text"],input[type="number"],input[type="datetime-local"],
+  input[type="url"],input[type="password"],input[type="email"],
+  textarea,select{font-size:1rem;padding:12px 14px;}
+  textarea{min-height:110px;}
+
+  /* Server picker: full width below header */
+  .guild-pick{width:100%;display:flex;align-items:center;}
+  .guild-pick select{flex:1;min-width:0;width:100%;}
+
+  /* Charts: shorter on small screens so they don't dominate the viewport */
+  .chart-box{height:220px;}
+
+  /* Tables: allow horizontal scroll instead of overflowing the viewport */
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;}
+
+  /* List items: stack content + actions */
+  .list-item{flex-direction:column;align-items:flex-start;gap:8px;padding:12px 14px;}
+  .list-item > *:last-child{align-self:stretch;}
+
+  /* Splash: snug to the viewport */
+  .bl-splash-card{padding:24px 20px 18px;}
+
+  /* Toast: full width with edge margins */
+  .toast{left:12px;right:12px;bottom:14px;border-radius:10px;}
+}
+
+/* Extra-small phones (≤400px): tighten further */
+@media(max-width:400px){
+  .main{padding:12px 10px 80px;}
+  .card{padding:16px 14px;}
+  nav, .topbar h1{font-size:1.05rem;}
+}
 </style>
 </head>
 <script>
@@ -377,6 +459,9 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
 })();
 </script>
 
+<!-- ===== SIDEBAR BACKDROP (mobile) ===== -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()" aria-hidden="true"></div>
+
 <!-- ===== SIDEBAR ===== -->
 <aside class="sidebar" id="sidebar">
   <div class="sb-brand">
@@ -408,7 +493,7 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
 <main class="main">
   <div class="topbar">
     <div>
-      <button class="menu-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></button>
+      <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Open menu"><i class="fas fa-bars"></i></button>
       <h1 id="pageTitle">Overview</h1>
       <div class="crumb"><a href="{{ url_for('landing') }}">Byte Labs</a> / <a href="{{ url_for('bots_showcase') }}">Bots</a> / Server Official</div>
     </div>
@@ -912,6 +997,27 @@ async function api(method, url, body=null, okMsg=null){
   } catch(e){ toast(e.message,'err'); return {ok:false}; }
 }
 
+/* ============ SIDEBAR TOGGLE (mobile) ============ */
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarBackdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
+}
+/* Close drawer if user resizes back to desktop */
+window.addEventListener('resize', ()=>{
+  if (window.innerWidth > 900) closeSidebar();
+});
+/* Close drawer on Escape key */
+window.addEventListener('keydown', e=>{ if (e.key === 'Escape') closeSidebar(); });
+
 /* ============ TAB NAV ============ */
 document.querySelectorAll('.sb-item').forEach(b=>{
   b.addEventListener('click', ()=>{
@@ -921,6 +1027,8 @@ document.querySelectorAll('.sb-item').forEach(b=>{
     b.classList.add('active');
     document.querySelector(`.section[data-section="${target}"]`).classList.add('active');
     $('#pageTitle').textContent = b.textContent.trim();
+    /* On mobile, navigating from the drawer should close it */
+    if (window.innerWidth <= 900) closeSidebar();
     if (target === 'overview') loadOverviewCharts();
     if (target === 'analytics') loadAnalytics();
     if (target === 'announcements'){ loadSchedules(); loadTemplates(); loadAnnHistory(); }

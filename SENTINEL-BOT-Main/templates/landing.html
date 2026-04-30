@@ -805,7 +805,11 @@ footer{
   </a>
 
   <div class="nav-right">
-    <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
+    {% if logged_in %}
+      <a class="btn-getstarted" href="{{ url_for('index') }}"><i class="fas fa-gauge-high"></i> Open Dashboard</a>
+    {% else %}
+      <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
+    {% endif %}
 
     <!-- Dev-only kebab menu. Hidden until unlocked via secret gesture
          (tap the SP4RK logo 7 times within 3 seconds, OR long-press it
@@ -866,7 +870,11 @@ footer{
     tickets, giveaways, reaction roles, social alerts and a full web dashboard to control every setting in real time.
   </p>
   <div class="hero-cta">
-    <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
+    {% if logged_in %}
+      <a class="btn-getstarted" href="{{ url_for('index') }}"><i class="fas fa-gauge-high"></i> Open Dashboard</a>
+    {% else %}
+      <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
+    {% endif %}
     {% if invite_url %}
     <a class="btn-discord" href="{{ invite_url }}" target="_blank" rel="noopener">
       <i class="fab fa-discord"></i> Add to Discord
