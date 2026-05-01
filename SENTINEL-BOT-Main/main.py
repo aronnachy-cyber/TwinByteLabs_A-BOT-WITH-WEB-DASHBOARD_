@@ -135,7 +135,7 @@ DASHBOARD_URL = f"http://127.0.0.1:{_PORT}"
 
 intents = discord.Intents.all()
 bot = commands.Bot(
-    command_prefix=lambda b, m: config.get('prefix', '!') or '!',
+    command_prefix=lambda b, m: get_config_for_guild(str(m.guild.id) if m.guild else '0').get('prefix', '!') or '!',
     intents=intents,
     help_command=None
 )
@@ -297,8 +297,9 @@ async def notify_owners_warning(member, count):
 
 async def check_warning_limit(member, count):
     refresh_config()
-    limit           = int(config.get("warning_limit", 30))
-    owner_approval  = config.get("owner_approval", "OFF") == "ON"
+    gcfg           = get_config_for_guild(str(member.guild.id))
+    limit           = int(gcfg.get("warning_limit", 30))
+    owner_approval  = gcfg.get("owner_approval", "OFF") == "ON"
     if count >= limit and owner_approval:
         await notify_owners_warning(member, count)
     # Async, non-blocking dashboard ping (was sync `requests.post` which froze
@@ -404,9 +405,11 @@ def build_server_context(guild) -> str:
     if guild.description:
         lines.append(f"SERVER DESCRIPTION (Discord): {guild.description}")
 
+    gcfg = get_config_for_guild(str(guild.id))
+
     # Custom admin-written description and rules from the dashboard
-    custom_desc = config.get("server_description", "").strip()
-    custom_rules = config.get("server_rules", "").strip()
+    custom_desc = gcfg.get("server_description", "").strip()
+    custom_rules = gcfg.get("server_rules", "").strip()
     if custom_desc:
         lines.append(f"ABOUT THIS SERVER: {custom_desc}")
     if custom_rules:
@@ -431,9 +434,9 @@ def build_server_context(guild) -> str:
         lines.append(f"ROLES: {', '.join(roles)}")
 
     # SP4RK config hints that are useful context
-    prefix = config.get("prefix", "!")
+    prefix = gcfg.get("prefix", "!")
     lines.append(f"BOT COMMAND PREFIX: {prefix}")
-    welcome = config.get("welcome_msg", "").strip()
+    welcome = gcfg.get("welcome_msg", "").strip()
     if welcome:
         lines.append(f"WELCOME MESSAGE: {welcome}")
 
@@ -729,7 +732,8 @@ def build_help_embed(prefix):
 @bot.tree.command(name="commands", description="List all SP4RK commands")
 async def slash_commands(interaction: discord.Interaction):
     refresh_config()
-    p = config.get('prefix', '!')
+    gcfg = get_config_for_guild(str(interaction.guild.id) if interaction.guild else '0')
+    p = gcfg.get('prefix', '!')
     embed = build_help_embed(p)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -917,7 +921,7 @@ async def prefix_serverinfo(ctx):
 @bot.command(name="help", aliases=["commands", "cmds"])
 async def prefix_help(ctx):
     refresh_config()
-    await ctx.send(embed=build_help_embed(config.get("prefix", "!")))
+    await ctx.send(embed=build_help_embed(get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0').get("prefix", "!")))
 
 @bot.tree.command(name="bot", description="Show SP4RK bot details and status")
 async def slash_bot(interaction: discord.Interaction):
@@ -977,9 +981,10 @@ async def slash_dashboard(interaction: discord.Interaction):
     embed.add_field(name="⏱️ Uptime",          value=f"{hours}h {minutes}m",                    inline=True)
     embed.add_field(name="🎉 Giveaways Active", value=str(giveaways_active),                   inline=True)
     embed.add_field(name="🎫 Open Tickets",    value=str(tickets_open),                         inline=True)
-    embed.add_field(name="🔰 Prefix",          value=f"`{config.get('prefix','!')}`",           inline=True)
-    embed.add_field(name="🔴 Profanity Filter", value=config.get("profanity_level","low").upper(), inline=True)
-    embed.add_field(name="🛡️ Anti-Raid",       value=config.get("anti_raid","OFF"),             inline=True)
+    _scfg = get_config_for_guild(str(guild.id))
+    embed.add_field(name="🔰 Prefix",          value=f"`{_scfg.get('prefix','!')}`",           inline=True)
+    embed.add_field(name="🔴 Profanity Filter", value=_scfg.get("profanity_level","low").upper(), inline=True)
+    embed.add_field(name="🛡️ Anti-Raid",       value=_scfg.get("anti_raid","OFF"),             inline=True)
     embed.add_field(name="🤖 AI Moderation",   value="ON" if GEMINI_KEY else "OFF",             inline=True)
     embed.set_footer(text="Full dashboard available at your web dashboard URL")
     embed.timestamp = datetime.utcnow()
@@ -1482,11 +1487,13 @@ async def on_message(message):
     except Exception as _cc_err:
         print(f"[SP4RK] custom command failed: {_cc_err}")
 
+    guild_cfg = get_config_for_guild(str(message.guild.id)) if message.guild else config
+
     # ---- AI mention reply: @SP4RK in a message → Gemini answers ----
     # Skips if a custom command already replied, if @everyone was used,
     # or if the message is actually a prefix command.
     try:
-        prefix = config.get("prefix", "!")
+        prefix = guild_cfg.get("prefix", "!")
         is_prefix_command = (message.content or "").lstrip().startswith(prefix)
         if (
             not custom_cmd_handled
@@ -1498,8 +1505,6 @@ async def on_message(message):
             await handle_ai_mention(message)
     except Exception as _mention_err:
         print(f"[SP4RK] mention handler failed: {_mention_err}")
-
-    guild_cfg = get_config_for_guild(str(message.guild.id)) if message.guild else config
     handled = await automod.handle_message(message, guild_cfg, add_warning_fn=add_warning)
     if not handled:
         await handle_ai_moderation(message)
@@ -1543,14 +1548,14 @@ async def mute(ctx, member: discord.Member, duration: str = None):
     if block:
         await ctx.send(block)
         return
-    await moderation.mute_member(ctx, member, config, duration)
+    await moderation.mute_member(ctx, member, get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0'), duration)
     dlog("🔇 MUTE", f"{member} muted by {ctx.author}" + (f" for {duration}" if duration else ""))
 
 @bot.command()
 @commands.has_permissions(manage_roles=True)
 async def unmute(ctx, member: discord.Member):
     """Unmute a member. Example: !unmute @user"""
-    await moderation.unmute_member(ctx, member, config)
+    await moderation.unmute_member(ctx, member, get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0'))
     dlog("🔊 UNMUTE", f"{member} unmuted by {ctx.author}")
 
 @bot.command()
@@ -1582,11 +1587,12 @@ async def warnings(ctx, member: discord.Member):
         color=0xf39c12 if count > 0 else 0x2ecc71
     )
     embed.set_thumbnail(url=member.display_avatar.url)
+    _wlimit = int(get_config_for_guild(str(ctx.guild.id)).get('warning_limit', 30))
     embed.add_field(name="Total Warnings", value=f"**{count}**", inline=True)
-    embed.add_field(name="Warning Limit",  value=f"**{config.get('warning_limit', 30)}**", inline=True)
+    embed.add_field(name="Warning Limit",  value=f"**{_wlimit}**", inline=True)
     embed.add_field(name="Status",
-        value="🔴 Limit Reached" if count >= int(config.get("warning_limit", 30)) else
-              "🟠 Watch"         if count >= int(config.get("warning_limit", 30)) // 2 else
+        value="🔴 Limit Reached" if count >= _wlimit else
+              "🟠 Watch"         if count >= _wlimit // 2 else
               "🟢 OK",
         inline=True
     )
@@ -1725,7 +1731,7 @@ async def modlogs(ctx, member: discord.Member):
         color=0xe74c3c if count >= 5 else (0xf39c12 if count >= 2 else 0x2ecc71)
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="⚠️ Warnings", value=f"**{count}** / {config.get('warning_limit', 30)}", inline=True)
+    embed.add_field(name="⚠️ Warnings", value=f"**{count}** / {get_config_for_guild(str(ctx.guild.id)).get('warning_limit', 30)}", inline=True)
     embed.add_field(name="📝 Notes",    value=str(len(notes)), inline=True)
     embed.add_field(name="🆔 User ID",  value=f"`{member.id}`", inline=True)
 
@@ -1939,7 +1945,8 @@ async def unlock(ctx, channel: discord.TextChannel = None):
 @commands.has_permissions(manage_roles=True)
 async def role_group(ctx):
     """Role management. Usage: !role add @user @role  |  !role remove @user @role"""
-    await ctx.send(f"Usage: `{config.get('prefix','!')}role add @user @role` or `{config.get('prefix','!')}role remove @user @role`")
+    _p = get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0').get('prefix', '!')
+    await ctx.send(f"Usage: `{_p}role add @user @role` or `{_p}role remove @user @role`")
 
 @role_group.command(name="add")
 @commands.has_permissions(manage_roles=True)
@@ -2125,7 +2132,7 @@ def _build_userinfo_embed(member: discord.Member, requester: discord.abc.User) -
         warn_count = entry.get("count", 0)
     except Exception:
         warn_count = 0
-    warn_limit = config.get('warning_limit', 30)
+    warn_limit = get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0').get('warning_limit', 30)
 
     # Roles
     roles_sorted = sorted(
@@ -2508,7 +2515,7 @@ async def unlockdown(ctx):
 @commands.has_permissions(administrator=True)
 async def refresh(ctx):
     refresh_config()
-    await ctx.send(f"🔄 Config refreshed! Prefix: `{config.get('prefix', '!')}`")
+    await ctx.send(f"🔄 Config refreshed! Prefix for this server: `{get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0').get('prefix', '!')}`")
 
 @bot.command(name="sync")
 async def force_sync(ctx):
@@ -2616,7 +2623,7 @@ async def slash_warnings(interaction: discord.Interaction, member: discord.Membe
     entry   = _get_member_entry(str(interaction.guild.id), str(member.id))
     count   = entry["count"]
     history = entry["history"]
-    limit   = int(config.get("warning_limit", 30))
+    limit   = int(get_config_for_guild(str(interaction.guild.id)).get("warning_limit", 30))
     embed = discord.Embed(
         title=f"⚠️ Warning History — {member}",
         color=0xf39c12 if count > 0 else 0x2ecc71,
