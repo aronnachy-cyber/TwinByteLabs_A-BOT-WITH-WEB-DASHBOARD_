@@ -1769,6 +1769,10 @@ def dev_state():
         "maintenance":  is_maintenance_mode(),
     })
 
+@app.route('/dev/maintenance/preview')
+def dev_maintenance_preview():
+    return render_template('under_maintenance.html'), 200
+
 @app.route('/dev/maintenance', methods=['POST'])
 def dev_maintenance_toggle():
     """Turn maintenance mode on/off. Requires unlocked dev session."""

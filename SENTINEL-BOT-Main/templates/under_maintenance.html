@@ -4,114 +4,391 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SP4RK — Under Maintenance</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-  *{ box-sizing:border-box; margin:0; padding:0; }
-  html,body{ height:100%; }
-  body{
-    font-family:'Inter',sans-serif;
-    background:radial-gradient(ellipse at top, #0d2040 0%, #07101f 60%, #04080f 100%);
-    color:#e8eef8;
-    min-height:100vh;
-    display:flex; align-items:center; justify-content:center;
-    overflow:hidden;
-    text-align:center;
-    padding:24px;
-  }
-  .embers{ position:fixed; inset:0; pointer-events:none; }
-  .ember{
-    position:absolute; bottom:-20px; width:6px; height:6px; border-radius:50%;
-    background:radial-gradient(circle, #ffb347 0%, #ff7a18 60%, transparent 80%);
-    opacity:.85; animation:rise linear infinite;
-  }
-  @keyframes rise{
-    0%  { transform:translateY(0) scale(1); opacity:.9; }
-    100%{ transform:translateY(-110vh) scale(.4); opacity:0; }
-  }
-  .card{
-    position:relative; z-index:2;
-    max-width:520px;
-    background:rgba(11,22,40,.7);
-    backdrop-filter:blur(8px);
-    border:1px solid rgba(255,122,24,.25);
-    border-radius:20px;
-    padding:48px 36px;
-    box-shadow:0 20px 60px rgba(255,122,24,.12);
-  }
-  .flame-icon{
-    font-size:3.6rem;
-    background:linear-gradient(180deg,#ffd76a,#ff7a18 60%,#e23e3e);
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent;
-    filter:drop-shadow(0 0 18px rgba(255,122,24,.35));
-    animation:flicker 1.6s ease-in-out infinite alternate;
-    margin-bottom:16px;
-  }
-  @keyframes flicker{
-    0%  { transform:scale(1) rotate(-2deg); filter:drop-shadow(0 0 14px rgba(255,122,24,.3)); }
-    50% { transform:scale(1.08) rotate(2deg); filter:drop-shadow(0 0 22px rgba(255,180,80,.55)); }
-    100%{ transform:scale(.97) rotate(-1deg); filter:drop-shadow(0 0 16px rgba(255,122,24,.4)); }
-  }
-  h1{
-    font-size:2rem; font-weight:800; margin-bottom:10px;
-    background:linear-gradient(90deg,#ffd76a,#ff7a18);
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent;
-  }
-  .tag{
-    display:inline-flex; align-items:center; gap:8px;
-    font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.08em;
-    color:#ffb347;
-    background:rgba(255,122,24,.12);
-    padding:6px 14px; border-radius:999px;
-    margin-bottom:20px;
-  }
-  .tag .dot{
-    width:8px; height:8px; border-radius:50%; background:#ff7a18;
-    box-shadow:0 0 8px #ff7a18;
-    animation:pulse 1.2s ease-in-out infinite;
-  }
-  @keyframes pulse{
-    0%,100%{ opacity:.6; transform:scale(1); }
-    50%    { opacity:1;  transform:scale(1.3); }
-  }
-  p{ color:#a8b6c9; line-height:1.6; margin:0 auto 22px; max-width:380px; }
-  .progress{
-    height:4px; background:rgba(255,255,255,.06); border-radius:999px; overflow:hidden;
-    position:relative;
-  }
-  .progress::before{
-    content:""; position:absolute; inset:0;
-    background:linear-gradient(90deg,transparent,#ff7a18,#ffd76a,#ff7a18,transparent);
-    animation:sweep 2s linear infinite;
-  }
-  @keyframes sweep{
-    0%  { transform:translateX(-100%); }
-    100%{ transform:translateX(100%); }
-  }
-  .footer{ margin-top:24px; font-size:.78rem; color:#6b7a92; }
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ height:100%; }
+
+body{
+  font-family:'Share Tech Mono', monospace;
+  background:#020c04;
+  color:#00ff41;
+  min-height:100vh;
+  overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* ── Matrix rain canvas ── */
+#matrix-canvas{
+  position:fixed; inset:0; z-index:0;
+  opacity:.18;
+}
+
+/* ── Scanlines overlay ── */
+.scanlines{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,.18) 2px,
+    rgba(0,0,0,.18) 4px
+  );
+}
+
+/* ── Vignette ── */
+.vignette{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,.75) 100%);
+}
+
+/* ── Main card ── */
+.card{
+  position:relative; z-index:10;
+  width:min(680px, calc(100vw - 32px));
+  background:rgba(2,10,4,.92);
+  border:1px solid rgba(0,255,65,.25);
+  border-radius:12px;
+  box-shadow:
+    0 0 0 1px rgba(0,255,65,.08) inset,
+    0 0 40px rgba(0,255,65,.08),
+    0 24px 80px rgba(0,0,0,.7);
+  overflow:hidden;
+}
+
+/* ── Terminal title bar ── */
+.titlebar{
+  display:flex; align-items:center; gap:8px;
+  padding:10px 16px;
+  background:rgba(0,255,65,.06);
+  border-bottom:1px solid rgba(0,255,65,.15);
+}
+.titlebar .dots{ display:flex; gap:6px; }
+.titlebar .dot{
+  width:12px; height:12px; border-radius:50%;
+}
+.titlebar .dot.red   { background:#ff5f57; box-shadow:0 0 6px #ff5f57; }
+.titlebar .dot.yellow{ background:#febc2e; box-shadow:0 0 6px #febc2e; }
+.titlebar .dot.green { background:#28c840; box-shadow:0 0 6px #28c840; }
+.titlebar .title{
+  flex:1; text-align:center;
+  font-size:.78rem; color:rgba(0,255,65,.5);
+  letter-spacing:.12em;
+}
+
+/* ── Terminal body ── */
+.terminal{
+  padding:20px 22px 16px;
+  min-height:230px;
+  font-size:.82rem;
+  line-height:1.7;
+  color:#00ff41;
+}
+.terminal .line{ white-space:pre; overflow:hidden; }
+.terminal .line.dim { color:rgba(0,255,65,.4); }
+.terminal .line.ok  { color:#28c840; }
+.terminal .line.warn{ color:#febc2e; }
+.terminal .line.err { color:#ff5f57; }
+.terminal .line.info{ color:#5ab4ff; }
+
+#cursor{
+  display:inline-block; width:9px; height:1.1em;
+  background:#00ff41; vertical-align:bottom;
+  animation:blink .75s step-end infinite;
+}
+@keyframes blink{ 50%{ opacity:0; } }
+
+/* ── Divider ── */
+.divider{
+  height:1px;
+  background:linear-gradient(90deg, transparent, rgba(0,255,65,.3), transparent);
+  margin:0 22px;
+}
+
+/* ── Status footer ── */
+.status-bar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 22px;
+  font-size:.75rem;
+  color:rgba(0,255,65,.45);
+  gap:12px; flex-wrap:wrap;
+}
+.status-bar .badge{
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(0,255,65,.07);
+  border:1px solid rgba(0,255,65,.18);
+  border-radius:999px; padding:4px 12px;
+  font-size:.72rem; letter-spacing:.06em;
+}
+.pulse-dot{
+  width:7px; height:7px; border-radius:50%; background:#00ff41;
+  box-shadow:0 0 8px #00ff41;
+  animation:pdot 1.4s ease-in-out infinite;
+}
+@keyframes pdot{ 0%,100%{ opacity:.4; transform:scale(1); } 50%{ opacity:1; transform:scale(1.35); } }
+
+/* ── Glitch heading ── */
+.glitch-wrap{
+  text-align:center;
+  padding:28px 22px 0;
+}
+.glitch{
+  font-family:'Inter', sans-serif;
+  font-size:clamp(1.5rem,4vw,2.4rem);
+  font-weight:800;
+  color:#00ff41;
+  position:relative;
+  display:inline-block;
+  letter-spacing:.04em;
+  text-shadow:0 0 18px rgba(0,255,65,.5);
+  animation:glitch-shift 5s infinite;
+}
+.glitch::before,
+.glitch::after{
+  content:attr(data-text);
+  position:absolute; inset:0;
+  clip-path:polygon(0 0,100% 0,100% 45%,0 45%);
+}
+.glitch::before{
+  color:#ff005c;
+  animation:glitch-a 4.2s infinite;
+  text-shadow:none;
+}
+.glitch::after{
+  color:#00c8ff;
+  animation:glitch-b 3.7s infinite;
+  text-shadow:none;
+  clip-path:polygon(0 55%,100% 55%,100% 100%,0 100%);
+}
+@keyframes glitch-shift{
+  0%,90%,100%{ transform:none; }
+  92%{ transform:skewX(-3deg) translateX(2px); }
+  94%{ transform:skewX(2deg) translateX(-2px); }
+  96%{ transform:none; }
+}
+@keyframes glitch-a{
+  0%,85%,100%{ transform:none; opacity:0; }
+  87%{ transform:translateX(-4px); opacity:.7; }
+  89%{ transform:translateX(3px); opacity:.5; }
+  91%{ opacity:0; }
+}
+@keyframes glitch-b{
+  0%,85%,100%{ transform:none; opacity:0; }
+  88%{ transform:translateX(4px); opacity:.6; }
+  90%{ transform:translateX(-2px); opacity:.4; }
+  92%{ opacity:0; }
+}
+
+.sub{
+  font-family:'Inter', sans-serif;
+  font-size:.88rem;
+  color:rgba(0,255,65,.5);
+  margin-top:6px;
+  margin-bottom:18px;
+  letter-spacing:.02em;
+}
+
+/* ── Progress bar ── */
+.progress-wrap{ padding:0 22px 20px; }
+.progress-label{
+  display:flex; justify-content:space-between;
+  font-size:.7rem; color:rgba(0,255,65,.4);
+  margin-bottom:5px;
+}
+.progress{
+  height:3px; background:rgba(0,255,65,.08); border-radius:2px; overflow:hidden;
+}
+.progress-fill{
+  height:100%; width:0%;
+  background:linear-gradient(90deg,#00c840,#00ff41,#7fff7f);
+  box-shadow:0 0 8px #00ff41;
+  border-radius:2px;
+  transition:width .6s ease;
+}
 </style>
 </head>
 <body>
-  <div class="embers" aria-hidden="true">
-    <span class="ember" style="left:8%; animation-duration:5.2s; animation-delay:0s;"></span>
-    <span class="ember" style="left:22%;animation-duration:6.4s; animation-delay:.6s;"></span>
-    <span class="ember" style="left:38%;animation-duration:4.8s; animation-delay:1.4s;"></span>
-    <span class="ember" style="left:51%;animation-duration:7.0s; animation-delay:.2s;"></span>
-    <span class="ember" style="left:64%;animation-duration:5.6s; animation-delay:2.0s;"></span>
-    <span class="ember" style="left:78%;animation-duration:6.2s; animation-delay:.9s;"></span>
-    <span class="ember" style="left:91%;animation-duration:5.0s; animation-delay:1.8s;"></span>
+
+<canvas id="matrix-canvas"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<div class="card">
+
+  <!-- Terminal chrome -->
+  <div class="titlebar">
+    <div class="dots">
+      <span class="dot red"></span>
+      <span class="dot yellow"></span>
+      <span class="dot green"></span>
+    </div>
+    <span class="title">sp4rk@bytelabs:~ — maintenance.sh</span>
   </div>
 
-  <div class="card">
-    <div class="flame-icon"><i class="fas fa-fire"></i></div>
-    <span class="tag"><span class="dot"></span> Under Maintenance</span>
-    <h1>We're tuning the flame.</h1>
-    <p>SP4RK is undergoing scheduled maintenance. We'll be back shortly — flame brighter than ever.</p>
-    <div class="progress" aria-hidden="true"></div>
-    <div class="footer">SP4RK Controls Inc. · Bot v26.6</div>
+  <!-- Glitch title -->
+  <div class="glitch-wrap">
+    <div class="glitch" data-text="SYSTEM MAINTENANCE">SYSTEM MAINTENANCE</div>
+    <div class="sub">SP4RK is being patched. Back online shortly.</div>
   </div>
+
+  <!-- Terminal output -->
+  <div class="terminal" id="terminal">
+    <span id="cursor"></span>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" style="margin-top:14px;">
+    <div class="progress-label">
+      <span>Rebuilding systems</span>
+      <span id="pct">0%</span>
+    </div>
+    <div class="progress"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <span class="badge"><span class="pulse-dot"></span> MAINTENANCE MODE</span>
+    <span>SP4RK · Byte Labs</span>
+    <span id="clock"></span>
+  </div>
+
+</div>
+
+<script>
+/* ─── Matrix rain ─── */
+(function(){
+  var canvas = document.getElementById("matrix-canvas");
+  var ctx    = canvas.getContext("2d");
+  var W, H, cols, drops;
+  var chars  = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF<>/{}[]|=+-*&^%$#@!~";
+
+  function resize(){
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    cols  = Math.floor(W / 16);
+    drops = Array(cols).fill(1);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  function draw(){
+    ctx.fillStyle = "rgba(2,12,4,.18)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#00ff41";
+    ctx.font      = "14px 'Share Tech Mono', monospace";
+    for(var i = 0; i < drops.length; i++){
+      var ch = chars[Math.floor(Math.random() * chars.length)];
+      ctx.globalAlpha = Math.random() * .6 + .2;
+      ctx.fillText(ch, i * 16, drops[i] * 16);
+      ctx.globalAlpha = 1;
+      if(drops[i] * 16 > H && Math.random() > .975) drops[i] = 0;
+      drops[i]++;
+    }
+  }
+  setInterval(draw, 55);
+})();
+
+/* ─── Typing terminal ─── */
+(function(){
+  var terminal = document.getElementById("terminal");
+  var cursor   = document.getElementById("cursor");
+  var fill     = document.getElementById("progress-fill");
+  var pctEl    = document.getElementById("pct");
+
+  var lines = [
+    { text:"[SP4RK] Initializing maintenance sequence...",    cls:"dim",  delay:0,    pct:4  },
+    { text:"[SYS]   Shutting down public endpoints... DONE",  cls:"ok",   delay:900,  pct:12 },
+    { text:"[BOT]   Saving in-memory state to disk... DONE",  cls:"ok",   delay:1700, pct:20 },
+    { text:"[AI]    Unloading Gemini context cache...",        cls:"dim",  delay:2500, pct:27 },
+    { text:"[AI]    Rebuilding model config... DONE",          cls:"ok",   delay:3200, pct:35 },
+    { text:"[MOD]   Patching moderation ruleset v2.1... DONE",cls:"ok",   delay:4000, pct:44 },
+    { text:"[SEC]   Running security audit...",                cls:"warn", delay:4800, pct:52 },
+    { text:"[SEC]   0 critical vulnerabilities found. CLEAR",  cls:"ok",   delay:5700, pct:60 },
+    { text:"[DB]    Optimising Supabase query cache...",       cls:"info", delay:6400, pct:66 },
+    { text:"[DB]    Index rebuild complete. Rows OK.",         cls:"ok",   delay:7200, pct:73 },
+    { text:"[CMD]   Re-registering slash commands globally...",cls:"info", delay:8100, pct:80 },
+    { text:"[CMD]   Synced 34 commands. DONE",                 cls:"ok",   delay:8900, pct:87 },
+    { text:"[SYS]   Running final diagnostics...",             cls:"dim",  delay:9700, pct:93 },
+    { text:"[SP4RK] All systems nominal. Preparing restart...",cls:"ok",   delay:10700,pct:98 },
+    { text:"[SP4RK] >>> Standing by. ETA: shortly <<<",        cls:"warn", delay:11600,pct:100},
+  ];
+
+  function setProgress(p){
+    fill.style.width  = p + "%";
+    pctEl.textContent = p + "%";
+  }
+
+  function addLine(text, cls){
+    var line = document.createElement("div");
+    line.className = "line " + (cls || "");
+    line.textContent = text;
+    terminal.insertBefore(line, cursor);
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  /* Type a line character by character, then resolve */
+  function typeLine(text, cls){
+    return new Promise(function(resolve){
+      var line = document.createElement("div");
+      line.className = "line " + (cls || "");
+      line.textContent = "";
+      terminal.insertBefore(line, cursor);
+
+      var i = 0;
+      function next(){
+        if(i < text.length){
+          line.textContent += text[i++];
+          terminal.scrollTop = terminal.scrollHeight;
+          setTimeout(next, Math.random() * 18 + 12);
+        } else {
+          resolve();
+        }
+      }
+      next();
+    });
+  }
+
+  /* Schedule each line */
+  lines.forEach(function(item){
+    setTimeout(function(){
+      typeLine(item.text, item.cls).then(function(){
+        setProgress(item.pct);
+      });
+    }, item.delay);
+  });
+
+  /* Restart loop after all lines finish */
+  setTimeout(function(){
+    setTimeout(function(){
+      /* Clear and restart */
+      var existing = terminal.querySelectorAll(".line");
+      existing.forEach(function(el){ el.remove(); });
+      setProgress(0);
+      lines.forEach(function(item){
+        setTimeout(function(){
+          typeLine(item.text, item.cls).then(function(){
+            setProgress(item.pct);
+          });
+        }, item.delay);
+      });
+    }, 3000);
+  }, 14000);
+})();
+
+/* ─── Live clock ─── */
+(function(){
+  var el = document.getElementById("clock");
+  function tick(){
+    var now = new Date();
+    el.textContent = now.toISOString().replace("T"," ").slice(0,19) + " UTC";
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+
 {% include "_cookie_consent.html" %}
 </body>
 </html>
