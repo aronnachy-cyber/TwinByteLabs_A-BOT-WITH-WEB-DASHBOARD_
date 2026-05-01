@@ -49,6 +49,10 @@ def _normalize(text):
     t = t.replace("!", "i")
     return t
 
+def _dedupe(text):
+    """Collapse consecutive repeated characters: 'fffffuuuucccckkkk' → 'fuck'."""
+    return re.sub(r'(.)\1+', r'\1', text)
+
 def _compact(text):
     return re.sub(r'[^a-z0-9\u0980-\u09ff]+', '', _normalize(text))
 
@@ -71,6 +75,14 @@ def _contains_word(content, word):
     stripped_all = re.sub(r'[.\-_*~\s]', '', content)
     if stripped_all == word:
         return True
+    # 5. Collapse consecutive repeated characters (e.g. "fffffuuuucccckkkk" → "fuck")
+    deduped = _dedupe(content)
+    if re.search(r'\b' + escaped + r'\b', deduped):
+        return True
+    # 6. Dedupe after stripping punctuation (e.g. "f..f..f..u..u..c..c..k..k" → "fuck")
+    deduped_stripped = _dedupe(re.sub(r'[.\-_*~\s]', '', content))
+    if deduped_stripped == word:
+        return True
     return False
 
 def _message_contains_bad_word(content, word_list):
@@ -80,11 +92,12 @@ def _message_contains_bad_word(content, word_list):
 def _message_contains_strict_profanity(content):
     normalized = _normalize(content)
     compact = _compact(content)
+    compact_deduped = _dedupe(compact)
     for word in STRICT_PROFANITY:
         target = _compact(word)
         if not target:
             continue
-        if _contains_word(normalized, word.lower()) or target in compact:
+        if _contains_word(normalized, word.lower()) or target in compact or target in compact_deduped:
             return True
     if re.search(r'\bs[\W_]*[!1i|e3][\W_]*x\b', content, re.IGNORECASE):
         return True
