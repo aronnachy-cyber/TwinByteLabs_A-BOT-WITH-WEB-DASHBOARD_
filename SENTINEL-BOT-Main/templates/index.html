@@ -514,7 +514,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       {% endif %}
     </div>
     <span id="bot-status-label"><span class="status-dot" id="bot-status-dot" style="background:var(--muted);"></span><span id="bot-status-text" style="color:var(--muted);">Checking…</span></span>&nbsp;&nbsp;
-    <a href="{{ url_for('landing') }}"><i class="fas fa-house"></i> Main Menu</a>
+    <a href="{{ url_for('bots_showcase') }}" style="color:var(--accent);">← All bots</a>
     <div style="margin-top:8px;font-size:0.7rem;color:var(--muted);opacity:.7;">SP4RK Bot <span style="color:var(--red);font-weight:600;">v26.6</span></div>
   </div>
 </div>
@@ -1605,7 +1605,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       </div>
       <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
         <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Quick Actions</div>
-        <a href="{{ url_for('landing') }}" style="display:inline-flex;align-items:center;gap:8px;background:rgba(79,142,247,.12);color:var(--accent);border:1px solid rgba(79,142,247,.28);border-radius:8px;padding:9px 18px;text-decoration:none;font-size:0.88rem;font-weight:600;"><i class="fas fa-house"></i> Main Menu</a>
+        <a href="{{ url_for('bots_showcase') }}" style="display:inline-flex;align-items:center;gap:8px;background:rgba(79,142,247,.12);color:var(--accent);border:1px solid rgba(79,142,247,.28);border-radius:8px;padding:9px 18px;text-decoration:none;font-size:0.88rem;font-weight:600;">← All bots</a>
       </div>
     </div>
   </div>
