@@ -480,42 +480,53 @@ async def handle_ai_mention(message):
     )
     try:
         async with message.channel.typing():
-            async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=15)
-            ) as sess:
-                async with sess.post(
+            # Step 1: call Gemini and await the response
+            sess = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
+            try:
+                resp = await sess.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}",
                     json={
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {"temperature": 0.8, "maxOutputTokens": 400},
                     },
-                ) as res:
-                    if res.status != 200:
-                        body = await res.text()
-                        print(f"[SP4RK] AI mention reply HTTP {res.status}: {body[:200]}")
-                        await message.reply(
-                            "Hey! I ran into a hiccup reaching my AI brain. Try again in a moment!",
-                            mention_author=False,
-                        )
-                        return
-                    data = await res.json()
-        reply = (
-            data.get("candidates", [{}])[0]
-            .get("content", {})
-            .get("parts", [{}])[0]
-            .get("text", "")
-            .strip()
-        )
-        if not reply:
-            await message.reply(
-                "Hmm, I got an empty response from my AI. Try asking me something else!",
-                mention_author=False,
+                )
+                if resp.status != 200:
+                    body = await resp.text()
+                    print(f"[SP4RK] Gemini HTTP {resp.status}: {body[:200]}")
+                    await resp.release()
+                    await sess.close()
+                    await message.reply(
+                        "Hey! I ran into a hiccup reaching my AI brain. Try again in a moment!",
+                        mention_author=False,
+                    )
+                    return
+                data = await resp.json()
+                await resp.release()
+            finally:
+                await sess.close()
+
+            # Step 2: extract the reply text
+            reply = (
+                data.get("candidates", [{}])[0]
+                .get("content", {})
+                .get("parts", [{}])[0]
+                .get("text", "")
+                .strip()
             )
-            return
-        await message.reply(reply[:1900], mention_author=False)
-        dlog("💬 AI-MENTION", f"{message.author} → {text[:80]}")
+
+            # Step 3: await sending the reply — still inside the typing block
+            if not reply:
+                await message.reply(
+                    "Hmm, I got an empty response from my AI. Try asking me something else!",
+                    mention_author=False,
+                )
+                return
+
+            await message.reply(reply[:1900], mention_author=False)
+            dlog("💬 AI-MENTION", f"{message.author} → {text[:80]}")
+
     except discord.Forbidden:
-        print(f"[SP4RK] AI mention reply error: Missing Send Messages permission in #{message.channel}")
+        print(f"[SP4RK] Missing Send Messages permission in #{message.channel}")
     except Exception as e:
         print(f"[SP4RK] AI mention reply error: {e}")
         try:
