@@ -655,6 +655,95 @@ footer{
 }
 .footer-socials a:hover{ color:#5b8cff; }
 
+/* ===== PRICING / TIERS SECTION ===== */
+.pricing-section{
+  position:relative;z-index:5;
+  max-width:1000px;margin:0 auto;
+  padding:60px 48px 80px;
+}
+.pricing-head{text-align:center;margin-bottom:50px;}
+.pricing-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 16px;
+  background:rgba(91,140,255,.1);border:1px solid rgba(91,140,255,.25);border-radius:999px;
+  font-size:.75rem;font-weight:700;color:var(--accent);letter-spacing:.7px;text-transform:uppercase;
+  margin-bottom:16px;
+}
+.pricing-head h2{font-size:clamp(1.7rem,2.8vw,2.3rem);font-weight:800;letter-spacing:-.5px;margin-bottom:12px;}
+.pricing-head h2 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.pricing-head p{color:var(--muted);font-size:.97rem;max-width:480px;margin:0 auto;line-height:1.6;}
+
+.pricing-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:24px;
+}
+@media(max-width:680px){.pricing-grid{grid-template-columns:1fr;}.pricing-section{padding:40px 22px 60px;}}
+
+.price-card{
+  background:rgba(10,20,40,.65);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--border);
+  border-radius:22px;
+  padding:32px 28px;
+  display:flex;flex-direction:column;
+  position:relative;overflow:hidden;
+  transition:border-color .25s,box-shadow .25s;
+}
+.price-card:hover{border-color:rgba(91,140,255,.4);box-shadow:0 20px 50px rgba(0,0,0,.4);}
+.price-card.is-premium{border-color:rgba(245,158,11,.35);}
+.price-card.is-premium:hover{border-color:rgba(245,158,11,.6);box-shadow:0 20px 50px rgba(245,158,11,.12);}
+.price-card.is-premium::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at top,rgba(245,158,11,.07) 0%,transparent 65%);
+  pointer-events:none;
+}
+.price-card.is-featured-badge::after{
+  content:'MOST POPULAR';
+  position:absolute;top:18px;right:-28px;
+  background:linear-gradient(135deg,#f59e0b,#ef4444);
+  color:#fff;font-size:.63rem;font-weight:800;letter-spacing:1.2px;
+  padding:5px 38px;transform:rotate(45deg);
+  box-shadow:0 4px 12px rgba(245,158,11,.4);
+}
+
+.price-tier-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+.price-icon{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;color:#fff;flex-shrink:0;
+}
+.price-icon.free-icon{background:linear-gradient(135deg,#5b8cff,#22d3ee);}
+.price-icon.pro-icon{background:linear-gradient(135deg,#f59e0b,#ef4444);}
+
+.price-tier-name{font-size:1.15rem;font-weight:800;letter-spacing:-.3px;}
+.price-tier-name.premium-name{color:#f59e0b;}
+
+.price-amount{margin-bottom:24px;}
+.price-num{font-size:2.8rem;font-weight:900;letter-spacing:-2px;line-height:1;}
+.price-num .currency{font-size:1.4rem;font-weight:700;vertical-align:super;letter-spacing:0;}
+.price-num.free-price{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.price-num.pro-price{color:#f59e0b;}
+.price-period{font-size:.82rem;color:var(--muted);margin-top:4px;}
+
+.price-features{flex:1;display:flex;flex-direction:column;gap:10px;margin-bottom:28px;}
+.price-feat{display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:var(--muted);line-height:1.4;}
+.price-feat i{flex-shrink:0;margin-top:2px;font-size:.78rem;width:16px;text-align:center;}
+.price-feat.included i{color:#22d3ee;}
+.price-feat.included{color:var(--text);}
+.price-feat.included.gold i{color:#f59e0b;}
+
+.price-cta{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:13px 20px;border-radius:12px;
+  font-size:.93rem;font-weight:700;text-decoration:none;
+  transition:opacity .18s,transform .18s,box-shadow .18s;
+  cursor:pointer;border:none;font-family:inherit;
+}
+.price-cta:hover{opacity:.88;transform:translateY(-1px);}
+.price-cta.free-cta{background:rgba(91,140,255,.15);color:var(--accent);border:1px solid rgba(91,140,255,.3);}
+.price-cta.free-cta:hover{background:rgba(91,140,255,.25);box-shadow:0 8px 20px rgba(91,140,255,.2);}
+.price-cta.pro-cta{background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;box-shadow:0 8px 24px rgba(245,158,11,.35);}
+.price-cta.pro-cta:hover{box-shadow:0 12px 30px rgba(245,158,11,.5);}
+
 @media (max-width:760px){
   nav{ padding:16px 22px; }
   .page-head{ padding:60px 22px 30px; }
@@ -1039,6 +1128,76 @@ footer{
     </div>
   </div>
 
+</section>
+
+<!-- ===== PRICING / TIERS ===== -->
+<section class="pricing-section" id="pricing">
+  <div class="pricing-head">
+    <div class="pricing-eyebrow"><i class="fas fa-layer-group"></i> Plans &amp; Pricing</div>
+    <h2>Simple, <span>transparent pricing</span></h2>
+    <p>Pick your plan, receive a license code, and unlock your dashboard. No subscriptions — pay once, use forever.</p>
+  </div>
+
+  <div class="pricing-grid">
+
+    <!-- FREE -->
+    <div class="price-card">
+      <div class="price-tier-header">
+        <div class="price-icon free-icon"><i class="fas fa-bolt"></i></div>
+        <div class="price-tier-name">Free</div>
+      </div>
+      <div class="price-amount">
+        <div class="price-num free-price">Free</div>
+        <div class="price-period">No credit card required</div>
+      </div>
+      <div class="price-features">
+        <div class="price-feat included"><i class="fas fa-check-circle"></i> AutoMod (Basic rules)</div>
+        <div class="price-feat included"><i class="fas fa-check-circle"></i> Anti-Spam &amp; Anti-Invite</div>
+        <div class="price-feat included"><i class="fas fa-check-circle"></i> Welcome &amp; Leave Messages</div>
+        <div class="price-feat included"><i class="fas fa-check-circle"></i> Basic Ticket System</div>
+        <div class="price-feat included"><i class="fas fa-check-circle"></i> Web Dashboard Access</div>
+        <div class="price-feat"><i class="fas fa-times-circle"></i> AI-Powered Moderation</div>
+        <div class="price-feat"><i class="fas fa-times-circle"></i> Reaction Roles</div>
+        <div class="price-feat"><i class="fas fa-times-circle"></i> Giveaways &amp; Social Alerts</div>
+        <div class="price-feat"><i class="fas fa-times-circle"></i> Priority Support</div>
+      </div>
+      <a href="{{ url_for('login') }}" class="price-cta free-cta">
+        <i class="fas fa-bolt"></i> Get Started Free
+      </a>
+    </div>
+
+    <!-- PREMIUM -->
+    <div class="price-card is-premium is-featured-badge">
+      <div class="price-tier-header">
+        <div class="price-icon pro-icon"><i class="fas fa-crown"></i></div>
+        <div class="price-tier-name premium-name">Premium</div>
+      </div>
+      <div class="price-amount">
+        <div class="price-num pro-price"><span class="currency">$</span>4<span style="font-size:1.2rem;font-weight:600;letter-spacing:0;color:#f59e0b;">.99</span></div>
+        <div class="price-period">One-time payment · License code sent instantly</div>
+      </div>
+      <div class="price-features">
+        <div class="price-feat included gold"><i class="fas fa-check-circle"></i> Everything in Free</div>
+        <div class="price-feat included gold"><i class="fas fa-check-circle"></i> AI-Powered Moderation (Gemini)</div>
+        <div class="price-feat included gold"><i class="fas fa-check-circle"></i> Advanced Anti-Raid System</div>
+        <div class="price-feat included gold"><i class="fas fa-check-circle"></i> Reaction Roles</div>
+        <div class="price-feat included gold"><i class="fas fa-check-circle"></i> Giveaways System</div>
+        <div class="price-feat included gold"><i class="fas fa-check-circle"></i> Social Alerts (Twitch, YouTube)</div>
+        <div class="price-feat included gold"><i class="fas fa-check-circle"></i> Custom Bot Branding</div>
+        <div class="price-feat included gold"><i class="fas fa-check-circle"></i> Priority Support</div>
+        <div class="price-feat included gold"><i class="fas fa-check-circle"></i> Unlimited Server Configs</div>
+      </div>
+      <a href="{{ url_for('landing') }}#contact" class="price-cta pro-cta">
+        <i class="fas fa-crown"></i> Get Premium — $4.99
+      </a>
+    </div>
+
+  </div>
+
+  <p style="text-align:center;color:var(--muted);font-size:.82rem;margin-top:28px;">
+    <i class="fas fa-info-circle" style="color:var(--accent3);margin-right:5px;"></i>
+    After purchase, a license code is sent to your Discord DM. Log in and enter it on the activation page to unlock your plan.
+  </p>
 </section>
 
 <footer>

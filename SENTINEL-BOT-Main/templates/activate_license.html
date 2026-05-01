@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Activate License — Byte Labs</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+:root{
+  --bg:#050b18;
+  --bg2:#0a1428;
+  --bg3:#0f1d3a;
+  --accent:#5b8cff;
+  --accent2:#8b5cf6;
+  --accent3:#22d3ee;
+  --gold:#f59e0b;
+  --text:#e8efff;
+  --muted:#8a9bbf;
+  --border:rgba(91,140,255,.18);
+  --grad:linear-gradient(135deg,#5b8cff 0%,#8b5cf6 50%,#22d3ee 100%);
+  --grad-gold:linear-gradient(135deg,#f59e0b 0%,#ef4444 100%);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Inter','Segoe UI',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:32px 20px;
+  position:relative;
+  overflow-x:hidden;
+}
+
+/* ── Background ─────────────────────────────────────────────────────── */
+.bg-orbs{position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none;}
+.orb{position:absolute;border-radius:50%;filter:blur(110px);}
+.orb.o1{width:520px;height:520px;background:#5b8cff;opacity:.45;top:-120px;left:-100px;animation:floatA 18s ease-in-out infinite;}
+.orb.o2{width:480px;height:480px;background:#8b5cf6;opacity:.4;top:30%;right:-140px;animation:floatB 22s ease-in-out infinite;}
+.orb.o3{width:420px;height:420px;background:#22d3ee;opacity:.28;bottom:-160px;left:30%;animation:floatC 26s ease-in-out infinite;}
+@keyframes floatA{0%,100%{transform:translate(0,0);}50%{transform:translate(40px,60px);}}
+@keyframes floatB{0%,100%{transform:translate(0,0);}50%{transform:translate(-50px,30px);}}
+@keyframes floatC{0%,100%{transform:translate(0,0);}50%{transform:translate(30px,-50px);}}
+.bg-grid{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(91,140,255,0.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(91,140,255,0.05) 1px,transparent 1px);
+  background-size:48px 48px;
+  mask-image:radial-gradient(ellipse at center,black 30%,transparent 75%);
+  -webkit-mask-image:radial-gradient(ellipse at center,black 30%,transparent 75%);
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────── */
+.page-wrap{
+  position:relative;z-index:1;
+  width:100%;max-width:960px;
+  display:flex;flex-direction:column;align-items:center;
+  gap:40px;
+}
+
+/* ── Top brand ──────────────────────────────────────────────────────── */
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--text);}
+.brand-mark{
+  width:46px;height:46px;border-radius:12px;
+  background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;color:#fff;font-size:1rem;letter-spacing:.4px;
+  box-shadow:0 8px 24px rgba(91,140,255,.4);
+}
+.brand-name{font-size:1.4rem;font-weight:800;letter-spacing:-.4px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;}
+
+/* ── Hero text ──────────────────────────────────────────────────────── */
+.hero-text{text-align:center;max-width:520px;}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 16px;
+  background:rgba(91,140,255,.1);border:1px solid rgba(91,140,255,.25);border-radius:999px;
+  font-size:.78rem;font-weight:600;color:var(--accent);letter-spacing:.6px;text-transform:uppercase;
+  margin-bottom:16px;
+}
+.hero-eyebrow .dot{width:6px;height:6px;border-radius:50%;background:#22d3ee;box-shadow:0 0 8px #22d3ee;animation:pulse 2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:.6;}50%{opacity:1;}}
+.hero-text h1{font-size:clamp(1.8rem,3.5vw,2.4rem);font-weight:800;letter-spacing:-.6px;line-height:1.15;margin-bottom:12px;}
+.hero-text h1 .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.hero-text p{color:var(--muted);font-size:1rem;line-height:1.6;max-width:420px;margin:0 auto;}
+
+/* ── Two column layout ──────────────────────────────────────────────── */
+.two-col{
+  width:100%;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:24px;
+  align-items:start;
+}
+@media(max-width:680px){.two-col{grid-template-columns:1fr;}}
+
+/* ── Card base ──────────────────────────────────────────────────────── */
+.card{
+  background:rgba(10,20,40,0.7);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:32px;
+  box-shadow:0 24px 60px rgba(0,0,0,.5);
+}
+
+/* ── License form card ───────────────────────────────────────────────  */
+.form-card h2{font-size:1.2rem;font-weight:700;margin-bottom:6px;letter-spacing:-.3px;}
+.form-card .sub{color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:24px;}
+
+.field-group{display:flex;flex-direction:column;gap:6px;margin-bottom:18px;}
+.field-group label{font-size:.78rem;font-weight:600;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;}
+.code-input{
+  width:100%;padding:14px 16px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);
+  border-radius:12px;
+  color:var(--text);
+  font-family:'JetBrains Mono','Fira Mono','Courier New',monospace;
+  font-size:1rem;font-weight:700;letter-spacing:2px;
+  outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.code-input::placeholder{color:var(--muted);letter-spacing:1px;font-weight:400;}
+.code-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,140,255,.18);}
+
+.btn-activate{
+  width:100%;padding:14px;
+  background:var(--grad);
+  border:none;border-radius:12px;
+  color:#fff;font-family:inherit;font-size:1rem;font-weight:700;
+  cursor:pointer;letter-spacing:.3px;
+  box-shadow:0 8px 24px rgba(91,140,255,.35);
+  transition:opacity .18s,transform .18s,box-shadow .18s;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.btn-activate:hover:not(:disabled){opacity:.9;transform:translateY(-1px);box-shadow:0 12px 30px rgba(91,140,255,.45);}
+.btn-activate:disabled{opacity:.5;cursor:not-allowed;}
+.btn-activate .spinner{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+.btn-activate.loading .spinner{display:block;}
+.btn-activate.loading .btn-text{display:none;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.alert{
+  padding:12px 14px;border-radius:10px;
+  font-size:.88rem;line-height:1.45;
+  display:flex;align-items:flex-start;gap:10px;
+  margin-bottom:16px;
+}
+.alert-error{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.28);color:#fca5a5;}
+.alert-error i{color:#ef4444;flex-shrink:0;margin-top:2px;}
+.alert-success{background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.28);color:#67e8f9;}
+.alert-success i{color:#22d3ee;flex-shrink:0;margin-top:2px;}
+
+.divider{
+  display:flex;align-items:center;gap:12px;
+  color:var(--muted);font-size:.78rem;margin:16px 0;
+}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.skip-link{
+  display:block;text-align:center;
+  color:var(--muted);font-size:.85rem;text-decoration:none;
+  transition:color .15s;
+}
+.skip-link:hover{color:var(--accent);}
+.skip-link i{margin-right:4px;}
+
+/* ── Tier info card ──────────────────────────────────────────────────── */
+.tier-card{display:flex;flex-direction:column;gap:16px;}
+.tier-block{
+  border-radius:14px;border:1px solid var(--border);
+  padding:18px 20px;
+  position:relative;overflow:hidden;
+}
+.tier-block.is-premium{border-color:rgba(245,158,11,.3);}
+.tier-block-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.tier-icon{
+  width:36px;height:36px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.9rem;color:#fff;flex-shrink:0;
+}
+.tier-icon.free{background:linear-gradient(135deg,#5b8cff,#22d3ee);}
+.tier-icon.premium{background:linear-gradient(135deg,#f59e0b,#ef4444);}
+.tier-name{font-size:1rem;font-weight:700;letter-spacing:-.2px;}
+.tier-name.premium{color:var(--gold);}
+.tier-badge{
+  margin-left:auto;padding:3px 10px;border-radius:999px;
+  font-size:.7rem;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+}
+.tier-badge.free{background:rgba(91,140,255,.15);color:var(--accent);}
+.tier-badge.premium{background:rgba(245,158,11,.15);color:var(--gold);}
+.tier-features{display:flex;flex-direction:column;gap:7px;}
+.feat{display:flex;align-items:center;gap:9px;font-size:.83rem;color:var(--muted);}
+.feat i{color:var(--accent3);font-size:.75rem;flex-shrink:0;width:14px;text-align:center;}
+.tier-block.is-premium .feat i{color:var(--gold);}
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+.pg-footer{
+  color:var(--muted);font-size:.8rem;text-align:center;
+  padding-top:8px;
+}
+.pg-footer a{color:var(--muted);text-decoration:none;transition:color .15s;}
+.pg-footer a:hover{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="bg-orbs">
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+</div>
+<div class="bg-grid"></div>
+
+<div class="page-wrap">
+
+  <!-- Brand -->
+  <a class="brand" href="/">
+    <div class="brand-mark">B/L</div>
+    <div class="brand-name">Byte Labs</div>
+  </a>
+
+  <!-- Hero -->
+  <div class="hero-text">
+    <div class="hero-eyebrow"><span class="dot"></span> License Activation</div>
+    <h1>Welcome, <span class="grad">{{ user_name }}</span>!</h1>
+    <p>Enter the license code you received to activate your plan and unlock the dashboard.</p>
+  </div>
+
+  <!-- Two columns -->
+  <div class="two-col">
+
+    <!-- Left: form card -->
+    <div class="card form-card">
+      <h2><i class="fas fa-key" style="color:var(--accent);margin-right:8px;"></i>Enter Your License Code</h2>
+      <p class="sub">Your license code was sent to you after purchase. It looks like <code style="color:var(--accent3);">BL-FREE-XXXXXX</code> or <code style="color:var(--gold);">BL-PRO-XXXXXX</code>.</p>
+
+      {% if error %}
+      <div class="alert alert-error">
+        <i class="fas fa-circle-exclamation"></i>
+        <span>{{ error }}</span>
+      </div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('activate_license') }}" id="licenseForm">
+        <div class="field-group">
+          <label for="license_code">License Code</label>
+          <input
+            type="text"
+            id="license_code"
+            name="license_code"
+            class="code-input"
+            placeholder="BL-FREE-XXXXXX or BL-PRO-XXXXXX"
+            maxlength="32"
+            autocomplete="off"
+            spellcheck="false"
+            autofocus
+            value="{{ prefill or '' }}"
+          >
+        </div>
+
+        <button type="submit" class="btn-activate" id="activateBtn">
+          <span class="btn-text"><i class="fas fa-unlock"></i> Activate & Enter Dashboard</span>
+          <span class="spinner"></span>
+        </button>
+      </form>
+
+      <div class="divider">or</div>
+
+      <a class="skip-link" href="{{ url_for('index') }}?skip_license=1">
+        <i class="fas fa-arrow-right"></i> Continue without a code (Free tier features)
+      </a>
+    </div>
+
+    <!-- Right: tier comparison -->
+    <div class="card tier-card">
+
+      <div class="tier-block">
+        <div class="tier-block-header">
+          <div class="tier-icon free"><i class="fas fa-bolt"></i></div>
+          <div class="tier-name">Free</div>
+          <span class="tier-badge free">Free</span>
+        </div>
+        <div class="tier-features">
+          <div class="feat"><i class="fas fa-check"></i> AutoMod (Basic)</div>
+          <div class="feat"><i class="fas fa-check"></i> Anti-Spam</div>
+          <div class="feat"><i class="fas fa-check"></i> Welcome Messages</div>
+          <div class="feat"><i class="fas fa-check"></i> Basic Tickets</div>
+          <div class="feat"><i class="fas fa-check"></i> Web Dashboard Access</div>
+        </div>
+      </div>
+
+      <div class="tier-block is-premium">
+        <div class="tier-block-header">
+          <div class="tier-icon premium"><i class="fas fa-crown"></i></div>
+          <div class="tier-name premium">Premium</div>
+          <span class="tier-badge premium">Pro</span>
+        </div>
+        <div class="tier-features">
+          <div class="feat"><i class="fas fa-check"></i> Everything in Free</div>
+          <div class="feat"><i class="fas fa-check"></i> AI-Powered Moderation</div>
+          <div class="feat"><i class="fas fa-check"></i> Advanced Anti-Raid</div>
+          <div class="feat"><i class="fas fa-check"></i> Reaction Roles</div>
+          <div class="feat"><i class="fas fa-check"></i> Giveaways System</div>
+          <div class="feat"><i class="fas fa-check"></i> Social Alerts</div>
+          <div class="feat"><i class="fas fa-check"></i> Priority Support</div>
+          <div class="feat"><i class="fas fa-check"></i> Custom Bot Branding</div>
+        </div>
+      </div>
+
+      <p style="font-size:.78rem;color:var(--muted);text-align:center;margin-top:4px;">
+        Don't have a code? <a href="{{ url_for('bots_showcase') }}" style="color:var(--accent);text-decoration:none;">View plans on the Bots page</a>
+      </p>
+
+    </div>
+  </div>
+
+  <div class="pg-footer">
+    <a href="/logout"><i class="fas fa-arrow-left" style="margin-right:4px;"></i>Sign out</a>
+    &nbsp;·&nbsp;
+    <a href="/">Back to Byte Labs</a>
+  </div>
+
+</div>
+
+<script>
+document.getElementById('licenseForm').addEventListener('submit', function(){
+  const btn = document.getElementById('activateBtn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+});
+
+/* Auto-uppercase + format as user types */
+document.getElementById('license_code').addEventListener('input', function(){
+  let v = this.value.toUpperCase().replace(/[^A-Z0-9\-]/g,'');
+  this.value = v;
+});
+</script>
+
+{% include "_cookie_consent.html" %}
+</body>
+</html>
