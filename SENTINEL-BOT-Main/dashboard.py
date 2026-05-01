@@ -3005,7 +3005,21 @@ def so_api_embeds_preview():
 # ---- HEALTH CHECK ----
 @app.route('/health')
 def health():
-    return 'OK', 200
+    import threading, time
+    bot_alive = False
+    try:
+        import sys
+        bot_mod = sys.modules.get('main')
+        if bot_mod:
+            t = getattr(bot_mod, '_bot_thread', None)
+            bot_alive = bool(t and t.is_alive())
+    except Exception:
+        pass
+    return {
+        'status': 'ok',
+        'bot_thread': 'alive' if bot_alive else 'stopped',
+        'ts': int(time.time()),
+    }, 200
 
 # ---- RUN ----
 def run_dashboard(port=None):
