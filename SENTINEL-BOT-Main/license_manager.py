@@ -24,7 +24,7 @@ import os
 import threading
 from typing import Dict, List, Optional, Tuple
 
-_LOCK = threading.Lock()
+_LOCK = threading.RLock()
 _LICENSE_FILE = os.path.join(os.path.dirname(__file__), "..", "licenses.json")
 _LICENSE_FILE = os.path.normpath(_LICENSE_FILE)
 
