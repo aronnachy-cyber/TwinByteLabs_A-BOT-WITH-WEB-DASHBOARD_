@@ -843,16 +843,14 @@ def _so_module():
 
 
 def _user_admin_guild_ids():
-    """Return the user's admin guild ids, or None if we don't know yet.
+    """Return the user's admin guild ids as a set, or None if not yet fetched.
 
     Populated by the OAuth callback (`identify guilds` scope).
 
     Returns:
-      - `None` if the session predates the new OAuth flow (the key was never
-        written). Callers should treat this as "skip filtering" so legacy
-        sessions don't suddenly see an empty server list.
-      - A `set[str]` (possibly empty) when the OAuth callback has run.
-        An empty set means "user manages no servers we have access to".
+      - `None`  — key absent; the SO dashboard will force a re-auth so the
+                  guild list gets fetched fresh (prevents showing all servers).
+      - `set[str]` — possibly empty; user manages no servers the bot is in.
     """
     if 'user_admin_guild_ids' not in session:
         return None
@@ -969,6 +967,16 @@ def server_official_dashboard():
     if not session.get('logged_in'):
         # Send unauthenticated visitors through Discord login, then back here.
         session['post_login_redirect'] = url_for('server_official_dashboard')
+        return redirect(url_for('login'))
+
+    # If the session is missing guild info (old session or failed OAuth guilds
+    # fetch), force a fresh Discord re-auth so the guild list is populated.
+    # Without this, _user_admin_guild_ids() returns None → no filtering →
+    # every server the bot is in becomes visible to any logged-in user.
+    if 'user_admin_guild_ids' not in session:
+        redirect_target = url_for('server_official_dashboard')
+        session.clear()
+        session['post_login_redirect'] = redirect_target
         return redirect(url_for('login'))
 
     so = _so_module()
