@@ -639,6 +639,24 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       </div>
     </div>
 
+    <!-- SP4RK Server Knowledge Card -->
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-title"><i class="fas fa-brain"></i> SP4RK Server Knowledge</div>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:16px;">
+        Tell SP4RK about your server so it can answer member questions intelligently when @mentioned.
+        SP4RK already reads your channel list, roles, and member count automatically — use these fields
+        to add anything else it should know.
+      </p>
+      <div class="row-label" style="margin-bottom:6px;"><strong>Server Description</strong> — What is your server about?</div>
+      <div class="input-wrap-full" style="margin-bottom:14px;">
+        <textarea id="server_description" rows="3" placeholder="e.g. A gaming community focused on Minecraft and Valorant. Founded in 2021.">{{ config.get('server_description','') }}</textarea>
+      </div>
+      <div class="row-label" style="margin-bottom:6px;"><strong>Server Rules</strong> — Your server rules (SP4RK will quote these when asked)</div>
+      <div class="input-wrap-full">
+        <textarea id="server_rules" rows="5" placeholder="1. Be respectful&#10;2. No spam&#10;3. Keep topics in the right channels…">{{ config.get('server_rules','') }}</textarea>
+      </div>
+    </div>
+
   </div>
 
   <!-- Byte Ai Button -->
@@ -1912,7 +1930,9 @@ function collectData() {
     youtube_alerts: getCheck('youtube_alerts'), youtube_channel_link: getText('youtube_channel_link'),
     youtube_notify_msg: getText('youtube_notify_msg'), multi_channel: getText('multi_channel'),
     daily_report: getCheck('daily_report'),
-    ticket_category: getText('ticket_category')
+    ticket_category: getText('ticket_category'),
+    server_description: getText('server_description'),
+    server_rules: getText('server_rules'),
   };
 }
 

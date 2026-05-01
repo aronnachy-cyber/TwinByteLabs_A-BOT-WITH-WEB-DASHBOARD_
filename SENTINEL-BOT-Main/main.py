@@ -112,6 +112,9 @@ DEFAULT_CONFIG = {
     # Master Automod auto-action toggle (5/10/20/30 escalation chart).
     # OFF preserves the current behaviour exactly.
     "automod_on": "OFF",
+    # --- SP4RK Server Knowledge (used when the bot is @mentioned) ---
+    "server_description": "",
+    "server_rules": "",
 }
 
 # Bootstrap from the dashboard's Supabase-backed config (already loaded at import time)
@@ -382,6 +385,53 @@ import time as _ai_time
 _ai_mention_last = {}             # user_id -> last reply timestamp
 AI_MENTION_COOLDOWN_SEC = 6       # per-user spam guard
 
+
+def build_server_context(guild) -> str:
+    """Build a concise server knowledge block for the Gemini prompt."""
+    if guild is None:
+        return ""
+
+    lines = []
+    lines.append(f"SERVER NAME: {guild.name}")
+    if guild.description:
+        lines.append(f"SERVER DESCRIPTION (Discord): {guild.description}")
+
+    # Custom admin-written description and rules from the dashboard
+    custom_desc = config.get("server_description", "").strip()
+    custom_rules = config.get("server_rules", "").strip()
+    if custom_desc:
+        lines.append(f"ABOUT THIS SERVER: {custom_desc}")
+    if custom_rules:
+        lines.append(f"SERVER RULES:\n{custom_rules}")
+
+    lines.append(f"MEMBER COUNT: {guild.member_count}")
+    lines.append(f"BOOST LEVEL: {guild.premium_tier} (boosts: {guild.premium_subscription_count})")
+
+    # Text channels (name only, up to 30 to keep prompt compact)
+    text_channels = [c.name for c in guild.text_channels][:30]
+    if text_channels:
+        lines.append(f"TEXT CHANNELS: {', '.join('#' + c for c in text_channels)}")
+
+    # Voice channels (name only, up to 15)
+    voice_channels = [c.name for c in guild.voice_channels][:15]
+    if voice_channels:
+        lines.append(f"VOICE CHANNELS: {', '.join(voice_channels)}")
+
+    # Roles (skip @everyone, up to 25)
+    roles = [r.name for r in guild.roles if r.name != "@everyone"][:25]
+    if roles:
+        lines.append(f"ROLES: {', '.join(roles)}")
+
+    # SP4RK config hints that are useful context
+    prefix = config.get("prefix", "!")
+    lines.append(f"BOT COMMAND PREFIX: {prefix}")
+    welcome = config.get("welcome_msg", "").strip()
+    if welcome:
+        lines.append(f"WELCOME MESSAGE: {welcome}")
+
+    return "\n".join(lines)
+
+
 async def handle_ai_mention(message):
     """Reply conversationally with Gemini when the bot is @mentioned."""
     if bot.user is None:
@@ -413,11 +463,19 @@ async def handle_ai_mention(message):
             print(f"[SP4RK] AI mention fallback send error: {e}")
         return
 
+    server_ctx = build_server_context(message.guild)
+    server_block = (
+        f"\n\n--- THIS SERVER'S INFORMATION ---\n{server_ctx}\n--- END SERVER INFO ---"
+        if server_ctx else ""
+    )
     prompt = (
         "You are SP4RK, a friendly Discord moderation and utility bot. "
         "Reply to the user in a short, helpful, conversational way. "
         "Keep replies under 1500 characters. Use plain Discord-friendly text — "
-        "light markdown (bold, lists) is fine, no headings or code fences unless asked.\n\n"
+        "light markdown (bold, lists) is fine, no headings or code fences unless asked. "
+        "When the user asks about the server (channels, roles, rules, members, etc.) "
+        "use the server information provided below to give accurate answers."
+        f"{server_block}\n\n"
         f"User ({message.author.display_name}): {text}"
     )
     try:

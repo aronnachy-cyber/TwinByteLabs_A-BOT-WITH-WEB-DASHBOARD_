@@ -95,6 +95,9 @@ DEFAULT_CONFIG = {
     # using the chart below (5 → 5min mute, 10 → 10min mute,
     # 20 → 30min tempban, 30 → kick). When OFF, behaviour is unchanged.
     "automod_on": "OFF",
+    # --- SP4RK Server Knowledge (used when the bot is @mentioned) ---
+    "server_description": "",
+    "server_rules": "",
 }
 
 config = {**DEFAULT_CONFIG}
@@ -526,6 +529,7 @@ TEXT_KEYS = [
     "owner_dm_id", "ticket_category",
     "spam_threshold", "spam_window", "caps_percent",
     "emoji_limit", "wall_newlines", "wall_length",
+    "server_description", "server_rules",
 ]
 
 PUBLIC_BOT_CONFIG_KEYS = set(TOGGLE_KEYS + TEXT_KEYS + ["warning_limit"])
