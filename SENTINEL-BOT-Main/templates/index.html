@@ -1583,14 +1583,13 @@ html.bl-compact .page-header { margin-bottom: 18px; }
           </span>
         </div>
         {% endif %}
-        {% if user_license_code %}
-        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px;">License code</div>
-        <code style="font-size:0.82rem;color:var(--accent3);background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.18);border-radius:6px;padding:4px 10px;letter-spacing:1px;">{{ user_license_code }}</code>
-        {% else %}
-        <a href="{{ url_for('activate_license') }}" style="display:inline-flex;align-items:center;gap:7px;background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:8px 14px;text-decoration:none;font-size:0.82rem;font-weight:600;margin-top:4px;">
-          <i class="fas fa-key"></i> Activate License
-        </a>
-        {% endif %}
+        <div style="font-size:.78rem;color:var(--muted);margin-top:6px;">
+          {% if is_premium %}
+          Tier granted automatically. Contact support to change your plan.
+          {% else %}
+          Contact the administrator to upgrade to Premium.
+          {% endif %}
+        </div>
       </div>
       <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
         <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Quick Actions</div>

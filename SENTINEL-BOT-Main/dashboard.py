@@ -1996,26 +1996,41 @@ def dev_forms_page():
 def dev_licenses_list():
     if not is_dev_session():
         return jsonify({"ok": False, "error": "Unauthorized"}), 403
-    codes = _lm.list_all()
+    all_users = _lm.list_all()
     result = []
-    for code, lic in codes.items():
-        result.append({**lic, "code": code})
+    for discord_id, rec in all_users.items():
+        user_rec = find_user_by_discord_id(discord_id) or {}
+        result.append({
+            "discord_id": discord_id,
+            "tier":       rec.get("tier", "free"),
+            "note":       rec.get("note", ""),
+            "granted_at": rec.get("granted_at", ""),
+            "username":   user_rec.get("name") or user_rec.get("discord_username") or rec.get("note", ""),
+        })
+    result.sort(key=lambda x: x.get("tier") == "premium", reverse=True)
     return jsonify({"ok": True, "licenses": result})
 
 
-@app.route('/dev/licenses/generate', methods=['POST'])
-def dev_licenses_generate():
+@app.route('/dev/licenses/grant', methods=['POST'])
+def dev_licenses_grant():
     if not is_dev_session():
         return jsonify({"ok": False, "error": "Unauthorized"}), 403
     data = request.get_json(silent=True) or {}
+    discord_id = str(data.get('discord_id', '')).strip()
     tier = data.get('tier', 'free')
     note = data.get('note', '')
+    if not discord_id:
+        return jsonify({"ok": False, "error": "Discord ID is required"}), 400
     if tier not in ('free', 'premium'):
         return jsonify({"ok": False, "error": "Invalid tier"}), 400
     try:
-        code = _lm.generate_code(tier, note=note)
-        add_dashboard_log("🔑 GENERATE-LICENSE", f"Generated {tier.upper()} code {code}")
-        return jsonify({"ok": True, "code": code, "tier": tier})
+        _lm.grant_tier(discord_id, tier, note=note, granted_by="admin")
+        user_rec = find_user_by_discord_id(discord_id) or {}
+        if user_rec:
+            user_rec['tier'] = tier
+            save_single_user(user_rec)
+        add_dashboard_log("🔑 GRANT-TIER", f"Granted {tier.upper()} to Discord ID {discord_id} ({note})")
+        return jsonify({"ok": True, "discord_id": discord_id, "tier": tier})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -2025,26 +2040,16 @@ def dev_licenses_revoke():
     if not is_dev_session():
         return jsonify({"ok": False, "error": "Unauthorized"}), 403
     data = request.get_json(silent=True) or {}
-    code = data.get('code', '').strip().upper()
-    if not code:
-        return jsonify({"ok": False, "error": "No code provided"}), 400
-    ok = _lm.revoke_code(code)
+    discord_id = str(data.get('discord_id', '')).strip()
+    if not discord_id:
+        return jsonify({"ok": False, "error": "No Discord ID provided"}), 400
+    ok = _lm.revoke_user(discord_id)
+    user_rec = find_user_by_discord_id(discord_id) or {}
+    if user_rec:
+        user_rec.pop('tier', None)
+        save_single_user(user_rec)
     if ok:
-        add_dashboard_log("🔑 REVOKE-LICENSE", f"Revoked license {code}")
-    return jsonify({"ok": ok})
-
-
-@app.route('/dev/licenses/delete', methods=['POST'])
-def dev_licenses_delete():
-    if not is_dev_session():
-        return jsonify({"ok": False, "error": "Unauthorized"}), 403
-    data = request.get_json(silent=True) or {}
-    code = data.get('code', '').strip().upper()
-    if not code:
-        return jsonify({"ok": False, "error": "No code provided"}), 400
-    ok = _lm.delete_code(code)
-    if ok:
-        add_dashboard_log("🔑 DELETE-LICENSE", f"Deleted license {code}")
+        add_dashboard_log("🔑 REVOKE-TIER", f"Revoked tier for Discord ID {discord_id}")
     return jsonify({"ok": ok})
 
 
@@ -2219,27 +2224,31 @@ def auth_discord_callback():
     session.modified = True
     add_dashboard_log("✅ LOGIN", f"{discord_global} logged in via Discord")
 
-    # If the user has no license code yet, send them to the activation page.
-    # Skip activation for: admin users, users who already have a tier set on
-    # their record (they previously skipped or were migrated), or the env var admin.
-    _code, _lic = _lm.get_user_license(discord_id)
+    # Auto-detect and apply tier — no manual code entry needed.
+    # Check the license manager (Discord-ID keyed) for an assigned tier.
+    # Admins always get premium automatically.
     _admin_discord_id = os.environ.get("ADMIN_DISCORD_ID", "").strip()
     _is_admin_user = (
         (user or {}).get("is_admin")
         or (discord_id and _admin_discord_id and discord_id == _admin_discord_id)
     )
-    _tier_already_set = bool((user or {}).get("tier"))
-    needs_activation = (_code is None) and (not _is_admin_user) and (not _tier_already_set)
+    if _is_admin_user:
+        _auto_tier = "premium"
+    else:
+        _auto_tier = _lm.get_user_tier(discord_id)
 
-    # Honor a "return to" target set before login (e.g. /server-official/dashboard)
+    # Persist tier on user record so the dashboard reads it consistently
+    if user.get("tier") != _auto_tier:
+        user["tier"] = _auto_tier
+        try:
+            save_single_user(user)
+        except Exception:
+            pass
+
+    # Honor a "return to" target set before login
     next_url = session.pop('post_login_redirect', None)
-    if needs_activation:
-        if next_url:
-            session['post_activation_redirect'] = next_url
-        return redirect(url_for('activate_license'))
     if next_url:
         return redirect(next_url)
-    # Default: bounce back to the Byte Labs landing page (NOT the SP4RK admin dashboard)
     return redirect(url_for('landing'))
 
 # ---- REMOVED: UID-based register/forgot-password (Discord-only auth) ----
@@ -2248,49 +2257,11 @@ def auth_discord_callback():
 def _legacy_auth_redirect():
     return redirect(url_for('login'))
 
-# ---- LICENSE ACTIVATION ----
+# ---- LICENSE ACTIVATION (legacy redirect — no longer needed) ----
 @app.route('/activate-license', methods=['GET', 'POST'])
 def activate_license():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-    discord_id = session.get('discord_id', '')
-    user_name  = session.get('user_name', 'User')
-
-    # If user already has a license, skip the page
-    existing_code, _ = _lm.get_user_license(discord_id)
-    if existing_code:
-        next_url = session.pop('post_activation_redirect', None)
-        return redirect(next_url or url_for('landing'))
-
-    if request.method == 'GET':
-        return render_template(
-            'activate_license.html',
-            user_name=user_name,
-            error=None,
-            prefill='',
-        )
-
-    # POST — validate and assign the code
-    raw_code = (request.form.get('license_code') or '').strip()
-    if not raw_code:
-        return render_template('activate_license.html', user_name=user_name,
-                               error="Please enter your license code.", prefill='')
-
-    tier, err = _lm.assign_code(raw_code, discord_id)
-    if err:
-        return render_template('activate_license.html', user_name=user_name,
-                               error=err, prefill=raw_code.upper())
-
-    # Persist the tier + license code on the user record
-    user = find_user_by_discord_id(discord_id)
-    if user:
-        user['tier']         = tier
-        user['license_code'] = raw_code.strip().upper()
-        save_single_user(user)
-
-    add_dashboard_log("🔑 LICENSE", f"{user_name} activated {tier.upper()} license {raw_code.strip().upper()}")
-    next_url = session.pop('post_activation_redirect', None)
-    return redirect(next_url or url_for('landing'))
+    # Tiers are now automatically applied on login — no manual code entry needed.
+    return redirect(url_for('landing'))
 
 
 # ---- MAIN DASHBOARD ----
@@ -2323,21 +2294,19 @@ def index():
             print(f"⚠️ Re-saving user from session failed: {e}")
     session['user_name'] = current_user.get('name', 'User')
 
-    # ── Handle "skip license" — user chose to continue without a code ─
-    if request.args.get('skip_license') == '1' and not current_user.get('tier'):
-        current_user['tier'] = 'free'
-        try:
-            save_single_user(current_user)
-        except Exception:
-            pass
-
-    # ── License / tier info ──────────────────────────────────────────
-    user_license_code, user_lic = _lm.get_user_license(discord_id)
-    user_tier = (user_lic or {}).get('tier', current_user.get('tier', 'free'))
-    # If user skipped activation but has a saved tier on the user record, use it
-    if not user_license_code:
-        user_tier = current_user.get('tier', 'free')
-    is_premium = (user_tier == 'premium')
+    # ── Tier: check license manager first, fall back to user record ──
+    _admin_discord_id = os.environ.get("ADMIN_DISCORD_ID", "").strip()
+    _is_admin = (
+        current_user.get("is_admin")
+        or (discord_id and _admin_discord_id and discord_id == _admin_discord_id)
+    )
+    if _is_admin:
+        user_tier = "premium"
+    else:
+        lm_tier = _lm.get_user_tier(discord_id)
+        user_tier = lm_tier if lm_tier != "free" else current_user.get("tier", "free")
+    is_premium = (user_tier == "premium")
+    user_license_code = ""
 
     try:
         return render_template(
