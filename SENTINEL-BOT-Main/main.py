@@ -1238,17 +1238,19 @@ async def on_ready():
 @bot.event
 async def on_member_join(member):
     refresh_config()
-    await roles.assign_auto_role(member, config)
-    await moderation.handle_auto_role(member, config)
-    await security.anti_raid_check(member, config, dm_callback=dm_all_owners, log_callback=dlog)
-    await social.send_welcome_message(bot, member, config)
+    gcfg = get_config_for_guild(str(member.guild.id))
+    await roles.assign_auto_role(member, gcfg)
+    await moderation.handle_auto_role(member, gcfg)
+    await security.anti_raid_check(member, gcfg, dm_callback=dm_all_owners, log_callback=dlog)
+    await social.send_welcome_message(bot, member, gcfg)
     await logs.log_template(bot, config, "sp4rk.welcome", user=member, server=member.guild)
     dlog("👋 JOIN", f"{member} joined {member.guild.name}")
 
 @bot.event
 async def on_member_update(before, after):
     refresh_config()
-    await security.role_monitor_log(bot, config, after, before, after, log_callback=dlog)
+    gcfg = get_config_for_guild(str(after.guild.id))
+    await security.role_monitor_log(bot, gcfg, after, before, after, log_callback=dlog)
 
 @bot.event
 async def on_member_ban(guild, user):
@@ -1281,7 +1283,8 @@ async def on_message_edit(before, after):
     if before.content == after.content:
         return
     refresh_config()
-    log_ch = config.get("log_channel", "").strip()
+    gcfg = get_config_for_guild(str(before.guild.id)) if before.guild else config
+    log_ch = gcfg.get("log_channel", "").strip()
     if not log_ch:
         return
     await logs.log_template(
@@ -1311,7 +1314,8 @@ async def on_message_delete(message):
     except Exception:
         pass
     refresh_config()
-    log_ch = config.get("log_channel", "").strip()
+    gcfg = get_config_for_guild(str(message.guild.id)) if message.guild else config
+    log_ch = gcfg.get("log_channel", "").strip()
     if not log_ch:
         return
     await logs.log_template(
@@ -1324,7 +1328,8 @@ async def on_message_delete(message):
 @bot.event
 async def on_voice_state_update(member, before, after):
     refresh_config()
-    log_ch = config.get("log_channel", "").strip()
+    gcfg = get_config_for_guild(str(member.guild.id))
+    log_ch = gcfg.get("log_channel", "").strip()
     if not log_ch:
         return
 
@@ -1499,7 +1504,7 @@ async def on_message(message):
     if not handled:
         await handle_ai_moderation(message)
         await autoresponder_mod.check_message(message)
-    await social.check_social_alerts(message, config, bot)
+    await social.check_social_alerts(message, guild_cfg, bot)
     await bot.process_commands(message)
 
 # ---------------- COMMAND ERROR HANDLER ----------------
@@ -1609,7 +1614,7 @@ async def clearwarnings(ctx, member: discord.Member):
         save_warnings()
     supabase_clear_warnings(guild_id, member_id)
     dlog("🧹 CLEAR-WARN", f"Warnings cleared for {member} by {ctx.author}")
-    await logs.log_event(bot, config, "🧹 Warnings Cleared", f"{member}'s warnings cleared by {ctx.author}", color=0x2ecc71)
+    await logs.log_event(bot, config, "🧹 Warnings Cleared", f"{member}'s warnings cleared by {ctx.author}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
     await ctx.send(f"✅ All warnings cleared for {member.mention}.")
 
 @bot.command(name="timeout")
@@ -1649,7 +1654,7 @@ async def untimeout_member(ctx, member: discord.Member):
     try:
         await member.timeout(None, reason=f"Timeout removed by {ctx.author}")
         await ctx.send(f"✅ Timeout removed for {member.mention}.")
-        await logs.log_event(bot, config, "✅ Timeout Removed", f"{member}'s timeout removed by {ctx.author}", color=0x2ecc71)
+        await logs.log_event(bot, config, "✅ Timeout Removed", f"{member}'s timeout removed by {ctx.author}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("✅ UNTIMEOUT", f"Timeout removed for {member} by {ctx.author}")
     except discord.Forbidden:
         await ctx.send(f"❌ I don't have permission to remove {member.mention}'s timeout.")
@@ -1665,6 +1670,7 @@ async def unban_member(ctx, user_id: int, *, reason="No reason provided"):
         await ctx.guild.unban(user, reason=reason)
         await ctx.send(f"✅ {user} has been unbanned. Reason: {reason}")
         await logs.log_template(bot, config, "sp4rk.unban",
+                                guild_id=ctx.guild.id if ctx.guild else None,
                                 user=user, moderator=ctx.author, reason=reason)
         supabase_save_mod_log(ctx.guild.id, "unban", str(user), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("✅ UNBAN", f"{user} unbanned by {ctx.author}")
@@ -1884,7 +1890,7 @@ async def purge_user(ctx, member: discord.Member, amount: int = 50):
         except: pass
         await logs.log_event(bot, config, "🧹 Purge User",
             f"{ctx.author} purged {len(deleted)} messages from {member} in #{ctx.channel.name}",
-            color=0x9b59b6)
+            color=0x9b59b6, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("🧹 PURGEUSER", f"{ctx.author} purged {len(deleted)} from {member} in #{ctx.channel.name}")
     except discord.Forbidden:
         await ctx.send("❌ I don't have permission to delete messages here.")
@@ -1903,7 +1909,7 @@ async def lock(ctx, channel: discord.TextChannel = None):
                                        reason=f"Locked by {ctx.author}")
         await ctx.send(f"🔒 {channel.mention} has been locked.")
         await logs.log_event(bot, config, "🔒 Channel Locked",
-            f"#{channel.name} locked by {ctx.author}", color=0xe67e22)
+            f"#{channel.name} locked by {ctx.author}", color=0xe67e22, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("🔒 LOCK", f"#{channel.name} locked by {ctx.author}")
     except discord.Forbidden:
         await ctx.send("❌ I don't have permission to edit that channel.")
@@ -1922,7 +1928,7 @@ async def unlock(ctx, channel: discord.TextChannel = None):
                                        reason=f"Unlocked by {ctx.author}")
         await ctx.send(f"🔓 {channel.mention} has been unlocked.")
         await logs.log_event(bot, config, "🔓 Channel Unlocked",
-            f"#{channel.name} unlocked by {ctx.author}", color=0x2ecc71)
+            f"#{channel.name} unlocked by {ctx.author}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("🔓 UNLOCK", f"#{channel.name} unlocked by {ctx.author}")
     except discord.Forbidden:
         await ctx.send("❌ I don't have permission to edit that channel.")
@@ -1951,7 +1957,7 @@ async def role_add(ctx, member: discord.Member, role: discord.Role):
         await member.add_roles(role, reason=f"Added by {ctx.author}")
         await ctx.send(f"✅ Gave **{role.name}** to {member.mention}.")
         await logs.log_event(bot, config, "➕ Role Added",
-            f"{ctx.author} gave @{role.name} to {member}", color=0x2ecc71)
+            f"{ctx.author} gave @{role.name} to {member}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("➕ ROLE-ADD", f"{ctx.author} gave @{role.name} to {member}")
     except discord.Forbidden:
         await ctx.send(f"❌ I don't have permission to assign that role.")
@@ -1974,7 +1980,7 @@ async def role_remove(ctx, member: discord.Member, role: discord.Role):
         await member.remove_roles(role, reason=f"Removed by {ctx.author}")
         await ctx.send(f"✅ Removed **{role.name}** from {member.mention}.")
         await logs.log_event(bot, config, "➖ Role Removed",
-            f"{ctx.author} removed @{role.name} from {member}", color=0xe67e22)
+            f"{ctx.author} removed @{role.name} from {member}", color=0xe67e22, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("➖ ROLE-REM", f"{ctx.author} removed @{role.name} from {member}")
     except discord.Forbidden:
         await ctx.send(f"❌ I don't have permission to remove that role.")
@@ -2017,7 +2023,7 @@ async def voicekick(ctx, member: discord.Member):
         await member.move_to(None, reason=f"Voice kick by {ctx.author}")
         await ctx.send(f"🔌 Disconnected {member.mention} from **{ch_name}**.")
         await logs.log_event(bot, config, "🔌 Voice Kick",
-            f"{ctx.author} disconnected {member} from #{ch_name}", color=0xf39c12)
+            f"{ctx.author} disconnected {member} from #{ch_name}", color=0xf39c12, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("🔌 VKICK", f"{ctx.author} disconnected {member} from {ch_name}")
     except discord.Forbidden:
         await ctx.send(f"❌ I don't have permission to move that member.")
@@ -2075,7 +2081,7 @@ async def massban(ctx, *user_ids: int):
             fail += 1
     await ctx.send(f"⛔ Mass-ban complete: **{success}** banned, **{fail}** failed.")
     await logs.log_event(bot, config, "⛔ Mass Ban",
-        f"{ctx.author} mass-banned {success} users ({fail} failed)", color=0xe74c3c)
+        f"{ctx.author} mass-banned {success} users ({fail} failed)", color=0xe74c3c, guild_id=ctx.guild.id if ctx.guild else None)
     dlog("⛔ MASSBAN", f"{ctx.author} mass-banned {success}/{len(user_ids)}")
 
 @bot.command()
@@ -2688,7 +2694,7 @@ async def slash_kick(interaction: discord.Interaction,
             f"🚪 {member.mention} has been kicked! Reason: {reason}"
         )
         await logs.log_event(bot, config, "🚪 Kick",
-            f"{member} kicked by {interaction.user} | Reason: {reason}", color=0xe67e22)
+            f"{member} kicked by {interaction.user} | Reason: {reason}", color=0xe67e22, guild_id=interaction.guild.id if interaction.guild else None)
         await dm_owner("kick", str(member), reason, str(interaction.user))
         supabase_save_mod_log(interaction.guild.id, "kick", str(member),
             str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -2730,7 +2736,7 @@ async def slash_ban(interaction: discord.Interaction,
             f"⛔ {member.mention} has been permanently banned! Reason: {reason}"
         )
         await logs.log_event(bot, config, "⛔ Ban",
-            f"{member} banned by {interaction.user} | Reason: {reason}", color=0xe74c3c)
+            f"{member} banned by {interaction.user} | Reason: {reason}", color=0xe74c3c, guild_id=interaction.guild.id if interaction.guild else None)
         await dm_owner("ban", str(member), reason, str(interaction.user))
         supabase_save_mod_log(interaction.guild.id, "ban", str(member),
             str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -2762,7 +2768,7 @@ async def slash_unban(interaction: discord.Interaction,
         await interaction.guild.unban(user, reason=reason)
         await interaction.followup.send(f"✅ {user} has been unbanned. Reason: {reason}")
         await logs.log_event(bot, config, "✅ Unban",
-            f"{user} unbanned by {interaction.user} | Reason: {reason}", color=0x2ecc71)
+            f"{user} unbanned by {interaction.user} | Reason: {reason}", color=0x2ecc71, guild_id=interaction.guild.id if interaction.guild else None)
         supabase_save_mod_log(interaction.guild.id, "unban", str(user),
             str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("✅ UNBAN", f"{user} unbanned by {interaction.user}")
@@ -2814,7 +2820,7 @@ async def slash_timeout(interaction: discord.Interaction,
         )
         await logs.log_event(bot, config, "⏱️ Timeout",
             f"{member} timed out by {interaction.user} for {label} | Reason: {reason}",
-            color=0xf39c12)
+            color=0xf39c12, guild_id=interaction.guild.id if interaction.guild else None)
         supabase_save_mod_log(interaction.guild.id, "timeout", str(member),
             str(interaction.user), f"{label} — {reason}",
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -2839,7 +2845,7 @@ async def slash_untimeout(interaction: discord.Interaction, member: discord.Memb
         await member.timeout(None, reason=f"Timeout removed by {interaction.user}")
         await interaction.followup.send(f"✅ Timeout removed for {member.mention}.")
         await logs.log_event(bot, config, "✅ Timeout Removed",
-            f"{member}'s timeout removed by {interaction.user}", color=0x2ecc71)
+            f"{member}'s timeout removed by {interaction.user}", color=0x2ecc71, guild_id=interaction.guild.id if interaction.guild else None)
         dlog("✅ UNTIMEOUT", f"Timeout removed for {member} by {interaction.user}")
     except discord.Forbidden:
         await interaction.followup.send(
@@ -2868,7 +2874,7 @@ async def slash_purge(interaction: discord.Interaction, amount: int = 10):
         )
         await logs.log_event(bot, config, "🧹 Purge",
             f"{interaction.user} purged {len(deleted)} messages in #{interaction.channel.name}",
-            color=0x9b59b6)
+            color=0x9b59b6, guild_id=interaction.guild.id if interaction.guild else None)
         dlog("🧹 PURGE",
             f"{interaction.user} deleted {len(deleted)} messages in #{interaction.channel.name}")
     except discord.Forbidden:

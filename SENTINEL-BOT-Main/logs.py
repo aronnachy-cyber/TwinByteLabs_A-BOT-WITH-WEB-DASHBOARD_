@@ -1,8 +1,23 @@
 import discord
 
-async def log_event(bot, config, title, description, color=0x3498db):
-    """Legacy log helper — kept for callers that haven't been migrated to embed templates yet."""
-    log_channel_id = config.get("log_channel", "").strip()
+
+async def _resolve_log_channel_id(config, guild_id=None):
+    """Return the effective log channel ID: per-guild override if set, else global config."""
+    if guild_id:
+        try:
+            from dashboard import get_guild_config
+            gcfg = get_guild_config(str(guild_id))
+            ch = gcfg.get("log_channel", "").strip()
+            if ch:
+                return ch
+        except Exception:
+            pass
+    return config.get("log_channel", "").strip()
+
+
+async def log_event(bot, config, title, description, color=0x3498db, guild_id=None):
+    """Log a simple embed to the configured log channel for the given guild."""
+    log_channel_id = await _resolve_log_channel_id(config, guild_id)
     if not log_channel_id:
         return
     try:
@@ -14,13 +29,25 @@ async def log_event(bot, config, title, description, color=0x3498db):
         print(f"Log event error: {e}")
 
 
-async def log_template(bot, config, key, **vars):
+async def log_template(bot, config, key, guild_id=None, **vars):
     """
     Modern log helper — renders an admin-customizable embed from `embeds.py`
-    and posts it to the configured log channel. Falls back silently if the
-    channel isn't set or the embed key is unknown.
+    and posts it to the configured log channel.
+
+    guild_id is auto-inferred from any Discord Guild / Member / TextChannel / VoiceChannel
+    object passed in vars when not provided explicitly.
     """
-    log_channel_id = (config.get("log_channel") or "").strip()
+    if not guild_id:
+        for v in vars.values():
+            if isinstance(v, discord.Guild):
+                guild_id = str(v.id)
+                break
+            guild_obj = getattr(v, "guild", None)
+            if isinstance(guild_obj, discord.Guild):
+                guild_id = str(guild_obj.id)
+                break
+
+    log_channel_id = await _resolve_log_channel_id(config, guild_id)
     if not log_channel_id:
         return
     try:
@@ -28,8 +55,8 @@ async def log_template(bot, config, key, **vars):
         if not channel:
             return
         import embeds
-        guild_id = getattr(getattr(channel, "guild", None), "id", None)
-        e = embeds.render(key, guild_id=guild_id, **vars)
+        eid = guild_id or getattr(getattr(channel, "guild", None), "id", None)
+        e = embeds.render(key, guild_id=eid, **vars)
         await channel.send(embed=e)
     except Exception as ex:
         print(f"Log template ({key}) error: {ex}")

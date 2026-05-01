@@ -161,7 +161,11 @@ def get_guild_config(guild_id: str) -> dict:
     return {**config, **data.get(guild_id, {})}
 
 def save_guild_config(guild_id: str, updates: dict) -> None:
-    """Persist per-guild config overrides (only keys that differ from the global config)."""
+    """Persist per-guild config overrides (only keys that differ from the global config).
+
+    If ``log_channel`` is included, it is also mirrored into the SO bot's
+    per-guild config (as ``log_channel_id``) so both bots share one value.
+    """
     guild_id = str(guild_id).strip()
     with _guild_cfg_lock:
         data = _load_guild_configs()
@@ -169,6 +173,13 @@ def save_guild_config(guild_id: str, updates: dict) -> None:
         existing.update(updates)
         data[guild_id] = existing
         _save_guild_configs(data)
+
+    if "log_channel" in updates:
+        try:
+            import server_official as _so
+            _so.update_guild_config(guild_id, {"log_channel_id": updates["log_channel"]})
+        except Exception as _e:
+            print(f"[dashboard] SO log_channel sync skipped: {_e}")
 
 def _sp4rk_live_state(user_guild_ids=None) -> dict:
     """Return SP4RK bot guild list filtered to the user's admin guilds."""
