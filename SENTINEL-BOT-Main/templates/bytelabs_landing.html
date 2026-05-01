@@ -69,17 +69,28 @@ body{
 
 /* ===== NAV ===== */
 nav{
-  position:relative;
-  z-index:10;
+  position:fixed;
+  top:0; left:0; right:0;
+  z-index:100;
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:20px 48px;
-  background:rgba(5,11,24,0.65);
-  backdrop-filter:blur(14px);
-  -webkit-backdrop-filter:blur(14px);
-  border-bottom:1px solid var(--border);
+  padding:18px 48px;
+  background:rgba(5,11,24,0.0);
+  backdrop-filter:blur(0px);
+  -webkit-backdrop-filter:blur(0px);
+  border-bottom:1px solid transparent;
+  transition:background .35s ease, backdrop-filter .35s ease, border-color .35s ease, padding .25s ease, box-shadow .35s ease;
 }
+nav.scrolled{
+  background:rgba(5,11,24,0.88);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  padding:13px 48px;
+  box-shadow:0 4px 30px rgba(0,0,0,.4);
+}
+@media(max-width:768px){ nav{ padding:14px 22px; } nav.scrolled{ padding:12px 22px; } }
 .nav-logo{
   display:flex; align-items:center; gap:12px;
   text-decoration:none;
@@ -238,6 +249,19 @@ nav{
   animation:blink 1.6s ease-in-out infinite;
 }
 @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+/* Hero load-in animation */
+@keyframes heroIn{
+  from{ opacity:0; transform:translateY(22px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+.hero > *{
+  animation: heroIn .7s cubic-bezier(.22,1,.36,1) both;
+}
+.hero > *:nth-child(1){ animation-delay:.05s; }
+.hero > *:nth-child(2){ animation-delay:.15s; }
+.hero > *:nth-child(3){ animation-delay:.25s; }
+.hero > *:nth-child(4){ animation-delay:.35s; }
 
 .hero h1{
   font-size:clamp(2.4rem, 5.5vw, 4.5rem);
@@ -788,26 +812,227 @@ nav{
   font-size:1rem;
 }
 
+/* ===== SCROLL REVEAL ===== */
+.reveal{
+  opacity:0;
+  transform:translateY(32px);
+  transition:opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1);
+}
+.reveal.revealed{
+  opacity:1;
+  transform:translateY(0);
+}
+.reveal-delay-1{ transition-delay:.1s; }
+.reveal-delay-2{ transition-delay:.2s; }
+.reveal-delay-3{ transition-delay:.3s; }
+.reveal-delay-4{ transition-delay:.4s; }
+
+/* ===== HOW IT WORKS ===== */
+.how-section{
+  position:relative; z-index:5;
+  max-width:1180px;
+  margin:0 auto;
+  padding:80px 48px;
+}
+.steps-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:28px;
+  position:relative;
+}
+.step-card{
+  background:linear-gradient(160deg, rgba(15,29,58,0.75), rgba(10,20,40,0.5));
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:32px 26px 28px;
+  position:relative;
+  overflow:hidden;
+  transition:transform .22s, border-color .22s, box-shadow .22s;
+}
+.step-card:hover{
+  transform:translateY(-5px);
+  border-color:rgba(91,140,255,.4);
+  box-shadow:0 24px 50px rgba(0,0,0,.35);
+}
+.step-card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at top left, rgba(91,140,255,.09), transparent 60%);
+  pointer-events:none;
+}
+.step-num{
+  font-size:3.5rem;
+  font-weight:900;
+  letter-spacing:-2px;
+  line-height:1;
+  background:var(--grad);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  opacity:.35;
+  margin-bottom:18px;
+  display:block;
+}
+.step-icon{
+  width:52px; height:52px;
+  border-radius:14px;
+  background:rgba(91,140,255,.12);
+  border:1px solid rgba(91,140,255,.25);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.35rem; color:#5b8cff;
+  margin-bottom:18px;
+  position:relative; z-index:1;
+}
+.step-card h3{
+  font-size:1.1rem;
+  font-weight:700;
+  margin:0 0 8px;
+  position:relative; z-index:1;
+}
+.step-card p{
+  color:var(--muted);
+  font-size:.91rem;
+  line-height:1.62;
+  margin:0;
+  position:relative; z-index:1;
+}
+
+/* ===== TRUSTED BY STRIP ===== */
+.trusted-strip{
+  position:relative; z-index:5;
+  max-width:1100px;
+  margin:0 auto 20px;
+  padding:0 48px;
+  text-align:center;
+}
+.trusted-label{
+  font-size:.78rem;
+  text-transform:uppercase;
+  letter-spacing:2px;
+  color:var(--muted);
+  margin-bottom:20px;
+  font-weight:600;
+}
+.trusted-badges{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:20px;
+  flex-wrap:wrap;
+}
+.trusted-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 18px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:99px;
+  color:var(--muted);
+  font-size:.85rem;
+  font-weight:600;
+}
+.trusted-badge i{ color:#5b8cff; }
+
 /* ===== FOOTER ===== */
 footer{
   position:relative; z-index:5;
-  padding:30px 48px;
   border-top:1px solid var(--border);
+  background:rgba(5,11,24,0.6);
+  backdrop-filter:blur(12px);
+}
+.footer-main{
+  max-width:1180px;
+  margin:0 auto;
+  padding:56px 48px 40px;
+  display:grid;
+  grid-template-columns:2fr 1fr 1fr 1fr;
+  gap:48px;
+}
+@media(max-width:900px){
+  .footer-main{ grid-template-columns:1fr 1fr; gap:32px; padding:40px 28px 28px; }
+}
+@media(max-width:550px){
+  .footer-main{ grid-template-columns:1fr; gap:28px; padding:32px 20px 20px; }
+}
+.footer-brand-col{}
+.footer-logo{
+  display:inline-flex; align-items:center; gap:10px;
+  text-decoration:none; color:var(--text);
+  margin-bottom:14px;
+}
+.footer-logo-mark{
+  width:36px; height:36px; border-radius:9px;
+  background:var(--grad);
+  display:flex; align-items:center; justify-content:center;
+  font-weight:900; font-size:1rem; color:#fff;
+  box-shadow:0 6px 18px rgba(91,140,255,.4);
+}
+.footer-logo-name{ font-weight:800; font-size:1.1rem; }
+.footer-logo-name span{
+  background:var(--grad);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.footer-brand-desc{
+  color:var(--muted); font-size:.88rem; line-height:1.65;
+  max-width:260px; margin-bottom:22px;
+}
+.footer-socials{
+  display:flex; align-items:center; gap:10px;
+}
+.footer-social-btn{
+  width:36px; height:36px;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:9px;
+  color:var(--muted);
+  text-decoration:none;
+  font-size:.95rem;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.footer-social-btn:hover{
+  background:rgba(91,140,255,.15);
+  border-color:rgba(91,140,255,.4);
+  color:#5b8cff;
+}
+.footer-col h4{
+  font-size:.78rem;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:1.5px;
+  color:#5b8cff;
+  margin:0 0 18px;
+}
+.footer-col ul{
+  list-style:none; padding:0; margin:0;
+  display:flex; flex-direction:column; gap:12px;
+}
+.footer-col ul li a{
+  color:var(--muted);
+  text-decoration:none;
+  font-size:.9rem;
+  font-weight:500;
+  transition:color .15s;
+}
+.footer-col ul li a:hover{ color:var(--text); }
+.footer-bottom{
+  border-top:1px solid var(--border);
+  padding:20px 48px;
+  max-width:100%;
   display:flex;
   align-items:center;
   justify-content:space-between;
   flex-wrap:wrap;
-  gap:14px;
+  gap:10px;
   color:var(--muted);
-  font-size:.88rem;
+  font-size:.82rem;
 }
-.footer-socials a{
-  color:var(--muted);
-  margin-right:14px;
-  font-size:1.05rem;
-  transition:color .15s;
-}
-.footer-socials a:hover{ color:#5b8cff; }
+@media(max-width:550px){ .footer-bottom{ padding:16px 20px; text-align:center; justify-content:center; } }
+.footer-bottom a{ color:var(--muted); text-decoration:none; transition:color .15s; }
+.footer-bottom a:hover{ color:#5b8cff; }
 
 /* ===== HAMBURGER (mobile) ===== */
 .nav-burger{
@@ -849,7 +1074,7 @@ footer{
 /* Mobile slide-down menu (hidden by default, visible on small screens when open) */
 .mobile-menu{
   position:fixed;
-  top:64px; left:0; right:0;
+  top:62px; left:0; right:0;
   z-index:9;
   background:linear-gradient(180deg,#0b1426,#070d1c);
   border-bottom:1px solid var(--border);
@@ -1401,7 +1626,7 @@ footer{
 </div>
 
 <!-- ===== HERO ===== -->
-<section class="hero">
+<section class="hero" style="padding-top:150px;">
   <div class="hero-badge">
     <span class="dot"></span>
     <span>{{ site.hero_badge }}</span>
@@ -1558,58 +1783,87 @@ footer{
 
 <!-- ===== STATS ===== -->
 <div class="stats">
-  <div class="stat-card">
+  <div class="stat-card reveal">
     <div class="stat-num">1+</div>
     <div class="stat-label">Production bot live</div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card reveal reveal-delay-1">
     <div class="stat-num">24/7</div>
     <div class="stat-label">Always-on infrastructure</div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card reveal reveal-delay-2">
     <div class="stat-num">AI</div>
     <div class="stat-label">Powered moderation</div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card reveal reveal-delay-3">
     <div class="stat-num">∞</div>
     <div class="stat-label">More bots in the lab</div>
   </div>
 </div>
 
+<!-- ===== HOW IT WORKS ===== -->
+<section class="how-section">
+  <div class="section-head reveal">
+    <div class="eyebrow">How It Works</div>
+    <h2>Up and running in minutes</h2>
+    <p>No coding required. Go from zero to a fully-configured bot in three simple steps.</p>
+  </div>
+  <div class="steps-grid">
+    <div class="step-card reveal reveal-delay-1">
+      <span class="step-num">01</span>
+      <div class="step-icon"><i class="fas fa-magnifying-glass"></i></div>
+      <h3>Pick your bot</h3>
+      <p>Browse the Byte Labs lineup and choose the bot that fits your server's needs. Each one has a clear feature list and live demo.</p>
+    </div>
+    <div class="step-card reveal reveal-delay-2">
+      <span class="step-num">02</span>
+      <div class="step-icon"><i class="fas fa-sliders"></i></div>
+      <h3>Configure via dashboard</h3>
+      <p>Log in with Discord and open your web dashboard. Toggle features, set permissions, and customize behavior — no commands needed.</p>
+    </div>
+    <div class="step-card reveal reveal-delay-3">
+      <span class="step-num">03</span>
+      <div class="step-icon"><i class="fas fa-rocket"></i></div>
+      <h3>Go live instantly</h3>
+      <p>Your settings are applied in real-time. The bot is already running — sit back while it moderates, engages, and protects your community.</p>
+    </div>
+  </div>
+</section>
+
 <!-- ===== WHAT WE BUILD ===== -->
 <section class="section" id="what-we-build">
-  <div class="section-head">
+  <div class="section-head reveal">
     <div class="eyebrow">What We Build</div>
     <h2>{{ site.section_title }}</h2>
     <p>{{ site.section_lede }}</p>
   </div>
   <div class="pillar-grid">
-    <div class="pillar">
+    <div class="pillar reveal reveal-delay-1">
       <div class="pillar-icon"><i class="fas fa-brain"></i></div>
       <h3>AI-First Automation</h3>
       <p>Every bot is augmented with AI for smarter moderation, content understanding, and natural responses.</p>
     </div>
-    <div class="pillar">
+    <div class="pillar reveal reveal-delay-2">
       <div class="pillar-icon"><i class="fas fa-display"></i></div>
       <h3>Web Dashboards</h3>
       <p>Configure everything from a beautiful web UI — no commands to memorize, no JSON to edit by hand.</p>
     </div>
-    <div class="pillar">
+    <div class="pillar reveal reveal-delay-3">
       <div class="pillar-icon"><i class="fas fa-shield-halved"></i></div>
       <h3>Security &amp; Anti-Raid</h3>
       <p>Built-in protection layers keep your community safe from raids, spam, and bad actors around the clock.</p>
     </div>
-    <div class="pillar">
+    <div class="pillar reveal reveal-delay-1">
       <div class="pillar-icon"><i class="fas fa-bolt"></i></div>
       <h3>Always Online</h3>
       <p>Production-grade hosting and self-healing connections mean our bots stay online so you don't have to babysit them.</p>
     </div>
-    <div class="pillar">
+    <div class="pillar reveal reveal-delay-2">
       <div class="pillar-icon"><i class="fas fa-puzzle-piece"></i></div>
       <h3>Modular Features</h3>
       <p>Toggle exactly what you need — moderation, levels, tickets, giveaways, social alerts — and turn off what you don't.</p>
     </div>
-    <div class="pillar">
+    <div class="pillar reveal reveal-delay-3">
       <div class="pillar-icon"><i class="fas fa-code-branch"></i></div>
       <h3>Continuously Updated</h3>
       <p>We ship improvements weekly. New features land for everyone, automatically, no re-installation required.</p>
@@ -1619,7 +1873,7 @@ footer{
 
 <!-- ===== FEEDBACK ===== -->
 <section class="feedback-section" id="feedback">
-  <div class="section-head" style="margin-bottom:30px;">
+  <div class="section-head reveal" style="margin-bottom:30px;">
     <div class="eyebrow">Community</div>
     <h2 style="font-size:clamp(1.7rem,2.6vw,2.1rem);">Tell us what you think</h2>
     <p>Rate your experience and help us make {{ site.brand_name }} better.</p>
@@ -1660,21 +1914,86 @@ footer{
   </div>
 </section>
 
+<!-- ===== TRUSTED BY ===== -->
+<div class="trusted-strip reveal">
+  <div class="trusted-label">Built with industry-standard tools</div>
+  <div class="trusted-badges">
+    <span class="trusted-badge"><i class="fa-brands fa-discord"></i> Discord API</span>
+    <span class="trusted-badge"><i class="fas fa-bolt"></i> Python / discord.py</span>
+    <span class="trusted-badge"><i class="fas fa-database"></i> PostgreSQL</span>
+    <span class="trusted-badge"><i class="fas fa-display"></i> Web Dashboard</span>
+    <span class="trusted-badge"><i class="fas fa-brain"></i> AI Moderation</span>
+  </div>
+</div>
+
 <!-- ===== CTA ===== -->
-<section class="cta-strip" id="contact">
+<section class="cta-strip reveal" id="contact">
   <h2>{{ site.cta_title }}</h2>
   <p>{{ site.cta_lede }}</p>
-  <a class="btn-primary" href="{{ url_for('bots_showcase') }}">
-    See All Our Bots <i class="fas fa-arrow-right"></i>
-  </a>
+  <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <a class="btn-primary" href="{{ url_for('bots_showcase') }}">
+      See All Our Bots <i class="fas fa-arrow-right"></i>
+    </a>
+    <button type="button" class="btn-secondary" style="font-family:inherit;" onclick="openAskForBot()">
+      <i class="fas fa-robot"></i> Request a Custom Bot
+    </button>
+  </div>
 </section>
 
 <footer>
-  <div>© <span id="yr"></span> {{ site.brand_name }}. {{ site.footer_tag }}</div>
-  <div class="footer-socials">
-    <a href="#" aria-label="Discord"><i class="fa-brands fa-discord"></i></a>
-    <a href="#" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
-    <a href="#" aria-label="X"><i class="fa-brands fa-x-twitter"></i></a>
+  <div class="footer-main">
+    <div class="footer-brand-col">
+      <a class="footer-logo" href="{{ url_for('landing') }}">
+        <div class="footer-logo-mark">B/L</div>
+        <span class="footer-logo-name"><span>Byte</span>Labs</span>
+      </a>
+      <p class="footer-brand-desc">AI-driven bots, dashboards, and automation tools that help Discord communities run smoother — without the busywork.</p>
+      <div class="footer-socials">
+        <a class="footer-social-btn" href="#" aria-label="Discord"><i class="fa-brands fa-discord"></i></a>
+        <a class="footer-social-btn" href="#" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
+        <a class="footer-social-btn" href="#" aria-label="X / Twitter"><i class="fa-brands fa-x-twitter"></i></a>
+      </div>
+    </div>
+
+    <div class="footer-col">
+      <h4>Product</h4>
+      <ul>
+        <li><a href="{{ url_for('bots_showcase') }}">Our Bots</a></li>
+        <li><a href="{{ url_for('bots_showcase') }}#pricing">Pricing</a></li>
+        <li><a href="#what-we-build">What We Build</a></li>
+        <li><a href="{{ url_for('sp4rk_landing') }}">SP4RK Bot</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h4>Company</h4>
+      <ul>
+        <li><a href="#feedback">Feedback</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li><a href="#" onclick="openAskForBot();return false;">Request a Bot</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h4>Account</h4>
+      <ul>
+        {% if current_user and current_user.is_authenticated %}
+        <li><a href="{{ url_for('index') }}">Dashboard</a></li>
+        <li><a href="{{ url_for('logout') }}">Sign out</a></li>
+        {% else %}
+        <li><a href="{{ url_for('login') }}">Login with Discord</a></li>
+        {% endif %}
+        <li><a href="{{ url_for('activate_license') }}">Activate License</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <span>© <span id="yr"></span> {{ site.brand_name }}. {{ site.footer_tag }}</span>
+    <span style="display:flex;gap:20px;">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+    </span>
   </div>
 </footer>
 
@@ -1890,6 +2209,32 @@ footer{
 
 <script>
   document.getElementById('yr').textContent = new Date().getFullYear();
+
+  /* ===== STICKY NAV SCROLL EFFECT ===== */
+  (function(){
+    var nav = document.querySelector('nav');
+    function onScroll(){
+      if(window.scrollY > 40){ nav.classList.add('scrolled'); }
+      else { nav.classList.remove('scrolled'); }
+    }
+    window.addEventListener('scroll', onScroll, {passive:true});
+    onScroll();
+  })();
+
+  /* ===== SCROLL REVEAL ===== */
+  (function(){
+    var els = document.querySelectorAll('.reveal');
+    if(!els.length) return;
+    var obs = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          e.target.classList.add('revealed');
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin:'0px 0px -40px 0px' });
+    els.forEach(function(el){ obs.observe(el); });
+  })();
 
   /* "Ask for a Bot" modal */
   function openAskForBot(){
