@@ -16,6 +16,7 @@ from dashboard import (
     supabase_save_warning, supabase_clear_warnings,
     supabase_save_mod_log, supabase_save_note, supabase_get_notes,
     supabase_load_all_warnings,
+    get_guild_config as _get_guild_config,
 )
 import moderation, automod, roles, logs, social, security
 import giveaway as giveaway_mod
@@ -119,6 +120,13 @@ DEFAULT_CONFIG = {
 
 # Bootstrap from the dashboard's Supabase-backed config (already loaded at import time)
 config = {**DEFAULT_CONFIG, **dash_config}
+
+def get_config_for_guild(guild_id: str) -> dict:
+    """Return the effective config for a specific guild (per-guild overrides merged over global defaults)."""
+    try:
+        return _get_guild_config(str(guild_id))
+    except Exception:
+        return config
 
 TOKEN         = os.environ.get("DISCORD_TOKEN", "")
 GEMINI_KEY    = os.environ.get("GEMINI_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
@@ -1486,7 +1494,8 @@ async def on_message(message):
     except Exception as _mention_err:
         print(f"[SP4RK] mention handler failed: {_mention_err}")
 
-    handled = await automod.handle_message(message, config, add_warning_fn=add_warning)
+    guild_cfg = get_config_for_guild(str(message.guild.id)) if message.guild else config
+    handled = await automod.handle_message(message, guild_cfg, add_warning_fn=add_warning)
     if not handled:
         await handle_ai_moderation(message)
         await autoresponder_mod.check_message(message)

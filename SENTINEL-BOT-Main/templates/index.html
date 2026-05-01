@@ -521,13 +521,25 @@ html.bl-compact .page-header { margin-bottom: 18px; }
 
 <!-- TOP BAR -->
 <div class="topbar">
-  <div style="display:flex;align-items:center;gap:14px;">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
     <div class="mobile-bar">
       <button onclick="toggleSidebar()" style="background:none;border:none;color:var(--text);font-size:1.2rem;cursor:pointer;">
         <i class="fas fa-bars"></i>
       </button>
     </div>
     <span class="topbar-title" id="topbar-title">General Settings</span>
+    <!-- Server picker -->
+    {% if live and live.guilds %}
+    <div style="display:flex;align-items:center;gap:8px;margin-left:8px;">
+      <i class="fas fa-server" style="color:var(--muted);font-size:.85rem;"></i>
+      <select id="guildPick" onchange="onGuildChange()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:5px 10px;font-size:.82rem;outline:none;cursor:pointer;max-width:200px;">
+        <option value="">— All / Global —</option>
+        {% for g in live.guilds %}
+        <option value="{{ g.id }}">{{ g.name }} ({{ g.member_count }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
   </div>
   <div class="topbar-right">
     <button class="btn btn-primary" onclick="saveAll()"><i class="fas fa-save"></i> Save Changes</button>
@@ -2182,16 +2194,77 @@ async function restartBot() {
   }, 3000);
 }
 
+// ---- SERVER PICKER ----
+var currentGuildId = '';
+
+function onGuildChange() {
+  const pick = document.getElementById('guildPick');
+  currentGuildId = pick ? pick.value : '';
+  loadGuildConfig();
+}
+
+async function loadGuildConfig() {
+  try {
+    const url = '/api/guild_config' + (currentGuildId ? '?guild_id=' + encodeURIComponent(currentGuildId) : '');
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const cfg = await res.json();
+    applyConfig(cfg);
+    const label = currentGuildId
+      ? (document.getElementById('guildPick').options[document.getElementById('guildPick').selectedIndex].text)
+      : 'Global';
+    showToast('🖥️ Loaded config for: ' + label);
+  } catch(e) {
+    showToast('❌ Failed to load server config', true);
+  }
+}
+
+function applyConfig(cfg) {
+  const setText  = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
+  const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = (val === 'ON' || val === true); };
+  setText('prefix', cfg.prefix); setText('bot_status', cfg.bot_status);
+  setText('theme_color', cfg.theme_color); setText('bot_avatar', cfg.bot_avatar);
+  setText('welcome_msg', cfg.welcome_msg);
+  setText('log_channel', cfg.log_channel); setText('log_channel_g', cfg.log_channel);
+  setText('owner_dm_id', cfg.owner_dm_id);
+  setCheck('mod_block_links', cfg.mod_block_links); setCheck('mod_block_mentions', cfg.mod_block_mentions);
+  setText('profanity_level', cfg.profanity_level); setText('mute_role', cfg.mute_role); setText('auto_role', cfg.auto_role);
+  setCheck('auto_block_links', cfg.auto_block_links); setCheck('auto_block_invites', cfg.auto_block_invites);
+  setCheck('auto_block_mentions', cfg.auto_block_mentions); setCheck('auto_dm_warning', cfg.auto_dm_warning);
+  setText('auto_custom_blacklist', cfg.auto_custom_blacklist); setText('auto_allowlist', cfg.auto_allowlist);
+  setText('webhook_log', cfg.webhook_log);
+  setText('warning_limit', cfg.warning_limit);
+  setCheck('owner_approval', cfg.owner_approval); setCheck('automod_on', cfg.automod_on);
+  setCheck('anti_raid', cfg.anti_raid); setCheck('security_2fa', cfg.security_2fa);
+  setCheck('role_monitor', cfg.role_monitor); setCheck('mass_ban_prevent', cfg.mass_ban_prevent);
+  setCheck('temp_lockdown', cfg.temp_lockdown); setText('banned_words', cfg.banned_words);
+  setCheck('discord_alerts', cfg.discord_alerts); setCheck('twitter_alerts', cfg.twitter_alerts);
+  setCheck('youtube_alerts', cfg.youtube_alerts); setText('youtube_channel_link', cfg.youtube_channel_link);
+  setText('youtube_notify_msg', cfg.youtube_notify_msg); setText('multi_channel', cfg.multi_channel);
+  setCheck('daily_report', cfg.daily_report); setText('ticket_category', cfg.ticket_category);
+  setText('server_description', cfg.server_description); setText('server_rules', cfg.server_rules);
+  setText('spam_threshold', cfg.spam_threshold); setText('spam_window', cfg.spam_window);
+  setText('caps_percent', cfg.caps_percent); setText('emoji_limit', cfg.emoji_limit);
+  setText('wall_newlines', cfg.wall_newlines); setText('wall_length', cfg.wall_length);
+  setCheck('spam_filter', cfg.spam_filter); setCheck('caps_filter', cfg.caps_filter);
+  setCheck('emoji_filter', cfg.emoji_filter); setCheck('duplicate_filter', cfg.duplicate_filter);
+  setCheck('wall_filter', cfg.wall_filter); setCheck('anti_zalgo', cfg.anti_zalgo);
+  setCheck('grad_punish', cfg.grad_punish);
+  if (cfg.theme_color) document.documentElement.style.setProperty('--accent', cfg.theme_color);
+}
+
 async function saveAll() {
   try {
-    const res = await fetch('/api/save', {
+    const payload = collectData();
+    if (currentGuildId) payload.guild_id = currentGuildId;
+    const res = await fetch('/api/guild_config', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(collectData())
+      body: JSON.stringify(payload)
     });
     const data = await res.json();
     if (data.status === 'success') {
-      showToast('✅ Settings saved!');
+      showToast('✅ Settings saved!' + (currentGuildId ? ' (server-specific)' : ' (global)'));
       const tc = document.getElementById('theme_color');
       if (tc) document.documentElement.style.setProperty('--accent', tc.value);
     } else {

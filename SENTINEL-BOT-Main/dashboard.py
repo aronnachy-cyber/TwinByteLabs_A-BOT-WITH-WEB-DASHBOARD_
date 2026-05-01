@@ -133,6 +133,65 @@ def load_config_from_supabase():
 
 load_config_from_supabase()
 
+# ---- PER-GUILD CONFIG STORE ----
+import threading as _threading
+_GUILD_CONFIGS_FILE = os.path.join(os.path.dirname(__file__), "sp4rk_guild_configs.json")
+_guild_cfg_lock = _threading.RLock()
+
+def _load_guild_configs() -> dict:
+    if os.path.exists(_GUILD_CONFIGS_FILE):
+        try:
+            with open(_GUILD_CONFIGS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_guild_configs(data: dict) -> None:
+    with _guild_cfg_lock:
+        tmp = _GUILD_CONFIGS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, _GUILD_CONFIGS_FILE)
+
+def get_guild_config(guild_id: str) -> dict:
+    """Return the effective config for a guild: per-guild overrides merged over the global defaults."""
+    guild_id = str(guild_id).strip()
+    data = _load_guild_configs()
+    return {**config, **data.get(guild_id, {})}
+
+def save_guild_config(guild_id: str, updates: dict) -> None:
+    """Persist per-guild config overrides (only keys that differ from the global config)."""
+    guild_id = str(guild_id).strip()
+    with _guild_cfg_lock:
+        data = _load_guild_configs()
+        existing = data.get(guild_id, {})
+        existing.update(updates)
+        data[guild_id] = existing
+        _save_guild_configs(data)
+
+def _sp4rk_live_state(user_guild_ids=None) -> dict:
+    """Return SP4RK bot guild list filtered to the user's admin guilds."""
+    out = {"guilds": [], "guilds_count": 0}
+    try:
+        import main as _main_mod
+        b = getattr(_main_mod, "bot", None)
+        if b and b.is_ready():
+            filter_ids = None
+            if user_guild_ids is not None:
+                filter_ids = {str(x) for x in user_guild_ids if x}
+            guilds = []
+            for g in b.guilds:
+                gid_str = str(g.id)
+                if filter_ids is not None and gid_str not in filter_ids:
+                    continue
+                guilds.append({"id": gid_str, "name": g.name, "member_count": g.member_count or 0})
+            out["guilds"] = sorted(guilds, key=lambda x: x["member_count"], reverse=True)
+            out["guilds_count"] = len(guilds)
+    except Exception as e:
+        app.logger.warning(f"[sp4rk_live_state] {e}")
+    return out
+
 warnings_db = []
 
 # ---- WARNINGS (Supabase-backed, JSON fallback) ----
@@ -2283,6 +2342,14 @@ def index():
         session.clear()
         return redirect(url_for('login'))
 
+    # Force re-auth if guild list is absent (old session) so the server
+    # picker is always scoped to only the user's admin servers.
+    if 'user_admin_guild_ids' not in session:
+        redirect_target = url_for('index')
+        session.clear()
+        session['post_login_redirect'] = redirect_target
+        return redirect(url_for('login'))
+
     current_user = find_user_by_discord_id(discord_id)
     if not current_user:
         # The OAuth callback already authenticated this user and stored their
@@ -2316,6 +2383,8 @@ def index():
     is_premium = (user_tier == "premium")
     user_license_code = ""
 
+    live = _sp4rk_live_state(user_guild_ids=_user_admin_guild_ids())
+
     try:
         return render_template(
             'index.html',
@@ -2330,6 +2399,7 @@ def index():
             user_tier=user_tier,
             user_license_code=user_license_code or current_user.get('license_code', ''),
             is_premium=is_premium,
+            live=live,
         )
     except Exception as e:
         print(f"❌ Dashboard template render error: {e}")
@@ -2414,6 +2484,53 @@ def api_config():
 @app.route('/api/bot_config')
 def api_bot_config():
     return jsonify({key: config.get(key) for key in PUBLIC_BOT_CONFIG_KEYS})
+
+# ---- API: PER-GUILD CONFIG (GET) ----
+@app.route('/api/guild_config', methods=['GET'])
+def api_guild_config_get():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = request.args.get('guild_id', '').strip()
+    if not guild_id:
+        return jsonify(config)
+    cfg = get_guild_config(guild_id)
+    return jsonify(cfg)
+
+# ---- API: PER-GUILD CONFIG (POST / SAVE) ----
+@app.route('/api/guild_config', methods=['POST'])
+def api_guild_config_save():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    guild_id = str(data.pop('guild_id', '')).strip()
+    updates = {}
+    for key in TEXT_KEYS:
+        if key in data:
+            updates[key] = str(data[key]).strip()
+    for key in TOGGLE_KEYS:
+        if key in data:
+            updates[key] = "ON" if data[key] else "OFF"
+    if "warning_limit" in data:
+        try:
+            updates["warning_limit"] = int(data["warning_limit"])
+        except (ValueError, TypeError):
+            pass
+    if guild_id:
+        save_guild_config(guild_id, updates)
+        add_dashboard_log("⚙️ GUILD-SETTINGS", f"Config updated for guild {guild_id}")
+    else:
+        global config
+        config.update(updates)
+        save_config()
+        add_dashboard_log("⚙️ SETTINGS", "Global configuration updated via dashboard")
+    _trigger_bot_config_refresh()
+    return jsonify({"status": "success", "message": "Settings saved!"})
+
+# ---- API: BOT CONFIG BY GUILD (for bot worker process) ----
+@app.route('/api/bot_config/<guild_id>')
+def api_bot_config_guild(guild_id):
+    cfg = get_guild_config(str(guild_id).strip())
+    return jsonify({key: cfg.get(key) for key in PUBLIC_BOT_CONFIG_KEYS})
 
 # ---- API: LOGS ----
 @app.route('/api/logs')
