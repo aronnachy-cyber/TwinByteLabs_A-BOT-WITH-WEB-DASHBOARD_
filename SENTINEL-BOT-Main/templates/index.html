@@ -1848,6 +1848,74 @@ function toast(msg, kind){
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 1800);
 }
+
+/* ── Maintenance controls ── */
+async function blToggleMaintenance(enabled){
+  try {
+    const r = await fetch('/dev/maintenance', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ enabled })
+    });
+    const j = await r.json();
+    if (j.ok) toast('Maintenance ' + (enabled ? 'ENABLED' : 'disabled'));
+    else       toast('Error: ' + (j.error || 'unknown'), 'err');
+  } catch(e){ toast('Request failed', 'err'); }
+}
+
+async function blSetETA(){
+  const input = document.getElementById('bl-dev-eta-input');
+  const status = document.getElementById('bl-dev-eta-status');
+  const val = input ? input.value : '';
+  if (!val){ toast('Pick a date & time first', 'err'); return; }
+  try {
+    const r = await fetch('/dev/maintenance/eta', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ eta: val })
+    });
+    const j = await r.json();
+    if (j.ok){
+      toast('ETA saved');
+      if (status) status.textContent = 'ETA set: ' + new Date(val).toLocaleString();
+    } else {
+      toast('Error: ' + (j.error || 'unknown'), 'err');
+    }
+  } catch(e){ toast('Request failed', 'err'); }
+}
+
+async function blClearETA(){
+  const input = document.getElementById('bl-dev-eta-input');
+  const status = document.getElementById('bl-dev-eta-status');
+  try {
+    const r = await fetch('/dev/maintenance/eta', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ eta: '' })
+    });
+    const j = await r.json();
+    if (j.ok){
+      if (input)  input.value = '';
+      if (status) status.textContent = 'ETA cleared.';
+      toast('ETA cleared');
+    } else {
+      toast('Error: ' + (j.error || 'unknown'), 'err');
+    }
+  } catch(e){ toast('Request failed', 'err'); }
+}
+
+/* Load current ETA into the input when the panel opens */
+const _blOrigOpenDev = blOpenDev;
+blOpenDev = async function(){
+  _blOrigOpenDev();
+  try {
+    const r = await fetch('/dev/maintenance/eta');
+    const j = await r.json();
+    const input  = document.getElementById('bl-dev-eta-input');
+    const status = document.getElementById('bl-dev-eta-status');
+    if (j.ok && j.eta && input){
+      input.value = j.eta;
+      if (status) status.textContent = 'Current ETA: ' + new Date(j.eta).toLocaleString();
+    }
+  } catch(_){}
+};
 {% endif %}
 
 function toggleSidebar() {
@@ -2790,6 +2858,31 @@ pollPendingUsers();
     <button type="button" class="bl-dev-btn bl-dev-btn-danger" onclick="blClearCache()">
       <i class="fas fa-broom"></i> Clear local cache & reload
     </button>
+  </section>
+
+  <section class="bl-dev-sec">
+    <div class="bl-dev-sec-title"><i class="fas fa-triangle-exclamation"></i> Maintenance mode</div>
+    <label class="bl-dev-row bl-dev-toggle">
+      <span>Enable maintenance page</span>
+      <input type="checkbox" id="bl-dev-maint-toggle" onchange="blToggleMaintenance(this.checked)">
+    </label>
+    <div style="margin-top:10px;">
+      <div style="font-size:.76rem;color:var(--muted,#7a93b8);margin-bottom:6px;letter-spacing:.4px;">ETA back online</div>
+      <input type="datetime-local" id="bl-dev-eta-input"
+        style="width:100%;background:rgba(255,255,255,.05);color:var(--text,#e8f0ff);border:1px solid rgba(91,140,255,.22);border-radius:8px;padding:9px 11px;font-size:.83rem;font-family:inherit;margin-bottom:8px;">
+      <div style="display:flex;gap:6px;">
+        <button type="button" class="bl-dev-btn" style="flex:1;margin-top:0;" onclick="blSetETA()">
+          <i class="fas fa-clock"></i> Set ETA
+        </button>
+        <button type="button" class="bl-dev-btn bl-dev-btn-ghost" style="flex:0 0 auto;margin-top:0;padding:10px 12px;" onclick="blClearETA()" title="Clear ETA">
+          <i class="fas fa-xmark"></i>
+        </button>
+      </div>
+      <div id="bl-dev-eta-status" style="font-size:.74rem;color:rgba(91,140,255,.6);margin-top:6px;min-height:16px;"></div>
+    </div>
+    <a href="/dev/maintenance/preview" target="_blank" class="bl-dev-btn" style="margin-top:10px;text-decoration:none;justify-content:center;">
+      <i class="fas fa-eye"></i> Preview maintenance page
+    </a>
   </section>
 
   <section class="bl-dev-sec">

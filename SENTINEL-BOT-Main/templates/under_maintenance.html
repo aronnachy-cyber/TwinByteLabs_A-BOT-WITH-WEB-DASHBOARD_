@@ -247,6 +247,16 @@ body{
     <div class="progress"><div class="progress-fill" id="progress-fill"></div></div>
   </div>
 
+  <!-- ETA countdown (only shown when an ETA is set) -->
+  {% if maintenance_eta %}
+  <div style="text-align:center; padding:0 22px 14px;">
+    <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(0,255,65,.06);border:1px solid rgba(0,255,65,.2);border-radius:10px;padding:10px 20px;">
+      <span style="color:rgba(0,255,65,.5);font-size:.72rem;letter-spacing:.1em;">ETA BACK ONLINE</span>
+      <span id="eta-countdown" style="font-size:1.05rem;color:#00ff41;letter-spacing:.12em;text-shadow:0 0 10px rgba(0,255,65,.5);">--:--:--</span>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Status bar -->
   <div class="status-bar">
     <span class="badge"><span class="pulse-dot"></span> MAINTENANCE MODE</span>
@@ -383,6 +393,38 @@ body{
   function tick(){
     var now = new Date();
     el.textContent = now.toISOString().replace("T"," ").slice(0,19) + " UTC";
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+
+/* ─── ETA countdown ─── */
+(function(){
+  var etaRaw  = "{{ maintenance_eta | default('') }}";
+  var countEl = document.getElementById("eta-countdown");
+  if (!countEl || !etaRaw) return;
+
+  var target = new Date(etaRaw);
+  if (isNaN(target.getTime())) { countEl.textContent = "SOON"; return; }
+
+  function pad(n){ return String(n).padStart(2,"0"); }
+
+  function tick(){
+    var diff = target - Date.now();
+    if (diff <= 0){
+      countEl.textContent = "ONLINE SOON";
+      countEl.style.color = "#28c840";
+      countEl.style.textShadow = "0 0 12px rgba(40,200,64,.7)";
+      return;
+    }
+    var h = Math.floor(diff / 3600000);
+    var m = Math.floor((diff % 3600000) / 60000);
+    var s = Math.floor((diff % 60000) / 1000);
+    if (h > 0){
+      countEl.textContent = pad(h) + "h " + pad(m) + "m " + pad(s) + "s";
+    } else {
+      countEl.textContent = pad(m) + "m " + pad(s) + "s";
+    }
   }
   tick();
   setInterval(tick, 1000);

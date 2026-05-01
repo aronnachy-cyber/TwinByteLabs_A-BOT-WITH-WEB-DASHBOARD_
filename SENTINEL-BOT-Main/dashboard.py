@@ -561,7 +561,7 @@ def _load_dev_state():
                 return json.load(f)
     except Exception:
         pass
-    return {"maintenance": False}
+    return {"maintenance": False, "maintenance_eta": ""}
 
 def _save_dev_state(state):
     try:
@@ -768,7 +768,7 @@ def landing():
     Returns HTTP 200 so external uptime/cron pingers keep the service healthy.
     """
     if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html'), 200
+        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
 
     return render_template(
         'bytelabs_landing.html',
@@ -784,7 +784,7 @@ def landing():
 def bots_showcase():
     """Card-style interface listing all Byte Labs bots."""
     if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html'), 200
+        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
 
     return render_template(
         'bots.html',
@@ -923,7 +923,7 @@ def server_official_landing():
     instead of being a static brochure.
     """
     if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html'), 200
+        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
     so = _so_module()
 
     # Build the "Add to Discord" invite URL. Prefer a Server-Official
@@ -964,7 +964,7 @@ def server_official_landing():
 def server_official_dashboard():
     """Web dashboard for managing scheduled announcements, giveaways and stats."""
     if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html'), 200
+        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
     if not session.get('logged_in'):
         # Send unauthenticated visitors through Discord login, then back here.
         session['post_login_redirect'] = url_for('server_official_dashboard')
@@ -1722,7 +1722,7 @@ def so_api_post_embed():
 def sp4rk_landing():
     """The original SP4RK landing page (now lives under /sp4rk)."""
     if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html'), 200
+        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
 
     # Recommended permissions for the bot (Administrator). Override with DISCORD_BOT_PERMISSIONS env var.
     bot_permissions = os.environ.get("DISCORD_BOT_PERMISSIONS", "8")
@@ -1771,7 +1771,29 @@ def dev_state():
 
 @app.route('/dev/maintenance/preview')
 def dev_maintenance_preview():
-    return render_template('under_maintenance.html'), 200
+    state = _load_dev_state()
+    return render_template(
+        'under_maintenance.html',
+        maintenance_eta=state.get("maintenance_eta", "")
+    ), 200
+
+@app.route('/dev/maintenance/eta', methods=['GET'])
+def dev_maintenance_eta_get():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    state = _load_dev_state()
+    return jsonify({"ok": True, "eta": state.get("maintenance_eta", "")})
+
+@app.route('/dev/maintenance/eta', methods=['POST'])
+def dev_maintenance_eta_set():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    payload = request.json or {}
+    eta = str(payload.get("eta", "")).strip()
+    state = _load_dev_state()
+    state["maintenance_eta"] = eta
+    _save_dev_state(state)
+    return jsonify({"ok": True, "eta": eta})
 
 @app.route('/dev/maintenance', methods=['POST'])
 def dev_maintenance_toggle():
