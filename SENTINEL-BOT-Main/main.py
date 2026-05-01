@@ -384,8 +384,6 @@ AI_MENTION_COOLDOWN_SEC = 6       # per-user spam guard
 
 async def handle_ai_mention(message):
     """Reply conversationally with Gemini when the bot is @mentioned."""
-    if not GEMINI_KEY:
-        return
     if bot.user is None:
         return
 
@@ -402,6 +400,18 @@ async def handle_ai_mention(message):
     if now - _ai_mention_last.get(message.author.id, 0) < AI_MENTION_COOLDOWN_SEC:
         return
     _ai_mention_last[message.author.id] = now
+
+    # If no Gemini key, send a friendly fallback straight away.
+    if not GEMINI_KEY:
+        try:
+            await message.reply(
+                "Hey! I'm SP4RK, your moderation bot. I don't have AI enabled right now, "
+                "but I'm still here to help with moderation. Use `/help` to see what I can do!",
+                mention_author=False,
+            )
+        except Exception as e:
+            print(f"[SP4RK] AI mention fallback send error: {e}")
+        return
 
     prompt = (
         "You are SP4RK, a friendly Discord moderation and utility bot. "
@@ -423,7 +433,12 @@ async def handle_ai_mention(message):
                     },
                 ) as res:
                     if res.status != 200:
-                        print(f"[SP4RK] AI mention reply HTTP {res.status}")
+                        body = await res.text()
+                        print(f"[SP4RK] AI mention reply HTTP {res.status}: {body[:200]}")
+                        await message.reply(
+                            "Hey! I ran into a hiccup reaching my AI brain. Try again in a moment!",
+                            mention_author=False,
+                        )
                         return
                     data = await res.json()
         reply = (
@@ -434,11 +449,24 @@ async def handle_ai_mention(message):
             .strip()
         )
         if not reply:
+            await message.reply(
+                "Hmm, I got an empty response from my AI. Try asking me something else!",
+                mention_author=False,
+            )
             return
         await message.reply(reply[:1900], mention_author=False)
         dlog("💬 AI-MENTION", f"{message.author} → {text[:80]}")
+    except discord.Forbidden:
+        print(f"[SP4RK] AI mention reply error: Missing Send Messages permission in #{message.channel}")
     except Exception as e:
-        print(f"[SP4RK] AI mention reply error (ignored): {e}")
+        print(f"[SP4RK] AI mention reply error: {e}")
+        try:
+            await message.reply(
+                "Something went wrong on my end. Please try again!",
+                mention_author=False,
+            )
+        except Exception:
+            pass
 
 # ---------------- BACKGROUND TASKS ----------------
 _last_avatar_url = ""
