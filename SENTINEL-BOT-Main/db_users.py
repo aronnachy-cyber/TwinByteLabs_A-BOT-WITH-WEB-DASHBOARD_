@@ -54,11 +54,11 @@ def _ensure_pool() -> Optional[SimpleConnectionPool]:
 
 
 def _init_schema() -> None:
-    """Create the users table on first use. Idempotent."""
+    """Create the users table on first use, and run any column migrations. Idempotent."""
     global _INITIALIZED
     if _INITIALIZED:
         return
-    sql = """
+    create_sql = """
     CREATE TABLE IF NOT EXISTS sentinel_users (
         uid              TEXT PRIMARY KEY,
         name             TEXT NOT NULL,
@@ -76,10 +76,24 @@ def _init_schema() -> None:
     CREATE INDEX IF NOT EXISTS sentinel_users_discord_id_idx
       ON sentinel_users (discord_id);
     """
+    # Column migrations — safe to run repeatedly on any pre-existing table.
+    migrations = [
+        "ALTER TABLE sentinel_users ADD COLUMN IF NOT EXISTS avatar_url       TEXT;",
+        "ALTER TABLE sentinel_users ADD COLUMN IF NOT EXISTS discord_id       TEXT;",
+        "ALTER TABLE sentinel_users ADD COLUMN IF NOT EXISTS discord_username TEXT;",
+        "ALTER TABLE sentinel_users ADD COLUMN IF NOT EXISTS session_token    TEXT;",
+        "ALTER TABLE sentinel_users ADD COLUMN IF NOT EXISTS extras           JSONB NOT NULL DEFAULT '{}'::jsonb;",
+        "ALTER TABLE sentinel_users ADD COLUMN IF NOT EXISTS updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW();",
+    ]
     try:
         with _conn() as conn:
             with conn.cursor() as cur:
-                cur.execute(sql)
+                cur.execute(create_sql)
+                for m in migrations:
+                    try:
+                        cur.execute(m)
+                    except Exception:
+                        pass  # column already exists with different constraints — skip
             conn.commit()
         _INITIALIZED = True
         print("✅ Postgres user store ready (sentinel_users table)")

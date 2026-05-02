@@ -19,6 +19,9 @@ create table if not exists sentinel_users (
     created_at   timestamptz default now(),
     last_login   timestamptz
 );
+-- Migration: add avatar_url if the table was created before this column existed.
+-- Safe to re-run (ADD COLUMN IF NOT EXISTS is idempotent).
+alter table sentinel_users add column if not exists avatar_url text;
 
 create table if not exists sentinel_warnings (
     id          bigserial primary key,

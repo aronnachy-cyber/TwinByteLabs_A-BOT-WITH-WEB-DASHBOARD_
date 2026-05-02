@@ -383,8 +383,8 @@ async def handle_ai_moderation(message):
             await safe_delete(message)
             await add_warning(message.author, reason=f"Gemini Moderation: {reason}")
             await message.channel.send(
-                f"⚠️ {message.author.mention}, your message was removed by AI moderation.",
-                delete_after=7
+                f"⚠️ {message.author.mention}, your message was removed by AI moderation.\n> **Reason:** {reason}",
+                delete_after=8
             )
             dlog("🤖 GEMINI-MOD", f"{message.author} flagged — {reason}")
     except Exception as e:
@@ -1030,7 +1030,9 @@ def _build_serverinfo_embed(guild: discord.Guild, requester: discord.abc.User) -
 @bot.tree.command(name="serverinfo", description="Show detailed server information")
 async def slash_serverinfo(interaction: discord.Interaction):
     if not interaction.guild:
-        return await interaction.response.send_message("Use this in a server.", ephemeral=True)
+        return await interaction.response.send_message(
+            "❌ **Server Only** — This command can only be used inside a server, not in DMs.", ephemeral=True
+        )
     embed = _build_serverinfo_embed(interaction.guild, interaction.user)
     await interaction.response.send_message(embed=embed)
 
@@ -1039,7 +1041,7 @@ async def slash_serverinfo(interaction: discord.Interaction):
 async def prefix_serverinfo(ctx):
     """!serverinfo — detailed server snapshot."""
     if not ctx.guild:
-        return await ctx.send("Use this in a server.")
+        return await ctx.send("❌ **Server Only** — This command can only be used inside a server, not in DMs.")
     await ctx.send(embed=_build_serverinfo_embed(ctx.guild, ctx.author))
 
 @bot.command(name="help", aliases=["commands", "cmds"])
@@ -1569,12 +1571,18 @@ async def on_message(message):
                         break
 
                 if not matched_data:
-                    await message.channel.send(f"❌ No pending approval for member ID `{target_id}`.")
+                    await message.channel.send(
+                        f"❌ **Not Found** — No pending approval for member ID `{target_id}`.\n"
+                        f"> Use `!approve ban/kick/ignore <user_id>` with an ID from a pending alert."
+                    )
                     return
 
                 if action == "ignore":
                     del pending_approvals[matched_key]
-                    await message.channel.send(f"✅ Alert dismissed for `{matched_data['username']}`.")
+                    await message.channel.send(
+                        f"✅ **Alert Dismissed** — `{matched_data['username']}` has been cleared from the approval queue.\n"
+                        f"> No action was taken against this member."
+                    )
                     for oid in owner_ids:
                         if oid != str(message.author.id):
                             try:
@@ -1589,12 +1597,18 @@ async def on_message(message):
                 if action in ("ban", "kick"):
                     guild = bot.get_guild(matched_data["guild_id"])
                     if not guild:
-                        await message.channel.send("❌ Server not found.")
+                        await message.channel.send(
+                            f"❌ **Server Not Found** — The bot is no longer in the target server.\n"
+                            f"> The approval has been cancelled."
+                        )
                         return
                     try:
                         target_member = await guild.fetch_member(matched_data["member_id"])
                     except discord.NotFound:
-                        await message.channel.send(f"❌ `{matched_data['username']}` is no longer in the server.")
+                        await message.channel.send(
+                            f"❌ **Member Left** — `{matched_data['username']}` is no longer in the server.\n"
+                            f"> The approval has been cleared automatically."
+                        )
                         del pending_approvals[matched_key]
                         return
 
@@ -1606,7 +1620,9 @@ async def on_message(message):
                             await target_member.kick(reason=reason)
                         del pending_approvals[matched_key]
                         await message.channel.send(
-                            f"✅ **{action.upper()} executed** on `{matched_data['username']}`.\nReason: {reason}"
+                            f"{'⛔' if action == 'ban' else '🚪'} **{action.upper()} Executed** — `{matched_data['username']}`\n"
+                            f"> 📝 **Reason:** {reason}\n"
+                            f"> 🛡️ **Approved by:** {message.author}"
                         )
                         await logs.log_event(
                             bot, config,
@@ -1628,11 +1644,17 @@ async def on_message(message):
                                 except Exception:
                                     pass
                     except discord.Forbidden:
-                        await message.channel.send(f"❌ Missing permissions to {action} `{matched_data['username']}`.")
+                        await message.channel.send(
+                            f"❌ **Permission Denied** — I can't {action} `{matched_data['username']}`.\n"
+                            f"> Check my role hierarchy and bot permissions in that server."
+                        )
                     except Exception as e:
-                        await message.channel.send(f"❌ Error: {e}")
+                        await message.channel.send(f"❌ **Action Failed** — `{e}`")
                 else:
-                    await message.channel.send("❌ Usage: `!approve ban/kick/ignore <user_id>`")
+                    await message.channel.send(
+                        f"❌ **Invalid Action** — `{action}` is not recognised.\n"
+                        f"> Usage: `!approve ban/kick/ignore <user_id>`"
+                    )
             return
 
     refresh_config()
@@ -1824,7 +1846,10 @@ async def clearwarnings(ctx, member: discord.Member):
     supabase_clear_warnings(guild_id, member_id)
     dlog("🧹 CLEAR-WARN", f"Warnings cleared for {member} by {ctx.author}")
     await logs.log_event(bot, config, "🧹 Warnings Cleared", f"{member}'s warnings cleared by {ctx.author}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
-    await ctx.send(f"✅ **Warnings Cleared** — All warning records for {member.mention} have been reset.")
+    await ctx.send(
+        f"✅ **Warnings Cleared** — All warning records for {member.mention} have been reset.\n"
+        f"> 🛡️ **Cleared by:** {ctx.author.mention}"
+    )
 
 @bot.command(name="timeout")
 @commands.has_permissions(moderate_members=True)
@@ -2629,7 +2654,9 @@ async def userinfo(ctx, member: discord.Member = None):
 async def slash_userinfo(interaction: discord.Interaction,
                          member: discord.Member = None):
     if not interaction.guild:
-        return await interaction.response.send_message("Use this in a server.", ephemeral=True)
+        return await interaction.response.send_message(
+            "❌ **Server Only** — This command can only be used inside a server, not in DMs.", ephemeral=True
+        )
     target = member or interaction.user
     await interaction.response.send_message(
         embed=_build_userinfo_embed(target, interaction.user)
@@ -2668,7 +2695,7 @@ async def slash_copy(interaction: discord.Interaction):
         dlog("📸 COPY", f"{interaction.user} copied server template from {interaction.guild.name}")
     except Exception as e:
         print(f"/copy error: {e}")
-        await interaction.edit_original_response(content=f"❌ Failed to copy server: `{e}`")
+        await interaction.edit_original_response(content=f"❌ **Copy Failed** — Could not capture the server structure.\n> `{e}`")
 
 class DeleteTemplateConfirmView(discord.ui.View):
     """Two-button confirm/cancel for /delete-template."""
@@ -2730,7 +2757,7 @@ class DeleteTemplateConfirmView(discord.ui.View):
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         for item in self.children:
             item.disabled = True
-        await interaction.response.edit_message(content="✅ Cancelled. Nothing was deleted.", view=self)
+        await interaction.response.edit_message(content="✅ **Cancelled** — No changes were made. Your server structure is untouched.", view=self)
 
 @bot.tree.command(name="paste", description="Recreate a copied server template in this server (adds channels & roles)")
 async def slash_paste(interaction: discord.Interaction):
@@ -2740,7 +2767,9 @@ async def slash_paste(interaction: discord.Interaction):
     info = template_mod.get_template_info()
     if not info:
         await interaction.response.send_message(
-            "❌ No template found. Run `/copy` in a server first.", ephemeral=True
+            "❌ **No Template Found** — There's no saved template to paste.\n"
+            "> Run `/copy` in a server first to capture its structure, then use `/paste` here.",
+            ephemeral=True
         )
         return
     await interaction.response.defer(ephemeral=True)
@@ -2784,10 +2813,14 @@ async def slash_paste(interaction: discord.Interaction):
         await interaction.edit_original_response(content=None, embed=embed)
         dlog("📋 PASTE", f"{interaction.user} pasted server template into {interaction.guild.name}")
     except FileNotFoundError:
-        await interaction.edit_original_response(content="❌ No template found. Run `/copy` first.")
+        await interaction.edit_original_response(
+            content="❌ **No Template Found** — Run `/copy` in a server first to capture its structure."
+        )
     except Exception as e:
         print(f"/paste error: {e}")
-        await interaction.edit_original_response(content=f"❌ An error occurred: `{e}`")
+        await interaction.edit_original_response(
+            content=f"❌ **Paste Failed** — Something went wrong while applying the template.\n> `{e}`"
+        )
 
 @bot.tree.command(name="delete-template", description="Delete all channels, categories and roles that were added by /paste")
 async def slash_delete_template(interaction: discord.Interaction):
@@ -2881,7 +2914,7 @@ async def _slash_guard_guild(interaction: discord.Interaction) -> bool:
     """Reject DM usage with a friendly message. Returns False if blocked."""
     if not interaction.guild:
         await interaction.response.send_message(
-            "❌ This command can only be used in a server.", ephemeral=True
+            "❌ **Server Only** — This command can only be used inside a server, not in DMs.", ephemeral=True
         )
         return False
     return True
@@ -2935,7 +2968,10 @@ async def slash_warn(interaction: discord.Interaction,
     entry = _get_member_entry(str(interaction.guild.id), str(member.id))
     count = entry["count"]
     await interaction.followup.send(
-        f"⚠️ {member.mention} has been warned! Now at **{count}** warning(s).\nReason: {reason}"
+        f"⚠️ **Warning Issued** — {member.mention} has been warned.\n"
+        f"> 📊 **Total Warnings:** {count}\n"
+        f"> 📝 **Reason:** {reason}\n"
+        f"> 🛡️ **Warned by:** {interaction.user.mention}"
     )
     await logs.log_event(
         bot, config, "⚠️ Warning Issued",
@@ -3005,7 +3041,8 @@ async def slash_clearwarnings(interaction: discord.Interaction, member: discord.
         f"{member}'s warnings cleared by {interaction.user}", color=0x2ecc71,
     )
     await interaction.response.send_message(
-        f"✅ All warnings cleared for {member.mention}."
+        f"✅ **Warnings Cleared** — All warnings have been removed for {member.mention}.\n"
+        f"> 🛡️ **Cleared by:** {interaction.user.mention}"
     )
 
 

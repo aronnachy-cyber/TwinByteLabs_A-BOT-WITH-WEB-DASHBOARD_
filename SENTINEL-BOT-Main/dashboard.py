@@ -495,7 +495,21 @@ def save_single_user(u):
             ).execute()
             return
         except Exception as e:
-            print(f"⚠️ Supabase save_single_user error: {e}")
+            err_str = str(e)
+            # PGRST204: column doesn't exist in Supabase schema cache yet.
+            # Retry without the missing column so the rest of the row still saves.
+            if "PGRST204" in err_str or "avatar_url" in err_str:
+                try:
+                    row.pop("avatar_url", None)
+                    supabase.table("sentinel_users").upsert(
+                        row, on_conflict="discord_id"
+                    ).execute()
+                    print("⚠️ Supabase: saved user without avatar_url (column missing — run migration)")
+                    return
+                except Exception as e2:
+                    print(f"⚠️ Supabase save_single_user error (retry): {e2}")
+            else:
+                print(f"⚠️ Supabase save_single_user error: {e}")
     # 3) JSON file fallback.
     users = load_users()
     for i, existing in enumerate(users):
