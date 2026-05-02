@@ -211,10 +211,8 @@ async def _instant_mute(message, reason, minutes=AUTOMUTE_MINUTES):
     bot_member = guild.me if guild else None
     allowed, why = can_bot_action(member, bot_member)
     if not allowed:
-        await safe_delete(message)
-        # Don't warn or post in-channel — just bail out silently.
-        # (Optional staff webhook log happens upstream in handle_message.)
-        return True
+        # Don't delete or warn — the user outranks the bot, leave their message alone.
+        return False
 
     # Don't double-mute the same person within 30 seconds
     now = time.time()
