@@ -1637,22 +1637,29 @@ async def on_message(message):
 
     refresh_config()
 
-    # ---- Custom Commands (! prefix, AI-formatted reply) ----
+    # ---- Custom Commands (! prefix, placeholder substitution + AI polish) ----
     custom_cmd_handled = False
     try:
         import custom_commands as _cc_mod
         gid = str(message.guild.id) if message.guild else None
-        cmd = _cc_mod.match_message("sp4rk", gid, message.content or "")
+        _guild_prefix = get_config_for_guild(gid).get("prefix", "!") if gid else "!"
+        cmd, _cc_args = _cc_mod.match_message("sp4rk", gid, message.content or "")
         if cmd:
             custom_cmd_handled = True
+            # 1. Substitute placeholders first so AI sees real values
+            raw_result = cmd.get("result", "")
+            substituted = _cc_mod.substitute_placeholders(
+                raw_result, message, prefix=_guild_prefix, args=_cc_args
+            )
             polished = None
             if _cc_mod.cooldown_ok(message.channel.id):
                 polished = _cc_mod.ai_format_response(
                     cmd.get("description", ""),
-                    cmd.get("result", ""),
+                    substituted,
                     message.content or "",
+                    gemini_key=GEMINI_KEY,
                 )
-            reply_text = polished or cmd.get("result", "")
+            reply_text = polished or substituted
             if cmd.get("use_embed"):
                 e = discord.Embed(
                     title=f"📌 !{cmd['trigger']}",

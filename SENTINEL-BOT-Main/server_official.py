@@ -1206,22 +1206,28 @@ async def on_message(message: discord.Message):
     # Activity tracking
     _bump_messages_for(str(g.id), str(message.author.id))
 
-    # Custom commands (! prefix) — uses AI to polish the stored "result"
+    # Custom commands (! prefix) — placeholder substitution + AI polish
     if message.content.startswith("!") and len(message.content) > 1:
-        trig = message.content[1:].split()[0].lower()
-        cmd = get_custom_command(str(g.id), trig)
-        if cmd:
-            try:
-                import custom_commands as _cc_mod
+        try:
+            import custom_commands as _cc_mod
+            _so_gemini = os.environ.get("GEMINI_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+            _so_prefix = "!"
+            cmd, _so_args = _cc_mod.match_message("so", str(g.id), message.content)
+            if cmd:
+                # 1. Substitute placeholders before AI sees the text
+                raw_result = cmd.get("result", "")
+                substituted = _cc_mod.substitute_placeholders(
+                    raw_result, message, prefix=_so_prefix, args=_so_args
+                )
                 polished = None
                 if _cc_mod.cooldown_ok(message.channel.id):
                     polished = _cc_mod.ai_format_response(
                         cmd.get("description", ""),
-                        cmd.get("result", ""),
+                        substituted,
                         message.content,
+                        gemini_key=_so_gemini,
                     )
-                # Fall back to the raw stored result if AI is unavailable
-                reply_text = polished or cmd.get("result", "")
+                reply_text = polished or substituted
                 if cmd.get("use_embed"):
                     e = discord.Embed(
                         title=f"!{cmd['trigger']}",
@@ -1232,10 +1238,9 @@ async def on_message(message: discord.Message):
                         e.set_footer(text=cmd["description"][:200])
                     await message.channel.send(embed=e)
                 else:
-                    # Discord caps plain messages at 2000 chars
                     await message.channel.send(reply_text[:2000])
-            except Exception as ex:
-                print(f"[SO] custom command '{trig}' failed: {ex}")
+        except Exception as ex:
+            print(f"[SO] custom command failed: {ex}")
 
     # Sticky message refresh
     state = load_state()
