@@ -1834,6 +1834,13 @@ def so_api_post_embed():
     return jsonify({"ok": True})
 
 
+@app.route('/tempo')
+def tempo_landing():
+    """Tempo music bot landing page."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
+    return render_template('tempo_landing.html')
+
 @app.route('/sp4rk')
 def sp4rk_landing():
     """The original SP4RK landing page (now lives under /sp4rk)."""

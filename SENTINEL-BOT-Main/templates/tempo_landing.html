@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tempo — Music Bot · Byte Labs</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+
+:root{
+  --bg:#06030f;
+  --bg2:#0d0820;
+  --text:#f0ebff;
+  --muted:#9d88c8;
+  --border:rgba(139,92,246,0.2);
+  --accent:#8b5cf6;
+  --accent2:#c084fc;
+  --accent3:#e879f9;
+  --warm:#facc15;
+  --gradient: linear-gradient(135deg, #8b5cf6 0%, #c084fc 50%, #e879f9 100%);
+  --gradient-warm: linear-gradient(90deg, #facc15, #f59e0b);
+}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Inter','Segoe UI',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.55;
+  overflow-x:hidden;
+  min-height:100vh;
+}
+
+/* ===== AMBIENT ===== */
+body::before,body::after{
+  content:"";position:fixed;pointer-events:none;z-index:0;
+  width:700px;height:700px;border-radius:50%;
+  filter:blur(130px);opacity:.28;
+}
+body::before{
+  background:radial-gradient(circle,#8b5cf6,transparent 70%);
+  top:-250px;left:-180px;
+  animation:float1 15s ease-in-out infinite;
+}
+body::after{
+  background:radial-gradient(circle,#e879f9,transparent 70%);
+  bottom:-250px;right:-180px;
+  animation:float2 18s ease-in-out infinite;
+}
+@keyframes float1{0%,100%{transform:translate(0,0);}50%{transform:translate(70px,50px);}}
+@keyframes float2{0%,100%{transform:translate(0,0);}50%{transform:translate(-60px,-40px);}}
+
+.grid-bg{
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(139,92,246,0.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(139,92,246,0.05) 1px,transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;z-index:0;
+  mask-image:radial-gradient(ellipse at center,#000 0%,transparent 70%);
+}
+
+/* ===== NAV ===== */
+nav{
+  position:relative;z-index:10;
+  padding:18px 40px;
+  display:flex;align-items:center;gap:14px;
+  backdrop-filter:blur(10px);
+  background:rgba(6,3,15,0.6);
+  border-bottom:1px solid rgba(255,255,255,0.05);
+}
+.nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none;}
+.nav-logo-mark{
+  width:42px;height:42px;border-radius:11px;
+  background:var(--gradient);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;color:white;font-size:1.2rem;
+  box-shadow:0 8px 22px rgba(139,92,246,.45);
+}
+.nav-logo-name{font-weight:800;font-size:1.15rem;color:#fff;}
+.nav-logo-name span{
+  background:var(--gradient);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 18px;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:10px;
+  color:#cfd9ee;text-decoration:none;
+  font-weight:600;font-size:.92rem;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.btn-ghost:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.2);color:#fff;}
+.nav-right{margin-left:auto;display:flex;gap:10px;align-items:center;}
+.btn-primary{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:11px 22px;
+  background:var(--gradient);
+  color:#fff;text-decoration:none;border:none;
+  border-radius:10px;
+  font-weight:700;font-size:.95rem;font-family:inherit;
+  cursor:pointer;
+  box-shadow:0 8px 24px rgba(139,92,246,.45);
+  transition:transform .15s,box-shadow .2s,filter .15s;
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(139,92,246,.6);filter:brightness(1.08);}
+
+/* ===== COMING SOON BANNER ===== */
+.coming-banner{
+  position:relative;z-index:10;
+  text-align:center;
+  padding:10px 20px;
+  background:linear-gradient(90deg,rgba(139,92,246,.15),rgba(232,121,249,.15));
+  border-bottom:1px solid rgba(139,92,246,.3);
+  font-size:.82rem;font-weight:600;color:var(--accent2);
+  letter-spacing:.03em;
+}
+.coming-banner i{margin-right:6px;color:var(--warm);}
+
+/* ===== HERO ===== */
+.hero{
+  position:relative;z-index:5;
+  display:grid;
+  grid-template-columns:1.15fr 1fr;
+  gap:50px;align-items:center;
+  max-width:1200px;margin:0 auto;
+  padding:70px 30px 60px;
+}
+@media(max-width:980px){.hero{grid-template-columns:1fr;text-align:center;padding-top:50px;}}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:7px 16px;
+  background:rgba(139,92,246,0.12);
+  border:1px solid rgba(139,92,246,.4);
+  border-radius:99px;
+  color:var(--accent2);
+  font-size:.82rem;font-weight:600;
+  margin-bottom:20px;
+}
+.hero-badge::before{
+  content:"";width:8px;height:8px;border-radius:50%;
+  background:var(--accent2);
+  box-shadow:0 0 10px var(--accent2);
+  animation:pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.hero h1{
+  font-size:clamp(2.4rem,5.6vw,4.2rem);
+  font-weight:900;
+  letter-spacing:-1.5px;
+  line-height:1.05;
+  margin-bottom:20px;
+}
+.hero h1 .brand{
+  background:var(--gradient);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.hero p.lede{
+  font-size:clamp(1rem,1.5vw,1.15rem);
+  color:var(--muted);
+  max-width:560px;
+  margin-bottom:30px;
+}
+@media(max-width:980px){.hero p.lede{margin-left:auto;margin-right:auto;}}
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;}
+@media(max-width:980px){.hero-cta{justify-content:center;}}
+.hero-cta .btn-primary,.hero-cta .btn-ghost{padding:14px 26px;font-size:1rem;}
+.status-row{
+  display:flex;gap:14px;flex-wrap:wrap;align-items:center;
+  margin-top:22px;
+}
+@media(max-width:980px){.status-row{justify-content:center;}}
+.status-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 14px;border-radius:99px;
+  font-size:.78rem;font-weight:700;
+}
+.status-pill.building{
+  background:rgba(250,204,21,.1);
+  border:1px solid rgba(250,204,21,.35);
+  color:#fbbf24;
+}
+.status-pill .dot{
+  width:7px;height:7px;border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 8px currentColor;
+  animation:pulse 1.4s ease-in-out infinite;
+}
+
+/* ===== HERO ART — MUSIC VISUALIZER ===== */
+.hero-art{
+  position:relative;
+  width:100%;min-height:360px;
+  display:flex;align-items:center;justify-content:center;
+}
+.visualizer-wrap{
+  position:relative;
+  width:320px;height:320px;max-width:90vw;
+  display:flex;align-items:center;justify-content:center;
+}
+/* outer glowing ring */
+.viz-ring{
+  position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(139,92,246,.25);
+  box-shadow:
+    inset 0 0 60px rgba(139,92,246,.07),
+    0 0 60px rgba(232,121,249,.18);
+}
+.viz-ring::before{
+  content:"";position:absolute;inset:12%;border-radius:50%;
+  border:1px dashed rgba(192,132,252,.2);
+}
+/* center album/disc */
+.viz-disc{
+  position:relative;z-index:5;
+  width:110px;height:110px;border-radius:50%;
+  background:linear-gradient(135deg,#1a0a2e,#2e1060);
+  border:3px solid rgba(139,92,246,.5);
+  box-shadow:0 0 0 8px rgba(139,92,246,.1),0 0 40px rgba(139,92,246,.4);
+  display:flex;align-items:center;justify-content:center;
+  color:#c084fc;font-size:2rem;
+  animation:spin-slow 8s linear infinite;
+}
+.viz-disc::before{
+  content:"";position:absolute;
+  width:22px;height:22px;border-radius:50%;
+  background:#06030f;
+  border:2px solid rgba(139,92,246,.4);
+}
+.viz-disc::after{
+  content:"";position:absolute;inset:-18px;border-radius:50%;
+  border:2px solid rgba(139,92,246,.3);
+  animation:ping2 3s ease-out infinite;
+}
+@keyframes spin-slow{to{transform:rotate(360deg);}}
+@keyframes ping2{0%{transform:scale(.8);opacity:.9;}80%{transform:scale(1.5);opacity:0;}100%{opacity:0;}}
+
+/* equalizer bars around the disc */
+.eq-bars{
+  position:absolute;inset:0;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+}
+.bar{
+  position:absolute;
+  bottom:50%;
+  width:5px;border-radius:3px 3px 0 0;
+  background:var(--gradient);
+  transform-origin:bottom center;
+  opacity:.85;
+}
+
+/* floating signal chips */
+.sig{
+  position:absolute;
+  font-size:.72rem;font-weight:700;letter-spacing:.04em;
+  color:#e0d4ff;
+  background:rgba(13,8,32,.88);
+  border:1px solid rgba(139,92,246,.35);
+  padding:5px 10px;border-radius:8px;
+  white-space:nowrap;
+  box-shadow:0 6px 18px rgba(139,92,246,.15);
+  animation:sig-float 5s ease-in-out infinite;
+  z-index:4;
+}
+.sig i{color:#c084fc;margin-right:6px;}
+.sig.s1{left:-40px;top:15%;animation-delay:0s;}
+.sig.s2{right:-50px;top:58%;animation-delay:1.4s;}
+.sig.s3{left:5%;bottom:-8%;animation-delay:2.8s;}
+@keyframes sig-float{0%,100%{transform:translateY(0);opacity:.95;}50%{transform:translateY(-8px);opacity:1;}}
+
+/* ===== SECTION FRAME ===== */
+.section{
+  position:relative;z-index:5;
+  padding:70px 24px;
+  max-width:1200px;
+  margin:0 auto;
+}
+.section-eyebrow{
+  text-align:center;font-size:.82rem;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;
+  color:var(--accent2);margin-bottom:8px;
+}
+.section h2{
+  text-align:center;
+  font-size:clamp(1.9rem,4vw,2.8rem);
+  font-weight:800;letter-spacing:-.5px;
+  margin-bottom:14px;
+}
+.section h2 span{
+  background:var(--gradient);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.section .subtitle{
+  text-align:center;color:var(--muted);
+  max-width:680px;margin:0 auto 50px;
+  font-size:1.05rem;
+}
+
+/* ===== FEATURES ===== */
+.features{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:22px;
+}
+.feature-card{
+  background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01));
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:18px;
+  padding:28px 26px;
+  transition:transform .2s,border-color .2s,background .2s;
+}
+.feature-card:hover{
+  transform:translateY(-4px);
+  border-color:rgba(139,92,246,.45);
+  background:linear-gradient(180deg,rgba(139,92,246,0.07),rgba(255,255,255,0.01));
+}
+.feature-card .icon{
+  width:48px;height:48px;border-radius:12px;
+  background:rgba(139,92,246,.14);
+  color:var(--accent2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;margin-bottom:18px;
+}
+.feature-card h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:#fff;}
+.feature-card p{color:var(--muted);font-size:.93rem;line-height:1.55;}
+.soon-pill{
+  display:inline-block;font-size:.62rem;letter-spacing:.08em;font-weight:800;text-transform:uppercase;
+  padding:3px 8px;border-radius:99px;
+  background:rgba(250,204,21,.15);color:#facc15;border:1px solid rgba(250,204,21,.35);
+  margin-left:8px;
+}
+
+/* ===== SOURCES STRIP ===== */
+.sources-strip{
+  position:relative;z-index:5;
+  padding:40px 24px;
+  border-top:1px solid rgba(255,255,255,.04);
+  border-bottom:1px solid rgba(255,255,255,.04);
+  background:rgba(13,8,32,.5);
+}
+.sources-inner{
+  max-width:1100px;margin:0 auto;
+  display:flex;flex-direction:column;align-items:center;gap:22px;
+}
+.sources-inner p{color:var(--muted);font-size:.88rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;}
+.sources-row{
+  display:flex;flex-wrap:wrap;gap:14px;justify-content:center;
+}
+.source-chip{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:10px 20px;border-radius:12px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  font-weight:700;font-size:.92rem;color:var(--text);
+  transition:border-color .2s,background .2s;
+}
+.source-chip:hover{border-color:rgba(139,92,246,.45);background:rgba(139,92,246,.07);}
+.source-chip i{font-size:1.1rem;}
+.source-chip.yt i{color:#ff0000;}
+.source-chip.sp i{color:#1db954;}
+.source-chip.sc i{color:#ff5500;}
+.source-chip.ap i{color:#fc3c44;}
+.source-chip.dz i{color:#ef5466;}
+
+/* ===== COMMANDS ===== */
+.commands{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(270px,1fr));
+  gap:14px;
+}
+.cmd{
+  background:linear-gradient(180deg,rgba(139,92,246,0.06),rgba(255,255,255,0.01));
+  border:1px solid rgba(139,92,246,.18);
+  border-radius:12px;
+  padding:18px 20px;
+  transition:border-color .15s,transform .15s;
+}
+.cmd:hover{border-color:rgba(139,92,246,.45);transform:translateY(-2px);}
+.cmd code{
+  display:inline-block;
+  background:#06030f;
+  border:1px solid rgba(139,92,246,.2);
+  color:#d8b4fe;
+  padding:4px 10px;border-radius:8px;
+  font-size:.92rem;font-weight:600;margin-bottom:8px;
+  font-family:'SF Mono',Menlo,Consolas,monospace;
+}
+.cmd p{color:var(--muted);font-size:.88rem;}
+
+/* ===== PROGRESS SECTION ===== */
+.progress-section{
+  position:relative;z-index:5;
+  padding:60px 24px;
+  background:linear-gradient(180deg,transparent,rgba(139,92,246,.04));
+}
+.progress-inner{
+  max-width:700px;margin:0 auto;text-align:center;
+}
+.progress-inner h2{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:800;margin-bottom:10px;}
+.progress-inner p{color:var(--muted);margin-bottom:36px;}
+.prog-bar-wrap{text-align:left;}
+.prog-label{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:.84rem;font-weight:600;margin-bottom:8px;color:var(--text);
+}
+.prog-label span{color:var(--muted);font-size:.78rem;}
+.prog-track{
+  height:10px;border-radius:99px;
+  background:rgba(255,255,255,.07);
+  overflow:hidden;margin-bottom:18px;
+}
+.prog-fill{
+  height:100%;border-radius:99px;
+  background:var(--gradient);
+  box-shadow:0 0 12px rgba(139,92,246,.5);
+  transition:width 1s ease;
+}
+.progress-chips{
+  display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:28px;
+}
+.progress-chips .chip{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 14px;border-radius:99px;
+  font-size:.8rem;font-weight:600;
+  background:rgba(139,92,246,.1);
+  border:1px solid rgba(139,92,246,.3);
+  color:var(--accent2);
+}
+.progress-chips .chip.done{
+  background:rgba(16,185,129,.1);
+  border-color:rgba(16,185,129,.3);
+  color:#34d399;
+}
+.progress-chips .chip.done::before{content:"✓ ";}
+
+/* ===== NOTIFY STRIP ===== */
+.notify-strip{
+  position:relative;z-index:5;
+  padding:60px 24px;
+  display:flex;justify-content:center;
+}
+.notify-card{
+  position:relative;width:100%;max-width:900px;
+  border-radius:24px;overflow:hidden;
+  background:linear-gradient(135deg,rgba(139,92,246,.12),rgba(232,121,249,.08));
+  border:1px solid rgba(139,92,246,.3);
+  padding:40px 44px;
+  display:grid;grid-template-columns:auto 1fr auto;gap:28px;align-items:center;
+  box-shadow:0 30px 80px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.04);
+}
+.notify-glow{position:absolute;inset:-40%;background:radial-gradient(circle at 20% 30%,rgba(139,92,246,.18),transparent 55%),radial-gradient(circle at 85% 70%,rgba(232,121,249,.15),transparent 55%);pointer-events:none;}
+.notify-icon{
+  width:80px;height:80px;border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--gradient);
+  color:#fff;font-size:2rem;
+  box-shadow:0 14px 36px rgba(139,92,246,.45);
+  position:relative;z-index:1;flex-shrink:0;
+}
+.notify-text{position:relative;z-index:1;}
+.notify-eyebrow{font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent2);font-weight:700;margin-bottom:8px;}
+.notify-text h2{font-size:1.7rem;margin:0 0 8px;color:var(--text);line-height:1.15;}
+.notify-text p{margin:0;color:var(--muted);max-width:480px;line-height:1.55;}
+.notify-cta{position:relative;z-index:1;display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+.btn-notify{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:14px 26px;
+  background:var(--gradient);
+  color:#fff;text-decoration:none;border:none;
+  border-radius:11px;font-weight:700;font-size:.97rem;font-family:inherit;
+  cursor:pointer;
+  box-shadow:0 8px 24px rgba(139,92,246,.4);
+  transition:transform .15s,filter .15s;
+}
+.btn-notify:hover{transform:translateY(-2px);filter:brightness(1.1);}
+.notify-hint{font-size:.78rem;color:var(--muted);display:inline-flex;align-items:center;gap:5px;}
+@media(max-width:860px){
+  .notify-card{grid-template-columns:1fr;text-align:center;padding:30px 20px;gap:18px;}
+  .notify-icon{margin:0 auto;}
+  .notify-cta{align-items:center;}
+}
+
+/* ===== CTA STRIP ===== */
+.cta-strip{
+  background:linear-gradient(135deg,rgba(139,92,246,.12),rgba(232,121,249,.1));
+  border:1px solid rgba(139,92,246,.25);
+  border-radius:22px;padding:46px 30px;text-align:center;
+  margin:20px auto 60px;max-width:980px;
+  position:relative;z-index:5;
+}
+.cta-strip h2{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:800;margin-bottom:14px;}
+.cta-strip p{color:var(--muted);margin-bottom:24px;}
+
+/* ===== FOOTER ===== */
+footer{
+  position:relative;z-index:5;
+  padding:40px 24px 24px;
+  border-top:1px solid rgba(255,255,255,0.05);
+  background:rgba(6,3,15,0.6);
+}
+.footer-inner{
+  max-width:1100px;margin:0 auto;
+  display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center;
+}
+.footer-socials{display:flex;gap:14px;}
+.footer-socials a{
+  width:38px;height:38px;border-radius:50%;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);
+  color:#cfd9ee;text-decoration:none;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s ease;font-size:.95rem;
+}
+.footer-socials a:hover{background:var(--gradient);border-color:transparent;color:#fff;transform:translateY(-3px);}
+.footer-copy{color:var(--muted);font-size:.86rem;}
+.footer-copy b{color:var(--accent2);}
+
+@media(max-width:600px){
+  nav{padding:14px 18px;flex-wrap:wrap;}
+  .nav-right{width:100%;justify-content:flex-start;}
+  .hero{padding:50px 18px 40px;}
+  .hero-art{min-height:290px;}
+  .section{padding:50px 18px;}
+}
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<!-- ===== COMING SOON BANNER ===== -->
+<div class="coming-banner">
+  <i class="fas fa-circle-dot"></i>
+  Tempo is currently in development — join the waitlist to get early access when it launches.
+</div>
+
+<!-- ===== NAV ===== -->
+<nav>
+  <a class="nav-logo" href="{{ url_for('landing') }}">
+    <div class="nav-logo-mark"><i class="fas fa-music"></i></div>
+    <div class="nav-logo-name"><span>Tempo</span></div>
+  </a>
+  <a href="{{ url_for('bots_showcase') }}" class="btn-ghost">
+    <i class="fas fa-arrow-left"></i> Our Bots
+  </a>
+  <div class="nav-right">
+    <a class="btn-primary" href="#notify">
+      <i class="fas fa-bell"></i> Notify Me
+    </a>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-text">
+    <div class="hero-badge">Music &amp; Voice Engagement</div>
+    <h1>The music bot your server <span class="brand">actually deserves</span>.</h1>
+    <p class="lede">
+      High-fidelity streaming, smart queues, playlist saves, listener leaderboards, live lyrics —
+      all tuned for Discord communities that live and breathe music.
+    </p>
+    <div class="hero-cta">
+      <a class="btn-primary" href="#features">
+        <i class="fas fa-headphones"></i> Explore Features
+      </a>
+      <a class="btn-ghost" href="#notify">
+        <i class="fas fa-bell"></i> Notify Me at Launch
+      </a>
+    </div>
+    <div class="status-row">
+      <span class="status-pill building"><span class="dot"></span> In Development · 65% Complete</span>
+    </div>
+  </div>
+
+  <!-- ANIMATED MUSIC VISUALIZER -->
+  <div class="hero-art" aria-hidden="true">
+    <div class="visualizer-wrap">
+      <div class="viz-ring"></div>
+      <!-- Equalizer bars generated by JS -->
+      <div class="eq-bars" id="eqBars"></div>
+      <div class="viz-disc"><i class="fas fa-compact-disc"></i></div>
+    </div>
+    <div class="sig s1"><i class="fas fa-music"></i> Now Playing</div>
+    <div class="sig s2"><i class="fas fa-list-music"></i> Queue · 12 tracks</div>
+    <div class="sig s3"><i class="fas fa-trophy"></i> #1 listener: Abir</div>
+  </div>
+</section>
+
+<!-- ===== SOURCES STRIP ===== -->
+<div class="sources-strip">
+  <div class="sources-inner">
+    <p>Streams from your favourite platforms</p>
+    <div class="sources-row">
+      <span class="source-chip yt"><i class="fab fa-youtube"></i> YouTube</span>
+      <span class="source-chip sp"><i class="fab fa-spotify"></i> Spotify</span>
+      <span class="source-chip sc"><i class="fab fa-soundcloud"></i> SoundCloud</span>
+      <span class="source-chip ap"><i class="fab fa-apple"></i> Apple Music</span>
+      <span class="source-chip dz"><i class="fas fa-music"></i> Deezer</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FEATURES ===== -->
+<section class="section" id="features">
+  <div class="section-eyebrow">Built-in modules</div>
+  <h2>Everything a <span>music-loving</span> server needs.</h2>
+  <p class="subtitle">One bot, every feature. Configure DJ roles, filters, and leaderboards from the dashboard — no restarts needed.</p>
+
+  <div class="features">
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-play-circle"></i></div>
+      <h3>High-Quality Streaming</h3>
+      <p>Crystal-clear audio up to 320kbps. Supports YouTube, Spotify, SoundCloud, direct URLs and playlist links — just paste and play.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-layer-group"></i></div>
+      <h3>Smart Queue</h3>
+      <p>Add, remove, shuffle, move or loop individual tracks. View the full queue at a glance — with track duration, requester and progress.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-list-music"></i></div>
+      <h3>Saved Playlists</h3>
+      <p>Save your current queue as a named playlist and load it back in seconds. Per-server and per-user playlists, shareable with the whole community.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-trophy"></i></div>
+      <h3>Listener Leaderboard <span class="soon-pill">Soon</span></h3>
+      <p>XP earned per minute of listening. Weekly and all-time boards with <code>/music-top</code> — the more your members vibe, the higher they rank.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-sliders"></i></div>
+      <h3>Audio Filters &amp; Effects</h3>
+      <p>Bass boost, nightcore, vaporwave, 8D, karaoke, soft, and more — toggle in real time with <code>/filter</code>. Stack multiple effects at once.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-microphone-lines"></i></div>
+      <h3>Live Lyrics</h3>
+      <p>Get synced lyrics for any currently playing track with <code>/lyrics</code>. Displays verse-by-verse so your server can sing along in chat.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-shield-halved"></i></div>
+      <h3>DJ Role Controls</h3>
+      <p>Assign a DJ role to give fine-grained control. Regular members can request; DJs can skip, clear, filter and manage the full queue.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-clock"></i></div>
+      <h3>24/7 Mode</h3>
+      <p>Keep Tempo in the voice channel around the clock — even when everyone leaves. Toggle with <code>/247</code> and it never disconnects.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-gauge-high"></i></div>
+      <h3>Web Dashboard <span class="soon-pill">Soon</span></h3>
+      <p>Manage DJ roles, default volume, filter presets, playlist libraries and leaderboard settings — all from a beautiful web dashboard.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== COMMANDS ===== -->
+<section class="section" id="commands">
+  <div class="section-eyebrow">Slash Commands</div>
+  <h2>Every <span>command</span> at a glance.</h2>
+  <p class="subtitle">Type <code style="background:#06030f;color:#d8b4fe;padding:2px 8px;border-radius:6px;">/</code> in Discord — autocomplete, descriptions, and permission hints built in.</p>
+
+  <div class="commands">
+    <div class="cmd"><code>/play</code><p>Play a song by name, URL, or playlist link from any source.</p></div>
+    <div class="cmd"><code>/pause</code><p>Pause the current track. <code>/resume</code> to continue.</p></div>
+    <div class="cmd"><code>/skip</code><p>Skip the current track and jump to the next in queue.</p></div>
+    <div class="cmd"><code>/queue</code><p>Show the full queue — titles, duration, and who requested each.</p></div>
+    <div class="cmd"><code>/nowplaying</code><p>Beautiful now-playing card with progress bar and cover art.</p></div>
+    <div class="cmd"><code>/volume</code><p>Set playback volume from 0 – 200%.</p></div>
+    <div class="cmd"><code>/loop</code><p>Loop the current track or the entire queue.</p></div>
+    <div class="cmd"><code>/shuffle</code><p>Randomise the order of tracks in the queue.</p></div>
+    <div class="cmd"><code>/remove</code><p>Remove a specific track from the queue by its position.</p></div>
+    <div class="cmd"><code>/move</code><p>Move a track to a different position in the queue.</p></div>
+    <div class="cmd"><code>/filter</code><p>Apply or clear audio filters — bassboost, nightcore, 8D, and more.</p></div>
+    <div class="cmd"><code>/lyrics</code><p>Fetch synced lyrics for the currently playing song.</p></div>
+    <div class="cmd"><code>/playlist save</code><p>Save your current queue as a named playlist.</p></div>
+    <div class="cmd"><code>/playlist load</code><p>Load a previously saved playlist into the queue.</p></div>
+    <div class="cmd"><code>/playlist list</code><p>View all saved playlists for your server.</p></div>
+    <div class="cmd"><code>/247</code><p>Toggle 24/7 mode — Tempo stays in VC indefinitely.</p></div>
+    <div class="cmd"><code>/music-top</code><p>Show the listener leaderboard — weekly or all-time.</p></div>
+    <div class="cmd"><code>/stop</code><p>Stop playback and clear the queue entirely.</p></div>
+  </div>
+</section>
+
+<!-- ===== BUILD PROGRESS ===== -->
+<div class="progress-section">
+  <div class="progress-inner">
+    <div class="section-eyebrow">Build Progress</div>
+    <h2>Where we are</h2>
+    <p>Tempo is actively under development. Here's what's shipped and what's coming.</p>
+
+    <div class="prog-bar-wrap">
+      <div class="prog-label">Overall completion <span id="pct">0%</span></div>
+      <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+
+      <div class="prog-label">Core playback engine <span>100%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:100%"></div></div>
+
+      <div class="prog-label">Queue management <span>100%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:100%"></div></div>
+
+      <div class="prog-label">Playlist system <span>80%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:80%"></div></div>
+
+      <div class="prog-label">Audio filters &amp; effects <span>70%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:70%"></div></div>
+
+      <div class="prog-label">Listener leaderboards <span>45%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:45%"></div></div>
+
+      <div class="prog-label">Web dashboard <span>20%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:20%"></div></div>
+    </div>
+
+    <div class="progress-chips">
+      <span class="chip done">Core playback</span>
+      <span class="chip done">Multi-source support</span>
+      <span class="chip done">Queue &amp; loop</span>
+      <span class="chip done">DJ roles</span>
+      <span class="chip done">Volume &amp; 24/7</span>
+      <span class="chip">Filters (in progress)</span>
+      <span class="chip">Live lyrics</span>
+      <span class="chip">Playlists</span>
+      <span class="chip">Leaderboards</span>
+      <span class="chip">Dashboard</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== NOTIFY SECTION ===== -->
+<section class="notify-strip" id="notify">
+  <div class="notify-card">
+    <div class="notify-glow" aria-hidden="true"></div>
+    <div class="notify-icon"><i class="fas fa-bell"></i></div>
+    <div class="notify-text">
+      <div class="notify-eyebrow">Early Access</div>
+      <h2>Be first when Tempo drops</h2>
+      <p>Join the waitlist and we'll ping you the moment Tempo is ready to invite to your server — plus early access to the beta dashboard.</p>
+    </div>
+    <div class="notify-cta">
+      <a class="btn-notify" href="mailto:contact@bytelabs.dev?subject=Tempo%20Waitlist&body=I%20want%20early%20access%20to%20Tempo!">
+        <i class="fas fa-envelope"></i> Join Waitlist
+      </a>
+      <span class="notify-hint"><i class="fas fa-lock" style="color:var(--accent2);"></i> No spam. Just one email when it's live.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA STRIP ===== -->
+<section class="cta-strip" style="padding-left:24px;padding-right:24px;margin-left:24px;margin-right:24px;">
+  <h2>While you wait, try our live bots</h2>
+  <p>SP4RK and Server Official are live right now — add them to your server today.</p>
+  <a class="btn-primary" href="{{ url_for('bots_showcase') }}">
+    <i class="fas fa-robot"></i> See All Bots
+  </a>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-socials">
+      <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+      <a href="#" aria-label="Discord"><i class="fab fa-discord"></i></a>
+      <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
+    </div>
+    <div class="footer-copy">
+      &copy; <span id="yr"></span> Byte Labs &nbsp;·&nbsp; <b>Tempo</b> &nbsp;·&nbsp; Coming Soon
+    </div>
+  </div>
+</footer>
+
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+
+/* ── animated progress bar on scroll ── */
+const fill = document.getElementById('progFill');
+const pct  = document.getElementById('pct');
+const target = 65;
+const ob = new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting) {
+    let v = 0;
+    const t = setInterval(() => {
+      v = Math.min(v + 1, target);
+      fill.style.width = v + '%';
+      pct.textContent  = v + '%';
+      if (v >= target) clearInterval(t);
+    }, 18);
+    ob.disconnect();
+  }
+}, { threshold: 0.3 });
+if (fill) ob.observe(fill);
+
+/* ── generate equalizer bars ── */
+(function buildEQ() {
+  const container = document.getElementById('eqBars');
+  if (!container) return;
+  const NUM = 28;
+  const RADIUS = 148; // px from centre
+  for (let i = 0; i < NUM; i++) {
+    const angle = (360 / NUM) * i - 90; // start at top
+    const rad   = (angle * Math.PI) / 180;
+    const cx = 50 + (RADIUS / 1.6) * Math.cos(rad);
+    const cy = 50 + (RADIUS / 1.6) * Math.sin(rad);
+
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+
+    const minH = 12, maxH = 48;
+    const h = minH + Math.random() * (maxH - minH);
+    const dur = 0.5 + Math.random() * 0.8;
+    const delay = Math.random() * 1.5;
+
+    bar.style.cssText = `
+      height:${h}px;
+      left:calc(50% + ${(RADIUS * Math.cos(rad)).toFixed(1)}px - 2.5px);
+      top:calc(50% + ${(RADIUS * Math.sin(rad)).toFixed(1)}px - ${h}px);
+      transform:rotate(${angle + 90}deg);
+      transform-origin:bottom center;
+      animation:eq-bounce ${dur}s ease-in-out ${delay}s infinite alternate;
+    `;
+    container.appendChild(bar);
+  }
+
+  /* inject keyframes once */
+  const style = document.createElement('style');
+  style.textContent = `@keyframes eq-bounce{
+    0%  {transform:rotate(var(--r,0deg)) scaleY(.3);opacity:.5;}
+    100%{transform:rotate(var(--r,0deg)) scaleY(1);opacity:1;}
+  }`;
+  /* Override with per-bar rotation via custom property */
+  document.head.appendChild(style);
+
+  /* re-assign proper rotation per bar */
+  container.querySelectorAll('.bar').forEach((b, i) => {
+    const a = (360 / NUM) * i - 90;
+    b.style.setProperty('--r', (a + 90) + 'deg');
+  });
+})();
+</script>
+
+{% include "_cookie_consent.html" %}
+</body>
+</html>

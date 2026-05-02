@@ -1125,16 +1125,20 @@ footer{
     </div>
   </a>
 
-  <!-- Coming Soon card 1 -->
-  <div class="bot-card coming is-soon reveal reveal-delay-3" data-status="soon">
-    <div class="bot-banner">
+  <!-- Tempo card (links to landing page) -->
+  <a href="{{ url_for('tempo_landing') }}" class="bot-card coming is-live reveal reveal-delay-3" data-status="soon" style="text-decoration:none;">
+    <div class="bot-banner" style="background:linear-gradient(135deg,#1a0835 0%,#2d1060 60%,#4c1d95 100%);">
       <span class="bx-shimmer" aria-hidden="true"></span>
-      <div class="bot-icon"><i class="fas fa-music"></i></div>
-      <div class="bot-status status-soon">Coming Soon</div>
+      <div class="bot-icon" style="background:linear-gradient(135deg,#8b5cf6,#e879f9);box-shadow:0 8px 24px rgba(139,92,246,.5);">
+        <i class="fas fa-music"></i>
+      </div>
+      <div class="bot-status" style="background:rgba(250,204,21,.15);border:1px solid rgba(250,204,21,.4);color:#fbbf24;">
+        <span class="dot" style="background:#fbbf24;box-shadow:0 0 6px #fbbf24;animation:pulse 1.4s ease-in-out infinite;"></span> In Development
+      </div>
     </div>
     <div class="bot-body">
-      <div class="bot-name">Tempo</div>
-      <div class="bot-tag">Music &amp; Voice Engagement</div>
+      <div class="bot-name" style="background:linear-gradient(135deg,#c084fc,#e879f9);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">Tempo</div>
+      <div class="bot-tag" style="color:#c084fc;">Music &amp; Voice Engagement</div>
       <div class="bot-desc">
         High-quality music streaming, voice channel events, and listener leaderboards —
         designed for music-loving communities.
@@ -1143,13 +1147,18 @@ footer{
         <span class="chip">Music</span>
         <span class="chip">Voice</span>
         <span class="chip">Playlists</span>
+        <span class="chip">Lyrics</span>
+        <span class="chip">Filters</span>
       </div>
       <div class="bx-progress">
         <div class="bx-progress-row"><span>Build progress</span><b>65%</b></div>
-        <div class="bx-progress-track"><div class="bx-progress-fill" data-progress="65"></div></div>
+        <div class="bx-progress-track"><div class="bx-progress-fill" data-progress="65" style="background:linear-gradient(90deg,#8b5cf6,#e879f9);"></div></div>
       </div>
+      <span class="bot-cta" style="color:#c084fc;border-color:rgba(192,132,252,.4);">
+        View Tempo <i class="fas fa-arrow-right"></i>
+      </span>
     </div>
-  </div>
+  </a>
 
   <!-- Coming Soon card 2 -->
   <div class="bot-card coming is-soon reveal reveal-delay-1" data-status="soon">
