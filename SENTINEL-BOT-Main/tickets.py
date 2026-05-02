@@ -262,7 +262,7 @@ class TicketCloseView(discord.ui.View):
                     opener_id = t["user_id"]
                     break
             if opener_id and interaction.user.id != opener_id:
-                await interaction.response.send_message("❌ Only staff or the ticket opener can close this.", ephemeral=True)
+                await interaction.response.send_message("❌ **Access Denied** — Only staff or the original ticket opener can close this ticket.", ephemeral=True)
                 return
-        await interaction.response.send_message("🔒 Closing ticket...")
+        await interaction.response.send_message("🔒 **Closing Ticket** — Please wait while the ticket is being closed...")
         await close_ticket(interaction.channel, interaction.user)

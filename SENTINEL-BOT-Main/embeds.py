@@ -60,13 +60,15 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "placeholders": ["{user_mention}", "{user_name}", "{user_id}", "{user_avatar}",
                          "{server_name}", "{server_id}", "{member_count}", "{account_age}"],
         "default": {
-            "title": "👋 New Member",
-            "description": "{user_mention} joined **{server_name}**\n\n"
-                           "We're now **{member_count}** members strong!",
+            "title": "👋 Welcome to {server_name}!",
+            "description": "A new member has arrived — say hello!\n\n"
+                           "**{user_name}** has joined the server.\n"
+                           "📅 Account created: {account_age}\n\n"
+                           "You are member **#{member_count}**. Welcome aboard, {user_mention}!",
             "color": 0x4f8ef7,
-            "footer": "User ID: {user_id}",
+            "footer": "🆔 User ID: {user_id}  •  SP4RK Sentinel",
             "thumbnail": "{user_avatar}",
-            "image": "", "author_name": "", "author_icon": "",
+            "image": "", "author_name": "New Member Joined", "author_icon": "",
         },
     },
     "sp4rk.leave": {
@@ -76,12 +78,14 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "placeholders": ["{user_mention}", "{user_name}", "{user_id}", "{user_avatar}",
                          "{server_name}", "{member_count}"],
         "default": {
-            "title": "🚪 Member Left",
-            "description": "{user_mention} left **{server_name}**",
+            "title": "🚪 Member Departed",
+            "description": "**{user_name}** has left **{server_name}**.\n\n"
+                           "The server now has **{member_count}** members.\n"
+                           "We hope to see them again someday. 👋",
             "color": 0xe67e22,
-            "footer": "User ID: {user_id}",
+            "footer": "🆔 User ID: {user_id}  •  SP4RK Sentinel",
             "thumbnail": "{user_avatar}",
-            "image": "", "author_name": "", "author_icon": "",
+            "image": "", "author_name": "Member Left", "author_icon": "",
         },
     },
     "sp4rk.member_banned": {
@@ -91,10 +95,11 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "placeholders": ["{user_name}", "{user_id}", "{server_name}"],
         "default": {
             "title": "⛔ Member Banned",
-            "description": "{user_name} was banned from **{server_name}**",
+            "description": "**{user_name}** was banned from **{server_name}**.\n\n"
+                           "This action was detected by Discord's audit log.",
             "color": 0xe74c3c,
-            "footer": "User ID: {user_id}",
-            "thumbnail": "", "image": "", "author_name": "", "author_icon": "",
+            "footer": "🆔 User ID: {user_id}  •  SP4RK Sentinel",
+            "thumbnail": "", "image": "", "author_name": "Ban Detected", "author_icon": "",
         },
     },
     "sp4rk.warn": {
@@ -104,12 +109,15 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "placeholders": ["{user_mention}", "{user_name}", "{moderator}", "{reason}", "{warn_count}"],
         "default": {
             "title": "⚠️ Warning Issued",
-            "description": "{user_name} warned by {moderator}\n"
-                           "**Reason:** {reason}\n"
-                           "**Total Warnings:** {warn_count}",
+            "description": "A formal warning has been recorded against **{user_name}**.\n\n"
+                           "👤 **Member:** {user_mention}\n"
+                           "🛡️ **Moderator:** {moderator}\n"
+                           "📝 **Reason:** {reason}\n"
+                           "🔢 **Total Warnings:** {warn_count}",
             "color": 0xf39c12,
-            "footer": "", "thumbnail": "", "image": "",
-            "author_name": "", "author_icon": "",
+            "footer": "SP4RK Moderation  •  Repeated violations may result in a ban",
+            "thumbnail": "", "image": "",
+            "author_name": "Moderation Action — Warning", "author_icon": "",
         },
     },
     "sp4rk.kick": {
@@ -118,11 +126,15 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Logged when a member is kicked.",
         "placeholders": ["{user_name}", "{moderator}", "{reason}", "{server_name}"],
         "default": {
-            "title": "🚪 Kick",
-            "description": "{user_name} kicked by {moderator}\n**Reason:** {reason}",
+            "title": "🚪 Member Kicked",
+            "description": "**{user_name}** has been removed from **{server_name}**.\n\n"
+                           "🛡️ **Moderator:** {moderator}\n"
+                           "📝 **Reason:** {reason}\n\n"
+                           "They may rejoin with an active invite link.",
             "color": 0xe67e22,
-            "footer": "", "thumbnail": "", "image": "",
-            "author_name": "", "author_icon": "",
+            "footer": "SP4RK Moderation  •  Kick logged",
+            "thumbnail": "", "image": "",
+            "author_name": "Moderation Action — Kick", "author_icon": "",
         },
     },
     "sp4rk.ban": {
@@ -131,11 +143,15 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Logged when a member is banned via `!ban`.",
         "placeholders": ["{user_name}", "{moderator}", "{reason}"],
         "default": {
-            "title": "⛔ Ban",
-            "description": "{user_name} banned by {moderator}\n**Reason:** {reason}",
+            "title": "⛔ Member Banned",
+            "description": "**{user_name}** has been permanently banned.\n\n"
+                           "🛡️ **Moderator:** {moderator}\n"
+                           "📝 **Reason:** {reason}\n\n"
+                           "Use `!unban <user_id>` to reverse this action.",
             "color": 0xe74c3c,
-            "footer": "", "thumbnail": "", "image": "",
-            "author_name": "", "author_icon": "",
+            "footer": "SP4RK Moderation  •  Ban logged",
+            "thumbnail": "", "image": "",
+            "author_name": "Moderation Action — Ban", "author_icon": "",
         },
     },
     "sp4rk.timeout": {
@@ -144,11 +160,16 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Logged when a member is timed out.",
         "placeholders": ["{user_name}", "{moderator}", "{duration}", "{reason}"],
         "default": {
-            "title": "⏱️ Timeout",
-            "description": "{user_name} timed out by {moderator} for **{duration}**\n**Reason:** {reason}",
+            "title": "⏱️ Member Timed Out",
+            "description": "**{user_name}** has been placed in a temporary timeout.\n\n"
+                           "🕐 **Duration:** {duration}\n"
+                           "🛡️ **Moderator:** {moderator}\n"
+                           "📝 **Reason:** {reason}\n\n"
+                           "They will be able to participate again when the timeout expires.",
             "color": 0xf39c12,
-            "footer": "", "thumbnail": "", "image": "",
-            "author_name": "", "author_icon": "",
+            "footer": "SP4RK Moderation  •  Timeout logged",
+            "thumbnail": "", "image": "",
+            "author_name": "Moderation Action — Timeout", "author_icon": "",
         },
     },
     "sp4rk.unban": {
@@ -157,11 +178,15 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Logged when a banned user is restored.",
         "placeholders": ["{user_name}", "{moderator}", "{reason}"],
         "default": {
-            "title": "✅ Unban",
-            "description": "{user_name} unbanned by {moderator}\n**Reason:** {reason}",
+            "title": "✅ Member Unbanned",
+            "description": "**{user_name}**'s ban has been lifted.\n\n"
+                           "🛡️ **Moderator:** {moderator}\n"
+                           "📝 **Reason:** {reason}\n\n"
+                           "They may now rejoin the server with an invite link.",
             "color": 0x2ecc71,
-            "footer": "", "thumbnail": "", "image": "",
-            "author_name": "", "author_icon": "",
+            "footer": "SP4RK Moderation  •  Unban logged",
+            "thumbnail": "", "image": "",
+            "author_name": "Moderation Action — Unban", "author_icon": "",
         },
     },
     "sp4rk.message_edit": {
@@ -172,14 +197,14 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                          "{before}", "{after}", "{jump_url}"],
         "default": {
             "title": "✏️ Message Edited",
-            "description": "**Author:** {user_mention} (`{user_name}`)\n"
-                           "**Channel:** {channel}\n\n"
-                           "**Before:** {before}\n"
-                           "**After:** {after}\n\n"
-                           "[Jump to message]({jump_url})",
+            "description": "A message was modified in {channel}.\n\n"
+                           "👤 **Author:** {user_mention} — `{user_name}`\n\n"
+                           "📄 **Before:**\n```{before}```\n"
+                           "📝 **After:**\n```{after}```\n\n"
+                           "🔗 [Jump to message]({jump_url})",
             "color": 0x3498db,
-            "footer": "User ID: {user_id}",
-            "thumbnail": "", "image": "", "author_name": "", "author_icon": "",
+            "footer": "🆔 User ID: {user_id}  •  SP4RK Logging",
+            "thumbnail": "", "image": "", "author_name": "Message Edited", "author_icon": "",
         },
     },
     "sp4rk.message_delete": {
@@ -189,12 +214,12 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "placeholders": ["{user_mention}", "{user_name}", "{user_id}", "{channel}", "{content}"],
         "default": {
             "title": "🗑️ Message Deleted",
-            "description": "**Author:** {user_mention} (`{user_name}`)\n"
-                           "**Channel:** {channel}\n\n"
-                           "**Content:** {content}",
+            "description": "A message was permanently removed from {channel}.\n\n"
+                           "👤 **Author:** {user_mention} — `{user_name}`\n\n"
+                           "📄 **Content:**\n```{content}```",
             "color": 0xe74c3c,
-            "footer": "User ID: {user_id}",
-            "thumbnail": "", "image": "", "author_name": "", "author_icon": "",
+            "footer": "🆔 User ID: {user_id}  •  SP4RK Logging",
+            "thumbnail": "", "image": "", "author_name": "Message Deleted", "author_icon": "",
         },
     },
     "sp4rk.voice_join": {
@@ -203,11 +228,14 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Logged when a member joins a voice channel.",
         "placeholders": ["{user_mention}", "{user_name}", "{channel}"],
         "default": {
-            "title": "🔊 Joined Voice",
-            "description": "{user_mention} joined **{channel}**",
+            "title": "🔊 Voice Channel Joined",
+            "description": "**{user_name}** connected to a voice channel.\n\n"
+                           "📡 **Channel:** {channel}\n"
+                           "👤 **Member:** {user_mention}",
             "color": 0x2ecc71,
-            "footer": "", "thumbnail": "", "image": "",
-            "author_name": "", "author_icon": "",
+            "footer": "SP4RK Voice Logging",
+            "thumbnail": "", "image": "",
+            "author_name": "Voice Activity", "author_icon": "",
         },
     },
     "sp4rk.voice_leave": {
@@ -216,11 +244,15 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Logged when a member leaves a voice channel.",
         "placeholders": ["{user_mention}", "{user_name}", "{channel}", "{duration}"],
         "default": {
-            "title": "🔇 Left Voice",
-            "description": "{user_mention} left **{channel}**",
-            "color": 0xe74c3c,
-            "footer": "", "thumbnail": "", "image": "",
-            "author_name": "", "author_icon": "",
+            "title": "🔇 Voice Channel Left",
+            "description": "**{user_name}** disconnected from a voice channel.\n\n"
+                           "📡 **Channel:** {channel}\n"
+                           "👤 **Member:** {user_mention}\n"
+                           "⏱️ **Session:** {duration}",
+            "color": 0x95a5a6,
+            "footer": "SP4RK Voice Logging",
+            "thumbnail": "", "image": "",
+            "author_name": "Voice Activity", "author_icon": "",
         },
     },
     "sp4rk.ticket_open": {
@@ -229,14 +261,18 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "First message inside the new ticket channel.",
         "placeholders": ["{ticket_id}", "{reason}", "{user_mention}", "{user_name}"],
         "default": {
-            "title": "🎫 Ticket #{ticket_id}",
-            "description": "Welcome {user_mention}! Staff will be with you shortly.\n\n"
-                           "**Reason:** {reason}\n"
-                           "**Opened by:** {user_mention}\n\n"
-                           "Press the **Close Ticket** button or use `/ticket-close` when done.",
+            "title": "🎫 Support Ticket  •  #{ticket_id}",
+            "description": "Welcome, {user_mention}! Your ticket has been received.\n\n"
+                           "📝 **Reason:** {reason}\n"
+                           "👤 **Opened by:** {user_mention}\n\n"
+                           "━━━━━━━━━━━━━━━━━━━━━━\n"
+                           "A staff member will assist you shortly.\n"
+                           "While you wait, please describe your issue in as much detail as possible.\n"
+                           "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                           "🔒 Press **Close Ticket** or use `/ticket-close` when resolved.",
             "color": 0x3a8fff,
-            "footer": "SP4RK Ticket System",
-            "thumbnail": "", "image": "", "author_name": "", "author_icon": "",
+            "footer": "SP4RK Ticket System  •  Do not share sensitive information",
+            "thumbnail": "", "image": "", "author_name": "SP4RK Support", "author_icon": "",
         },
     },
     "sp4rk.ticket_close": {
@@ -245,12 +281,15 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Posted before the ticket channel is deleted.",
         "placeholders": ["{ticket_id}", "{user_mention}", "{moderator}"],
         "default": {
-            "title": "🔒 Ticket Closing",
-            "description": "This ticket is being closed by {moderator}.\n"
-                           "Channel will be deleted in 5 seconds.",
+            "title": "🔒 Ticket Closed  •  #{ticket_id}",
+            "description": "This ticket has been closed.\n\n"
+                           "🛡️ **Closed by:** {moderator}\n\n"
+                           "Thank you for reaching out to our support team.\n"
+                           "This channel will be deleted in **5 seconds**.",
             "color": 0xe74c3c,
-            "footer": "", "thumbnail": "", "image": "",
-            "author_name": "", "author_icon": "",
+            "footer": "SP4RK Ticket System  •  Transcript may be saved",
+            "thumbnail": "", "image": "",
+            "author_name": "Ticket Resolved", "author_icon": "",
         },
     },
     "sp4rk.giveaway_active": {
@@ -259,15 +298,18 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Posted when `/giveaway` starts a new giveaway.",
         "placeholders": ["{prize}", "{winners}", "{host}", "{ends_at_relative}", "{ends_at_absolute}"],
         "default": {
-            "title": "🎉 GIVEAWAY 🎉",
-            "description": "**Prize:** {prize}\n"
-                           "**Winners:** {winners}\n"
-                           "**Hosted by:** {host}\n"
-                           "**Ends:** {ends_at_relative}\n\n"
-                           "React with 🎉 to enter!",
-            "color": 0x3a8fff,
-            "footer": "Ends at {ends_at_absolute}",
-            "thumbnail": "", "image": "", "author_name": "", "author_icon": "",
+            "title": "🎉  G I V E A W A Y  🎉",
+            "description": "━━━━━━━━━━━━━━━━━━━━━━\n"
+                           "🏆 **Prize:** {prize}\n"
+                           "👑 **Winners:** {winners}\n"
+                           "🎗️ **Hosted by:** {host}\n"
+                           "⏰ **Ends:** {ends_at_relative}\n"
+                           "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                           "React with 🎉 below to enter!\n"
+                           "One entry per person. Good luck everyone! 🍀",
+            "color": 0xf5b400,
+            "footer": "⏰ Ends at {ends_at_absolute}  •  SP4RK Giveaways",
+            "thumbnail": "", "image": "", "author_name": "SP4RK Giveaway", "author_icon": "",
         },
     },
     "sp4rk.giveaway_ended": {
@@ -276,13 +318,16 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Posted when a giveaway ends with at least one entry.",
         "placeholders": ["{prize}", "{winners_mentions}", "{host}"],
         "default": {
-            "title": "🎉 Giveaway Ended!",
-            "description": "**Prize:** {prize}\n"
-                           "**Winner(s):** {winners_mentions}\n"
-                           "**Hosted by:** {host}",
+            "title": "🎊  GIVEAWAY ENDED  🎊",
+            "description": "The giveaway has concluded — congratulations to the winner(s)!\n\n"
+                           "🏆 **Prize:** {prize}\n"
+                           "🥇 **Winner(s):** {winners_mentions}\n"
+                           "🎗️ **Hosted by:** {host}\n\n"
+                           "Thank you to everyone who participated! 🎉",
             "color": 0x2ecc71,
-            "footer": "", "thumbnail": "", "image": "",
-            "author_name": "", "author_icon": "",
+            "footer": "SP4RK Giveaways  •  Congratulations!",
+            "thumbnail": "", "image": "",
+            "author_name": "Giveaway Complete", "author_icon": "",
         },
     },
     "sp4rk.giveaway_no_entries": {
@@ -291,11 +336,15 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "Posted when a giveaway ends but nobody reacted.",
         "placeholders": ["{prize}"],
         "default": {
-            "title": "🎉 Giveaway Ended",
-            "description": "**Prize:** {prize}\nNo valid entries. No winner.",
-            "color": 0xe74c3c,
-            "footer": "", "thumbnail": "", "image": "",
-            "author_name": "", "author_icon": "",
+            "title": "😔  Giveaway Ended — No Winner",
+            "description": "The giveaway has ended, but unfortunately no one entered.\n\n"
+                           "🏆 **Prize:** {prize}\n\n"
+                           "No valid reactions were detected before the deadline.\n"
+                           "The host may choose to restart the giveaway.",
+            "color": 0x95a5a6,
+            "footer": "SP4RK Giveaways  •  Better luck next time!",
+            "thumbnail": "", "image": "",
+            "author_name": "Giveaway Concluded", "author_icon": "",
         },
     },
 

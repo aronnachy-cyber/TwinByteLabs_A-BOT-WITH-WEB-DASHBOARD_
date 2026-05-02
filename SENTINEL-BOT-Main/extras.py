@@ -156,13 +156,13 @@ def setup(bot: commands.Bot, dlog=None) -> None:
     async def tag_show(interaction: discord.Interaction, name: str):
         if not interaction.guild:
             return await interaction.response.send_message(
-                "❌ Tags only work in a server.", ephemeral=True
+                "❌ **Server Only** — Tags can only be used inside a server.", ephemeral=True
             )
         key = _normalize_tag(name)
         tag = _guild_tags(interaction.guild.id).get(key)
         if not tag:
             return await interaction.response.send_message(
-                f"❌ No tag named **{key}**. Use `/tag list` to see all tags.",
+                f"❌ **Tag Not Found** — No tag named **{key}** exists.\n> Use `/tag list` to see all available tags.",
                 ephemeral=True,
             )
         tag["uses"] = int(tag.get("uses", 0)) + 1
@@ -174,18 +174,18 @@ def setup(bot: commands.Bot, dlog=None) -> None:
     async def tag_create(interaction: discord.Interaction, name: str, content: str):
         if not interaction.guild:
             return await interaction.response.send_message(
-                "❌ Tags only work in a server.", ephemeral=True
+                "❌ **Server Only** — Tags can only be used inside a server.", ephemeral=True
             )
         key = _normalize_tag(name)
         if not _VALID_TAG.match(key):
             return await interaction.response.send_message(
-                "❌ Tag name must be 1–32 chars: lowercase letters, digits, `_` or `-`.",
+                "❌ **Invalid Name** — Tag names must be 1–32 characters: lowercase letters, digits, `_` or `-`.",
                 ephemeral=True,
             )
         gtags = _guild_tags(interaction.guild.id)
         if key in gtags:
             return await interaction.response.send_message(
-                f"❌ A tag named **{key}** already exists. Use `/tag edit` to change it.",
+                f"❌ **Already Exists** — A tag named **{key}** already exists.\n> Use `/tag edit` to update it.",
                 ephemeral=True,
             )
         gtags[key] = {
@@ -197,7 +197,7 @@ def setup(bot: commands.Bot, dlog=None) -> None:
         _save_tags()
         _log("🏷️ TAG", f"{interaction.user} created tag '{key}'")
         await interaction.response.send_message(
-            f"✅ Tag **{key}** created. Anyone can call it with `/tag show {key}` or `!tag {key}`."
+            f"✅ **Tag Created** — **{key}** is now live.\n> Use `/tag show {key}` or `!tag {key}` to display it."
         )
 
     @tag_group.command(name="edit", description="Edit a tag you created (mods can edit any)")
@@ -210,18 +210,18 @@ def setup(bot: commands.Bot, dlog=None) -> None:
         tag = gtags.get(key)
         if not tag:
             return await interaction.response.send_message(
-                f"❌ No tag named **{key}**.", ephemeral=True
+                f"❌ **Tag Not Found** — No tag named **{key}** exists.", ephemeral=True
             )
         is_mod = interaction.user.guild_permissions.manage_messages
         if str(interaction.user.id) != tag.get("author_id") and not is_mod:
             return await interaction.response.send_message(
-                "❌ Only the tag's author or a moderator can edit it.", ephemeral=True
+                "❌ **Access Denied** — Only the tag's author or a moderator can edit it.", ephemeral=True
             )
         tag["content"] = content[:2000]
         tag["edited_at"] = datetime.now(timezone.utc).isoformat()
         _save_tags()
         _log("🏷️ TAG", f"{interaction.user} edited tag '{key}'")
-        await interaction.response.send_message(f"✅ Tag **{key}** updated.")
+        await interaction.response.send_message(f"✅ **Tag Updated** — **{key}** has been edited successfully.")
 
     @tag_group.command(name="delete", description="Delete a tag you created (mods can delete any)")
     @app_commands.describe(name="Tag to delete")
@@ -233,22 +233,22 @@ def setup(bot: commands.Bot, dlog=None) -> None:
         tag = gtags.get(key)
         if not tag:
             return await interaction.response.send_message(
-                f"❌ No tag named **{key}**.", ephemeral=True
+                f"❌ **Tag Not Found** — No tag named **{key}** exists.", ephemeral=True
             )
         is_mod = interaction.user.guild_permissions.manage_messages
         if str(interaction.user.id) != tag.get("author_id") and not is_mod:
             return await interaction.response.send_message(
-                "❌ Only the tag's author or a moderator can delete it.", ephemeral=True
+                "❌ **Access Denied** — Only the tag's author or a moderator can delete it.", ephemeral=True
             )
         gtags.pop(key, None)
         _save_tags()
         _log("🏷️ TAG", f"{interaction.user} deleted tag '{key}'")
-        await interaction.response.send_message(f"🗑️ Tag **{key}** deleted.")
+        await interaction.response.send_message(f"🗑️ **Tag Deleted** — **{key}** has been permanently removed.")
 
     @tag_group.command(name="list", description="List every tag in this server")
     async def tag_list(interaction: discord.Interaction):
         if not interaction.guild:
-            return await interaction.response.send_message("❌ Server only.", ephemeral=True)
+            return await interaction.response.send_message("❌ **Server Only** — This command can only be used in a server.", ephemeral=True)
         gtags = _guild_tags(interaction.guild.id)
         if not gtags:
             return await interaction.response.send_message(
@@ -256,26 +256,36 @@ def setup(bot: commands.Bot, dlog=None) -> None:
             )
         # Sort by usage descending so the popular ones surface.
         rows = sorted(gtags.items(), key=lambda kv: -int(kv[1].get("uses", 0)))
-        lines = [f"`{k}` — used **{v.get('uses', 0)}** time(s)" for k, v in rows[:30]]
+        lines = [
+            f"`{i+1}.` **{k}** — {v.get('uses', 0)} use(s)"
+            for i, (k, v) in enumerate(rows[:30])
+        ]
         embed = discord.Embed(
-            title=f"🏷️ Tags — {interaction.guild.name} ({len(gtags)})",
-            description="\n".join(lines),
+            title=f"🏷️ Server Tags — {interaction.guild.name}",
+            description=(
+                f"**{len(gtags)}** tag(s) available. Sorted by popularity.\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                + "\n".join(lines)
+            ),
             color=0x4f8ef7,
+            timestamp=datetime.now(timezone.utc),
         )
         if len(gtags) > 30:
-            embed.set_footer(text=f"Showing top 30 of {len(gtags)} tags by usage.")
+            embed.set_footer(text=f"Showing top 30 of {len(gtags)} tags by usage  •  SP4RK Tags")
+        else:
+            embed.set_footer(text=f"Use /tag show <name> to display a tag  •  SP4RK Tags")
         await interaction.response.send_message(embed=embed)
 
     @tag_group.command(name="info", description="Show metadata about a tag")
     @app_commands.describe(name="Tag to inspect")
     async def tag_info(interaction: discord.Interaction, name: str):
         if not interaction.guild:
-            return await interaction.response.send_message("❌ Server only.", ephemeral=True)
+            return await interaction.response.send_message("❌ **Server Only** — This command can only be used in a server.", ephemeral=True)
         key = _normalize_tag(name)
         tag = _guild_tags(interaction.guild.id).get(key)
         if not tag:
             return await interaction.response.send_message(
-                f"❌ No tag named **{key}**.", ephemeral=True
+                f"❌ **Tag Not Found** — No tag named **{key}** exists.", ephemeral=True
             )
         try:
             author = await bot.fetch_user(int(tag["author_id"]))
@@ -289,23 +299,30 @@ def setup(bot: commands.Bot, dlog=None) -> None:
         except Exception:
             created_disp = created or "—"
         embed = discord.Embed(
-            title=f"🏷️ Tag — {key}",
+            title=f"🏷️ Tag Info — {key}",
+            description=(
+                f"Detailed metadata for the **{key}** tag.\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━"
+            ),
             color=0x4f8ef7,
+            timestamp=datetime.now(timezone.utc),
         )
-        embed.add_field(name="✍️ Author", value=author_str, inline=False)
-        embed.add_field(name="📅 Created", value=created_disp, inline=True)
-        embed.add_field(name="📊 Uses", value=f"**{tag.get('uses', 0)}**", inline=True)
+        embed.add_field(name="✍️ Author",   value=author_str,               inline=False)
+        embed.add_field(name="📅 Created",  value=created_disp,             inline=True)
+        embed.add_field(name="📊 Uses",     value=f"**{tag.get('uses', 0)}**", inline=True)
         if edited:
             try:
                 edited_disp = f"<t:{int(datetime.fromisoformat(edited).timestamp())}:R>"
             except Exception:
                 edited_disp = edited
-            embed.add_field(name="📝 Last edited", value=edited_disp, inline=True)
+            embed.add_field(name="📝 Last Edited", value=edited_disp, inline=True)
+        content_preview = tag["content"][:500] + ("…" if len(tag["content"]) > 500 else "")
         embed.add_field(
-            name="📜 Content (first 500)",
-            value=tag["content"][:500] + ("…" if len(tag["content"]) > 500 else ""),
+            name="📜 Content Preview",
+            value=f"```{content_preview}```",
             inline=False,
         )
+        embed.set_footer(text=f"Use /tag show {key} to display this tag  •  SP4RK Tags")
         await interaction.response.send_message(embed=embed)
 
     bot.tree.add_command(tag_group)
@@ -316,11 +333,11 @@ def setup(bot: commands.Bot, dlog=None) -> None:
         if not ctx.guild:
             return
         if not name:
-            return await ctx.send("Usage: `!tag <name>` — see `/tag list` for all tags.")
+            return await ctx.send("ℹ️ **Usage:** `!tag <name>` — use `/tag list` to see all available tags.")
         key = _normalize_tag(name)
         tag = _guild_tags(ctx.guild.id).get(key)
         if not tag:
-            return await ctx.send(f"❌ No tag named **{key}**.")
+            return await ctx.send(f"❌ **Tag Not Found** — No tag named **{key}** exists.")
         tag["uses"] = int(tag.get("uses", 0)) + 1
         _save_tags()
         await ctx.send(tag["content"][:2000])
@@ -345,11 +362,11 @@ def setup(bot: commands.Bot, dlog=None) -> None:
         delete_days: app_commands.Range[int, 1, 7] = 1,
     ):
         if not interaction.guild:
-            return await interaction.response.send_message("❌ Server only.", ephemeral=True)
+            return await interaction.response.send_message("❌ **Server Only** — This command can only be used in a server.", ephemeral=True)
         bot_top = interaction.guild.me.top_role
         if member.top_role >= bot_top:
             return await interaction.response.send_message(
-                f"❌ Cannot softban {member.mention} — their role is equal to or above mine.",
+                f"❌ **Action Blocked** — Cannot softban {member.mention}.\n> Their role is equal to or above mine.",
                 ephemeral=True,
             )
         if (
@@ -357,7 +374,7 @@ def setup(bot: commands.Bot, dlog=None) -> None:
             and member.top_role >= interaction.user.top_role
         ):
             return await interaction.response.send_message(
-                f"❌ You cannot softban {member.mention} — their role is equal to or higher than yours.",
+                f"❌ **Action Blocked** — Cannot softban {member.mention}.\n> Their role is equal to or higher than yours.",
                 ephemeral=True,
             )
         await interaction.response.defer()
@@ -370,16 +387,19 @@ def setup(bot: commands.Bot, dlog=None) -> None:
                 member, reason=f"Softban auto-unban (by {interaction.user})"
             )
             await interaction.followup.send(
-                f"🧹 **Softbanned** {member.mention} — wiped **{delete_days}** day(s) of messages.\n"
-                f"They can rejoin immediately with a new invite.\nReason: {reason}"
+                f"🧹 **Member Softbanned** — {member.mention}\n"
+                f"> 🗑️ **Messages Wiped:** Last {delete_days} day(s)\n"
+                f"> 🛡️ **By:** {interaction.user.mention}\n"
+                f"> 📝 **Reason:** {reason}\n"
+                f"> ℹ️ They may rejoin immediately with an invite."
             )
             _log("🧹 SOFTBAN", f"{member} softbanned by {interaction.user} — {reason}")
         except discord.Forbidden:
             await interaction.followup.send(
-                f"❌ I don't have permission to ban {member.mention}.", ephemeral=True
+                f"❌ **Permission Denied** — I can't ban {member.mention}.\n> Check role hierarchy and my permissions.", ephemeral=True
             )
         except Exception as e:
-            await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+            await interaction.followup.send(f"❌ **Softban Failed** — `{e}`", ephemeral=True)
 
     # ----------------------------------------------------------------
     # AFK — slash + on_message handlers
@@ -388,7 +408,7 @@ def setup(bot: commands.Bot, dlog=None) -> None:
     @app_commands.describe(reason="Optional message shown when others ping you")
     async def afk_cmd(interaction: discord.Interaction, reason: str = "AFK"):
         if not interaction.guild:
-            return await interaction.response.send_message("❌ Server only.", ephemeral=True)
+            return await interaction.response.send_message("❌ **Server Only** — This command can only be used in a server.", ephemeral=True)
         _guild_afk(interaction.guild.id)[str(interaction.user.id)] = {
             "reason": reason[:200],
             "since": datetime.now(timezone.utc).isoformat(),
@@ -396,7 +416,7 @@ def setup(bot: commands.Bot, dlog=None) -> None:
         _save_afk()
         _log("💤 AFK", f"{interaction.user} → AFK: {reason}")
         await interaction.response.send_message(
-            f"💤 {interaction.user.mention} is now AFK — *{reason}*"
+            f"💤 **AFK Set** — {interaction.user.mention} is now away.\n> 📋 **Status:** *{reason}*"
         )
 
     # ----------------------------------------------------------------
@@ -411,28 +431,28 @@ def setup(bot: commands.Bot, dlog=None) -> None:
     @app_commands.describe(keyword="The word or phrase that triggers a DM (case-insensitive)")
     async def hl_add(interaction: discord.Interaction, keyword: str):
         if not interaction.guild:
-            return await interaction.response.send_message("❌ Server only.", ephemeral=True)
+            return await interaction.response.send_message("❌ **Server Only** — This command can only be used in a server.", ephemeral=True)
         kw = keyword.strip().lower()
         if not (2 <= len(kw) <= 50):
             return await interaction.response.send_message(
-                "❌ Highlight must be 2–50 characters.", ephemeral=True
+                "❌ **Invalid Keyword** — Highlights must be between 2 and 50 characters.", ephemeral=True
             )
         gh = _guild_hl(interaction.guild.id)
         user_list = gh.setdefault(str(interaction.user.id), [])
         if kw in user_list:
             return await interaction.response.send_message(
-                f"ℹ️ You already have **{kw}** in your highlights here.", ephemeral=True
+                f"ℹ️ **Already Added** — **{kw}** is already in your highlights for this server.", ephemeral=True
             )
         if len(user_list) >= _HL_MAX_PER_USER:
             return await interaction.response.send_message(
-                f"❌ You've reached the **{_HL_MAX_PER_USER}**-highlight limit per server. "
-                "Remove one with `/highlight remove` first.",
+                f"❌ **Limit Reached** — You've used all **{_HL_MAX_PER_USER}** highlight slots for this server.\n"
+                "> Remove one first with `/highlight remove`.",
                 ephemeral=True,
             )
         user_list.append(kw)
         _save_hl()
         await interaction.response.send_message(
-            f"🔔 Added **{kw}** — I'll DM you when it's mentioned in this server.",
+            f"🔔 **Highlight Added** — **{kw}** is now tracked.\n> I'll DM you whenever it's mentioned in this server.",
             ephemeral=True,
         )
 
@@ -440,52 +460,57 @@ def setup(bot: commands.Bot, dlog=None) -> None:
     @app_commands.describe(keyword="The keyword to remove")
     async def hl_remove(interaction: discord.Interaction, keyword: str):
         if not interaction.guild:
-            return await interaction.response.send_message("❌ Server only.", ephemeral=True)
+            return await interaction.response.send_message("❌ **Server Only** — This command can only be used in a server.", ephemeral=True)
         kw = keyword.strip().lower()
         gh = _guild_hl(interaction.guild.id)
         user_list = gh.get(str(interaction.user.id), [])
         if kw not in user_list:
             return await interaction.response.send_message(
-                f"❌ **{kw}** isn't in your highlights here.", ephemeral=True
+                f"❌ **Not Found** — **{kw}** is not in your highlights for this server.", ephemeral=True
             )
         user_list.remove(kw)
         _save_hl()
         await interaction.response.send_message(
-            f"🔕 Removed **{kw}** from your highlights.", ephemeral=True
+            f"🔕 **Highlight Removed** — **{kw}** has been removed. You will no longer be notified.", ephemeral=True
         )
 
     @hl_group.command(name="list", description="See your highlight keywords for this server")
     async def hl_list(interaction: discord.Interaction):
         if not interaction.guild:
-            return await interaction.response.send_message("❌ Server only.", ephemeral=True)
+            return await interaction.response.send_message("❌ **Server Only** — This command can only be used in a server.", ephemeral=True)
         user_list = _guild_hl(interaction.guild.id).get(str(interaction.user.id), [])
         if not user_list:
             return await interaction.response.send_message(
-                "📭 You have no highlights here. Add one with `/highlight add`.",
+                "📭 **No Highlights** — You haven't added any highlights for this server yet.\n> Use `/highlight add` to get started.",
                 ephemeral=True,
             )
         embed = discord.Embed(
             title=f"🔔 Your Highlights — {interaction.guild.name}",
-            description="\n".join(f"• `{kw}`" for kw in user_list),
+            description=(
+                f"You'll receive a DM whenever any of these keywords are mentioned.\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                + "\n".join(f"`{i+1}.` **{kw}**" for i, kw in enumerate(user_list))
+            ),
             color=0x4f8ef7,
+            timestamp=datetime.now(timezone.utc),
         )
-        embed.set_footer(text=f"{len(user_list)}/{_HL_MAX_PER_USER} highlights used")
+        embed.set_footer(text=f"{len(user_list)}/{_HL_MAX_PER_USER} highlight slots used  •  SP4RK Highlights")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @hl_group.command(name="clear", description="Remove all your highlights in this server")
     async def hl_clear(interaction: discord.Interaction):
         if not interaction.guild:
-            return await interaction.response.send_message("❌ Server only.", ephemeral=True)
+            return await interaction.response.send_message("❌ **Server Only** — This command can only be used in a server.", ephemeral=True)
         gh = _guild_hl(interaction.guild.id)
         had = gh.pop(str(interaction.user.id), None)
         _save_hl()
         if had:
             await interaction.response.send_message(
-                f"🧹 Cleared **{len(had)}** highlight(s).", ephemeral=True
+                f"🧹 **Highlights Cleared** — All **{len(had)}** highlight(s) for this server have been removed.", ephemeral=True
             )
         else:
             await interaction.response.send_message(
-                "📭 You had nothing to clear.", ephemeral=True
+                "📭 **Nothing to Clear** — You had no highlights set for this server.", ephemeral=True
             )
 
     bot.tree.add_command(hl_group)
@@ -507,7 +532,7 @@ def setup(bot: commands.Bot, dlog=None) -> None:
                 _save_afk()
                 try:
                     await message.channel.send(
-                        f"👋 Welcome back, {message.author.mention} — your AFK has been cleared.",
+                        f"👋 **Welcome Back** — {message.author.mention}, your AFK status has been cleared.",
                         delete_after=8,
                     )
                 except Exception:
@@ -579,22 +604,28 @@ def setup(bot: commands.Bot, dlog=None) -> None:
                     continue
                 _hl_cooldown[cd_key] = now
                 try:
+                    chan_ref = message.channel.mention if hasattr(message.channel, "mention") else "#unknown"
                     embed = discord.Embed(
-                        title=f"🔔 Highlight: {matched}",
+                        title=f"🔔 Highlight Triggered — \"{matched}\"",
                         description=(
-                            f"In **{message.guild.name}** · "
-                            f"{message.channel.mention if hasattr(message.channel, 'mention') else '#unknown'}\n\n"
-                            f"**{message.author.display_name}:** {message.content[:1000]}"
+                            f"Your keyword **\"{matched}\"** was mentioned in **{message.guild.name}**.\n\n"
+                            f"📡 **Channel:** {chan_ref}\n"
+                            f"👤 **Author:** {message.author.display_name} (`{message.author.id}`)\n\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"{message.content[:900]}\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━"
                         ),
                         color=0xf5b400,
                         timestamp=message.created_at,
                     )
+                    if message.author.display_avatar:
+                        embed.set_thumbnail(url=message.author.display_avatar.url)
                     embed.add_field(
-                        name="Jump to message",
-                        value=f"[Click here]({message.jump_url})",
+                        name="🔗 Jump to Message",
+                        value=f"[Click here to view context]({message.jump_url})",
                         inline=False,
                     )
-                    embed.set_footer(text=f"Matched word: {matched}")
+                    embed.set_footer(text=f"SP4RK Highlights  •  Matched: {matched}")
                     await member.send(embed=embed)
                 except discord.Forbidden:
                     pass    # user has DMs closed — don't keep trying

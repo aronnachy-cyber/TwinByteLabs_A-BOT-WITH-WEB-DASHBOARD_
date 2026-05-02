@@ -686,13 +686,17 @@ async def daily_report_task():
             print(f"[daily_report] image generation failed: {img_err}")
 
         # ── Build embed ────────────────────────────────────────────────────────
+        server_name = channel.guild.name if channel.guild else "your server"
         embed = discord.Embed(
             title=f"📊 SP4RK — {period}",
             description=(
-                f"> *Automated moderation summary for* **{channel.guild.name if channel.guild else 'your server'}**"
+                f"**Automated Moderation Report**\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Showing the latest moderation health snapshot for **{server_name}**.\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━"
             ),
             color=0x0d0d1a,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
         embed.add_field(
             name="⚠️ Warnings (all-time)",
@@ -744,12 +748,15 @@ async def daily_report_task():
 # ---------------- SLASH COMMANDS ----------------
 def build_help_embed(prefix):
     embed = discord.Embed(
-        title="🛡️ SP4RK — Full Command Reference",
+        title="🛡️ SP4RK — Command Reference",
         description=(
-            f"Current prefix: `{prefix}`  ·  All slash commands also work via Discord's `/` menu.\n"
-            "Sections below cover moderation, utilities, custom commands, tickets, giveaways and setup."
+            f"**Prefix:** `{prefix}`  ·  **Version:** V2.5.0\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"All slash commands also work via Discord's `/` menu.\n"
+            f"Covers moderation, utilities, tickets, giveaways, and server management.\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━"
         ),
-        color=0x4f8ef7
+        color=0x4f8ef7,
     )
     embed.add_field(name="⚖️ Moderation (prefix)", inline=False, value=(
         f"`{prefix}warn @user [reason]` — warn a member\n"
@@ -843,7 +850,7 @@ def build_help_embed(prefix):
         "`/bot` — bot stats\n"
         "`/dashboard` — admin dashboard link"
     ))
-    embed.set_footer(text="Tip: change the prefix or manage custom commands in the dashboard at /dashboard.")
+    embed.set_footer(text=f"SP4RK V2.5.0  •  Tip: change the prefix & custom commands in the web dashboard")
     return embed
 
 @bot.tree.command(name="commands", description="List all SP4RK commands")
@@ -1054,27 +1061,35 @@ async def slash_bot(interaction: discord.Interaction):
     ar_count = len(autoresponder_mod.get_all_responses())
     rr_count = len(rr_mod.get_all_rules())
     embed = discord.Embed(
-        title="🛡️ SP4RK — Bot Details",
-        description="AI-Powered Discord Moderation & Management",
-        color=0x3a8fff
+        title="🛡️ SP4RK — Sentinel OS",
+        description=(
+            "**AI-Powered Discord Moderation & Management**\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "SP4RK is a feature-rich guardian bot built for modern Discord servers — "
+            "from intelligent automod to giveaways, tickets, and full server analytics.\n"
+            "━━━━━━━━━━━━━━━━━━━━━━"
+        ),
+        color=0x3a8fff,
+        timestamp=datetime.utcnow(),
     )
-    embed.add_field(name="⚡ Latency",       value=f"{latency_ms}ms",       inline=True)
-    embed.add_field(name="⏱️ Uptime",         value=uptime_str,              inline=True)
-    embed.add_field(name="🌐 Servers",        value=str(guild_count),        inline=True)
-    embed.add_field(name="👥 Total Members",  value=str(total_members),      inline=True)
-    embed.add_field(name="🎉 Active Giveaways", value=str(giveaways_active), inline=True)
-    embed.add_field(name="🎫 Open Tickets",   value=str(tickets_open),       inline=True)
-    embed.add_field(name="🤖 Auto-Responders", value=str(ar_count),          inline=True)
-    embed.add_field(name="🎭 Reaction Roles", value=str(rr_count),           inline=True)
-    embed.add_field(name="🔢 Version",        value="V2.5.0",                inline=True)
-    embed.set_footer(text="SP4RK — Your Server's Guardian")
-    embed.timestamp = datetime.utcnow()
+    embed.add_field(name="⚡ Latency",          value=f"**{latency_ms}ms**",      inline=True)
+    embed.add_field(name="⏱️ Uptime",            value=f"**{uptime_str}**",        inline=True)
+    embed.add_field(name="🔢 Version",           value="**V2.5.0**",               inline=True)
+    embed.add_field(name="🌐 Servers",           value=f"**{guild_count:,}**",     inline=True)
+    embed.add_field(name="👥 Total Members",     value=f"**{total_members:,}**",   inline=True)
+    embed.add_field(name="🤖 Auto-Responders",  value=f"**{ar_count}**",           inline=True)
+    embed.add_field(name="🎉 Active Giveaways", value=f"**{giveaways_active}**",   inline=True)
+    embed.add_field(name="🎫 Open Tickets",     value=f"**{tickets_open}**",       inline=True)
+    embed.add_field(name="🎭 Reaction Roles",   value=f"**{rr_count}**",           inline=True)
+    if interaction.guild and interaction.guild.me.display_avatar:
+        embed.set_thumbnail(url=interaction.guild.me.display_avatar.url)
+    embed.set_footer(text="SP4RK — Your Server's Guardian  •  Byte Labs", icon_url=interaction.guild.me.display_avatar.url if interaction.guild else discord.Embed.Empty)
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="dashboard", description="Mini admin dashboard (admin only)")
 async def slash_dashboard(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ This command is for admins only.", ephemeral=True)
+        await interaction.response.send_message("❌ **Access Denied** — This command is restricted to server administrators.", ephemeral=True)
         return
     refresh_config()
     guild = interaction.guild
@@ -1088,39 +1103,50 @@ async def slash_dashboard(interaction: discord.Interaction):
     uptime = datetime.utcnow() - BOT_START_TIME
     hours, rem = divmod(int(uptime.total_seconds()), 3600)
     minutes = rem // 60
+    _scfg = get_config_for_guild(str(guild.id))
+    ai_status = "🟢 **Online**" if GEMINI_KEY else "🔴 **Offline**"
+    raid_status = "🟢 **Active**" if _scfg.get("anti_raid") == "ON" else "🔴 **Inactive**"
+    warn_status = "🟠 **Elevated**" if total_warnings > 10 else "🟢 **Normal**"
     embed = discord.Embed(
         title="🖥️ SP4RK — Admin Dashboard",
-        description=f"Quick overview for **{guild.name}**",
-        color=0x3a8fff
+        description=(
+            f"**Server:** {guild.name}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"Real-time overview of moderation health and bot status.\n"
+            f"For full controls, visit your web dashboard.\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━"
+        ),
+        color=0x3a8fff,
+        timestamp=datetime.utcnow(),
     )
-    embed.add_field(name="👥 Members",        value=str(guild.member_count),                   inline=True)
-    embed.add_field(name="⚠️ Total Warnings", value=str(total_warnings),                       inline=True)
-    embed.add_field(name="⏱️ Uptime",          value=f"{hours}h {minutes}m",                    inline=True)
-    embed.add_field(name="🎉 Giveaways Active", value=str(giveaways_active),                   inline=True)
-    embed.add_field(name="🎫 Open Tickets",    value=str(tickets_open),                         inline=True)
-    _scfg = get_config_for_guild(str(guild.id))
-    embed.add_field(name="🔰 Prefix",          value=f"`{_scfg.get('prefix','!')}`",           inline=True)
-    embed.add_field(name="🔴 Profanity Filter", value=_scfg.get("profanity_level","low").upper(), inline=True)
-    embed.add_field(name="🛡️ Anti-Raid",       value=_scfg.get("anti_raid","OFF"),             inline=True)
-    embed.add_field(name="🤖 AI Moderation",   value="ON" if GEMINI_KEY else "OFF",             inline=True)
-    embed.set_footer(text="Full dashboard available at your web dashboard URL")
-    embed.timestamp = datetime.utcnow()
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+    embed.add_field(name="👥 Members",          value=f"**{guild.member_count:,}**",                  inline=True)
+    embed.add_field(name="⚠️ Total Warnings",   value=f"**{total_warnings}** — {warn_status}",        inline=True)
+    embed.add_field(name="⏱️ Uptime",            value=f"**{hours}h {minutes}m**",                     inline=True)
+    embed.add_field(name="🎉 Giveaways Active", value=f"**{giveaways_active}**",                       inline=True)
+    embed.add_field(name="🎫 Open Tickets",     value=f"**{tickets_open}**",                           inline=True)
+    embed.add_field(name="🔰 Prefix",           value=f"`{_scfg.get('prefix','!')}`",                 inline=True)
+    embed.add_field(name="🔍 Profanity Filter", value=f"**{_scfg.get('profanity_level','low').upper()}**", inline=True)
+    embed.add_field(name="🛡️ Anti-Raid",        value=raid_status,                                    inline=True)
+    embed.add_field(name="🤖 AI Moderation",    value=ai_status,                                      inline=True)
+    embed.set_footer(text="SP4RK Admin Dashboard  •  Full controls at your web dashboard URL")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="giveaway", description="Start a giveaway (use duration like 30m, 2h, 1d)")
 @app_commands.describe(duration="Duration e.g. 30m, 2h, 1d", prize="What are you giving away?", winners="Number of winners (default 1)")
 async def slash_giveaway(interaction: discord.Interaction, duration: str, prize: str, winners: int = 1):
     if not interaction.user.guild_permissions.manage_guild:
-        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Server** permission.", ephemeral=True)
         return
     seconds = parse_duration(duration)
     if not seconds:
-        await interaction.response.send_message("❌ Invalid duration! Use `30m`, `2h`, `1d`, etc.", ephemeral=True)
+        await interaction.response.send_message("❌ **Invalid Duration** — Use formats like `30m`, `2h`, `1d`, etc.", ephemeral=True)
         return
     if winners < 1 or winners > 20:
-        await interaction.response.send_message("❌ Winners must be between 1 and 20.", ephemeral=True)
+        await interaction.response.send_message("❌ **Invalid Winners** — Number of winners must be between 1 and 20.", ephemeral=True)
         return
-    await interaction.response.send_message(f"🎉 Starting giveaway for **{prize}**!", ephemeral=True)
+    await interaction.response.send_message(f"🎉 **Giveaway Starting** — Setting up a giveaway for **{prize}**!", ephemeral=True)
     await giveaway_mod.start_giveaway(bot, interaction.channel, seconds, prize, interaction.user, winners)
     dlog("🎉 GIVEAWAY", f"{interaction.user} started giveaway: {prize} ({duration})")
 
@@ -1128,37 +1154,37 @@ async def slash_giveaway(interaction: discord.Interaction, duration: str, prize:
 @app_commands.describe(message_id="The giveaway message ID")
 async def slash_giveaway_end(interaction: discord.Interaction, message_id: str):
     if not interaction.user.guild_permissions.manage_guild:
-        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Server** permission.", ephemeral=True)
         return
     try:
         mid = int(message_id)
     except ValueError:
-        await interaction.response.send_message("❌ Invalid message ID.", ephemeral=True)
+        await interaction.response.send_message("❌ **Invalid ID** — Please provide a valid message ID.", ephemeral=True)
         return
     await interaction.response.defer(ephemeral=True)
     result = await giveaway_mod.end_giveaway(bot, mid, interaction.channel_id, force=True)
     if result:
-        await interaction.followup.send("✅ Giveaway ended!", ephemeral=True)
+        await interaction.followup.send("✅ **Giveaway Ended** — The giveaway has been concluded and a winner selected.", ephemeral=True)
     else:
-        await interaction.followup.send("❌ Giveaway not found or already ended.", ephemeral=True)
+        await interaction.followup.send("❌ **Not Found** — That giveaway doesn't exist or has already ended.", ephemeral=True)
 
 @bot.tree.command(name="giveaway-reroll", description="Reroll a giveaway winner")
 @app_commands.describe(message_id="The giveaway message ID")
 async def slash_giveaway_reroll(interaction: discord.Interaction, message_id: str):
     if not interaction.user.guild_permissions.manage_guild:
-        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Server** permission.", ephemeral=True)
         return
     try:
         mid = int(message_id)
     except ValueError:
-        await interaction.response.send_message("❌ Invalid message ID.", ephemeral=True)
+        await interaction.response.send_message("❌ **Invalid ID** — Please provide a valid message ID.", ephemeral=True)
         return
     await interaction.response.defer(ephemeral=True)
     winner = await giveaway_mod.reroll_giveaway(bot, mid, interaction.channel_id)
     if winner:
-        await interaction.followup.send(f"🔄 Rerolled! New winner: {winner.mention}", ephemeral=True)
+        await interaction.followup.send(f"🔄 **Giveaway Rerolled** — New winner: {winner.mention} 🎉", ephemeral=True)
     else:
-        await interaction.followup.send("❌ Could not reroll. No eligible entries.", ephemeral=True)
+        await interaction.followup.send("❌ **Reroll Failed** — No eligible entries found for this giveaway.", ephemeral=True)
 
 @bot.tree.command(name="poll", description="Create a reaction poll")
 @app_commands.describe(question="The poll question", option1="First option", option2="Second option", option3="Third option (optional)", option4="Fourth option (optional)")
@@ -1168,11 +1194,15 @@ async def slash_poll(interaction: discord.Interaction, question: str, option1: s
     desc = "\n".join(f"{emojis[i]} **{opt}**" for i, opt in enumerate(options))
     embed = discord.Embed(
         title=f"📊 {question}",
-        description=desc,
-        color=0x3a8fff,
+        description=(
+            f"{desc}\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"React with the corresponding emoji to cast your vote!"
+        ),
+        color=0x5b8cff,
         timestamp=datetime.utcnow()
     )
-    embed.set_footer(text=f"Poll by {interaction.user.display_name}")
+    embed.set_footer(text=f"📊 Poll by {interaction.user.display_name}  •  SP4RK")
     await interaction.response.send_message(embed=embed)
     msg = await interaction.original_response()
     for i in range(len(options)):
@@ -1187,24 +1217,30 @@ async def slash_ticket(interaction: discord.Interaction, reason: str = "General 
         result = await tickets_mod.create_ticket(interaction.guild, interaction.user, config, reason)
         if result:
             channel, ticket = result
-            await interaction.followup.send(f"✅ Your ticket has been created: {channel.mention}", ephemeral=True)
+            await interaction.followup.send(
+                f"✅ **Ticket Created** — Your support ticket is ready.\n> 📬 **Channel:** {channel.mention}\n> 📝 **Reason:** {reason}",
+                ephemeral=True
+            )
             dlog("🎫 TICKET", f"{interaction.user} opened ticket #{ticket['id']}: {reason}")
         else:
-            await interaction.followup.send("❌ Could not create ticket. Make sure I have **Manage Channels** permission and a valid ticket category is set in the dashboard.", ephemeral=True)
+            await interaction.followup.send(
+                "❌ **Ticket Failed** — Could not create your ticket.\n> Ensure I have the **Manage Channels** permission and a valid ticket category is set in the dashboard.",
+                ephemeral=True
+            )
     except Exception as e:
         print(f"Ticket slash error: {e}")
-        await interaction.followup.send(f"❌ An error occurred while creating your ticket: `{e}`", ephemeral=True)
+        await interaction.followup.send(f"❌ **Ticket Error** — `{e}`", ephemeral=True)
 
 @bot.tree.command(name="ticket-close", description="Close the current ticket channel")
 async def slash_ticket_close(interaction: discord.Interaction):
     ticket_data = next((t for t in tickets_mod.get_all_tickets() if t["channel_id"] == interaction.channel.id), None)
     if not ticket_data:
-        await interaction.response.send_message("❌ This is not a ticket channel.", ephemeral=True)
+        await interaction.response.send_message("❌ **Invalid Channel** — This channel is not a ticket channel.", ephemeral=True)
         return
     if not interaction.user.guild_permissions.manage_messages and interaction.user.id != ticket_data.get("user_id"):
-        await interaction.response.send_message("❌ Only staff or the ticket opener can close this.", ephemeral=True)
+        await interaction.response.send_message("❌ **Access Denied** — Only staff or the original ticket opener can close this ticket.", ephemeral=True)
         return
-    await interaction.response.send_message("🔒 Closing ticket...")
+    await interaction.response.send_message("🔒 **Closing Ticket** — Please wait while this ticket is being closed...")
     await tickets_mod.close_ticket(interaction.channel, interaction.user)
     dlog("🔒 TICKET-CLOSE", f"{interaction.user} closed ticket #{ticket_data.get('id', '?')}")
 
@@ -1212,19 +1248,19 @@ async def slash_ticket_close(interaction: discord.Interaction):
 @app_commands.describe(message_id="ID of the message to watch", emoji="The emoji to react with", role="Role to assign on reaction")
 async def slash_setup_rr(interaction: discord.Interaction, message_id: str, emoji: str, role: discord.Role):
     if not interaction.user.guild_permissions.manage_roles:
-        await interaction.response.send_message("❌ You need Manage Roles permission.", ephemeral=True)
+        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Roles** permission.", ephemeral=True)
         return
     try:
         mid = int(message_id)
     except ValueError:
-        await interaction.response.send_message("❌ That doesn't look like a valid message ID.", ephemeral=True)
+        await interaction.response.send_message("❌ **Invalid ID** — That doesn't look like a valid message ID.", ephemeral=True)
         return
     # Verify the message actually exists in this channel
     try:
         await interaction.channel.fetch_message(mid)
     except discord.NotFound:
         await interaction.response.send_message(
-            "❌ Message not found in this channel. Make sure you copy the message ID from **this** channel.",
+            "❌ **Message Not Found** — No message with that ID was found in this channel.\n> Make sure you copy the ID from **this** channel.",
             ephemeral=True
         )
         return
@@ -1234,17 +1270,20 @@ async def slash_setup_rr(interaction: discord.Interaction, message_id: str, emoj
     is_new = rr_mod.add_rule(interaction.guild.id, interaction.channel.id, mid, emoji, role.id, role.name)
     action = "linked" if is_new else "updated"
     embed = discord.Embed(
-        title="✅ Reaction Role Set",
+        title="✅ Reaction Role Configured",
         description=(
-            f"**Emoji:** {emoji}\n"
-            f"**Role:** {role.mention}\n"
-            f"**Message ID:** `{message_id}`\n\n"
-            f"Users who react with {emoji} on that message will automatically receive **{role.name}**. "
-            f"Removing the reaction removes the role."
+            f"A reaction role has been **{action}** successfully.\n\n"
+            f"🎭 **Emoji:** {emoji}\n"
+            f"🔰 **Role:** {role.mention} — `{role.name}`\n"
+            f"📌 **Message ID:** `{message_id}`\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"Members who react with {emoji} on that message will receive **{role.name}** automatically.\n"
+            f"Removing their reaction will revoke the role."
         ),
-        color=0x2ecc71
+        color=0x2ecc71,
+        timestamp=datetime.utcnow(),
     )
-    embed.set_footer(text=f"SP4RK • Reaction Roles — {action}")
+    embed.set_footer(text=f"SP4RK Reaction Roles  •  Action: {action}")
     await interaction.response.send_message(embed=embed, ephemeral=True)
     dlog("🎭 REACTION-ROLE", f"{interaction.user} {action} {emoji} → {role.name} on msg {message_id}")
 
@@ -1252,42 +1291,49 @@ async def slash_setup_rr(interaction: discord.Interaction, message_id: str, emoj
 @app_commands.describe(message_id="Message ID the rule is on", emoji="The emoji to unlink")
 async def slash_remove_rr(interaction: discord.Interaction, message_id: str, emoji: str):
     if not interaction.user.guild_permissions.manage_roles:
-        await interaction.response.send_message("❌ You need Manage Roles permission.", ephemeral=True)
+        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Roles** permission.", ephemeral=True)
         return
     removed = rr_mod.remove_rule(interaction.guild.id, message_id, emoji)
     if removed:
         await interaction.response.send_message(
-            f"✅ Removed reaction role: {emoji} on message `{message_id}`.", ephemeral=True
+            f"✅ **Reaction Role Removed** — {emoji} unlinked from message `{message_id}`.", ephemeral=True
         )
         dlog("🎭 REACTION-ROLE REMOVE", f"{interaction.user} removed {emoji} on msg {message_id}")
     else:
         await interaction.response.send_message(
-            f"❌ No rule found for {emoji} on message `{message_id}`.", ephemeral=True
+            f"❌ **Rule Not Found** — No reaction role for {emoji} exists on message `{message_id}`.", ephemeral=True
         )
 
 @bot.tree.command(name="list-reaction-roles", description="Show all active reaction roles in this server")
 async def slash_list_rr(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.manage_roles:
-        await interaction.response.send_message("❌ You need Manage Roles permission.", ephemeral=True)
+        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Roles** permission.", ephemeral=True)
         return
     rules = rr_mod.get_guild_rules(interaction.guild.id)
     if not rules:
         await interaction.response.send_message(
-            "No reaction roles set up yet. Use `/setup-reaction-role` to add one.", ephemeral=True
+            "ℹ️ **No Reaction Roles** — None have been set up yet.\n> Use `/setup-reaction-role` to create one.", ephemeral=True
         )
         return
+    lines = []
+    for i, r in enumerate(rules[:25]):
+        mid   = r.get("message_id", "?")
+        emo   = r.get("emoji", "?")
+        rname = r.get("role_name", "Unknown Role")
+        lines.append(f"`{i+1}.` {emo} → **{rname}** — msg `{mid}`")
     embed = discord.Embed(
         title=f"🎭 Reaction Roles — {interaction.guild.name}",
-        color=0x3a8fff
+        description=(
+            f"**{len(rules)}** active reaction role rule(s).\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            + "\n".join(lines)
+        ),
+        color=0x3a8fff,
+        timestamp=datetime.utcnow(),
     )
-    lines = []
-    for r in rules[:25]:
-        mid  = r.get("message_id", "?")
-        emo  = r.get("emoji", "?")
-        rname = r.get("role_name", "Unknown Role")
-        lines.append(f"{emo} → **{rname}** (msg `{mid}`)")
-    embed.description = "\n".join(lines)
-    embed.set_footer(text=f"{len(rules)} rule(s) active • Use /remove-reaction-role to delete one")
+    if interaction.guild.icon:
+        embed.set_thumbnail(url=interaction.guild.icon.url)
+    embed.set_footer(text=f"{len(rules)} rule(s) active  •  Use /remove-reaction-role to delete  •  SP4RK")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 autorespond_group = app_commands.Group(name="autorespond", description="Manage auto-responder rules")
@@ -1296,36 +1342,52 @@ autorespond_group = app_commands.Group(name="autorespond", description="Manage a
 @app_commands.describe(trigger="Keyword or phrase to trigger on", response="Bot's response (use {user} for mention)", match="Match type: contains, exact, startswith")
 async def ar_add(interaction: discord.Interaction, trigger: str, response: str, match: str = "contains"):
     if not interaction.user.guild_permissions.manage_messages:
-        await interaction.response.send_message("❌ You need Manage Messages permission.", ephemeral=True)
+        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Messages** permission.", ephemeral=True)
         return
     if match not in ("contains", "exact", "startswith"):
-        await interaction.response.send_message("❌ Match type must be: `contains`, `exact`, or `startswith`.", ephemeral=True)
+        await interaction.response.send_message("❌ **Invalid Match Type** — Must be one of: `contains`, `exact`, or `startswith`.", ephemeral=True)
         return
     is_new = autoresponder_mod.add_response(trigger, response, match)
     action = "Added" if is_new else "Updated"
-    await interaction.response.send_message(f"✅ {action} auto-responder: `{trigger}` → `{response}` (match: {match})", ephemeral=True)
+    await interaction.response.send_message(
+        f"✅ **Auto-Responder {action}** — `{trigger}` → `{response}`\n> 🔍 **Match type:** {match}",
+        ephemeral=True
+    )
     dlog("🤖 AUTO-RESPOND", f"{interaction.user} {action.lower()} trigger: {trigger}")
 
 @autorespond_group.command(name="remove", description="Remove an auto-responder rule")
 @app_commands.describe(trigger="The trigger keyword to remove")
 async def ar_remove(interaction: discord.Interaction, trigger: str):
     if not interaction.user.guild_permissions.manage_messages:
-        await interaction.response.send_message("❌ You need Manage Messages permission.", ephemeral=True)
+        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Messages** permission.", ephemeral=True)
         return
     removed = autoresponder_mod.remove_response(trigger)
     if removed:
-        await interaction.response.send_message(f"✅ Removed auto-responder for `{trigger}`.", ephemeral=True)
+        await interaction.response.send_message(f"✅ **Auto-Responder Removed** — The rule for `{trigger}` has been deleted.", ephemeral=True)
     else:
-        await interaction.response.send_message(f"❌ No rule found for `{trigger}`.", ephemeral=True)
+        await interaction.response.send_message(f"❌ **Rule Not Found** — No auto-responder rule exists for `{trigger}`.", ephemeral=True)
 
 @autorespond_group.command(name="list", description="List all auto-responder rules")
 async def ar_list(interaction: discord.Interaction):
     rules = autoresponder_mod.get_all_responses()
     if not rules:
-        await interaction.response.send_message("No auto-responder rules set.", ephemeral=True)
+        await interaction.response.send_message("ℹ️ **No Rules Set** — No auto-responder rules have been configured yet.", ephemeral=True)
         return
-    desc = "\n".join(f"• `{r['trigger']}` → {r['response'][:40]} ({r.get('match','contains')})" for r in rules[:20])
-    embed = discord.Embed(title="🤖 Auto-Responder Rules", description=desc, color=0x3a8fff)
+    desc = "\n".join(
+        f"`{i+1}.` `{r['trigger']}` → {r['response'][:50]}{'…' if len(r['response'])>50 else ''}  *({r.get('match','contains')})*"
+        for i, r in enumerate(rules[:20])
+    )
+    embed = discord.Embed(
+        title="🤖 Auto-Responder Rules",
+        description=(
+            f"**{len(rules)}** active rule(s) configured for this server.\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{desc}"
+        ),
+        color=0x3a8fff,
+        timestamp=datetime.utcnow(),
+    )
+    embed.set_footer(text=f"SP4RK Auto-Responder  •  Use /autorespond add to create rules")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 bot.tree.add_command(autorespond_group)
@@ -1593,12 +1655,15 @@ async def on_message(message):
             reply_text = polished or cmd.get("result", "")
             if cmd.get("use_embed"):
                 e = discord.Embed(
-                    title=f"!{cmd['trigger']}",
+                    title=f"📌 !{cmd['trigger']}",
                     description=reply_text[:4000],
                     color=0x3a8fff,
+                    timestamp=datetime.utcnow(),
                 )
                 if cmd.get("description"):
-                    e.set_footer(text=cmd["description"][:200])
+                    e.set_footer(text=f"{cmd['description'][:180]}  •  SP4RK Custom Command")
+                else:
+                    e.set_footer(text="SP4RK Custom Command")
                 await message.channel.send(embed=e)
             else:
                 await message.channel.send(reply_text[:2000])
@@ -1634,14 +1699,14 @@ async def on_message(message):
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
-        perms = ", ".join(error.missing_permissions)
-        await ctx.send(f"❌ {ctx.author.mention}, you need the **{perms}** permission to use this command.", delete_after=8)
+        perms = ", ".join(p.replace("_", " ").title() for p in error.missing_permissions)
+        await ctx.send(f"❌ **Missing Permission** — You need **{perms}** to run this command.", delete_after=8)
     elif isinstance(error, commands.MemberNotFound):
-        await ctx.send(f"❌ Member not found. Make sure you @mention or use their ID.", delete_after=8)
+        await ctx.send("❌ **Member Not Found** — Make sure you @mention them or provide their exact ID.", delete_after=8)
     elif isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f"❌ Missing argument: `{error.param.name}`. Check `!commands` for usage.", delete_after=8)
+        await ctx.send(f"❌ **Missing Argument** — `{error.param.name}` is required. Use `!commands` to see the correct usage.", delete_after=8)
     elif isinstance(error, commands.BadArgument):
-        await ctx.send(f"❌ Invalid argument. Check `!commands` for usage.", delete_after=8)
+        await ctx.send("❌ **Invalid Argument** — Check `!commands` for the correct usage.", delete_after=8)
     elif isinstance(error, commands.CommandNotFound):
         pass
     else:
@@ -1652,10 +1717,10 @@ def _hierarchy_block(ctx, member, action_word):
     """Return error message string if SP4RK can't action this member, else None."""
     allowed, why = automod.can_bot_action(member, ctx.guild.me)
     if not allowed:
-        return f"❌ Cannot {action_word} {member.mention} — {why}."
+        return f"❌ **Action Blocked** — Cannot {action_word} {member.mention}.\n> {why}"
     # Also check the invoking user's role isn't lower than the target's
     if ctx.author.id != ctx.guild.owner_id and member.top_role >= ctx.author.top_role:
-        return f"❌ You cannot {action_word} {member.mention} — their role is equal to or higher than yours."
+        return f"❌ **Action Blocked** — Cannot {action_word} {member.mention}.\n> Their role is equal to or higher than yours."
     return None
 
 @bot.command()
@@ -1687,7 +1752,12 @@ async def warn(ctx, member: discord.Member, *, reason="Violation"):
     await add_warning(member, reason)
     entry = _get_member_entry(str(ctx.guild.id), str(member.id))
     count = entry["count"]
-    await ctx.send(f"⚠️ {member.mention} has been warned! Now at **{count}** warning(s).\nReason: {reason}")
+    await ctx.send(
+        f"⚠️ **Member Warned** — {member.mention}\n"
+        f"> 🔢 **Total Warnings:** {count}\n"
+        f"> 🛡️ **By:** {ctx.author.mention}\n"
+        f"> 📝 **Reason:** {reason}"
+    )
     await logs.log_template(bot, config, "sp4rk.warn",
                             user=member, moderator=ctx.author,
                             reason=reason, warn_count=count)
@@ -1701,20 +1771,27 @@ async def warnings(ctx, member: discord.Member):
     count   = entry["count"]
     history = entry["history"]
 
+    _wlimit = int(get_config_for_guild(str(ctx.guild.id)).get('warning_limit', 30))
+    pct = min(1.0, count / max(1, _wlimit))
+    filled = int(10 * pct)
+    bar = "▰" * filled + "▱" * (10 - filled)
+    status_emoji = "🔴" if count >= _wlimit else ("🟠" if count >= _wlimit // 2 else "🟢")
+    status_label = "Limit Reached" if count >= _wlimit else ("Watch" if count >= _wlimit // 2 else "Clear")
     embed = discord.Embed(
-        title=f"⚠️ Warning History — {member}",
-        color=0xf39c12 if count > 0 else 0x2ecc71
+        title=f"⚠️ Warning Record — {member.display_name}",
+        description=(
+            f"**{member}** · `{member.id}`\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"Severity: `{bar}` {status_emoji} **{status_label}**\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━"
+        ),
+        color=0xe74c3c if count >= _wlimit else (0xf39c12 if count > 0 else 0x2ecc71),
+        timestamp=datetime.utcnow(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    _wlimit = int(get_config_for_guild(str(ctx.guild.id)).get('warning_limit', 30))
-    embed.add_field(name="Total Warnings", value=f"**{count}**", inline=True)
-    embed.add_field(name="Warning Limit",  value=f"**{_wlimit}**", inline=True)
-    embed.add_field(name="Status",
-        value="🔴 Limit Reached" if count >= _wlimit else
-              "🟠 Watch"         if count >= _wlimit // 2 else
-              "🟢 OK",
-        inline=True
-    )
+    embed.add_field(name="⚠️ Warnings Issued", value=f"**{count}**", inline=True)
+    embed.add_field(name="🔔 Server Limit",     value=f"**{_wlimit}**", inline=True)
+    embed.add_field(name="📊 Status",           value=f"{status_emoji} **{status_label}**", inline=True)
 
     if history:
         last5 = history[-5:][::-1]
@@ -1722,11 +1799,11 @@ async def warnings(ctx, member: discord.Member):
             f"`{i+1}.` {h['reason']} — *{h['time']}*"
             for i, h in enumerate(last5)
         )
-        embed.add_field(name=f"Recent History (last {len(last5)})", value=history_text, inline=False)
+        embed.add_field(name=f"📋 Recent Warnings (last {len(last5)})", value=history_text, inline=False)
     else:
-        embed.add_field(name="History", value="No warnings on record.", inline=False)
+        embed.add_field(name="📋 History", value="*No warnings on record — clean slate!*", inline=False)
 
-    embed.set_footer(text=f"User ID: {member.id}")
+    embed.set_footer(text=f"🆔 User ID: {member.id}  •  SP4RK Moderation")
     await ctx.send(embed=embed)
 
 @bot.command()
@@ -1740,7 +1817,7 @@ async def clearwarnings(ctx, member: discord.Member):
     supabase_clear_warnings(guild_id, member_id)
     dlog("🧹 CLEAR-WARN", f"Warnings cleared for {member} by {ctx.author}")
     await logs.log_event(bot, config, "🧹 Warnings Cleared", f"{member}'s warnings cleared by {ctx.author}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
-    await ctx.send(f"✅ All warnings cleared for {member.mention}.")
+    await ctx.send(f"✅ **Warnings Cleared** — All warning records for {member.mention} have been reset.")
 
 @bot.command(name="timeout")
 @commands.has_permissions(moderate_members=True)
@@ -1752,25 +1829,30 @@ async def timeout_member(ctx, member: discord.Member, duration: str, *, reason="
         return
     seconds = parse_duration(duration)
     if not seconds:
-        await ctx.send("❌ Invalid duration! Use e.g. `30m`, `2h`, `1d`. Max 28 days.")
+        await ctx.send("❌ **Invalid Duration** — Use formats like `30s`, `10m`, `2h`, `7d`. Max 28 days.")
         return
     if seconds > 2419200:
-        await ctx.send("❌ Discord timeout limit is 28 days.")
+        await ctx.send("❌ **Duration Too Long** — Discord's maximum timeout length is 28 days.")
         return
     label = duration_label(seconds)
     try:
         until = discord.utils.utcnow() + timedelta(seconds=seconds)
         await member.timeout(until, reason=reason)
-        await ctx.send(f"⏱️ {member.mention} has been timed out for **{label}**. Reason: {reason}")
+        await ctx.send(
+            f"⏱️ **Member Timed Out** — {member.mention}\n"
+            f"> 🕐 **Duration:** {label}\n"
+            f"> 🛡️ **By:** {ctx.author.mention}\n"
+            f"> 📝 **Reason:** {reason}"
+        )
         await logs.log_template(bot, config, "sp4rk.timeout",
                                 user=member, moderator=ctx.author,
                                 duration=label, reason=reason)
         supabase_save_mod_log(ctx.guild.id, "timeout", str(member), str(ctx.author), f"{label} — {reason}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("⏱️ TIMEOUT", f"{member} timed out for {label} by {ctx.author}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to timeout {member.mention} (check role hierarchy or `Moderate Members` permission).")
+        await ctx.send(f"❌ **Permission Denied** — I can't time out {member.mention}.\n> Check role hierarchy and that I have the **Moderate Members** permission.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Timeout Failed** — `{e}`")
 
 @bot.command(name="untimeout")
 @commands.has_permissions(moderate_members=True)
@@ -1778,13 +1860,16 @@ async def untimeout_member(ctx, member: discord.Member):
     """Remove a timeout from a member."""
     try:
         await member.timeout(None, reason=f"Timeout removed by {ctx.author}")
-        await ctx.send(f"✅ Timeout removed for {member.mention}.")
+        await ctx.send(
+            f"✅ **Timeout Removed** — {member.mention} can now speak again.\n"
+            f"> 🛡️ **By:** {ctx.author.mention}"
+        )
         await logs.log_event(bot, config, "✅ Timeout Removed", f"{member}'s timeout removed by {ctx.author}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("✅ UNTIMEOUT", f"Timeout removed for {member} by {ctx.author}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to remove {member.mention}'s timeout.")
+        await ctx.send(f"❌ **Permission Denied** — I can't remove {member.mention}'s timeout.\n> Check role hierarchy and my permissions.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Untimeout Failed** — `{e}`")
 
 @bot.command(name="unban")
 @commands.has_permissions(ban_members=True)
@@ -1793,18 +1878,22 @@ async def unban_member(ctx, user_id: int, *, reason="No reason provided"):
     try:
         user = await bot.fetch_user(user_id)
         await ctx.guild.unban(user, reason=reason)
-        await ctx.send(f"✅ {user} has been unbanned. Reason: {reason}")
+        await ctx.send(
+            f"✅ **User Unbanned** — **{user}**\n"
+            f"> 🛡️ **By:** {ctx.author.mention}\n"
+            f"> 📝 **Reason:** {reason}"
+        )
         await logs.log_template(bot, config, "sp4rk.unban",
                                 guild_id=ctx.guild.id if ctx.guild else None,
                                 user=user, moderator=ctx.author, reason=reason)
         supabase_save_mod_log(ctx.guild.id, "unban", str(user), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("✅ UNBAN", f"{user} unbanned by {ctx.author}")
     except discord.NotFound:
-        await ctx.send("❌ User not found or not banned.")
+        await ctx.send("❌ **Not Found** — That user ID doesn't exist or they are not currently banned.")
     except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to unban users.")
+        await ctx.send("❌ **Permission Denied** — I don't have permission to unban users.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Unban Failed** — `{e}`")
 
 @bot.command(name="note")
 @commands.has_permissions(manage_messages=True)
@@ -1812,7 +1901,12 @@ async def add_note(ctx, member: discord.Member, *, note: str):
     """Add a moderator note to a user. Usage: !note @user <note>"""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     supabase_save_note(ctx.guild.id, member.id, str(member), note, str(ctx.author), ts)
-    await ctx.send(f"📝 Note added for {member.mention}: *{note}*", delete_after=10)
+    await ctx.send(
+        f"📝 **Note Added** — {member.mention}\n"
+        f"> 🛡️ **By:** {ctx.author.mention}\n"
+        f"> 💬 **Note:** {note}",
+        delete_after=10
+    )
     dlog("📝 NOTE", f"Note added for {member} by {ctx.author}: {note}")
 
 @bot.command(name="notes")
@@ -1820,18 +1914,29 @@ async def add_note(ctx, member: discord.Member, *, note: str):
 async def get_member_notes(ctx, member: discord.Member):
     """View all moderator notes for a user. Usage: !notes @user"""
     notes = supabase_get_notes(ctx.guild.id, member.id)
-    embed = discord.Embed(title=f"📝 Mod Notes — {member}", color=0x3a8fff)
+    embed = discord.Embed(
+        title=f"📝 Moderator Notes — {member.display_name}",
+        description=(
+            f"**{member}** · `{member.id}`\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"Private moderator annotations for this member.\n"
+            f"Total notes on record: **{len(notes)}**\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━"
+        ),
+        color=0x3a8fff,
+        timestamp=datetime.utcnow(),
+    )
     embed.set_thumbnail(url=member.display_avatar.url)
     if not notes:
-        embed.description = "No notes on record."
+        embed.add_field(name="📭 No Notes", value="*No moderator notes have been recorded for this member.*", inline=False)
     else:
         for n in notes[-10:]:
             embed.add_field(
-                name=f"🕐 {n.get('timestamp', 'Unknown')} by {n.get('moderator', '?')}",
-                value=n.get('note', '—'),
+                name=f"🕐 {n.get('timestamp', 'Unknown')}  •  by {n.get('moderator', '?')}",
+                value=f"> {n.get('note', '—')}",
                 inline=False
             )
-    embed.set_footer(text=f"User ID: {member.id} | {len(notes)} total note(s)")
+    embed.set_footer(text=f"🆔 User ID: {member.id}  •  {len(notes)} total note(s)  •  SP4RK")
     await ctx.send(embed=embed)
 
 @bot.command(name="modlogs")
@@ -1845,26 +1950,41 @@ async def modlogs(ctx, member: discord.Member):
     history = entry["history"]
     notes   = supabase_get_notes(ctx.guild.id, member.id)
 
+    _wlimit = int(get_config_for_guild(str(ctx.guild.id)).get('warning_limit', 30))
+    pct = min(1.0, count / max(1, _wlimit))
+    filled = int(10 * pct)
+    bar = "▰" * filled + "▱" * (10 - filled)
+    severity = "🔴 High Risk" if count >= _wlimit else ("🟠 Moderate" if count >= _wlimit // 2 else "🟢 Low Risk")
     embed = discord.Embed(
-        title=f"📋 Mod Logs — {member}",
-        color=0xe74c3c if count >= 5 else (0xf39c12 if count >= 2 else 0x2ecc71)
+        title=f"📋 Full Mod Logs — {member.display_name}",
+        description=(
+            f"**{member}** · `{member.id}`\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"Risk level: `{bar}` — **{severity}**\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━"
+        ),
+        color=0xe74c3c if count >= _wlimit else (0xf39c12 if count >= 2 else 0x2ecc71),
+        timestamp=datetime.utcnow(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="⚠️ Warnings", value=f"**{count}** / {get_config_for_guild(str(ctx.guild.id)).get('warning_limit', 30)}", inline=True)
-    embed.add_field(name="📝 Notes",    value=str(len(notes)), inline=True)
-    embed.add_field(name="🆔 User ID",  value=f"`{member.id}`", inline=True)
+    embed.add_field(name="⚠️ Warnings",   value=f"**{count}** / {_wlimit}", inline=True)
+    embed.add_field(name="📝 Notes",       value=f"**{len(notes)}**",        inline=True)
+    embed.add_field(name="📊 Risk Level",  value=severity,                   inline=True)
 
     if history:
         last5 = history[-5:][::-1]
         warn_text = "\n".join(f"`{i+1}.` {h['reason']} — *{h['time']}*" for i, h in enumerate(last5))
-        embed.add_field(name="Recent Warnings", value=warn_text, inline=False)
+        embed.add_field(name="📋 Recent Warnings", value=warn_text, inline=False)
 
     if notes:
         last3 = notes[-3:]
-        note_text = "\n".join(f"*{n.get('note')}* — {n.get('moderator')} @ {n.get('timestamp')}" for n in last3)
-        embed.add_field(name="Recent Notes", value=note_text, inline=False)
+        note_text = "\n".join(
+            f"> *{n.get('note')}*\n> — {n.get('moderator')} · {n.get('timestamp')}"
+            for n in last3
+        )
+        embed.add_field(name="📝 Recent Notes", value=note_text, inline=False)
 
-    embed.set_footer(text=f"Requested by {ctx.author}")
+    embed.set_footer(text=f"Requested by {ctx.author}  •  SP4RK Moderation")
     await ctx.send(embed=embed)
 
 @bot.command()
@@ -1875,14 +1995,18 @@ async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
         await ctx.send(block)
         return
     if not ctx.guild.me.guild_permissions.kick_members:
-        await ctx.send("❌ I'm missing the **Kick Members** permission. Add it to my role in Server Settings → Roles.")
+        await ctx.send("❌ **Missing Permission** — I need the **Kick Members** permission.\n> Add it to my role in Server Settings → Roles.")
         return
     allowed = await security.mass_action_prevent(ctx, "kick", config, log_callback=dlog)
     if not allowed:
         return
     try:
         await member.kick(reason=reason)
-        await ctx.send(f"🚪 {member.mention} has been kicked! Reason: {reason}")
+        await ctx.send(
+            f"🚪 **Member Kicked** — {member.mention}\n"
+            f"> 🛡️ **By:** {ctx.author.mention}\n"
+            f"> 📝 **Reason:** {reason}"
+        )
         await logs.log_template(bot, config, "sp4rk.kick",
                                 user=member, moderator=ctx.author, reason=reason)
         await dm_owner("kick", str(member), reason, str(ctx.author))
@@ -1890,9 +2014,9 @@ async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
         _increment_report_action()
         dlog("🚪 KICK", f"{member} kicked by {ctx.author} — {reason}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to kick {member.mention} (role hierarchy or missing perms).")
+        await ctx.send(f"❌ **Permission Denied** — I can't kick {member.mention}.\n> Check role hierarchy and my permissions.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Kick Failed** — `{e}`")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -1902,14 +2026,18 @@ async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
         await ctx.send(block)
         return
     if not ctx.guild.me.guild_permissions.ban_members:
-        await ctx.send("❌ I'm missing the **Ban Members** permission. Add it to my role in Server Settings → Roles.")
+        await ctx.send("❌ **Missing Permission** — I need the **Ban Members** permission.\n> Add it to my role in Server Settings → Roles.")
         return
     allowed = await security.mass_action_prevent(ctx, "ban", config, log_callback=dlog)
     if not allowed:
         return
     try:
         await member.ban(reason=reason)
-        await ctx.send(f"⛔ {member.mention} has been permanently banned! Reason: {reason}")
+        await ctx.send(
+            f"⛔ **Member Banned** — {member.mention}\n"
+            f"> 🛡️ **By:** {ctx.author.mention}\n"
+            f"> 📝 **Reason:** {reason}"
+        )
         await logs.log_template(bot, config, "sp4rk.ban",
                                 user=member, moderator=ctx.author, reason=reason)
         await dm_owner("ban", str(member), reason, str(ctx.author))
@@ -1917,9 +2045,9 @@ async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
         _increment_report_action()
         dlog("⛔ BAN", f"{member} banned by {ctx.author} — {reason}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to ban {member.mention} (role hierarchy or missing perms).")
+        await ctx.send(f"❌ **Permission Denied** — I can't ban {member.mention}.\n> Check role hierarchy and my permissions.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Ban Failed** — `{e}`")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -1930,11 +2058,11 @@ async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reas
         await ctx.send(block)
         return
     if not ctx.guild.me.guild_permissions.ban_members:
-        await ctx.send("❌ I'm missing the **Ban Members** permission. Add it to my role in Server Settings → Roles.")
+        await ctx.send("❌ **Missing Permission** — I need the **Ban Members** permission.\n> Add it to my role in Server Settings → Roles.")
         return
     seconds = parse_duration(duration)
     if not seconds:
-        await ctx.send("❌ Invalid duration! Use formats like `30m`, `2h`, `1d`, `7d`.")
+        await ctx.send("❌ **Invalid Duration** — Use formats like `30m`, `2h`, `1d`, `7d`.")
         return
 
     allowed = await security.mass_action_prevent(ctx, "ban", config, log_callback=dlog)
@@ -1945,9 +2073,10 @@ async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reas
     try:
         await member.ban(reason=f"[TEMP-BAN {label}] {reason}")
         await ctx.send(
-            f"⏱️ **{member}** has been temp-banned for **{label}**!\n"
-            f"Reason: {reason}\n"
-            f"They will be automatically unbanned <t:{int((datetime.utcnow() + timedelta(seconds=seconds)).timestamp())}:R>."
+            f"⏱️ **Member Temp-Banned** — {member.mention}\n"
+            f"> 🕐 **Duration:** {label}  |  Unbanned <t:{int((datetime.utcnow() + timedelta(seconds=seconds)).timestamp())}:R>\n"
+            f"> 🛡️ **By:** {ctx.author.mention}\n"
+            f"> 📝 **Reason:** {reason}"
         )
         await logs.log_event(
             bot, config, "⏱️ Temp Ban",
@@ -1975,21 +2104,24 @@ async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reas
         asyncio.create_task(auto_unban())
 
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to ban {member.mention}.")
+        await ctx.send(f"❌ **Permission Denied** — I can't ban {member.mention}.\n> Check role hierarchy and my permissions.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Temp-Ban Failed** — `{e}`")
 
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def purge(ctx, amount: int = 10):
     """Bulk delete messages. Usage: !purge 50"""
     if amount < 1 or amount > 200:
-        await ctx.send("❌ Amount must be between 1 and 200.", delete_after=5)
+        await ctx.send("❌ **Invalid Amount** — Please provide a number between 1 and 200.", delete_after=5)
         return
     try:
         deleted = await ctx.channel.purge(limit=amount + 1)
         actual  = len(deleted) - 1
-        msg = await ctx.send(f"🧹 Deleted **{actual}** message(s).")
+        msg = await ctx.send(
+            f"🧹 **Channel Purged** — Deleted **{actual}** message(s) in {ctx.channel.mention}.\n"
+            f"> 🛡️ **By:** {ctx.author.mention}"
+        )
         await asyncio.sleep(5)
         await msg.delete()
         await logs.log_event(
@@ -1999,20 +2131,23 @@ async def purge(ctx, amount: int = 10):
         )
         dlog("🧹 PURGE", f"{ctx.author} deleted {actual} messages in #{ctx.channel.name}")
     except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to delete messages here.")
+        await ctx.send("❌ **Permission Denied** — I don't have permission to delete messages in this channel.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Purge Failed** — `{e}`")
 
 @bot.command(name="purgeuser")
 @commands.has_permissions(manage_messages=True)
 async def purge_user(ctx, member: discord.Member, amount: int = 50):
     """Delete up to <amount> recent messages from a specific user. Usage: !purgeuser @user 50"""
     if amount < 1 or amount > 500:
-        await ctx.send("❌ Amount must be between 1 and 500.", delete_after=5)
+        await ctx.send("❌ **Invalid Amount** — Please provide a number between 1 and 500.", delete_after=5)
         return
     try:
         deleted = await ctx.channel.purge(limit=amount, check=lambda m: m.author.id == member.id)
-        msg = await ctx.send(f"🧹 Deleted **{len(deleted)}** message(s) from {member.mention}.")
+        msg = await ctx.send(
+            f"🧹 **User Messages Purged** — Deleted **{len(deleted)}** message(s) from {member.mention}.\n"
+            f"> 🛡️ **By:** {ctx.author.mention}"
+        )
         await asyncio.sleep(5)
         try: await msg.delete()
         except: pass
@@ -2021,9 +2156,9 @@ async def purge_user(ctx, member: discord.Member, amount: int = 50):
             color=0x9b59b6, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("🧹 PURGEUSER", f"{ctx.author} purged {len(deleted)} from {member} in #{ctx.channel.name}")
     except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to delete messages here.")
+        await ctx.send("❌ **Permission Denied** — I don't have permission to delete messages in this channel.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Purge Failed** — `{e}`")
 
 @bot.command()
 @commands.has_permissions(manage_channels=True)
@@ -2035,14 +2170,17 @@ async def lock(ctx, channel: discord.TextChannel = None):
         overwrite.send_messages = False
         await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite,
                                        reason=f"Locked by {ctx.author}")
-        await ctx.send(f"🔒 {channel.mention} has been locked.")
+        await ctx.send(
+            f"🔒 **Channel Locked** — {channel.mention}\n"
+            f"> 🛡️ **By:** {ctx.author.mention}  |  Members can no longer send messages here."
+        )
         await logs.log_event(bot, config, "🔒 Channel Locked",
             f"#{channel.name} locked by {ctx.author}", color=0xe67e22, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("🔒 LOCK", f"#{channel.name} locked by {ctx.author}")
     except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to edit that channel.")
+        await ctx.send("❌ **Permission Denied** — I don't have permission to edit that channel.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Lock Failed** — `{e}`")
 
 @bot.command()
 @commands.has_permissions(manage_channels=True)
@@ -2054,67 +2192,78 @@ async def unlock(ctx, channel: discord.TextChannel = None):
         overwrite.send_messages = None
         await channel.set_permissions(ctx.guild.default_role, overwrite=overwrite,
                                        reason=f"Unlocked by {ctx.author}")
-        await ctx.send(f"🔓 {channel.mention} has been unlocked.")
+        await ctx.send(
+            f"🔓 **Channel Unlocked** — {channel.mention}\n"
+            f"> 🛡️ **By:** {ctx.author.mention}  |  Members can now send messages again."
+        )
         await logs.log_event(bot, config, "🔓 Channel Unlocked",
             f"#{channel.name} unlocked by {ctx.author}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("🔓 UNLOCK", f"#{channel.name} unlocked by {ctx.author}")
     except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to edit that channel.")
+        await ctx.send("❌ **Permission Denied** — I don't have permission to edit that channel.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Unlock Failed** — `{e}`")
 
 @bot.group(name="role", invoke_without_command=True)
 @commands.has_permissions(manage_roles=True)
 async def role_group(ctx):
     """Role management. Usage: !role add @user @role  |  !role remove @user @role"""
     _p = get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0').get('prefix', '!')
-    await ctx.send(f"Usage: `{_p}role add @user @role` or `{_p}role remove @user @role`")
+    await ctx.send(f"ℹ️ **Role Management** — Usage:\n> `{_p}role add @user @role` — Assign a role\n> `{_p}role remove @user @role` — Remove a role")
 
 @role_group.command(name="add")
 @commands.has_permissions(manage_roles=True)
 async def role_add(ctx, member: discord.Member, role: discord.Role):
     if role >= ctx.guild.me.top_role:
-        await ctx.send(f"❌ I can't manage **{role.name}** — it's higher than my top role.")
+        await ctx.send(f"❌ **Action Blocked** — I can't manage **{role.name}**.\n> That role is higher than my top role.")
         return
     if ctx.author.id != ctx.guild.owner_id and role >= ctx.author.top_role:
-        await ctx.send(f"❌ You can't assign **{role.name}** — it's equal to or higher than your top role.")
+        await ctx.send(f"❌ **Action Blocked** — You can't assign **{role.name}**.\n> That role is equal to or higher than your own top role.")
         return
     if role in member.roles:
-        await ctx.send(f"ℹ️ {member.mention} already has **{role.name}**.")
+        await ctx.send(f"ℹ️ **Already Assigned** — {member.mention} already has the **{role.name}** role.")
         return
     try:
         await member.add_roles(role, reason=f"Added by {ctx.author}")
-        await ctx.send(f"✅ Gave **{role.name}** to {member.mention}.")
+        await ctx.send(
+            f"✅ **Role Assigned** — {member.mention}\n"
+            f"> 🏷️ **Role:** {role.mention}\n"
+            f"> 🛡️ **By:** {ctx.author.mention}"
+        )
         await logs.log_event(bot, config, "➕ Role Added",
             f"{ctx.author} gave @{role.name} to {member}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("➕ ROLE-ADD", f"{ctx.author} gave @{role.name} to {member}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to assign that role.")
+        await ctx.send("❌ **Permission Denied** — I don't have permission to assign that role.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Role Add Failed** — `{e}`")
 
 @role_group.command(name="remove")
 @commands.has_permissions(manage_roles=True)
 async def role_remove(ctx, member: discord.Member, role: discord.Role):
     if role >= ctx.guild.me.top_role:
-        await ctx.send(f"❌ I can't manage **{role.name}** — it's higher than my top role.")
+        await ctx.send(f"❌ **Action Blocked** — I can't manage **{role.name}**.\n> That role is higher than my top role.")
         return
     if ctx.author.id != ctx.guild.owner_id and role >= ctx.author.top_role:
-        await ctx.send(f"❌ You can't remove **{role.name}** — it's equal to or higher than your top role.")
+        await ctx.send(f"❌ **Action Blocked** — You can't remove **{role.name}**.\n> That role is equal to or higher than your own top role.")
         return
     if role not in member.roles:
-        await ctx.send(f"ℹ️ {member.mention} doesn't have **{role.name}**.")
+        await ctx.send(f"ℹ️ **Not Assigned** — {member.mention} doesn't have the **{role.name}** role.")
         return
     try:
         await member.remove_roles(role, reason=f"Removed by {ctx.author}")
-        await ctx.send(f"✅ Removed **{role.name}** from {member.mention}.")
+        await ctx.send(
+            f"✅ **Role Removed** — {member.mention}\n"
+            f"> 🏷️ **Role:** {role.mention}\n"
+            f"> 🛡️ **By:** {ctx.author.mention}"
+        )
         await logs.log_event(bot, config, "➖ Role Removed",
             f"{ctx.author} removed @{role.name} from {member}", color=0xe67e22, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("➖ ROLE-REM", f"{ctx.author} removed @{role.name} from {member}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to remove that role.")
+        await ctx.send("❌ **Permission Denied** — I don't have permission to remove that role.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Role Remove Failed** — `{e}`")
 
 @bot.command(name="nick")
 @commands.has_permissions(manage_nicknames=True)
@@ -2127,21 +2276,28 @@ async def nick_cmd(ctx, member: discord.Member, *, name: str = None):
     try:
         await member.edit(nick=name, reason=f"Renamed by {ctx.author}")
         if name:
-            await ctx.send(f"✅ Renamed {member.mention} to **{name}**.")
+            await ctx.send(
+                f"✅ **Nickname Updated** — {member.mention}\n"
+                f"> 🏷️ **New Name:** {name}\n"
+                f"> 🛡️ **By:** {ctx.author.mention}"
+            )
         else:
-            await ctx.send(f"✅ Reset {member.mention}'s nickname.")
+            await ctx.send(
+                f"✅ **Nickname Reset** — {member.mention}'s nickname has been cleared.\n"
+                f"> 🛡️ **By:** {ctx.author.mention}"
+            )
         dlog("📝 NICK", f"{ctx.author} renamed {member} to {name or '(reset)'}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to rename {member.mention}.")
+        await ctx.send(f"❌ **Permission Denied** — I can't rename {member.mention}.\n> Check role hierarchy and my permissions.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Nickname Failed** — `{e}`")
 
 @bot.command(name="voicekick", aliases=["vkick", "vdc"])
 @commands.has_permissions(move_members=True)
 async def voicekick(ctx, member: discord.Member):
     """Disconnect a member from voice. Usage: !voicekick @user"""
     if not member.voice or not member.voice.channel:
-        await ctx.send(f"ℹ️ {member.mention} isn't in a voice channel.")
+        await ctx.send(f"ℹ️ **Not in Voice** — {member.mention} is not currently in any voice channel.")
         return
     block = _hierarchy_block(ctx, member, "voice-kick")
     if block:
@@ -2150,14 +2306,18 @@ async def voicekick(ctx, member: discord.Member):
     try:
         ch_name = member.voice.channel.name
         await member.move_to(None, reason=f"Voice kick by {ctx.author}")
-        await ctx.send(f"🔌 Disconnected {member.mention} from **{ch_name}**.")
+        await ctx.send(
+            f"🔌 **Voice Disconnected** — {member.mention}\n"
+            f"> 🔊 **Channel:** {ch_name}\n"
+            f"> 🛡️ **By:** {ctx.author.mention}"
+        )
         await logs.log_event(bot, config, "🔌 Voice Kick",
             f"{ctx.author} disconnected {member} from #{ch_name}", color=0xf39c12, guild_id=ctx.guild.id if ctx.guild else None)
         dlog("🔌 VKICK", f"{ctx.author} disconnected {member} from {ch_name}")
     except discord.Forbidden:
-        await ctx.send(f"❌ I don't have permission to move that member.")
+        await ctx.send("❌ **Permission Denied** — I don't have permission to move that member.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Voice Kick Failed** — `{e}`")
 
 @bot.command(name="snipe")
 @commands.has_permissions(manage_messages=True)
@@ -2165,15 +2325,20 @@ async def snipe_cmd(ctx):
     """Show the last deleted message in this channel."""
     snipe = _snipe_cache.get(ctx.channel.id)
     if not snipe:
-        await ctx.send("ℹ️ Nothing to snipe in this channel.")
+        await ctx.send("ℹ️ **Nothing to Snipe** — No recently deleted messages found in this channel.")
         return
     embed = discord.Embed(
-        description=snipe["content"][:2000],
+        title="🔍 Sniped Message",
+        description=(
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{snipe['content'][:1900]}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━"
+        ),
         color=0x95a5a6,
-        timestamp=snipe["ts"]
+        timestamp=snipe["ts"],
     )
-    embed.set_author(name=snipe["author"])
-    embed.set_footer(text="Deleted message")
+    embed.set_author(name=f"{snipe['author']} said:")
+    embed.set_footer(text=f"🗑️ Deleted in #{ctx.channel.name}  •  SP4RK Snipe")
     await ctx.send(embed=embed)
 
 @bot.command(name="massban")
@@ -2181,25 +2346,28 @@ async def snipe_cmd(ctx):
 async def massban(ctx, *user_ids: int):
     """Ban many user IDs at once (raid response). Usage: !massban 123 456 789"""
     if not user_ids:
-        await ctx.send("❌ Provide one or more user IDs. Usage: `!massban 123 456 789`")
+        await ctx.send("❌ **Missing IDs** — Provide one or more user IDs.\n> Usage: `!massban 123 456 789`")
         return
     if len(user_ids) > 50:
-        await ctx.send("❌ Max 50 IDs per command for safety.")
+        await ctx.send("❌ **Too Many IDs** — Maximum is 50 IDs per command for safety.")
         return
     if not ctx.guild.me.guild_permissions.ban_members:
-        await ctx.send("❌ I'm missing the **Ban Members** permission.")
+        await ctx.send("❌ **Missing Permission** — I need the **Ban Members** permission.")
         return
     allowed = await security.mass_action_prevent(ctx, "ban", config, log_callback=dlog)
     if not allowed:
         return
-    confirm = await ctx.send(f"⚠️ About to ban **{len(user_ids)}** users. React ✅ within 15s to confirm.")
+    confirm = await ctx.send(
+        f"⚠️ **Mass Ban Confirmation** — You are about to ban **{len(user_ids)}** users.\n"
+        f"> React ✅ within 15 seconds to confirm this action."
+    )
     await confirm.add_reaction("✅")
     def check(reaction, user):
         return user == ctx.author and str(reaction.emoji) == "✅" and reaction.message.id == confirm.id
     try:
         await bot.wait_for("reaction_add", timeout=15.0, check=check)
     except asyncio.TimeoutError:
-        await ctx.send("❌ Mass-ban cancelled (no confirmation).")
+        await ctx.send("❌ **Cancelled** — Mass ban was not confirmed in time.")
         return
     success, fail = 0, 0
     for uid in user_ids:
@@ -2208,7 +2376,11 @@ async def massban(ctx, *user_ids: int):
             success += 1
         except Exception:
             fail += 1
-    await ctx.send(f"⛔ Mass-ban complete: **{success}** banned, **{fail}** failed.")
+    await ctx.send(
+        f"⛔ **Mass Ban Complete** — {len(user_ids)} targets processed.\n"
+        f"> ✅ **Banned:** {success}  |  ❌ **Failed:** {fail}\n"
+        f"> 🛡️ **By:** {ctx.author.mention}"
+    )
     await logs.log_event(bot, config, "⛔ Mass Ban",
         f"{ctx.author} mass-banned {success} users ({fail} failed)", color=0xe74c3c, guild_id=ctx.guild.id if ctx.guild else None)
     dlog("⛔ MASSBAN", f"{ctx.author} mass-banned {success}/{len(user_ids)}")
@@ -2218,16 +2390,23 @@ async def massban(ctx, *user_ids: int):
 async def slowmode(ctx, seconds: int = 0):
     """Set slowmode for the current channel. 0 = disabled. Max 21600 (6h)."""
     if seconds < 0 or seconds > 21600:
-        await ctx.send("❌ Slowmode must be between 0 and 21600 seconds (6 hours).", delete_after=7)
+        await ctx.send("❌ **Invalid Value** — Slowmode must be between `0` and `21600` seconds (6 hours).", delete_after=7)
         return
     try:
         await ctx.channel.edit(slowmode_delay=seconds)
         if seconds == 0:
-            await ctx.send("✅ Slowmode disabled in this channel.")
+            await ctx.send(
+                f"✅ **Slowmode Disabled** — {ctx.channel.mention} is back to normal speed.\n"
+                f"> 🛡️ **By:** {ctx.author.mention}"
+            )
             dlog("⏱️ SLOWMODE", f"Slowmode disabled in #{ctx.channel.name} by {ctx.author}")
         else:
             label = duration_label(seconds)
-            await ctx.send(f"⏱️ Slowmode set to **{label}** in {ctx.channel.mention}.")
+            await ctx.send(
+                f"🐌 **Slowmode Enabled** — {ctx.channel.mention}\n"
+                f"> 🕐 **Delay:** {label} between messages\n"
+                f"> 🛡️ **By:** {ctx.author.mention}"
+            )
             dlog("⏱️ SLOWMODE", f"Slowmode set to {label} in #{ctx.channel.name} by {ctx.author}")
         await logs.log_event(
             bot, config, "⏱️ Slowmode",
@@ -2235,9 +2414,9 @@ async def slowmode(ctx, seconds: int = 0):
             color=0x3498db
         )
     except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to edit this channel.")
+        await ctx.send("❌ **Permission Denied** — I don't have permission to edit this channel.")
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await ctx.send(f"❌ **Slowmode Failed** — `{e}`")
 
 # ============================================================
 # 👤 RICH userinfo  (big, informative embed — shared by ! and /)
@@ -2453,7 +2632,7 @@ async def slash_userinfo(interaction: discord.Interaction,
 @bot.tree.command(name="copy", description="Copy this server's full structure (channels, roles, permissions) into a template")
 async def slash_copy(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ Administrator permission required.", ephemeral=True)
+        await interaction.response.send_message("❌ **Access Denied** — This command requires **Administrator** permission.", ephemeral=True)
         return
     await interaction.response.defer(ephemeral=True)
     try:
@@ -2461,19 +2640,23 @@ async def slash_copy(interaction: discord.Interaction):
         template = await template_mod.copy_server(interaction.guild)
         info = template_mod.get_template_info()
         embed = discord.Embed(
-            title="✅ Server Template Saved",
+            title="📸 Server Template Saved",
             description=(
-                f"**Source:** {interaction.guild.name}\n"
-                f"**Copied at:** {info['copied_at'][:19].replace('T', ' ')}\n\n"
-                f"Use `/paste` in any server to recreate this structure."
+                f"**{interaction.guild.name}**'s structure has been captured.\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📅 **Copied at:** {info['copied_at'][:19].replace('T', ' ')} UTC\n\n"
+                f"Use `/paste` in any server to recreate this exact structure."
             ),
-            color=0x2ecc71
+            color=0x2ecc71,
+            timestamp=datetime.utcnow(),
         )
-        embed.add_field(name="🎭 Roles",          value=str(info["roles"]),          inline=True)
-        embed.add_field(name="📁 Categories",      value=str(info["categories"]),     inline=True)
-        embed.add_field(name="💬 Text Channels",   value=str(info["text_channels"]),  inline=True)
-        embed.add_field(name="🔊 Voice Channels",  value=str(info["voice_channels"]), inline=True)
-        embed.set_footer(text="SP4RK — Server Template")
+        if interaction.guild.icon:
+            embed.set_thumbnail(url=interaction.guild.icon.url)
+        embed.add_field(name="🎭 Roles",          value=f"**{info['roles']}**",          inline=True)
+        embed.add_field(name="📁 Categories",      value=f"**{info['categories']}**",     inline=True)
+        embed.add_field(name="💬 Text Channels",   value=f"**{info['text_channels']}**",  inline=True)
+        embed.add_field(name="🔊 Voice Channels",  value=f"**{info['voice_channels']}**", inline=True)
+        embed.set_footer(text="SP4RK — Server Template  •  Template stored globally")
         await interaction.edit_original_response(content=None, embed=embed)
         dlog("📸 COPY", f"{interaction.user} copied server template from {interaction.guild.name}")
     except Exception as e:
@@ -2489,7 +2672,7 @@ class DeleteTemplateConfirmView(discord.ui.View):
     @discord.ui.button(label="Yes, delete everything", style=discord.ButtonStyle.danger, emoji="🗑️")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Administrators only.", ephemeral=True)
+            await interaction.response.send_message("❌ **Access Denied** — This action requires **Administrator** permission.", ephemeral=True)
             return
         for item in self.children:
             item.disabled = True
@@ -2509,17 +2692,22 @@ class DeleteTemplateConfirmView(discord.ui.View):
             log = template_mod.load_paste_log(self.guild.id)  # already cleared, use summary
             embed = discord.Embed(
                 title="🗑️ Template Deleted",
-                description=f"Everything pasted by SP4RK has been removed from **{self.guild.name}**.",
-                color=0xe74c3c
+                description=(
+                    f"All SP4RK-pasted content has been removed from **{self.guild.name}**.\n\n"
+                    f"Only channels, categories, and roles created by `/paste` were affected.\n"
+                    f"Original server content was left untouched."
+                ),
+                color=0xe74c3c,
+                timestamp=datetime.utcnow(),
             )
-            embed.add_field(name="🎭 Roles Deleted",          value=str(summary["roles"]),         inline=True)
-            embed.add_field(name="📁 Categories Deleted",     value=str(summary["categories"]),    inline=True)
-            embed.add_field(name="💬 Text Channels Deleted",  value=str(summary["text_channels"]), inline=True)
-            embed.add_field(name="🔊 Voice Channels Deleted", value=str(summary["voice_channels"]),inline=True)
+            embed.add_field(name="🎭 Roles Deleted",          value=f"**{summary['roles']}**",         inline=True)
+            embed.add_field(name="📁 Categories Deleted",     value=f"**{summary['categories']}**",    inline=True)
+            embed.add_field(name="💬 Text Channels Deleted",  value=f"**{summary['text_channels']}**", inline=True)
+            embed.add_field(name="🔊 Voice Channels Deleted", value=f"**{summary['voice_channels']}**",inline=True)
             if summary["failed"]:
-                embed.add_field(name="⚠️ Failed (already gone or no permission)",
-                                value=str(summary["failed"]), inline=True)
-            embed.set_footer(text="SP4RK — Server Template • Paste log cleared")
+                embed.add_field(name="⚠️ Skipped (already gone or no permission)",
+                                value=f"**{summary['failed']}**", inline=True)
+            embed.set_footer(text="SP4RK — Server Template  •  Paste log cleared")
             await interaction.edit_original_response(content=None, embed=embed, view=None)
             dlog("🗑️ DELETE-TEMPLATE", f"{interaction.user} deleted pasted template from {self.guild.name}")
         except FileNotFoundError:
@@ -2540,7 +2728,7 @@ class DeleteTemplateConfirmView(discord.ui.View):
 @bot.tree.command(name="paste", description="Recreate a copied server template in this server (adds channels & roles)")
 async def slash_paste(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ Administrator permission required.", ephemeral=True)
+        await interaction.response.send_message("❌ **Access Denied** — This command requires **Administrator** permission.", ephemeral=True)
         return
     info = template_mod.get_template_info()
     if not info:
@@ -2568,15 +2756,24 @@ async def slash_paste(interaction: discord.Interaction):
 
         embed = discord.Embed(
             title="✅ Server Template Applied",
-            description=f"Template from **{info['source']}** has been pasted into **{interaction.guild.name}**.",
-            color=0x2ecc71
+            description=(
+                f"Template from **{info['source']}** has been pasted into **{interaction.guild.name}**.\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"All roles, categories, and channels have been recreated.\n"
+                f"Existing items were skipped to avoid duplicates.\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━"
+            ),
+            color=0x2ecc71,
+            timestamp=datetime.utcnow(),
         )
-        embed.add_field(name="🎭 Roles Created",         value=str(summary["roles"]),         inline=True)
-        embed.add_field(name="📁 Categories Created",    value=str(summary["categories"]),    inline=True)
-        embed.add_field(name="💬 Text Channels Created", value=str(summary["text_channels"]), inline=True)
-        embed.add_field(name="🔊 Voice Channels Created",value=str(summary["voice_channels"]),inline=True)
-        embed.add_field(name="⏭️ Skipped (already exist)", value=str(summary["skipped"]),    inline=True)
-        embed.set_footer(text="SP4RK — Server Template • Existing channels/roles were not duplicated")
+        if interaction.guild.icon:
+            embed.set_thumbnail(url=interaction.guild.icon.url)
+        embed.add_field(name="🎭 Roles Created",          value=f"**{summary['roles']}**",         inline=True)
+        embed.add_field(name="📁 Categories Created",     value=f"**{summary['categories']}**",    inline=True)
+        embed.add_field(name="💬 Text Channels Created",  value=f"**{summary['text_channels']}**", inline=True)
+        embed.add_field(name="🔊 Voice Channels Created", value=f"**{summary['voice_channels']}**",inline=True)
+        embed.add_field(name="⏭️ Skipped",                value=f"**{summary['skipped']}**",       inline=True)
+        embed.set_footer(text="SP4RK — Server Template  •  Existing channels/roles were not duplicated")
         await interaction.edit_original_response(content=None, embed=embed)
         dlog("📋 PASTE", f"{interaction.user} pasted server template into {interaction.guild.name}")
     except FileNotFoundError:
@@ -2588,7 +2785,7 @@ async def slash_paste(interaction: discord.Interaction):
 @bot.tree.command(name="delete-template", description="Delete all channels, categories and roles that were added by /paste")
 async def slash_delete_template(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ Administrator permission required.", ephemeral=True)
+        await interaction.response.send_message("❌ **Access Denied** — This command requires **Administrator** permission.", ephemeral=True)
         return
     log = template_mod.load_paste_log(interaction.guild.id)
     if not log:
@@ -2601,20 +2798,24 @@ async def slash_delete_template(interaction: discord.Interaction):
     # Show what will be deleted and ask for confirmation
     pasted_at = log.get("pasted_at", "Unknown")[:19].replace("T", " ")
     embed = discord.Embed(
-        title="⚠️ Confirm Deletion",
+        title="⚠️ Confirm Template Deletion",
         description=(
-            f"This will **permanently delete** everything SP4RK created with `/paste` "
-            f"on **{pasted_at} UTC** from the **{log.get('source','Unknown')}** template.\n\n"
-            f"**🎭 Roles:** {len(log.get('role_ids', []))}\n"
-            f"**📁 Categories:** {len(log.get('category_ids', []))}\n"
-            f"**💬 Text Channels:** {len(log.get('text_channel_ids', []))}\n"
-            f"**🔊 Voice Channels:** {len(log.get('voice_channel_ids', []))}\n\n"
-            f"⚡ Items that were already manually deleted will be skipped.\n"
-            f"This action **cannot be undone**."
+            f"You are about to **permanently remove** all content SP4RK added via `/paste`.\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📋 **Template source:** {log.get('source', 'Unknown')}\n"
+            f"📅 **Pasted at:** {pasted_at} UTC\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🎭 **Roles to delete:** {len(log.get('role_ids', []))}\n"
+            f"📁 **Categories to delete:** {len(log.get('category_ids', []))}\n"
+            f"💬 **Text Channels to delete:** {len(log.get('text_channel_ids', []))}\n"
+            f"🔊 **Voice Channels to delete:** {len(log.get('voice_channel_ids', []))}\n\n"
+            f"⚡ Items that were already deleted manually will be skipped.\n"
+            f"🚫 **This action cannot be undone.** Proceed with caution."
         ),
-        color=0xe74c3c
+        color=0xe74c3c,
+        timestamp=datetime.utcnow(),
     )
-    embed.set_footer(text="SP4RK — Server Template • You have 60 seconds to decide")
+    embed.set_footer(text="SP4RK — Server Template  •  You have 60 seconds to confirm")
     view = DeleteTemplateConfirmView(interaction.guild)
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
@@ -2746,29 +2947,36 @@ async def slash_warnings(interaction: discord.Interaction, member: discord.Membe
     count   = entry["count"]
     history = entry["history"]
     limit   = int(get_config_for_guild(str(interaction.guild.id)).get("warning_limit", 30))
+    pct = min(1.0, count / max(1, limit))
+    filled = int(10 * pct)
+    bar = "▰" * filled + "▱" * (10 - filled)
+    status_emoji = "🔴" if count >= limit else ("🟠" if count >= limit // 2 else "🟢")
+    status_label = "Limit Reached" if count >= limit else ("Watch" if count >= limit // 2 else "Clear")
     embed = discord.Embed(
-        title=f"⚠️ Warning History — {member}",
-        color=0xf39c12 if count > 0 else 0x2ecc71,
+        title=f"⚠️ Warning Record — {member.display_name}",
+        description=(
+            f"**{member}** · `{member.id}`\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"Severity: `{bar}` {status_emoji} **{status_label}**\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━"
+        ),
+        color=0xe74c3c if count >= limit else (0xf39c12 if count > 0 else 0x2ecc71),
+        timestamp=datetime.utcnow(),
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="Total Warnings", value=f"**{count}**", inline=True)
-    embed.add_field(name="Warning Limit",  value=f"**{limit}**", inline=True)
-    embed.add_field(
-        name="Status",
-        value="🔴 Limit Reached" if count >= limit else
-              ("🟠 Watch" if count >= limit // 2 else "🟢 OK"),
-        inline=True,
-    )
+    embed.add_field(name="⚠️ Warnings Issued", value=f"**{count}**",  inline=True)
+    embed.add_field(name="🔔 Server Limit",     value=f"**{limit}**",  inline=True)
+    embed.add_field(name="📊 Status",           value=f"{status_emoji} **{status_label}**", inline=True)
     if history:
         last5 = history[-5:][::-1]
         history_text = "\n".join(
             f"`{i+1}.` {h['reason']} — *{h['time']}*"
             for i, h in enumerate(last5)
         )
-        embed.add_field(name=f"Recent History (last {len(last5)})", value=history_text, inline=False)
+        embed.add_field(name=f"📋 Recent Warnings (last {len(last5)})", value=history_text, inline=False)
     else:
-        embed.add_field(name="History", value="No warnings on record.", inline=False)
-    embed.set_footer(text=f"User ID: {member.id}")
+        embed.add_field(name="📋 History", value="*No warnings on record — clean slate!*", inline=False)
+    embed.set_footer(text=f"🆔 User ID: {member.id}  •  SP4RK Moderation")
     await interaction.response.send_message(embed=embed)
 
 
@@ -2805,22 +3013,24 @@ async def slash_kick(interaction: discord.Interaction,
     ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
     if not ok_bot:
         return await interaction.response.send_message(
-            f"❌ Cannot kick {member.mention} — {why}.", ephemeral=True
+            f"❌ **Action Blocked** — Cannot kick {member.mention}.\n> {why}", ephemeral=True
         )
     if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
         return await interaction.response.send_message(
-            f"❌ You cannot kick {member.mention} — their role is equal to or higher than yours.",
+            f"❌ **Action Blocked** — Cannot kick {member.mention}.\n> Their role is equal to or higher than yours.",
             ephemeral=True,
         )
     if not interaction.guild.me.guild_permissions.kick_members:
         return await interaction.response.send_message(
-            "❌ I'm missing the **Kick Members** permission.", ephemeral=True
+            "❌ **Missing Permission** — I need the **Kick Members** permission.", ephemeral=True
         )
     await interaction.response.defer()
     try:
         await member.kick(reason=reason)
         await interaction.followup.send(
-            f"🚪 {member.mention} has been kicked! Reason: {reason}"
+            f"🚪 **Member Kicked** — {member.mention}\n"
+            f"> 🛡️ **By:** {interaction.user.mention}\n"
+            f"> 📝 **Reason:** {reason}"
         )
         await logs.log_event(bot, config, "🚪 Kick",
             f"{member} kicked by {interaction.user} | Reason: {reason}", color=0xe67e22, guild_id=interaction.guild.id if interaction.guild else None)
@@ -2831,10 +3041,10 @@ async def slash_kick(interaction: discord.Interaction,
         dlog("🚪 KICK", f"{member} kicked by {interaction.user} — {reason}")
     except discord.Forbidden:
         await interaction.followup.send(
-            f"❌ I don't have permission to kick {member.mention}.", ephemeral=True
+            f"❌ **Permission Denied** — I can't kick {member.mention}.\n> Check role hierarchy and my permissions.", ephemeral=True
         )
     except Exception as e:
-        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        await interaction.followup.send(f"❌ **Kick Failed** — `{e}`", ephemeral=True)
 
 
 # ---------------- /ban ----------------
@@ -2848,22 +3058,24 @@ async def slash_ban(interaction: discord.Interaction,
     ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
     if not ok_bot:
         return await interaction.response.send_message(
-            f"❌ Cannot ban {member.mention} — {why}.", ephemeral=True
+            f"❌ **Action Blocked** — Cannot ban {member.mention}.\n> {why}", ephemeral=True
         )
     if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
         return await interaction.response.send_message(
-            f"❌ You cannot ban {member.mention} — their role is equal to or higher than yours.",
+            f"❌ **Action Blocked** — Cannot ban {member.mention}.\n> Their role is equal to or higher than yours.",
             ephemeral=True,
         )
     if not interaction.guild.me.guild_permissions.ban_members:
         return await interaction.response.send_message(
-            "❌ I'm missing the **Ban Members** permission.", ephemeral=True
+            "❌ **Missing Permission** — I need the **Ban Members** permission.", ephemeral=True
         )
     await interaction.response.defer()
     try:
         await member.ban(reason=reason)
         await interaction.followup.send(
-            f"⛔ {member.mention} has been permanently banned! Reason: {reason}"
+            f"⛔ **Member Banned** — {member.mention}\n"
+            f"> 🛡️ **By:** {interaction.user.mention}\n"
+            f"> 📝 **Reason:** {reason}"
         )
         await logs.log_event(bot, config, "⛔ Ban",
             f"{member} banned by {interaction.user} | Reason: {reason}", color=0xe74c3c, guild_id=interaction.guild.id if interaction.guild else None)
@@ -2874,10 +3086,10 @@ async def slash_ban(interaction: discord.Interaction,
         dlog("⛔ BAN", f"{member} banned by {interaction.user} — {reason}")
     except discord.Forbidden:
         await interaction.followup.send(
-            f"❌ I don't have permission to ban {member.mention}.", ephemeral=True
+            f"❌ **Permission Denied** — I can't ban {member.mention}.\n> Check role hierarchy and my permissions.", ephemeral=True
         )
     except Exception as e:
-        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        await interaction.followup.send(f"❌ **Ban Failed** — `{e}`", ephemeral=True)
 
 
 # ---------------- /unban ----------------
@@ -2890,27 +3102,31 @@ async def slash_unban(interaction: discord.Interaction,
         return
     if not user_id.isdigit():
         return await interaction.response.send_message(
-            "❌ User ID must be a number (right-click a user → Copy ID).",
+            "❌ **Invalid ID** — User ID must be a number.\n> Right-click a user → Copy ID to get their ID.",
             ephemeral=True,
         )
     await interaction.response.defer()
     try:
         user = await bot.fetch_user(int(user_id))
         await interaction.guild.unban(user, reason=reason)
-        await interaction.followup.send(f"✅ {user} has been unbanned. Reason: {reason}")
+        await interaction.followup.send(
+            f"✅ **User Unbanned** — **{user}**\n"
+            f"> 🛡️ **By:** {interaction.user.mention}\n"
+            f"> 📝 **Reason:** {reason}"
+        )
         await logs.log_event(bot, config, "✅ Unban",
             f"{user} unbanned by {interaction.user} | Reason: {reason}", color=0x2ecc71, guild_id=interaction.guild.id if interaction.guild else None)
         supabase_save_mod_log(interaction.guild.id, "unban", str(user),
             str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         dlog("✅ UNBAN", f"{user} unbanned by {interaction.user}")
     except discord.NotFound:
-        await interaction.followup.send("❌ User not found or not banned.", ephemeral=True)
+        await interaction.followup.send("❌ **Not Found** — That user ID doesn't exist or they are not currently banned.", ephemeral=True)
     except discord.Forbidden:
         await interaction.followup.send(
-            "❌ I don't have permission to unban users.", ephemeral=True
+            "❌ **Permission Denied** — I don't have permission to unban users.", ephemeral=True
         )
     except Exception as e:
-        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        await interaction.followup.send(f"❌ **Unban Failed** — `{e}`", ephemeral=True)
 
 
 # ---------------- /timeout ----------------
@@ -2925,21 +3141,21 @@ async def slash_timeout(interaction: discord.Interaction,
     ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
     if not ok_bot:
         return await interaction.response.send_message(
-            f"❌ Cannot time out {member.mention} — {why}.", ephemeral=True
+            f"❌ **Action Blocked** — Cannot time out {member.mention}.\n> {why}", ephemeral=True
         )
     if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
         return await interaction.response.send_message(
-            f"❌ You cannot time out {member.mention} — their role is equal to or higher than yours.",
+            f"❌ **Action Blocked** — Cannot time out {member.mention}.\n> Their role is equal to or higher than yours.",
             ephemeral=True,
         )
     seconds = parse_duration(duration)
     if not seconds:
         return await interaction.response.send_message(
-            "❌ Invalid duration! Use e.g. `30m`, `2h`, `1d`. Max 28 days.", ephemeral=True
+            "❌ **Invalid Duration** — Use formats like `30s`, `10m`, `2h`, `7d`. Max 28 days.", ephemeral=True
         )
     if seconds > 2419200:
         return await interaction.response.send_message(
-            "❌ Discord timeout limit is 28 days.", ephemeral=True
+            "❌ **Duration Too Long** — Discord's maximum timeout length is 28 days.", ephemeral=True
         )
     label = duration_label(seconds)
     await interaction.response.defer()
@@ -2947,7 +3163,10 @@ async def slash_timeout(interaction: discord.Interaction,
         until = discord.utils.utcnow() + timedelta(seconds=seconds)
         await member.timeout(until, reason=reason)
         await interaction.followup.send(
-            f"⏱️ {member.mention} has been timed out for **{label}**. Reason: {reason}"
+            f"⏱️ **Member Timed Out** — {member.mention}\n"
+            f"> 🕐 **Duration:** {label}\n"
+            f"> 🛡️ **By:** {interaction.user.mention}\n"
+            f"> 📝 **Reason:** {reason}"
         )
         await logs.log_event(bot, config, "⏱️ Timeout",
             f"{member} timed out by {interaction.user} for {label} | Reason: {reason}",
@@ -2959,10 +3178,10 @@ async def slash_timeout(interaction: discord.Interaction,
         dlog("⏱️ TIMEOUT", f"{member} timed out for {label} by {interaction.user}")
     except discord.Forbidden:
         await interaction.followup.send(
-            f"❌ I don't have permission to time out {member.mention}.", ephemeral=True
+            f"❌ **Permission Denied** — I can't time out {member.mention}.\n> Check role hierarchy and the **Moderate Members** permission.", ephemeral=True
         )
     except Exception as e:
-        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        await interaction.followup.send(f"❌ **Timeout Failed** — `{e}`", ephemeral=True)
 
 
 # ---------------- /untimeout ----------------
@@ -2975,16 +3194,19 @@ async def slash_untimeout(interaction: discord.Interaction, member: discord.Memb
     await interaction.response.defer()
     try:
         await member.timeout(None, reason=f"Timeout removed by {interaction.user}")
-        await interaction.followup.send(f"✅ Timeout removed for {member.mention}.")
+        await interaction.followup.send(
+            f"✅ **Timeout Removed** — {member.mention} can now speak again.\n"
+            f"> 🛡️ **By:** {interaction.user.mention}"
+        )
         await logs.log_event(bot, config, "✅ Timeout Removed",
             f"{member}'s timeout removed by {interaction.user}", color=0x2ecc71, guild_id=interaction.guild.id if interaction.guild else None)
         dlog("✅ UNTIMEOUT", f"Timeout removed for {member} by {interaction.user}")
     except discord.Forbidden:
         await interaction.followup.send(
-            f"❌ I don't have permission to remove {member.mention}'s timeout.", ephemeral=True
+            f"❌ **Permission Denied** — I can't remove {member.mention}'s timeout.\n> Check role hierarchy and my permissions.", ephemeral=True
         )
     except Exception as e:
-        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        await interaction.followup.send(f"❌ **Untimeout Failed** — `{e}`", ephemeral=True)
 
 
 # ---------------- /purge ----------------
@@ -2996,13 +3218,15 @@ async def slash_purge(interaction: discord.Interaction, amount: int = 10):
         return
     if amount < 1 or amount > 200:
         return await interaction.response.send_message(
-            "❌ Amount must be between 1 and 200.", ephemeral=True
+            "❌ **Invalid Amount** — Please provide a number between 1 and 200.", ephemeral=True
         )
     await interaction.response.defer(ephemeral=True)
     try:
         deleted = await interaction.channel.purge(limit=amount)
         await interaction.followup.send(
-            f"🧹 Deleted **{len(deleted)}** message(s).", ephemeral=True
+            f"🧹 **Channel Purged** — Deleted **{len(deleted)}** message(s) in {interaction.channel.mention}.\n"
+            f"> 🛡️ **By:** {interaction.user.mention}",
+            ephemeral=True
         )
         await logs.log_event(bot, config, "🧹 Purge",
             f"{interaction.user} purged {len(deleted)} messages in #{interaction.channel.name}",
@@ -3011,10 +3235,10 @@ async def slash_purge(interaction: discord.Interaction, amount: int = 10):
             f"{interaction.user} deleted {len(deleted)} messages in #{interaction.channel.name}")
     except discord.Forbidden:
         await interaction.followup.send(
-            "❌ I don't have permission to delete messages here.", ephemeral=True
+            "❌ **Permission Denied** — I don't have permission to delete messages in this channel.", ephemeral=True
         )
     except Exception as e:
-        await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
+        await interaction.followup.send(f"❌ **Purge Failed** — `{e}`", ephemeral=True)
 
 
 # ============================================================
@@ -3027,9 +3251,11 @@ async def slash_avatar(interaction: discord.Interaction,
                        member: discord.Member = None):
     target = member or interaction.user
     avatar = target.display_avatar
+    role_color = getattr(target, "color", discord.Color(0x4f8ef7)) or discord.Color(0x4f8ef7)
     embed = discord.Embed(
         title=f"🖼️ {target.display_name}'s Avatar",
-        color=getattr(target, "color", discord.Color(0x4f8ef7)) or discord.Color(0x4f8ef7),
+        color=role_color,
+        timestamp=datetime.utcnow(),
     )
     embed.set_image(url=avatar.replace(size=1024).url)
     links = [
@@ -3039,8 +3265,8 @@ async def slash_avatar(interaction: discord.Interaction,
     ]
     if avatar.is_animated():
         links.append(f"[GIF]({avatar.replace(format='gif', size=1024).url})")
-    embed.description = " · ".join(links)
-    embed.set_footer(text=f"User ID: {target.id}")
+    embed.description = "**Download:** " + " · ".join(links)
+    embed.set_footer(text=f"🆔 User ID: {target.id}  •  SP4RK")
     await interaction.response.send_message(embed=embed)
 
 
@@ -3062,10 +3288,17 @@ async def slash_banner(interaction: discord.Interaction,
         )
     embed = discord.Embed(
         title=f"🎴 {target.display_name}'s Banner",
+        description=(
+            f"**Download:** "
+            f"[PNG]({banner.replace(format='png', size=1024).url}) · "
+            f"[WEBP]({banner.replace(format='webp', size=1024).url})"
+            + (f" · [GIF]({banner.replace(format='gif', size=1024).url})" if banner.is_animated() else "")
+        ),
         color=getattr(target, "color", discord.Color(0x4f8ef7)) or discord.Color(0x4f8ef7),
+        timestamp=datetime.utcnow(),
     )
     embed.set_image(url=banner.replace(size=1024).url)
-    embed.set_footer(text=f"User ID: {target.id}")
+    embed.set_footer(text=f"🆔 User ID: {target.id}  •  SP4RK")
     await interaction.response.send_message(embed=embed)
 
 
@@ -3082,23 +3315,21 @@ async def slash_roleinfo(interaction: discord.Interaction, role: discord.Role):
         perms_str += f"  …  **+{len(perms_on) - 15} more**"
     color_hex = f"#{role.color.value:06x}" if role.color.value else "#000000 (default)"
     embed = discord.Embed(
-        title=f"🎭 {role.name}",
+        title=f"🎭 Role Info — {role.name}",
         description=(
             f"{role.mention}\n"
-            f"🆔 Role ID: `{role.id}`"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🆔 Role ID: `{role.id}`\n"
+            f"📅 Created: <t:{int(role.created_at.timestamp())}:R>"
         ),
         color=role.color if role.color.value else discord.Color(0x4f8ef7),
-        timestamp=datetime.now(),
+        timestamp=datetime.utcnow(),
     )
-    embed.add_field(name="🎨 Color", value=f"`{color_hex}`", inline=True)
-    embed.add_field(name="📍 Position",
-                    value=f"#{role.position} of {len(interaction.guild.roles) - 1}",
-                    inline=True)
-    embed.add_field(name="👥 Members", value=f"**{len(members_with):,}**", inline=True)
-    embed.add_field(name="🪧 Hoisted",
-                    value="✅ Yes" if role.hoist else "❌ No", inline=True)
-    embed.add_field(name="📣 Mentionable",
-                    value="✅ Yes" if role.mentionable else "❌ No", inline=True)
+    embed.add_field(name="🎨 Color",        value=f"`{color_hex}`",                         inline=True)
+    embed.add_field(name="📍 Position",     value=f"**#{role.position}** of {len(interaction.guild.roles) - 1}", inline=True)
+    embed.add_field(name="👥 Members",      value=f"**{len(members_with):,}**",              inline=True)
+    embed.add_field(name="🪧 Hoisted",      value="✅ **Yes**" if role.hoist else "❌ **No**",      inline=True)
+    embed.add_field(name="📣 Mentionable",  value="✅ **Yes**" if role.mentionable else "❌ **No**", inline=True)
     embed.add_field(name="🤖 Managed",
                     value="✅ By integration" if role.managed else "❌ No",
                     inline=True)
@@ -3114,7 +3345,10 @@ async def slash_roleinfo(interaction: discord.Interaction, role: discord.Role):
     )
     if role.icon:
         embed.set_thumbnail(url=role.icon.url)
-    embed.set_footer(text=f"Requested by {interaction.user} • SP4RK")
+    try:
+        embed.set_footer(text=f"Requested by {interaction.user}  •  SP4RK", icon_url=interaction.user.display_avatar.url)
+    except Exception:
+        embed.set_footer(text=f"Requested by {interaction.user}  •  SP4RK")
     await interaction.response.send_message(embed=embed)
 
 
