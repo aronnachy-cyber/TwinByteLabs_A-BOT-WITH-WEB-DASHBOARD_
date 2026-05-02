@@ -94,4 +94,23 @@ elif not _server_token_present:
           "Set SERVER_TOKEN to a Discord bot token to enable scheduled announcements, giveaways, "
           "invite tracking and stats.")
 
+
+def _start_tempo():
+    try:
+        import tempo as tempo_bot
+        tempo_bot.start_bot_thread()
+        print("[WSGI] Tempo bot thread started.")
+    except Exception as e:
+        import traceback
+        print(f"[WSGI] Tempo start error: {e}")
+        traceback.print_exc()
+
+
+_tempo_token_present = bool(os.environ.get("T_TOKEN", "").strip())
+if _tempo_token_present and not _disabled:
+    threading.Thread(target=_start_tempo, daemon=True).start()
+elif not _tempo_token_present:
+    print("[WSGI] T_TOKEN not set — Tempo music bot will not start. "
+          "Set T_TOKEN to a Discord bot token to enable music playback.")
+
 threading.Thread(target=_self_ping, daemon=True, name="self-keepalive").start()
