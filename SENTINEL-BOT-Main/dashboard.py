@@ -1834,6 +1834,13 @@ def so_api_post_embed():
     return jsonify({"ok": True})
 
 
+@app.route('/pulse')
+def pulse_landing():
+    """Pulse analytics bot landing page."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
+    return render_template('pulse_landing.html')
+
 @app.route('/tempo')
 def tempo_landing():
     """Tempo music bot landing page."""

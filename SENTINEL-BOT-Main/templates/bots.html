@@ -1160,31 +1160,40 @@ footer{
     </div>
   </a>
 
-  <!-- Coming Soon card 2 -->
-  <div class="bot-card coming is-soon reveal reveal-delay-1" data-status="soon">
-    <div class="bot-banner">
+  <!-- Pulse card (links to landing page) -->
+  <a href="{{ url_for('pulse_landing') }}" class="bot-card coming is-live reveal reveal-delay-1" data-status="soon" style="text-decoration:none;">
+    <div class="bot-banner" style="background:linear-gradient(135deg,#011824 0%,#032d3e 60%,#0c4a6e 100%);">
       <span class="bx-shimmer" aria-hidden="true"></span>
-      <div class="bot-icon"><i class="fas fa-chart-line"></i></div>
-      <div class="bot-status status-soon">Coming Soon</div>
+      <div class="bot-icon" style="background:linear-gradient(135deg,#0891b2,#22d3ee);box-shadow:0 8px 24px rgba(6,182,212,.5);">
+        <i class="fas fa-chart-line"></i>
+      </div>
+      <div class="bot-status" style="background:rgba(250,204,21,.15);border:1px solid rgba(250,204,21,.4);color:#fbbf24;">
+        <span class="dot" style="background:#fbbf24;box-shadow:0 0 6px #fbbf24;animation:pulse 1.4s ease-in-out infinite;"></span> In Development
+      </div>
     </div>
     <div class="bot-body">
-      <div class="bot-name">Pulse</div>
-      <div class="bot-tag">Analytics &amp; Insights</div>
+      <div class="bot-name" style="background:linear-gradient(135deg,#06b6d4,#22d3ee);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">Pulse</div>
+      <div class="bot-tag" style="color:#22d3ee;">Analytics &amp; Insights</div>
       <div class="bot-desc">
         Track server growth, engagement trends, top contributors, and channel health
-        with beautiful, exportable reports.
+        with beautiful slash-command reports right inside Discord.
       </div>
       <div class="bot-tags">
         <span class="chip">Analytics</span>
         <span class="chip">Reports</span>
-        <span class="chip">Insights</span>
+        <span class="chip">Leaderboards</span>
+        <span class="chip">Growth</span>
+        <span class="chip">Heatmaps</span>
       </div>
       <div class="bx-progress">
         <div class="bx-progress-row"><span>Build progress</span><b>40%</b></div>
-        <div class="bx-progress-track"><div class="bx-progress-fill" data-progress="40"></div></div>
+        <div class="bx-progress-track"><div class="bx-progress-fill" data-progress="40" style="background:linear-gradient(90deg,#0891b2,#22d3ee);"></div></div>
       </div>
+      <span class="bot-cta" style="color:#22d3ee;border-color:rgba(34,211,238,.4);">
+        View Pulse <i class="fas fa-arrow-right"></i>
+      </span>
     </div>
-  </div>
+  </a>
 
 </section>
 

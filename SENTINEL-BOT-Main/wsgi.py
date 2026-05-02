@@ -113,4 +113,23 @@ elif not _tempo_token_present:
     print("[WSGI] T_TOKEN not set — Tempo music bot will not start. "
           "Set T_TOKEN to a Discord bot token to enable music playback.")
 
+
+def _start_pulse():
+    try:
+        import pulse as pulse_bot
+        pulse_bot.start_bot_thread()
+        print("[WSGI] Pulse bot thread started.")
+    except Exception as e:
+        import traceback
+        print(f"[WSGI] Pulse start error: {e}")
+        traceback.print_exc()
+
+
+_pulse_token_present = bool(os.environ.get("P_TOKEN", "").strip())
+if _pulse_token_present and not _disabled:
+    threading.Thread(target=_start_pulse, daemon=True).start()
+elif not _pulse_token_present:
+    print("[WSGI] P_TOKEN not set — Pulse analytics bot will not start. "
+          "Set P_TOKEN to a Discord bot token to enable analytics tracking.")
+
 threading.Thread(target=_self_ping, daemon=True, name="self-keepalive").start()
