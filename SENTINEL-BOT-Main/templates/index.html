@@ -637,15 +637,29 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       <p style="color:var(--muted);font-size:.82rem;margin-bottom:12px;">
         Use <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">{user}</code> for mention,
         <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">{username}</code> for name.
+        The bot also shows join date, account age, and member number automatically.
       </p>
       <div class="row"><div class="row-label"><strong>Log Channel ID</strong></div></div>
       <div class="input-wrap-full" style="margin-bottom:10px;">
         <input type="text" id="log_channel_g" value="{{ config.get('log_channel','') }}" placeholder="Channel ID">
       </div>
       <div class="row-label"><strong>Welcome Message</strong></div>
-      <div class="input-wrap-full" style="margin-top:8px;">
+      <div class="input-wrap-full" style="margin-top:8px;margin-bottom:14px;">
         <textarea id="welcome_msg">{{ config.get('welcome_msg','') }}</textarea>
       </div>
+
+      <div class="row-label" style="margin-bottom:6px;">
+        <strong>Welcome Banner Image URL</strong>
+        <span style="color:var(--muted);font-size:.78rem;margin-left:6px;">— shown at the bottom of the welcome card</span>
+      </div>
+      <div class="input-wrap-full" style="margin-bottom:6px;">
+        <input type="url" id="welcome_image" value="{{ config.get('welcome_image','') }}"
+          placeholder="https://example.com/welcome-banner.png (optional)"
+          oninput="document.getElementById('welcome_img_preview').style.display=this.value?'block':'none';document.getElementById('welcome_img_preview').src=this.value">
+      </div>
+      <img id="welcome_img_preview"
+        src="{{ config.get('welcome_image','') }}"
+        style="display:{{ 'block' if config.get('welcome_image') else 'none' }};max-width:100%;max-height:160px;border-radius:8px;margin-top:6px;border:1px solid var(--border);object-fit:cover;">
     </div>
 
     <!-- Service Connections Card -->
@@ -2022,6 +2036,7 @@ function collectData() {
     prefix: getText('prefix'), bot_status: getText('bot_status'),
     theme_color: getText('theme_color'), bot_avatar: getText('bot_avatar'),
     welcome_msg: getText('welcome_msg'),
+    welcome_image: getText('welcome_image'),
     log_channel: getText('log_channel') || getText('log_channel_g'),
     owner_dm_id: getText('owner_dm_id'),
     mod_block_links: getCheck('mod_block_links'), mod_block_mentions: getCheck('mod_block_mentions'),
@@ -2225,6 +2240,11 @@ function applyConfig(cfg) {
   setText('prefix', cfg.prefix); setText('bot_status', cfg.bot_status);
   setText('theme_color', cfg.theme_color); setText('bot_avatar', cfg.bot_avatar);
   setText('welcome_msg', cfg.welcome_msg);
+  setText('welcome_image', cfg.welcome_image);
+  if (cfg.welcome_image) {
+    const prev = document.getElementById('welcome_img_preview');
+    if (prev) { prev.src = cfg.welcome_image; prev.style.display = 'block'; }
+  }
   setText('log_channel', cfg.log_channel); setText('log_channel_g', cfg.log_channel);
   setText('owner_dm_id', cfg.owner_dm_id);
   setCheck('mod_block_links', cfg.mod_block_links); setCheck('mod_block_mentions', cfg.mod_block_mentions);

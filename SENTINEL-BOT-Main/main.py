@@ -66,6 +66,7 @@ DEFAULT_CONFIG = {
     "bot_status": "online",
     "theme_color": "#3498db",
     "welcome_msg": "",
+    "welcome_image": "",
     "bot_avatar": "",
     "log_channel": "",
     "mod_block_links": "OFF",
@@ -326,6 +327,7 @@ async def add_warning(member, reason="Violation"):
     count = entry["count"]
     save_warnings()
     supabase_save_warning(guild_id, member_id, str(member), count, reason, ts)
+    _increment_report_action()
     dlog("⚠️ WARNING", f"{member} now has {count} warning(s) — {reason}")
     print(f"⚠️ Warning added to {member}: {count} total | Reason: {reason}")
     await check_warning_limit(member, count)
@@ -589,7 +591,31 @@ async def sync_bot_settings():
         # body raises, leaving the bot stuck on stale settings forever.
         print(f"[sync_bot_settings] iteration crashed: {e}")
 
-@tasks.loop(hours=24)
+# Track mod actions between report windows
+_report_action_count = 0
+
+def _increment_report_action():
+    global _report_action_count
+    _report_action_count += 1
+
+def _reset_report_action_count():
+    global _report_action_count
+    count = _report_action_count
+    _report_action_count = 0
+    return count
+
+def _report_period() -> str:
+    """Return a labelled period string based on current UTC hour."""
+    h = datetime.utcnow().hour
+    if 4 <= h < 12:
+        return "🌅 Morning Report"
+    elif 12 <= h < 20:
+        return "☀️ Afternoon Report"
+    else:
+        return "🌙 Evening Report"
+
+# Runs 3× per 24 hours (every 8 hours → morning / afternoon / evening)
+@tasks.loop(hours=8)
 async def daily_report_task():
     try:
         refresh_config()
@@ -598,29 +624,120 @@ async def daily_report_task():
         log_channel_id = config.get("log_channel", "").strip()
         if not log_channel_id:
             return
+
+        channel = bot.get_channel(int(log_channel_id))
+        if not channel:
+            return
+
+        # ── Collect stats ──────────────────────────────────────────────────────
+        total_warnings = sum(
+            (v.get("count", 0) if isinstance(v, dict) else v)
+            for guild in warnings_db.values()
+            for v in (guild.values() if isinstance(guild, dict) else [])
+        )
+        recent_actions = _reset_report_action_count()
+
+        # Member count — use first available guild the bot is in
+        member_count = -1
         try:
-            channel = bot.get_channel(int(log_channel_id))
-            if not channel:
-                return
-            total_warnings = sum(
-                (v.get("count", 0) if isinstance(v, dict) else v)
-                for guild in warnings_db.values()
-                for v in (guild.values() if isinstance(guild, dict) else [])
+            guild = channel.guild
+            if guild:
+                member_count = guild.member_count
+        except Exception:
+            pass
+
+        # Uptime
+        uptime = datetime.utcnow() - BOT_START_TIME
+        hours_up, rem = divmod(int(uptime.total_seconds()), 3600)
+        mins_up = rem // 60
+        uptime_str = f"{hours_up}h {mins_up}m"
+
+        # Active features count
+        feature_keys = [
+            "auto_block_links", "auto_block_invites", "auto_block_mentions",
+            "anti_raid", "security_2fa", "role_monitor", "mass_ban_prevent",
+            "temp_lockdown", "spam_filter", "caps_filter", "emoji_filter",
+            "duplicate_filter", "wall_filter", "anti_zalgo", "automod_on",
+        ]
+        active_features = sum(1 for k in feature_keys if config.get(k) == "ON")
+        total_features  = len(feature_keys)
+
+        period   = _report_period()
+        date_str = datetime.utcnow().strftime("%Y-%m-%d")
+
+        # ── Generate black-paper image ─────────────────────────────────────────
+        img_file = None
+        try:
+            import report_generator as _rg
+            import discord as _dc
+            buf = _rg.generate_report_image(
+                period         = period,
+                date_str       = date_str,
+                warnings_total = total_warnings,
+                member_count   = member_count,
+                uptime_str     = uptime_str,
+                active_features= active_features,
+                total_features = total_features,
+                recent_actions = recent_actions,
+                bot_status     = "Online",
             )
-            embed = discord.Embed(
-                title="📊 Daily Moderation Report",
-                description=(
-                    f"**Date:** {datetime.now().strftime('%Y-%m-%d')}\n"
-                    f"**Total Warnings (all-time):** {total_warnings}\n"
-                    f"**Bot Status:** Online ✅"
-                ),
-                color=0x4f8ef7
-            )
-            embed.set_footer(text="SP4RK — Automated Daily Report")
+            img_file = _dc.File(buf, filename="daily_report.png")
+        except Exception as img_err:
+            print(f"[daily_report] image generation failed: {img_err}")
+
+        # ── Build embed ────────────────────────────────────────────────────────
+        embed = discord.Embed(
+            title=f"📊 SP4RK — {period}",
+            description=(
+                f"> *Automated moderation summary for* **{channel.guild.name if channel.guild else 'your server'}**"
+            ),
+            color=0x0d0d1a,
+            timestamp=datetime.utcnow()
+        )
+        embed.add_field(
+            name="⚠️ Warnings (all-time)",
+            value=f"**{total_warnings:,}**",
+            inline=True
+        )
+        embed.add_field(
+            name="👥 Server Members",
+            value=f"**{member_count:,}**" if member_count >= 0 else "N/A",
+            inline=True
+        )
+        embed.add_field(
+            name="⏱️ Bot Uptime",
+            value=f"**{uptime_str}**",
+            inline=True
+        )
+        embed.add_field(
+            name="🛡️ Active Features",
+            value=f"**{active_features}** / {total_features} enabled",
+            inline=True
+        )
+        embed.add_field(
+            name="📋 Mod Actions (this window)",
+            value=f"**{recent_actions}**",
+            inline=True
+        )
+        embed.add_field(
+            name="🟢 Bot Status",
+            value="**Online**",
+            inline=True
+        )
+
+        if img_file:
+            embed.set_image(url="attachment://daily_report.png")
+
+        embed.set_footer(
+            text=f"SP4RK  ·  Byte Labs  ·  Reports every 8 h  ·  {date_str}"
+        )
+
+        if img_file:
+            await channel.send(embed=embed, file=img_file)
+        else:
             await channel.send(embed=embed)
-            dlog("📊 DAILY-REPORT", "Daily report posted to log channel")
-        except Exception as e:
-            print(f"Daily report error: {e}")
+
+        dlog("📊 DAILY-REPORT", f"{period} posted to log channel")
     except Exception as e:
         print(f"[daily_report_task] iteration crashed: {e}")
 
@@ -1261,6 +1378,7 @@ async def on_member_update(before, after):
 async def on_member_ban(guild, user):
     refresh_config()
     await logs.log_template(bot, config, "sp4rk.member_banned", user=user, server=guild)
+    _increment_report_action()
     dlog("⛔ BAN", f"{user} banned from {guild.name}")
 
 @bot.event
@@ -1549,6 +1667,7 @@ async def mute(ctx, member: discord.Member, duration: str = None):
         await ctx.send(block)
         return
     await moderation.mute_member(ctx, member, get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0'), duration)
+    _increment_report_action()
     dlog("🔇 MUTE", f"{member} muted by {ctx.author}" + (f" for {duration}" if duration else ""))
 
 @bot.command()
@@ -1768,6 +1887,7 @@ async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
                                 user=member, moderator=ctx.author, reason=reason)
         await dm_owner("kick", str(member), reason, str(ctx.author))
         supabase_save_mod_log(ctx.guild.id, "kick", str(member), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        _increment_report_action()
         dlog("🚪 KICK", f"{member} kicked by {ctx.author} — {reason}")
     except discord.Forbidden:
         await ctx.send(f"❌ I don't have permission to kick {member.mention} (role hierarchy or missing perms).")
@@ -1794,6 +1914,7 @@ async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
                                 user=member, moderator=ctx.author, reason=reason)
         await dm_owner("ban", str(member), reason, str(ctx.author))
         supabase_save_mod_log(ctx.guild.id, "ban", str(member), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        _increment_report_action()
         dlog("⛔ BAN", f"{member} banned by {ctx.author} — {reason}")
     except discord.Forbidden:
         await ctx.send(f"❌ I don't have permission to ban {member.mention} (role hierarchy or missing perms).")
@@ -1834,6 +1955,7 @@ async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reas
             color=0xe74c3c
         )
         await dm_owner("temp-ban", str(member), f"{label} — {reason}", str(ctx.author))
+        _increment_report_action()
         dlog("⏱️ TEMP-BAN", f"{member} temp-banned for {label} by {ctx.author}")
 
         # Schedule auto-unban
@@ -2705,6 +2827,7 @@ async def slash_kick(interaction: discord.Interaction,
         await dm_owner("kick", str(member), reason, str(interaction.user))
         supabase_save_mod_log(interaction.guild.id, "kick", str(member),
             str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        _increment_report_action()
         dlog("🚪 KICK", f"{member} kicked by {interaction.user} — {reason}")
     except discord.Forbidden:
         await interaction.followup.send(
@@ -2747,6 +2870,7 @@ async def slash_ban(interaction: discord.Interaction,
         await dm_owner("ban", str(member), reason, str(interaction.user))
         supabase_save_mod_log(interaction.guild.id, "ban", str(member),
             str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        _increment_report_action()
         dlog("⛔ BAN", f"{member} banned by {interaction.user} — {reason}")
     except discord.Forbidden:
         await interaction.followup.send(
@@ -2831,6 +2955,7 @@ async def slash_timeout(interaction: discord.Interaction,
         supabase_save_mod_log(interaction.guild.id, "timeout", str(member),
             str(interaction.user), f"{label} — {reason}",
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        _increment_report_action()
         dlog("⏱️ TIMEOUT", f"{member} timed out for {label} by {interaction.user}")
     except discord.Forbidden:
         await interaction.followup.send(

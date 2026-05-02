@@ -56,21 +56,55 @@ async def check_social_alerts(message, config, bot):
             await _send_to_channel(bot, alert_channel_id, embed)
 
 async def send_welcome_message(bot, member, config):
-    welcome_msg = config.get("welcome_msg", "").strip()
-    log_channel_id = config.get("log_channel", "").strip()
+    welcome_msg   = config.get("welcome_msg",    "").strip()
+    log_channel_id = config.get("log_channel",   "").strip()
+    welcome_image  = config.get("welcome_image", "").strip()
+
     if not welcome_msg or not log_channel_id:
         return
 
-    formatted = welcome_msg.replace("{user}", member.mention).replace("{username}", member.display_name)
+    formatted = (
+        welcome_msg
+        .replace("{user}",     member.mention)
+        .replace("{username}", member.display_name)
+    )
+
     try:
         channel = bot.get_channel(int(log_channel_id))
-        if channel:
-            embed = discord.Embed(
-                title="👋 Welcome!",
-                description=formatted,
-                color=0x2ecc71
-            )
-            embed.set_thumbnail(url=member.display_avatar.url)
-            await channel.send(embed=embed)
+        if not channel:
+            return
+
+        embed = discord.Embed(
+            title="👋 Welcome!",
+            description=formatted,
+            color=0x2ecc71
+        )
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.add_field(
+            name="Member",
+            value=f"{member.mention} (`{member.name}`)",
+            inline=True
+        )
+        embed.add_field(
+            name="Account Created",
+            value=f"<t:{int(member.created_at.timestamp())}:R>",
+            inline=True
+        )
+        embed.add_field(
+            name="Members",
+            value=f"#{member.guild.member_count}",
+            inline=True
+        )
+
+        # Attach the banner image if the admin has set one
+        if welcome_image:
+            embed.set_image(url=welcome_image)
+
+        embed.set_footer(
+            text=f"{member.guild.name}  ·  SP4RK Welcome System",
+            icon_url=member.guild.icon.url if member.guild.icon else None
+        )
+
+        await channel.send(embed=embed)
     except Exception as e:
         print(f"Welcome message error: {e}")
