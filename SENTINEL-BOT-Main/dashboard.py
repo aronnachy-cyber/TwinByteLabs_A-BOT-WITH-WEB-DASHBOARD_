@@ -2896,6 +2896,52 @@ def api_reaction_roles_remove():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ---- API: MENTION REACTIONS ----
+@app.route('/api/mention_reactions', methods=['GET'])
+def api_mention_reactions_get():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = request.args.get('guild_id', '')
+    try:
+        import mention_reactions as mr_mod
+        return jsonify(mr_mod.get_rules(guild_id or None))
+    except Exception as e:
+        return jsonify([])
+
+@app.route('/api/mention_reactions/add', methods=['POST'])
+def api_mention_reactions_add():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    guild_id = data.get('guild_id', '').strip()
+    user_id  = data.get('user_id', '').strip()
+    emoji    = data.get('emoji', '').strip()
+    label    = data.get('label', '').strip()
+    if not guild_id or not user_id or not emoji:
+        return jsonify({"error": "guild_id, user_id and emoji are required"}), 400
+    try:
+        import mention_reactions as mr_mod
+        is_new = mr_mod.add_rule(guild_id, user_id, emoji, label)
+        return jsonify({"status": "success", "new": is_new})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/mention_reactions/remove', methods=['POST'])
+def api_mention_reactions_remove():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    guild_id = data.get('guild_id', '').strip()
+    user_id  = data.get('user_id', '').strip()
+    if not guild_id or not user_id:
+        return jsonify({"error": "guild_id and user_id are required"}), 400
+    try:
+        import mention_reactions as mr_mod
+        removed = mr_mod.remove_rule(guild_id, user_id)
+        return jsonify({"status": "success", "removed": removed})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # ---- API: STATS OVERVIEW ----
 @app.route('/api/stats')
 def api_stats():

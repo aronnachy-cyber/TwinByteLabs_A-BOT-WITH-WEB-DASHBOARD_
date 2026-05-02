@@ -484,6 +484,10 @@ html.bl-compact .page-header { margin-bottom: 18px; }
         <i class="fas fa-smile"></i> Reaction Roles
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
       </div>
+      <div class="nav-item" onclick="showTab('mentionreact',this)" data-tab="mentionreact">
+        <i class="fas fa-crown"></i> Mention Reactions
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
       {% if is_admin %}
       <div class="nav-item" onclick="showTab('users',this)" data-tab="users">
         <i class="fas fa-users"></i> Users
@@ -1309,6 +1313,68 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   </div>
 </div>
 
+<!-- ==================== MENTION REACTIONS TAB ==================== -->
+<div id="mentionreact" class="tab-content">
+  <div class="page-header">
+    <h2>Mention Reactions</h2>
+    <p>When someone mentions a watched user, SP4RK automatically reacts to that message with a set emoji — perfect for marking owners, VIPs, or special members.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><i class="fas fa-plus-circle"></i> Add Mention Reaction</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;flex-wrap:wrap;">
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Server (Guild) ID</label>
+        <input id="mr-guild-id" type="text" placeholder="e.g. 123456789012345678"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">User ID to Watch</label>
+        <input id="mr-user-id" type="text" placeholder="e.g. 987654321098765432"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Emoji to React With</label>
+        <input id="mr-emoji" type="text" placeholder="e.g. 👑 or 🌟"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:1.1rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Label (optional)</label>
+        <input id="mr-label" type="text" placeholder="e.g. Owner, VIP"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div>
+        <button onclick="addMentionReaction()"
+          style="background:linear-gradient(135deg,#3a8fff,#5b8cff);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.88rem;white-space:nowrap;">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+    </div>
+    <p class="help-text" style="margin-top:12px;"><i class="fas fa-circle-info"></i>
+      Enable <strong>Developer Mode</strong> in Discord settings to copy User IDs and Guild IDs.
+      You can add up to as many entries as you need — each user gets their own emoji.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-list-check"></i> Active Mention Reactions</div>
+    <table class="warnings-table">
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>User ID</th>
+          <th>Emoji</th>
+          <th>Guild ID</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="mr-table-body">
+        <tr><td colspan="5" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <!-- ==================== FEEDBACK TAB ==================== -->
 <div id="feedback" class="tab-content">
   <div class="card" style="max-width:680px;">
@@ -1636,7 +1702,7 @@ const tabTitles = {
   automod: 'Automod Settings', security: 'Security & Anti-Raid',
   social: 'Social Notifier', warnings: 'Live Warnings', logs: 'Action Logs',
   giveaways: 'Giveaways', tickets: 'Support Tickets',
-  autoresponder: 'Auto-Responder', customcommands: 'Custom Commands', reactionroles: 'Reaction Roles',
+  autoresponder: 'Auto-Responder', customcommands: 'Custom Commands', reactionroles: 'Reaction Roles', mentionreact: 'Mention Reactions',
   account: 'Account Settings', users: 'User Management',
   feedback: 'Feedback'
 };
@@ -1654,6 +1720,7 @@ function showTab(id, el) {
   if (id === 'autoresponder') loadAutoResponder();
   if (id === 'customcommands') loadCustomCommands();
   if (id === 'reactionroles') loadReactionRoles();
+  if (id === 'mentionreact') loadMentionReactions();
   if (id === 'general') loadConnectionStatus();
   if (id === 'users') { {% if is_admin %}pollPendingUsers(); loadPendingList();{% endif %} }
   if (id === 'feedback') loadFeedback();
@@ -2870,6 +2937,75 @@ async function removeReactionRole(messageId, emoji) {
     });
     showToast('✅ Reaction role removed!');
     loadReactionRoles();
+  } catch(e) { showToast('❌ Error', true); }
+}
+
+// ---- MENTION REACTIONS ----
+async function loadMentionReactions() {
+  const tbody = document.getElementById('mr-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</td></tr>';
+  try {
+    const res = await fetch('/api/mention_reactions');
+    const list = await res.json();
+    if (!Array.isArray(list) || !list.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">No mention reactions set yet. Add one above!</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(r => `
+      <tr>
+        <td style="font-weight:600;color:var(--accent);">${r.label || '<span style="color:var(--muted);font-style:italic;">—</span>'}</td>
+        <td><code style="background:var(--bg);padding:3px 8px;border-radius:6px;font-size:.82rem;">${r.user_id}</code></td>
+        <td style="font-size:1.4rem;">${r.emoji}</td>
+        <td><code style="background:var(--bg);padding:3px 8px;border-radius:6px;font-size:.78rem;color:var(--muted);">${r.guild_id}</code></td>
+        <td>
+          <button onclick="removeMentionReaction('${r.guild_id}','${r.user_id}')"
+            style="background:rgba(231,76,60,.12);color:#e74c3c;border:1px solid rgba(231,76,60,.25);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:.78rem;">
+            Remove
+          </button>
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">Failed to load</td></tr>';
+  }
+}
+
+async function addMentionReaction() {
+  const guild_id = document.getElementById('mr-guild-id').value.trim();
+  const user_id  = document.getElementById('mr-user-id').value.trim();
+  const emoji    = document.getElementById('mr-emoji').value.trim();
+  const label    = document.getElementById('mr-label').value.trim();
+  if (!guild_id || !user_id || !emoji) {
+    showToast('❌ Guild ID, User ID and emoji are all required.', true);
+    return;
+  }
+  try {
+    const res = await fetch('/api/mention_reactions/add', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({guild_id, user_id, emoji, label})
+    });
+    const data = await res.json();
+    if (data.error) { showToast('❌ ' + data.error, true); return; }
+    showToast(data.new ? '✅ Mention reaction added!' : '✅ Mention reaction updated!');
+    document.getElementById('mr-guild-id').value = '';
+    document.getElementById('mr-user-id').value  = '';
+    document.getElementById('mr-emoji').value    = '';
+    document.getElementById('mr-label').value    = '';
+    loadMentionReactions();
+  } catch(e) { showToast('❌ Error saving rule.', true); }
+}
+
+async function removeMentionReaction(guildId, userId) {
+  if (!confirm(`Remove mention reaction for user ${userId}?`)) return;
+  try {
+    await fetch('/api/mention_reactions/remove', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({guild_id: guildId, user_id: userId})
+    });
+    showToast('✅ Removed!');
+    loadMentionReactions();
   } catch(e) { showToast('❌ Error', true); }
 }
 

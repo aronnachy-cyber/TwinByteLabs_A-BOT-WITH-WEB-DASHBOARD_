@@ -22,6 +22,7 @@ import moderation, automod, roles, logs, social, security
 import giveaway as giveaway_mod
 import tickets as tickets_mod
 import autoresponder as autoresponder_mod
+import mention_reactions as mention_reactions_mod
 import reaction_roles as rr_mod
 import server_template as template_mod
 
@@ -1729,6 +1730,23 @@ async def on_message(message):
             await handle_ai_mention(message)
     except Exception as _mention_err:
         print(f"[SP4RK] mention handler failed: {_mention_err}")
+    # ---- Mention Reactions: react with configured emoji when a watched user is mentioned ----
+    try:
+        if message.guild and message.mentions and not message.mention_everyone:
+            guild_id = str(message.guild.id)
+            rules = mention_reactions_mod.get_rules(guild_id)
+            if rules:
+                rule_map = {r["user_id"]: r["emoji"] for r in rules}
+                for mentioned in message.mentions:
+                    emoji = rule_map.get(str(mentioned.id))
+                    if emoji:
+                        try:
+                            await message.add_reaction(emoji)
+                        except Exception as _re:
+                            print(f"[MR] react failed for {mentioned.id}: {_re}")
+    except Exception as _mr_err:
+        print(f"[MR] mention reaction error: {_mr_err}")
+
     handled = await automod.handle_message(message, guild_cfg, add_warning_fn=add_warning)
     if not handled:
         await handle_ai_moderation(message)
