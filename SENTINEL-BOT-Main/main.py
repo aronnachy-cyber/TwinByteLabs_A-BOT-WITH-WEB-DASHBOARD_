@@ -456,7 +456,7 @@ async def handle_ai_mention(message):
         text = text.replace(form, "")
     text = text.strip()
     if not text:
-        text = "Say hi briefly and tell the user they can ask you anything."
+        text = "Say a quick chill gen-z style hi and let the user know they can ask you anything."
 
     # Per-user cooldown — prevents mention spam from flooding the channel.
     now = _ai_time.time()
@@ -468,8 +468,7 @@ async def handle_ai_mention(message):
     if not GEMINI_KEY:
         try:
             await message.reply(
-                "Hey! I'm SP4RK, your moderation bot. I don't have AI enabled right now, "
-                "but I'm still here to help with moderation. Use `/help` to see what I can do!",
+                "yo! i'm SP4RK 👋 my AI brain's offline rn but i'm still here for moderation stuff. use `/help` to see what i can do fr",
                 mention_author=False,
             )
         except Exception as e:
@@ -481,14 +480,20 @@ async def handle_ai_mention(message):
         f"\n\n--- THIS SERVER'S INFORMATION ---\n{server_ctx}\n--- END SERVER INFO ---"
         if server_ctx else ""
     )
-    prompt = (
-        "You are SP4RK, a friendly Discord moderation and utility bot. "
-        "Reply to the user in a short, helpful, conversational way. "
-        "Keep replies under 1500 characters. Use plain Discord-friendly text — "
-        "light markdown (bold, lists) is fine, no headings or code fences unless asked. "
-        "When the user asks about the server (channels, roles, rules, members, etc.) "
-        "use the server information provided below to give accurate answers."
-        f"{server_block}\n\n"
+    system_instruction = (
+        "You are SP4RK — a chill, gen-z Discord bot who's lowkey the goat of server management. "
+        "Your whole vibe is casual, real, and a lil' funny without trying too hard. "
+        "Talk like a gen-z bestie: use words like 'ngl', 'fr', 'no cap', 'lowkey', 'bussin', 'slay', 'vibe', 'bro', 'bet', 'finna', 'rn', 'imo', 'W', 'L', 'mid', 'it's giving', 'on god' — but naturally, not every sentence. "
+        "Keep replies SHORT and punchy — under 800 characters usually. "
+        "Never sound corporate, formal, or robotic. Don't use em dashes (—). "
+        "Light markdown is fine (bold, bullet points) but no walls of text. "
+        "If someone's rude, clap back calmly and confidently — no cap. "
+        "When asked about the server (channels, roles, rules, members etc.) use the server info below to give accurate answers, but keep the chill tone. "
+        "You're helpful but make it feel effortless, like you're just vibing and helping at the same time."
+    )
+    user_prompt = (
+        f"{server_block}\n\nUser ({message.author.display_name}): {text}"
+        if server_block else
         f"User ({message.author.display_name}): {text}"
     )
     try:
@@ -497,10 +502,11 @@ async def handle_ai_mention(message):
             sess = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
             try:
                 resp = await sess.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}",
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={GEMINI_KEY}",
                     json={
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": 0.8, "maxOutputTokens": 400},
+                        "systemInstruction": {"parts": [{"text": system_instruction}]},
+                        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+                        "generationConfig": {"temperature": 1.0, "maxOutputTokens": 350},
                     },
                 )
                 if resp.status != 200:
@@ -509,7 +515,7 @@ async def handle_ai_mention(message):
                     await resp.release()
                     await sess.close()
                     await message.reply(
-                        "Hey! I ran into a hiccup reaching my AI brain. Try again in a moment!",
+                        "ngl my AI brain just glitched out 💀 try again in a sec bestie",
                         mention_author=False,
                     )
                     return
@@ -530,7 +536,7 @@ async def handle_ai_mention(message):
             # Step 3: await sending the reply — still inside the typing block
             if not reply:
                 await message.reply(
-                    "Hmm, I got an empty response from my AI. Try asking me something else!",
+                    "bro my AI said nothing 💀 try asking me something else fr",
                     mention_author=False,
                 )
                 return
@@ -544,7 +550,7 @@ async def handle_ai_mention(message):
         print(f"[SP4RK] AI mention reply error: {e}")
         try:
             await message.reply(
-                "Something went wrong on my end. Please try again!",
+                "something went wrong on my end no cap 😭 give it another shot",
                 mention_author=False,
             )
         except Exception:

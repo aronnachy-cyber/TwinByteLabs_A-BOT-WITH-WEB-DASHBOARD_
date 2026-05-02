@@ -28,7 +28,7 @@ async def handle_message_ai(message, add_warning):
         }
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
+            f"gemini-2.0-flash-lite:generateContent?key={GEMINI_KEY}"
         )
         timeout = aiohttp.ClientTimeout(total=8)
         async with aiohttp.ClientSession(timeout=timeout) as session:
