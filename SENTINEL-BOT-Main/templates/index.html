@@ -488,6 +488,14 @@ html.bl-compact .page-header { margin-bottom: 18px; }
         <i class="fas fa-crown"></i> Mention Reactions
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
       </div>
+      <div class="nav-item" onclick="showTab('leveling',this)" data-tab="leveling">
+        <i class="fas fa-chart-line"></i> Leveling &amp; XP
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
+      <div class="nav-item" onclick="showTab('starboard',this)" data-tab="starboard">
+        <i class="fas fa-star"></i> Starboard
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
       {% if is_admin %}
       <div class="nav-item" onclick="showTab('users',this)" data-tab="users">
         <i class="fas fa-users"></i> Users
@@ -1375,6 +1383,135 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   </div>
 </div>
 
+<!-- ==================== LEVELING TAB ==================== -->
+<div id="leveling" class="tab-content">
+  <div class="page-header">
+    <h2>Leveling &amp; XP</h2>
+    <p>Members earn XP for every message. Level up, climb the leaderboard, and unlock role rewards — all configurable from here.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><i class="fas fa-sliders-h"></i> XP Settings</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Server (Guild) ID</label>
+        <input id="lv-guild-id" type="text" placeholder="e.g. 123456789012345678"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Level-Up Channel ID <span style="opacity:.6;">(blank = same channel)</span></label>
+        <input id="lv-channel" type="text" placeholder="e.g. 987654321098765432"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">XP Per Message (min)</label>
+        <input id="lv-xp-min" type="number" min="1" max="100" value="15"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">XP Per Message (max)</label>
+        <input id="lv-xp-max" type="number" min="1" max="200" value="25"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">XP Cooldown (seconds)</label>
+        <input id="lv-cooldown" type="number" min="0" max="3600" value="60"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Level-Up Message</label>
+        <input id="lv-msg" type="text" placeholder="{user} and {level} are placeholders"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button onclick="saveLevelingConfig()" class="btn-primary"
+        style="background:linear-gradient(135deg,#3a8fff,#5b8cff);color:#fff;border:none;padding:10px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.88rem;">
+        <i class="fas fa-save"></i> Save Settings
+      </button>
+      <button onclick="loadLeveling()" style="background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 18px;cursor:pointer;font-size:.88rem;">
+        <i class="fas fa-rotate"></i> Refresh
+      </button>
+    </div>
+    <p class="help-text" style="margin-top:10px;"><i class="fas fa-circle-info"></i>
+      Placeholders: <code style="background:rgba(91,140,255,.12);padding:1px 6px;border-radius:4px;">{user}</code> = mention, <code style="background:rgba(91,140,255,.12);padding:1px 6px;border-radius:4px;">{level}</code> = new level number.
+      Use <strong>/rank</strong> and <strong>/leaderboard</strong> in Discord to view XP progress.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-trophy"></i> XP Leaderboard <span id="lv-guild-label" style="color:var(--muted);font-size:.8rem;margin-left:8px;"></span></div>
+    <table class="warnings-table">
+      <thead><tr><th>#</th><th>User ID</th><th>Level</th><th>XP</th><th>Messages</th><th>Action</th></tr></thead>
+      <tbody id="lv-table-body">
+        <tr><td colspan="6" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Enter a Guild ID and click Save to load the leaderboard.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== STARBOARD TAB ==================== -->
+<div id="starboard" class="tab-content">
+  <div class="page-header">
+    <h2>Starboard</h2>
+    <p>When members react to a message with the star emoji enough times, SP4RK pins it to a dedicated starboard channel — your server's hall of fame.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><i class="fas fa-gear"></i> Starboard Settings</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Server (Guild) ID</label>
+        <input id="sb-guild-id" type="text" placeholder="e.g. 123456789012345678"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Starboard Channel ID</label>
+        <input id="sb-channel" type="text" placeholder="e.g. 987654321098765432"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Star Emoji</label>
+        <input id="sb-emoji" type="text" value="⭐" maxlength="32"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:1.2rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Stars Required</label>
+        <input id="sb-threshold" type="number" min="1" max="50" value="3"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
+      </div>
+      <div style="display:flex;flex-direction:column;justify-content:flex-end;gap:10px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);font-size:.88rem;">
+          <input type="checkbox" id="sb-enabled" checked style="width:16px;height:16px;">
+          <span>Enabled</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);font-size:.88rem;">
+          <input type="checkbox" id="sb-self-star" style="width:16px;height:16px;">
+          <span>Allow self-starring</span>
+        </label>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="saveStarboard()" class="btn-primary"
+        style="background:linear-gradient(135deg,#f7c948,#f4a800);color:#000;border:none;padding:10px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.88rem;">
+        <i class="fas fa-save"></i> Save Starboard
+      </button>
+      <button onclick="loadStarboard()" style="background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 18px;cursor:pointer;font-size:.88rem;">
+        <i class="fas fa-rotate"></i> Refresh
+      </button>
+    </div>
+    <p class="help-text" style="margin-top:10px;"><i class="fas fa-circle-info"></i>
+      Create a dedicated <strong>#starboard</strong> channel in your server, paste its ID above.
+      Members react with ⭐ (or your custom emoji) and once threshold is reached SP4RK posts it there automatically.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-circle-check"></i> Current Configuration</div>
+    <div id="sb-status" style="color:var(--muted);font-size:.9rem;padding:10px 0;">Enter a Guild ID and save to view the active config.</div>
+  </div>
+</div>
+
 <!-- ==================== FEEDBACK TAB ==================== -->
 <div id="feedback" class="tab-content">
   <div class="card" style="max-width:680px;">
@@ -1703,6 +1840,7 @@ const tabTitles = {
   social: 'Social Notifier', warnings: 'Live Warnings', logs: 'Action Logs',
   giveaways: 'Giveaways', tickets: 'Support Tickets',
   autoresponder: 'Auto-Responder', customcommands: 'Custom Commands', reactionroles: 'Reaction Roles', mentionreact: 'Mention Reactions',
+  leveling: 'Leveling & XP', starboard: 'Starboard',
   account: 'Account Settings', users: 'User Management',
   feedback: 'Feedback'
 };
@@ -1721,6 +1859,8 @@ function showTab(id, el) {
   if (id === 'customcommands') loadCustomCommands();
   if (id === 'reactionroles') loadReactionRoles();
   if (id === 'mentionreact') loadMentionReactions();
+  if (id === 'leveling') loadLeveling();
+  if (id === 'starboard') loadStarboard();
   if (id === 'general') loadConnectionStatus();
   if (id === 'users') { {% if is_admin %}pollPendingUsers(); loadPendingList();{% endif %} }
   if (id === 'feedback') loadFeedback();
@@ -3007,6 +3147,126 @@ async function removeMentionReaction(guildId, userId) {
     showToast('✅ Removed!');
     loadMentionReactions();
   } catch(e) { showToast('❌ Error', true); }
+}
+
+// ---- LEVELING ----
+let _lvGuildId = '';
+async function loadLeveling() {
+  const gid = document.getElementById('lv-guild-id').value.trim() || _lvGuildId;
+  if (!gid) return;
+  _lvGuildId = gid;
+  document.getElementById('lv-guild-label').textContent = `(${gid})`;
+  try {
+    const [cfgRes, lbRes] = await Promise.all([
+      fetch(`/api/leveling/config?guild_id=${gid}`),
+      fetch(`/api/leveling/leaderboard?guild_id=${gid}`)
+    ]);
+    const cfg = await cfgRes.json();
+    const lb  = await lbRes.json();
+    if (!cfg.error) {
+      document.getElementById('lv-guild-id').value  = gid;
+      document.getElementById('lv-xp-min').value    = cfg.xp_min ?? 15;
+      document.getElementById('lv-xp-max').value    = cfg.xp_max ?? 25;
+      document.getElementById('lv-cooldown').value  = cfg.cooldown ?? 60;
+      document.getElementById('lv-channel').value   = cfg.level_up_channel || '';
+      document.getElementById('lv-msg').value       = cfg.level_up_message || '';
+    }
+    const tbody = document.getElementById('lv-table-body');
+    if (!Array.isArray(lb) || !lb.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">No XP data for this server yet.</td></tr>';
+      return;
+    }
+    const medals = ['🥇','🥈','🥉'];
+    tbody.innerHTML = lb.map(e => `
+      <tr>
+        <td style="font-weight:700;color:var(--accent);">${medals[e.rank-1] || '#'+e.rank}</td>
+        <td><code style="background:var(--bg);padding:2px 7px;border-radius:5px;font-size:.8rem;">${e.user_id}</code></td>
+        <td><span style="background:rgba(91,140,255,.15);color:#8bb8ff;padding:2px 10px;border-radius:10px;font-weight:700;">${e.level}</span></td>
+        <td style="color:#ffd700;font-weight:600;">${e.xp.toLocaleString()}</td>
+        <td style="color:var(--muted);">${(e.messages||0).toLocaleString()}</td>
+        <td><button onclick="resetLevelUser('${gid}','${e.user_id}')"
+          style="background:rgba(231,76,60,.12);color:#e74c3c;border:1px solid rgba(231,76,60,.25);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:.75rem;">Reset</button></td>
+      </tr>`).join('');
+  } catch(e) {
+    document.getElementById('lv-table-body').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);">Failed to load</td></tr>';
+  }
+}
+
+async function saveLevelingConfig() {
+  const gid = document.getElementById('lv-guild-id').value.trim();
+  if (!gid) { showToast('❌ Enter a Guild ID first.', true); return; }
+  const payload = {
+    guild_id: gid,
+    xp_min: parseInt(document.getElementById('lv-xp-min').value) || 15,
+    xp_max: parseInt(document.getElementById('lv-xp-max').value) || 25,
+    cooldown: parseInt(document.getElementById('lv-cooldown').value) || 60,
+    level_up_channel: document.getElementById('lv-channel').value.trim(),
+    level_up_message: document.getElementById('lv-msg').value.trim() || '🎉 {user} levelled up to **Level {level}**!'
+  };
+  try {
+    const res  = await fetch('/api/leveling/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const data = await res.json();
+    if (data.error) { showToast('❌ '+data.error, true); return; }
+    showToast('✅ Leveling config saved!');
+    _lvGuildId = gid;
+    loadLeveling();
+  } catch(e) { showToast('❌ Error saving.', true); }
+}
+
+async function resetLevelUser(guildId, userId) {
+  if (!confirm(`Reset XP for user ${userId}? This cannot be undone.`)) return;
+  try {
+    await fetch('/api/leveling/reset_user', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({guild_id: guildId, user_id: userId})});
+    showToast('✅ XP reset!');
+    loadLeveling();
+  } catch(e) { showToast('❌ Error', true); }
+}
+
+// ---- STARBOARD ----
+let _sbGuildId = '';
+async function loadStarboard() {
+  const gid = document.getElementById('sb-guild-id').value.trim() || _sbGuildId;
+  if (!gid) return;
+  _sbGuildId = gid;
+  try {
+    const res  = await fetch(`/api/starboard/config?guild_id=${gid}`);
+    const cfg  = await res.json();
+    if (cfg.error) { document.getElementById('sb-status').textContent = 'Error: ' + cfg.error; return; }
+    document.getElementById('sb-guild-id').value  = gid;
+    document.getElementById('sb-channel').value   = cfg.channel || '';
+    document.getElementById('sb-emoji').value     = cfg.emoji || '⭐';
+    document.getElementById('sb-threshold').value = cfg.threshold ?? 3;
+    document.getElementById('sb-enabled').checked   = cfg.enabled !== false;
+    document.getElementById('sb-self-star').checked = cfg.self_star === true;
+    const statusDiv = document.getElementById('sb-status');
+    const chId = cfg.channel || '—';
+    const status = cfg.enabled !== false ? '<span style="color:#2ecc71;font-weight:700;">● Active</span>' : '<span style="color:#e74c3c;font-weight:700;">● Disabled</span>';
+    statusDiv.innerHTML = `${status} &nbsp;|&nbsp; Channel: <code style="background:var(--bg);padding:2px 7px;border-radius:5px;">${chId}</code> &nbsp;|&nbsp; Emoji: <span style="font-size:1.2rem;">${cfg.emoji||'⭐'}</span> &nbsp;|&nbsp; Threshold: <strong>${cfg.threshold||3}</strong> stars`;
+  } catch(e) {
+    document.getElementById('sb-status').textContent = 'Failed to load config.';
+  }
+}
+
+async function saveStarboard() {
+  const gid = document.getElementById('sb-guild-id').value.trim();
+  if (!gid) { showToast('❌ Enter a Guild ID first.', true); return; }
+  const payload = {
+    guild_id:   gid,
+    channel:    document.getElementById('sb-channel').value.trim(),
+    emoji:      document.getElementById('sb-emoji').value.trim() || '⭐',
+    threshold:  parseInt(document.getElementById('sb-threshold').value) || 3,
+    enabled:    document.getElementById('sb-enabled').checked,
+    self_star:  document.getElementById('sb-self-star').checked
+  };
+  if (!payload.channel) { showToast('❌ A starboard channel ID is required.', true); return; }
+  try {
+    const res  = await fetch('/api/starboard/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const data = await res.json();
+    if (data.error) { showToast('❌ '+data.error, true); return; }
+    showToast('✅ Starboard saved!');
+    _sbGuildId = gid;
+    loadStarboard();
+  } catch(e) { showToast('❌ Error saving.', true); }
 }
 
 // ---- COPY UID ----

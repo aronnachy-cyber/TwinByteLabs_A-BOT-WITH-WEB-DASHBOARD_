@@ -25,6 +25,8 @@ import autoresponder as autoresponder_mod
 import mention_reactions as mention_reactions_mod
 import reaction_roles as rr_mod
 import server_template as template_mod
+import leveling as leveling_mod
+import starboard as starboard_mod
 
 BOT_START_TIME = datetime.utcnow()
 
@@ -1469,12 +1471,14 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     if payload.guild_id is None:
         return
     await rr_mod.handle_reaction_add(bot, payload)
+    await starboard_mod.handle_reaction(bot, payload, added=True)
 
 @bot.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     if payload.guild_id is None:
         return
     await rr_mod.handle_reaction_remove(bot, payload)
+    await starboard_mod.handle_reaction(bot, payload, added=False)
 
 @bot.event
 async def on_message_edit(before, after):
@@ -1746,6 +1750,40 @@ async def on_message(message):
                             print(f"[MR] react failed for {mentioned.id}: {_re}")
     except Exception as _mr_err:
         print(f"[MR] mention reaction error: {_mr_err}")
+
+    # ---- Leveling: award XP for every non-bot message ----
+    try:
+        if message.guild and not message.author.bot:
+            gid    = str(message.guild.id)
+            uid    = str(message.author.id)
+            result = leveling_mod.try_add_xp(gid, uid)
+            if result and result["level_up"]:
+                cfg = leveling_mod.get_config(gid)
+                lvl_ch_id = cfg.get("level_up_channel", "").strip()
+                lvl_msg   = cfg.get("level_up_message", "🎉 {user} levelled up to **Level {level}**!")
+                lvl_text  = lvl_msg.replace("{user}", message.author.mention).replace("{level}", str(result["new_level"]))
+                if lvl_ch_id:
+                    try:
+                        ch = bot.get_channel(int(lvl_ch_id)) or await bot.fetch_channel(int(lvl_ch_id))
+                        await ch.send(lvl_text)
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        await message.channel.send(lvl_text, delete_after=10)
+                    except Exception:
+                        pass
+                role_rewards = cfg.get("role_rewards", {})
+                reward_role_id = role_rewards.get(str(result["new_level"]))
+                if reward_role_id:
+                    try:
+                        role = message.guild.get_role(int(reward_role_id))
+                        if role:
+                            await message.author.add_roles(role, reason=f"Level {result['new_level']} reward")
+                    except Exception:
+                        pass
+    except Exception as _lvl_err:
+        print(f"[LVL] error: {_lvl_err}")
 
     handled = await automod.handle_message(message, guild_cfg, add_warning_fn=add_warning)
     if not handled:
@@ -3433,6 +3471,69 @@ async def slash_roleinfo(interaction: discord.Interaction, role: discord.Role):
         embed.set_footer(text=f"Requested by {interaction.user}  •  SP4RK", icon_url=interaction.user.display_avatar.url)
     except Exception:
         embed.set_footer(text=f"Requested by {interaction.user}  •  SP4RK")
+    await interaction.response.send_message(embed=embed)
+
+
+# ---------------- LEVELING COMMANDS ----------------
+
+@bot.tree.command(name="rank", description="Show your XP rank card (or another member's)")
+@app_commands.describe(member="Member to check (defaults to you)")
+async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
+    if not await _slash_guard_guild(interaction):
+        return
+    target = member or interaction.user
+    gid  = str(interaction.guild.id)
+    uid  = str(target.id)
+    data = leveling_mod.get_user(gid, uid)
+    rank = leveling_mod.get_rank(gid, uid)
+    xp   = data.get("xp", 0)
+    lvl  = data.get("level", 0)
+    msgs = data.get("messages", 0)
+    next_lvl_xp = leveling_mod.level_to_xp(lvl + 1)
+    cur_lvl_xp  = leveling_mod.level_to_xp(lvl)
+    progress    = xp - cur_lvl_xp
+    needed      = max(next_lvl_xp - cur_lvl_xp, 1)
+    bar_filled  = int((progress / needed) * 20)
+    bar         = "█" * bar_filled + "░" * (20 - bar_filled)
+    embed = discord.Embed(
+        title=f"⭐ {target.display_name}'s Rank",
+        color=discord.Color(0xFFD700),
+        timestamp=datetime.utcnow(),
+    )
+    embed.set_thumbnail(url=target.display_avatar.url)
+    embed.add_field(name="🏆 Rank",     value=f"**#{rank}**" if rank > 0 else "_Unranked_", inline=True)
+    embed.add_field(name="⬆️ Level",    value=f"**{lvl}**",   inline=True)
+    embed.add_field(name="✨ XP",       value=f"**{xp:,}**",  inline=True)
+    embed.add_field(name="💬 Messages", value=f"**{msgs:,}**", inline=True)
+    embed.add_field(name=f"Progress to Level {lvl + 1}",
+                    value=f"`{bar}` {progress:,}/{needed:,} XP", inline=False)
+    embed.set_footer(text="SP4RK Leveling")
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="leaderboard", description="Show the server XP leaderboard (top 10)")
+async def slash_leaderboard(interaction: discord.Interaction):
+    if not await _slash_guard_guild(interaction):
+        return
+    gid  = str(interaction.guild.id)
+    lb   = leveling_mod.get_leaderboard(gid, limit=10)
+    if not lb:
+        await interaction.response.send_message("📊 No XP data yet — start chatting to earn XP!", ephemeral=True)
+        return
+    medals = ["🥇", "🥈", "🥉"]
+    lines  = []
+    for e in lb:
+        medal  = medals[e["rank"] - 1] if e["rank"] <= 3 else f"**#{e['rank']}**"
+        member = interaction.guild.get_member(int(e["user_id"]))
+        name   = member.display_name if member else f"<@{e['user_id']}>"
+        lines.append(f"{medal} **{name}** — Level {e['level']} · {e['xp']:,} XP")
+    embed = discord.Embed(
+        title=f"🏆 {interaction.guild.name} Leaderboard",
+        description="\n".join(lines),
+        color=discord.Color(0xFFD700),
+        timestamp=datetime.utcnow(),
+    )
+    embed.set_footer(text="SP4RK Leveling  •  /rank to see your full card")
     await interaction.response.send_message(embed=embed)
 
 

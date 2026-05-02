@@ -2942,6 +2942,97 @@ def api_mention_reactions_remove():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ---- API: LEVELING ----
+@app.route('/api/leveling/config', methods=['GET'])
+def api_leveling_config_get():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = request.args.get('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({"error": "guild_id required"}), 400
+    try:
+        import leveling as lv
+        return jsonify(lv.get_config(guild_id))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/leveling/config', methods=['POST'])
+def api_leveling_config_set():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    guild_id = data.pop('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({"error": "guild_id required"}), 400
+    try:
+        import leveling as lv
+        lv.set_config(guild_id, **data)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/leveling/leaderboard', methods=['GET'])
+def api_leveling_leaderboard():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = request.args.get('guild_id', '').strip()
+    if not guild_id:
+        return jsonify([])
+    try:
+        import leveling as lv
+        return jsonify(lv.get_leaderboard(guild_id, limit=25))
+    except Exception as e:
+        return jsonify([])
+
+@app.route('/api/leveling/reset_user', methods=['POST'])
+def api_leveling_reset_user():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    guild_id = data.get('guild_id', '').strip()
+    user_id  = data.get('user_id', '').strip()
+    if not guild_id or not user_id:
+        return jsonify({"error": "guild_id and user_id required"}), 400
+    try:
+        import leveling as lv, json, os
+        path = lv._XP_FILE
+        if os.path.exists(path):
+            db = json.load(open(path))
+            db.pop(f"{guild_id}:{user_id}", None)
+            lv._save_file(path, db)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- API: STARBOARD ----
+@app.route('/api/starboard/config', methods=['GET'])
+def api_starboard_config_get():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = request.args.get('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({"error": "guild_id required"}), 400
+    try:
+        import starboard as sb
+        return jsonify(sb.get_config(guild_id))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/starboard/config', methods=['POST'])
+def api_starboard_config_set():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    guild_id = data.pop('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({"error": "guild_id required"}), 400
+    try:
+        import starboard as sb
+        sb.set_config(guild_id, **data)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # ---- API: STATS OVERVIEW ----
 @app.route('/api/stats')
 def api_stats():
