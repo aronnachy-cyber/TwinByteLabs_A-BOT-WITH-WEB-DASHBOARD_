@@ -3140,22 +3140,23 @@ def so_api_embeds_preview():
 
 # ---- HEALTH CHECK ----
 @app.route('/health')
+@app.route('/ping')
 def health():
-    import threading, time
+    """Minimal plain-text endpoint for cron-job.org / uptime monitors.
+    Returns a tiny response so monitors never hit the 'output too large' limit.
+    """
+    import time as _t
+    import sys as _sys
     bot_alive = False
     try:
-        import sys
-        bot_mod = sys.modules.get('main')
+        bot_mod = _sys.modules.get('main')
         if bot_mod:
             t = getattr(bot_mod, '_bot_thread', None)
             bot_alive = bool(t and t.is_alive())
     except Exception:
         pass
-    return {
-        'status': 'ok',
-        'bot_thread': 'alive' if bot_alive else 'stopped',
-        'ts': int(time.time()),
-    }, 200
+    body = f"OK bot={'up' if bot_alive else 'off'} ts={int(_t.time())}"
+    return body, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 # ---- RUN ----
 def run_dashboard(port=None):

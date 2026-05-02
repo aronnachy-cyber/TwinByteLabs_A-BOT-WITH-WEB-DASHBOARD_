@@ -39,16 +39,23 @@ def _bot_watchdog():
 
 
 def _self_ping():
-    """Ping /health every 10 minutes to prevent the process from going idle."""
+    """Ping /health every 10 minutes to prevent the process from going idle.
+    Works on Render (RENDER_EXTERNAL_URL), Replit (REPLIT_DEV_DOMAIN),
+    and any custom DASHBOARD_URL, falling back to localhost.
+    """
     time.sleep(120)
     while True:
         try:
-            host = os.environ.get("REPLIT_DEV_DOMAIN") or "localhost"
-            port = 5000
-            if "localhost" in host:
-                url = f"http://localhost:{port}/health"
-            else:
-                url = f"https://{host}/health"
+            # Priority: explicit DASHBOARD_URL > Render > Replit > localhost
+            base = (
+                os.environ.get("DASHBOARD_URL", "").rstrip("/")
+                or (f"https://{os.environ['RENDER_EXTERNAL_URL']}" if "RENDER_EXTERNAL_URL" in os.environ else "")
+                or (f"https://{os.environ['REPLIT_DEV_DOMAIN']}" if "REPLIT_DEV_DOMAIN" in os.environ else "")
+            )
+            if not base:
+                port = int(os.environ.get("PORT", 5000))
+                base = f"http://localhost:{port}"
+            url = f"{base}/health"
             with urllib.request.urlopen(url, timeout=10) as resp:
                 if resp.status != 200:
                     print(f"[KEEPALIVE] /health returned {resp.status}")
