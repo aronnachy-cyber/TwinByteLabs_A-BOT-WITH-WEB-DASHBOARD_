@@ -337,6 +337,12 @@ async def add_warning(member, reason="Violation"):
 async def handle_ai_moderation(message):
     if not GEMINI_KEY:
         return
+    # Hierarchy guard — never action staff, server owner, or anyone equal/higher than the bot.
+    if message.guild:
+        bot_member = message.guild.me
+        allowed, _ = automod.can_bot_action(message.author, bot_member)
+        if not allowed:
+            return
     try:
         prompt = (
             "You are a strict Discord moderation classifier for Bangla, Banglish, Hindi/Urdu slang, and English. "

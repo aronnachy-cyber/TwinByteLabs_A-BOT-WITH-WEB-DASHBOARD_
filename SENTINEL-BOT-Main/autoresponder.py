@@ -223,33 +223,7 @@ async def check_message(message):
             await message.channel.send(response)
             return True
 
-    # 2. No rule matched → ask the AI to learn one (if message is short & friendly)
-    if not _is_learnable(message):
-        return False
-
-    # Per-channel cooldown
-    ch_id = getattr(message.channel, "id", 0)
-    now = time.time()
-    if now - _AI_COOLDOWN.get(ch_id, 0) < _AI_COOLDOWN_SECONDS:
-        return False
-    _AI_COOLDOWN[ch_id] = now
-
-    reply = _ai_generate_reply(content)
-    if not reply:
-        return False
-
-    # Save the learned trigger → response (exact match so we don't over-fire)
-    try:
-        add_response(content, reply, match_type="exact")
-        print(f"[AR] AI learned: '{content}' → '{reply}'")
-    except Exception as e:
-        print(f"[AR] AI save error: {e}")
-
-    try:
-        await message.channel.send(
-            reply.replace("{user}", message.author.mention)
-                 .replace("{username}", message.author.display_name)
-        )
-    except Exception:
-        pass
-    return True
+    # No rule matched — do not auto-generate AI replies for unmatched messages.
+    # AI auto-learn was removed because it caused the bot to send random words
+    # (e.g. "oh", "hey there", "hi") in response to any short message.
+    return False
