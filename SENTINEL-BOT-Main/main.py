@@ -2465,7 +2465,7 @@ def _build_userinfo_embed(member: discord.Member, requester: discord.abc.User) -
         warn_count = entry.get("count", 0)
     except Exception:
         warn_count = 0
-    warn_limit = get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0').get('warning_limit', 30)
+    warn_limit = get_config_for_guild(str(guild.id)).get('warning_limit', 30)
 
     # Roles
     roles_sorted = sorted(
@@ -2922,19 +2922,29 @@ async def _slash_guard_guild(interaction: discord.Interaction) -> bool:
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error):
-    """User-friendly slash command error replies (was: silent failures)."""
+    """User-friendly slash command error replies."""
+    # Unwrap CommandInvokeError so we check the root cause
+    original = getattr(error, "original", error)
     try:
-        if isinstance(error, app_commands.MissingPermissions):
-            msg = f"❌ You need the **{', '.join(error.missing_permissions)}** permission for that."
-        elif isinstance(error, app_commands.BotMissingPermissions):
-            msg = f"❌ I'm missing the **{', '.join(error.missing_permissions)}** permission."
+        if isinstance(original, app_commands.MissingPermissions) or isinstance(error, app_commands.MissingPermissions):
+            perms = getattr(original, "missing_permissions", None) or getattr(error, "missing_permissions", [])
+            msg = f"❌ **Missing Permission** — You need the **{', '.join(perms)}** permission to use this command."
+        elif isinstance(original, app_commands.BotMissingPermissions) or isinstance(error, app_commands.BotMissingPermissions):
+            perms = getattr(original, "missing_permissions", None) or getattr(error, "missing_permissions", [])
+            msg = f"❌ **Bot Missing Permission** — I need the **{', '.join(perms)}** permission to do that."
         elif isinstance(error, app_commands.CheckFailure):
-            msg = "❌ You don't have permission to use this command."
+            msg = "❌ **Access Denied** — You don't have permission to use this command."
         elif isinstance(error, app_commands.CommandOnCooldown):
-            msg = f"⏳ Slow down — try again in **{error.retry_after:.1f}s**."
+            msg = f"⏳ **Slow Down** — Try again in **{error.retry_after:.1f}s**."
+        elif isinstance(original, discord.Forbidden):
+            msg = "❌ **Permission Denied** — I don't have the required Discord permissions for that action."
+        elif isinstance(original, discord.NotFound):
+            msg = "❌ **Not Found** — That user or resource could not be found."
         else:
             print(f"[slash error] {type(error).__name__}: {error}")
-            msg = f"❌ Something went wrong: `{type(error).__name__}`."
+            if original is not error:
+                print(f"[slash error] original: {type(original).__name__}: {original}")
+            msg = "❌ **Something went wrong** — An unexpected error occurred. Please try again."
         if interaction.response.is_done():
             await interaction.followup.send(msg, ephemeral=True)
         else:
