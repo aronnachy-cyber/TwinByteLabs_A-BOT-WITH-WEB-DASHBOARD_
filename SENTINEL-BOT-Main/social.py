@@ -56,53 +56,67 @@ async def check_social_alerts(message, config, bot):
             await _send_to_channel(bot, alert_channel_id, embed)
 
 async def send_welcome_message(bot, member, config):
-    welcome_msg   = config.get("welcome_msg",    "").strip()
-    log_channel_id = config.get("log_channel",   "").strip()
-    welcome_image  = config.get("welcome_image", "").strip()
+    welcome_msg     = config.get("welcome_msg", "").strip()
+    # welcome_channel takes priority; fall back to log_channel for backwards compat
+    welcome_ch_id   = config.get("welcome_channel", "").strip() or config.get("log_channel", "").strip()
+    welcome_image   = config.get("welcome_image", "").strip()
 
-    if not welcome_msg or not log_channel_id:
+    if not welcome_msg or not welcome_ch_id:
         return
 
     formatted = (
         welcome_msg
         .replace("{user}",     member.mention)
         .replace("{username}", member.display_name)
+        .replace("{server}",   member.guild.name)
     )
 
     try:
-        channel = bot.get_channel(int(log_channel_id))
+        channel = bot.get_channel(int(welcome_ch_id))
+        if not channel:
+            channel = await bot.fetch_channel(int(welcome_ch_id))
         if not channel:
             return
 
+        member_count = member.guild.member_count
+
         embed = discord.Embed(
-            title="👋 Welcome!",
-            description=formatted,
-            color=0x2ecc71
-        )
-        embed.set_thumbnail(url=member.display_avatar.url)
-        embed.add_field(
-            name="Member",
-            value=f"{member.mention} (`{member.name}`)",
-            inline=True
-        )
-        embed.add_field(
-            name="Account Created",
-            value=f"<t:{int(member.created_at.timestamp())}:R>",
-            inline=True
-        )
-        embed.add_field(
-            name="Members",
-            value=f"#{member.guild.member_count}",
-            inline=True
+            description=(
+                f"## 👋 Hey {member.mention}, welcome to **{member.guild.name}**!\n\n"
+                f"{formatted}\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📜 **Read the rules** before you start chatting!\n"
+                f"🎮 Introduce yourself and make some friends!\n"
+                f"🚀 Enjoy your stay — we're happy you're here!\n"
+            ),
+            color=0x5b8cff,
         )
 
-        # Attach the banner image if the admin has set one
+        # Large avatar as the main image so it looks vivid and personal
+        embed.set_image(url=member.display_avatar.replace(size=512).url)
+
+        # Small server icon in thumbnail corner
+        if member.guild.icon:
+            embed.set_thumbnail(url=member.guild.icon.url)
+
+        embed.add_field(
+            name="👤 Member",
+            value=member.mention,
+            inline=True,
+        )
+        embed.add_field(
+            name="🎉 You are member",
+            value=f"**#{member_count:,}**",
+            inline=True,
+        )
+
+        # Optional custom banner below everything
         if welcome_image:
             embed.set_image(url=welcome_image)
 
         embed.set_footer(
-            text=f"{member.guild.name}  ·  SP4RK Welcome System",
-            icon_url=member.guild.icon.url if member.guild.icon else None
+            text=f"{member.guild.name}  ·  Powered by SP4RK",
+            icon_url=member.guild.icon.url if member.guild.icon else None,
         )
 
         await channel.send(embed=embed)

@@ -646,27 +646,40 @@ html.bl-compact .page-header { margin-bottom: 18px; }
 
     <div class="card">
       <div class="card-title"><i class="fas fa-comment-alt"></i> Welcome Message</div>
-      <p style="color:var(--muted);font-size:.82rem;margin-bottom:12px;">
-        Use <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">{user}</code> for mention,
-        <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">{username}</code> for name.
-        The bot also shows join date, account age, and member number automatically.
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:14px;">
+        Use <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">{user}</code> for a mention,
+        <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">{username}</code> for their name,
+        <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">{server}</code> for the server name.
+        The bot posts a vivid card with their avatar, member number, and a reminder to read the rules.
       </p>
-      <div class="row"><div class="row-label"><strong>Log Channel ID</strong></div></div>
-      <div class="input-wrap-full" style="margin-bottom:10px;">
-        <input type="text" id="log_channel_g" value="{{ config.get('log_channel','') }}" placeholder="Channel ID">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div>
+          <div class="row-label" style="margin-bottom:6px;"><strong>👋 Welcome Channel ID</strong> <span style="color:var(--muted);font-size:.78rem;">(where SP4RK greets new members)</span></div>
+          <div class="input-wrap-full">
+            <input type="text" id="welcome_channel" value="{{ config.get('welcome_channel','') }}" placeholder="e.g. 1234567890123456789">
+          </div>
+        </div>
+        <div>
+          <div class="row-label" style="margin-bottom:6px;"><strong>📋 Log Channel ID</strong> <span style="color:var(--muted);font-size:.78rem;">(where SP4RK posts moderation logs)</span></div>
+          <div class="input-wrap-full">
+            <input type="text" id="log_channel_g" value="{{ config.get('log_channel','') }}" placeholder="e.g. 1234567890123456789">
+          </div>
+        </div>
       </div>
-      <div class="row-label"><strong>Welcome Message</strong></div>
-      <div class="input-wrap-full" style="margin-top:8px;margin-bottom:14px;">
+
+      <div class="row-label" style="margin-bottom:6px;"><strong>Welcome Message</strong></div>
+      <div class="input-wrap-full" style="margin-bottom:14px;">
         <textarea id="welcome_msg">{{ config.get('welcome_msg','') }}</textarea>
       </div>
 
       <div class="row-label" style="margin-bottom:6px;">
         <strong>Welcome Banner Image URL</strong>
-        <span style="color:var(--muted);font-size:.78rem;margin-left:6px;">— shown at the bottom of the welcome card</span>
+        <span style="color:var(--muted);font-size:.78rem;margin-left:6px;">— overrides the member avatar as the main image</span>
       </div>
       <div class="input-wrap-full" style="margin-bottom:6px;">
         <input type="url" id="welcome_image" value="{{ config.get('welcome_image','') }}"
-          placeholder="https://example.com/welcome-banner.png (optional)"
+          placeholder="https://example.com/banner.png (optional)"
           oninput="document.getElementById('welcome_img_preview').style.display=this.value?'block':'none';document.getElementById('welcome_img_preview').src=this.value">
       </div>
       <img id="welcome_img_preview"
@@ -2244,6 +2257,7 @@ function collectData() {
     theme_color: getText('theme_color'), bot_avatar: getText('bot_avatar'),
     welcome_msg: getText('welcome_msg'),
     welcome_image: getText('welcome_image'),
+    welcome_channel: getText('welcome_channel'),
     log_channel: getText('log_channel') || getText('log_channel_g'),
     owner_dm_id: getText('owner_dm_id'),
     mod_block_links: getCheck('mod_block_links'), mod_block_mentions: getCheck('mod_block_mentions'),
@@ -2448,6 +2462,7 @@ function applyConfig(cfg) {
   setText('theme_color', cfg.theme_color); setText('bot_avatar', cfg.bot_avatar);
   setText('welcome_msg', cfg.welcome_msg);
   setText('welcome_image', cfg.welcome_image);
+  setText('welcome_channel', cfg.welcome_channel);
   if (cfg.welcome_image) {
     const prev = document.getElementById('welcome_img_preview');
     if (prev) { prev.src = cfg.welcome_image; prev.style.display = 'block'; }

@@ -48,6 +48,7 @@ DEFAULT_CONFIG = {
     "theme_color": "#3498db",
     "welcome_msg": "Hello {user}, welcome to the server!",
     "welcome_image": "",
+    "welcome_channel": "",
     "bot_avatar": "",
     "log_channel": "",
     "mod_block_links": "OFF",
@@ -608,7 +609,7 @@ TOGGLE_KEYS = [
 ]
 
 TEXT_KEYS = [
-    "prefix", "bot_status", "theme_color", "welcome_msg", "welcome_image", "bot_avatar",
+    "prefix", "bot_status", "theme_color", "welcome_msg", "welcome_image", "welcome_channel", "bot_avatar",
     "log_channel", "profanity_level", "mute_role", "auto_role",
     "auto_custom_blacklist", "auto_allowlist", "webhook_log", "banned_words",
     "youtube_channel_link", "youtube_notify_msg", "multi_channel",
