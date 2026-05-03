@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>{{ room.title or 'Watch Party' }} · Wave</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+<!-- HLS.js -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0c0206; --surface:#130408; --surface2:#1c060c;
+  --accent:#f43f5e; --accent2:#fb7185;
+  --text:#ffe8ec; --muted:#9d7880; --border:rgba(244,63,94,.2);
+  --grad:linear-gradient(135deg,#be123c,#f43f5e,#fb7185);
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+
+/* ── TOP BAR ── */
+.topbar{height:52px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 16px;background:rgba(19,4,8,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(10px);z-index:100;}
+.tb-logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0;}
+.tb-mark{width:32px;height:32px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.95rem;color:#fff;box-shadow:0 4px 12px rgba(244,63,94,.4);}
+.tb-name{font-weight:800;font-size:.95rem;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.tb-title{font-size:.9rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+.tb-sep{width:1px;height:24px;background:var(--border);flex-shrink:0;}
+.tb-right{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.live-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:rgba(239,68,68,.9);font-size:.72rem;font-weight:800;letter-spacing:.08em;color:#fff;flex-shrink:0;}
+.live-badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff;animation:blink 1.2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.viewers-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.07);font-size:.75rem;font-weight:600;color:var(--muted);}
+.btn-sm{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font-size:.78rem;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s;}
+.btn-sm.ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid rgba(255,255,255,.1);}
+.btn-sm.ghost:hover{background:rgba(255,255,255,.1);}
+.btn-sm.danger{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3);}
+.btn-sm.danger:hover{background:rgba(239,68,68,.25);}
+
+/* ── MAIN LAYOUT ── */
+.main{flex:1;display:grid;grid-template-columns:1fr 320px;overflow:hidden;}
+@media(max-width:768px){.main{grid-template-columns:1fr;}.sidebar{display:none;}}
+
+/* ── PLAYER SIDE ── */
+.player-side{display:flex;flex-direction:column;overflow:hidden;position:relative;}
+.video-wrap{flex:1;background:#000;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+video{width:100%;height:100%;object-fit:contain;}
+.video-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;height:100%;color:var(--muted);}
+.video-placeholder i{font-size:3rem;color:var(--border);}
+.video-placeholder p{font-size:1rem;}
+.video-placeholder small{font-size:.82rem;opacity:.6;}
+
+/* overlay controls (host only, shown on hover) */
+.vid-overlay{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:20px;opacity:0;transition:opacity .2s;background:linear-gradient(transparent 50%,rgba(0,0,0,.7));}
+.video-wrap:hover .vid-overlay{opacity:1;}
+.vid-controls{display:flex;align-items:center;gap:12px;width:100%;max-width:800px;}
+.vid-btn{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+.vid-btn:hover{background:var(--accent);border-color:transparent;transform:scale(1.08);}
+.vid-btn:disabled{opacity:.3;cursor:not-allowed;}
+.vid-progress{flex:1;height:5px;border-radius:99px;background:rgba(255,255,255,.2);cursor:pointer;position:relative;}
+.vid-progress-fill{height:100%;border-radius:99px;background:var(--accent);pointer-events:none;transition:width .2s linear;}
+.vid-time{font-size:.78rem;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap;}
+.vid-vol{display:flex;align-items:center;gap:6px;}
+.vid-vol-slider{width:70px;height:4px;appearance:none;background:rgba(255,255,255,.2);border-radius:99px;cursor:pointer;outline:none;}
+.vid-vol-slider::-webkit-slider-thumb{appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);}
+
+/* sync indicator */
+.sync-indicator{position:absolute;top:14px;right:14px;padding:5px 12px;border-radius:99px;font-size:.72rem;font-weight:700;pointer-events:none;transition:all .3s;}
+.sync-indicator.synced{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.4);color:#34d399;}
+.sync-indicator.syncing{background:rgba(250,204,21,.15);border:1px solid rgba(250,204,21,.4);color:#fbbf24;}
+
+/* URL bar (host only) */
+.url-bar{flex-shrink:0;display:flex;gap:8px;padding:10px 14px;background:var(--surface);border-top:1px solid var(--border);}
+.url-input{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.88rem;font-family:inherit;outline:none;transition:border-color .15s;}
+.url-input::placeholder{color:var(--muted);}
+.url-input:focus{border-color:var(--accent);}
+.url-btn{padding:8px 16px;border-radius:8px;background:var(--grad);border:none;color:#fff;font-weight:700;font-size:.88rem;font-family:inherit;cursor:pointer;transition:filter .15s;white-space:nowrap;}
+.url-btn:hover{filter:brightness(1.1);}
+
+/* ── SIDEBAR ── */
+.sidebar{display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--surface);overflow:hidden;}
+.sidebar-tabs{display:flex;border-bottom:1px solid var(--border);}
+.s-tab{flex:1;padding:12px;font-size:.82rem;font-weight:700;text-align:center;cursor:pointer;color:var(--muted);border:none;background:none;font-family:inherit;transition:all .15s;border-bottom:2px solid transparent;}
+.s-tab.active{color:var(--accent2);border-bottom-color:var(--accent);}
+.s-tab:hover:not(.active){color:var(--text);}
+.s-panel{flex:1;overflow-y:auto;display:none;flex-direction:column;}
+.s-panel.active{display:flex;}
+.s-panel::-webkit-scrollbar{width:4px;}.s-panel::-webkit-scrollbar-track{background:transparent;}.s-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:99px;}
+
+/* chat */
+.chat-messages{flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;}
+.chat-msg{display:flex;gap:8px;align-items:flex-start;}
+.chat-av{width:28px;height:28px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:800;color:#fff;flex-shrink:0;}
+.chat-body{}
+.chat-name{font-size:.72rem;font-weight:700;color:var(--accent2);margin-bottom:2px;}
+.chat-text{font-size:.85rem;color:var(--text);line-height:1.4;word-break:break-word;}
+.chat-ts{font-size:.62rem;color:var(--muted);}
+.chat-input-row{padding:10px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;}
+.chat-input{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:inherit;outline:none;transition:border-color .15s;}
+.chat-input:focus{border-color:var(--accent);}
+.chat-send{padding:8px 12px;border-radius:8px;background:var(--grad);border:none;color:#fff;cursor:pointer;font-size:.85rem;}
+.chat-send:hover{filter:brightness(1.1);}
+
+/* viewers panel */
+.viewers-list{padding:12px;display:flex;flex-direction:column;gap:8px;}
+.viewer-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);}
+.viewer-av{width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;color:#fff;flex-shrink:0;}
+.viewer-name{font-size:.88rem;font-weight:600;flex:1;}
+.viewer-role{font-size:.7rem;padding:2px 8px;border-radius:99px;font-weight:700;}
+.viewer-role.host{background:rgba(244,63,94,.15);color:var(--accent2);border:1px solid rgba(244,63,94,.3);}
+.viewer-role.watcher{background:rgba(255,255,255,.06);color:var(--muted);}
+
+/* room info panel */
+.room-info{padding:14px;}
+.room-info h4{font-size:.82rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+.info-row{margin-bottom:12px;}
+.info-label{font-size:.75rem;color:var(--muted);margin-bottom:4px;}
+.info-val{font-size:.88rem;font-weight:600;word-break:break-all;}
+.copy-btn{margin-top:8px;padding:7px 12px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--text);font-size:.78rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;width:100%;}
+.copy-btn:hover{background:rgba(244,63,94,.12);border-color:rgba(244,63,94,.35);}
+
+/* name prompt modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(6px);z-index:200;display:flex;align-items:center;justify-content:center;}
+.modal-card{background:var(--surface2);border:1px solid var(--border);border-radius:18px;padding:36px 32px;width:min(420px,90vw);text-align:center;}
+.modal-icon{font-size:2.5rem;margin-bottom:14px;}
+.modal-card h2{font-size:1.4rem;font-weight:800;margin-bottom:8px;}
+.modal-card p{color:var(--muted);font-size:.9rem;margin-bottom:24px;}
+.modal-input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:12px 14px;color:var(--text);font-size:.95rem;font-family:inherit;outline:none;margin-bottom:14px;}
+.modal-input:focus{border-color:var(--accent);}
+.modal-btn{width:100%;padding:12px;border-radius:10px;background:var(--grad);border:none;color:#fff;font-weight:700;font-size:1rem;font-family:inherit;cursor:pointer;}
+
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<!-- NAME PROMPT -->
+<div class="modal-bg" id="nameProm">
+  <div class="modal-card">
+    <div class="modal-icon">📺</div>
+    <h2>Join Watch Party</h2>
+    <p>Enter your display name to join <b>{{ room.title or 'this room' }}</b></p>
+    <input class="modal-input" id="nameInput" placeholder="Your name…" maxlength="32" autocomplete="off"/>
+    <button class="modal-btn" onclick="joinRoom()">Join Now</button>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <a class="tb-logo" href="{{ url_for('wave_landing') }}">
+    <div class="tb-mark"><i class="fas fa-tower-broadcast"></i></div>
+    <span class="tb-name">Wave</span>
+  </a>
+  <div class="tb-sep"></div>
+  <span class="tb-title">{{ room.title or 'Watch Party' }}</span>
+  <div class="tb-right">
+    <span class="live-badge" id="liveBadge">LIVE</span>
+    <span class="viewers-badge"><i class="fas fa-eye"></i> <span id="viewerCount">0</span> watching</span>
+    {% if is_host %}
+    <button class="btn-sm ghost" onclick="copyLink()"><i class="fas fa-copy"></i> Copy Link</button>
+    <button class="btn-sm danger" onclick="endSession()"><i class="fas fa-stop"></i> End</button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- PLAYER SIDE -->
+  <div class="player-side">
+    <div class="video-wrap" id="videoWrap">
+      <video id="vid" playsinline></video>
+
+      <div class="video-placeholder" id="placeholder">
+        <i class="fas fa-tower-broadcast"></i>
+        <p id="placeholderText">Waiting for stream…</p>
+        <small id="placeholderSub">The host will load a stream URL shortly.</small>
+      </div>
+
+      <!-- sync indicator -->
+      <div class="sync-indicator synced" id="syncInd"><i class="fas fa-rotate-right"></i> Synced</div>
+
+      <!-- overlay controls (visible on hover) -->
+      <div class="vid-overlay" id="vidOverlay">
+        <div class="vid-controls">
+          {% if is_host %}
+          <button class="vid-btn" id="playBtn" onclick="togglePlay()"><i class="fas fa-play" id="playIcon"></i></button>
+          <button class="vid-btn" onclick="seekBy(-10)"><i class="fas fa-backward-fast"></i></button>
+          {% else %}
+          <button class="vid-btn" style="pointer-events:none;opacity:.4;"><i class="fas fa-lock"></i></button>
+          {% endif %}
+          <div class="vid-progress" id="progressBar">
+            <div class="vid-progress-fill" id="progressFill"></div>
+          </div>
+          <span class="vid-time" id="timeDisplay">0:00 / 0:00</span>
+          {% if is_host %}
+          <button class="vid-btn" onclick="seekBy(10)"><i class="fas fa-forward-fast"></i></button>
+          {% endif %}
+          <div class="vid-vol">
+            <i class="fas fa-volume-high" style="font-size:.8rem;color:rgba(255,255,255,.6);"></i>
+            <input class="vid-vol-slider" type="range" min="0" max="1" step=".01" value="1" id="volSlider" oninput="setVol(this.value)">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if is_host %}
+    <div class="url-bar">
+      <input class="url-input" id="urlInput" placeholder="Paste stream URL: YouTube, HLS .m3u8, or direct video…" value="{{ room.stream_url or '' }}"/>
+      <button class="url-btn" onclick="loadStream()"><i class="fas fa-play"></i> Load Stream</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="s-tab active" onclick="switchTab('chat',this)"><i class="fas fa-comment"></i> Chat</button>
+      <button class="s-tab" onclick="switchTab('viewers',this)"><i class="fas fa-users"></i> Viewers</button>
+      <button class="s-tab" onclick="switchTab('info',this)"><i class="fas fa-info-circle"></i> Room</button>
+    </div>
+
+    <!-- CHAT -->
+    <div class="s-panel active" id="panel-chat">
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="chatIn" placeholder="Say something…" maxlength="280" onkeydown="if(event.key==='Enter')sendChat()"/>
+        <button class="chat-send" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+
+    <!-- VIEWERS -->
+    <div class="s-panel" id="panel-viewers">
+      <div class="viewers-list" id="viewersList">
+        <div style="text-align:center;color:var(--muted);padding:30px;font-size:.88rem;">Viewers will appear here once they join.</div>
+      </div>
+    </div>
+
+    <!-- ROOM INFO -->
+    <div class="s-panel" id="panel-info">
+      <div class="room-info">
+        <div class="info-row">
+          <div class="info-label">Room ID</div>
+          <div class="info-val">{{ room_id }}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Title</div>
+          <div class="info-val">{{ room.title or '—' }}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Stream URL</div>
+          <div class="info-val" id="streamUrlInfo">{{ room.stream_url or 'Not set' }}</div>
+        </div>
+        <button class="copy-btn" onclick="copyLink()"><i class="fas fa-copy"></i> Copy Invite Link</button>
+        <button class="copy-btn" style="margin-top:6px;" onclick="copyDiscord()"><i class="fab fa-discord"></i> Copy Discord Command</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ROOM_ID   = {{ room_id | tojson }};
+const IS_HOST   = {{ 'true' if is_host else 'false' }};
+const HOST_TOK  = {{ host_token | tojson }};
+const BASE_URL  = window.location.origin;
+
+let myName      = '';
+let hls         = null;
+let knownChat   = 0;
+let lastState   = null;
+let pollTimer   = null;
+let viewers     = {};
+let vidDuration = 0;
+
+// ── Name prompt ──────────────────────────────────────────────────────────────
+function joinRoom() {
+  const n = document.getElementById('nameInput').value.trim();
+  if (!n) { document.getElementById('nameInput').focus(); return; }
+  myName = n;
+  document.getElementById('nameProm').classList.add('hidden');
+  addChatMsg({ name: '🌊 Wave', text: `Welcome, ${myName}!`, ts: now() });
+  startPolling();
+}
+
+window.addEventListener('load', () => {
+  const n = sessionStorage.getItem('wave_name');
+  if (n) { myName = n; document.getElementById('nameProm').classList.add('hidden'); startPolling(); }
+  else { document.getElementById('nameInput').focus(); }
+});
+
+function now() { return new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(id, el) {
+  document.querySelectorAll('.s-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.s-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + id).classList.add('active');
+}
+
+// ── Polling engine ────────────────────────────────────────────────────────────
+function startPolling() {
+  poll();
+  pollTimer = setInterval(poll, 2000);
+}
+
+async function poll() {
+  try {
+    const r = await fetch(`/api/wave/state/${ROOM_ID}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.ok) return;
+    applyState(d.room);
+    renderChat(d.room.chat || []);
+    renderViewers(d.room.viewers_list || []);
+    document.getElementById('viewerCount').textContent = d.room.viewer_count || 0;
+  } catch(e) {}
+}
+
+// ── Apply sync state ──────────────────────────────────────────────────────────
+function applyState(room) {
+  const vid = document.getElementById('vid');
+
+  // Load new stream URL
+  if (room.stream_url && room.stream_url !== lastState?.stream_url) {
+    loadHls(room.stream_url);
+    document.getElementById('placeholder').classList.add('hidden');
+    document.getElementById('streamUrlInfo').textContent = room.stream_url;
+  }
+
+  // Sync play/pause only for viewers
+  if (!IS_HOST && vid.src || hls) {
+    const serverPos = room.position + (room.playing ? (Date.now()/1000 - room.position_ts) : 0);
+    const diff = Math.abs(vid.currentTime - serverPos);
+    if (diff > 3) {
+      vid.currentTime = serverPos;
+      setSync('syncing');
+      setTimeout(() => setSync('synced'), 1200);
+    }
+    if (room.playing && vid.paused) vid.play().catch(()=>{});
+    if (!room.playing && !vid.paused) vid.pause();
+  }
+
+  // Update play button icon for host
+  if (IS_HOST) {
+    document.getElementById('playIcon').className = room.playing ? 'fas fa-pause' : 'fas fa-play';
+  }
+
+  lastState = room;
+}
+
+function setSync(s) {
+  const el = document.getElementById('syncInd');
+  el.className = 'sync-indicator ' + s;
+  el.innerHTML = s === 'syncing'
+    ? '<i class="fas fa-rotate-right"></i> Syncing…'
+    : '<i class="fas fa-rotate-right"></i> Synced';
+}
+
+// ── HLS loader ────────────────────────────────────────────────────────────────
+function loadHls(url) {
+  const vid = document.getElementById('vid');
+  if (hls) { hls.destroy(); hls = null; }
+
+  if (Hls.isSupported()) {
+    hls = new Hls({ enableWorker: true });
+    hls.loadSource(url);
+    hls.attachMedia(vid);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      if (!IS_HOST || lastState?.playing) vid.play().catch(()=>{});
+    });
+    hls.on(Hls.Events.ERROR, (_, d) => {
+      if (d.fatal) {
+        document.getElementById('placeholder').classList.remove('hidden');
+        document.getElementById('placeholderText').textContent = '⚠️ Stream error';
+        document.getElementById('placeholderSub').textContent = d.details;
+      }
+    });
+  } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+    vid.src = url;
+    vid.addEventListener('loadedmetadata', () => {
+      if (!IS_HOST || lastState?.playing) vid.play().catch(()=>{});
+    });
+  } else {
+    // Try as direct video
+    vid.src = url;
+    vid.load();
+  }
+
+  vid.addEventListener('timeupdate', updateProgress);
+  vid.addEventListener('durationchange', () => { vidDuration = vid.duration; });
+}
+
+function updateProgress() {
+  const vid = document.getElementById('vid');
+  const t = vid.currentTime, d = vid.duration || 0;
+  document.getElementById('progressFill').style.width = (d ? t/d*100 : 0) + '%';
+  document.getElementById('timeDisplay').textContent = `${fmt(t)} / ${fmt(d)}`;
+}
+function fmt(s) { const m=Math.floor(s/60),sec=Math.floor(s%60); return `${m}:${sec<10?'0':''}${sec}`; }
+
+// ── Host controls ─────────────────────────────────────────────────────────────
+async function togglePlay() {
+  if (!IS_HOST) return;
+  const vid = document.getElementById('vid');
+  const playing = !vid.paused;
+  sendControl(playing ? 'pause' : 'play', vid.currentTime);
+}
+
+async function seekBy(delta) {
+  if (!IS_HOST) return;
+  const vid = document.getElementById('vid');
+  const pos = Math.max(0, vid.currentTime + delta);
+  vid.currentTime = pos;
+  sendControl('seek', pos);
+}
+
+async function sendControl(action, position) {
+  await fetch(`/api/wave/control/${ROOM_ID}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action, position, host_token: HOST_TOK })
+  });
+  poll();
+}
+
+function setVol(v) { document.getElementById('vid').volume = v; }
+
+// Progress bar click (host seek)
+if (IS_HOST) {
+  document.getElementById('progressBar')?.addEventListener('click', e => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct  = (e.clientX - rect.left) / rect.width;
+    const vid  = document.getElementById('vid');
+    const pos  = pct * (vid.duration || 0);
+    vid.currentTime = pos;
+    sendControl('seek', pos);
+  });
+}
+
+// Load stream (host)
+async function loadStream() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+  await fetch(`/api/wave/set-stream/${ROOM_ID}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ url, host_token: HOST_TOK })
+  });
+  poll();
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+async function sendChat() {
+  const inp  = document.getElementById('chatIn');
+  const text = inp.value.trim();
+  if (!text || !myName) return;
+  inp.value = '';
+  addChatMsg({ name: myName, text, ts: now() });
+  try {
+    await fetch(`/api/wave/chat/${ROOM_ID}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name: myName, text })
+    });
+  } catch(e) {}
+}
+
+function renderChat(msgs) {
+  if (msgs.length <= knownChat) return;
+  const newMsgs = msgs.slice(knownChat);
+  knownChat = msgs.length;
+  newMsgs.forEach(m => addChatMsg(m));
+}
+
+function addChatMsg(m) {
+  const box  = document.getElementById('chatMessages');
+  const div  = document.createElement('div');
+  div.className = 'chat-msg';
+  const initials = (m.name || '?').substring(0,2).toUpperCase();
+  div.innerHTML = `
+    <div class="chat-av">${initials}</div>
+    <div class="chat-body">
+      <div class="chat-name">${esc(m.name)} <span class="chat-ts">${esc(m.ts||'')}</span></div>
+      <div class="chat-text">${esc(m.text)}</div>
+    </div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Viewers ───────────────────────────────────────────────────────────────────
+function renderViewers(list) {
+  const box = document.getElementById('viewersList');
+  if (!list.length) return;
+  box.innerHTML = list.map(v => `
+    <div class="viewer-row">
+      <div class="viewer-av">${esc(v.name.substring(0,2).toUpperCase())}</div>
+      <div class="viewer-name">${esc(v.name)}</div>
+      <span class="viewer-role ${v.host?'host':'watcher'}">${v.host?'Host':'Watching'}</span>
+    </div>`).join('');
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function copyLink() {
+  const url = `${BASE_URL}/watch/${ROOM_ID}`;
+  navigator.clipboard.writeText(url).then(() => alert('Link copied!'));
+}
+function copyDiscord() {
+  navigator.clipboard.writeText(`/watch url:${BASE_URL}/watch/${ROOM_ID}`).then(() => alert('Command copied!'));
+}
+async function endSession() {
+  if (!confirm('End this watch party for everyone?')) return;
+  await fetch(`/api/wave/end/${ROOM_ID}`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ host_token: HOST_TOK })
+  });
+  window.location.href = '{{ url_for("wave_landing") }}';
+}
+
+// Presence ping
+setInterval(() => {
+  if (!myName) return;
+  fetch(`/api/wave/ping/${ROOM_ID}`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name: myName, host: IS_HOST })
+  }).catch(()=>{});
+}, 5000);
+</script>
+</body>
+</html>

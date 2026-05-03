@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wave — Streaming & Watch Parties · Byte Labs</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0c0206;
+  --bg2:#180610;
+  --text:#ffe8ec;
+  --muted:#9d7880;
+  --border:rgba(244,63,94,.2);
+  --accent:#f43f5e;
+  --accent2:#fb7185;
+  --accent3:#fda4af;
+  --warm:#facc15;
+  --gradient:linear-gradient(135deg,#be123c 0%,#f43f5e 50%,#fb7185 100%);
+}
+html{scroll-behavior:smooth;}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.55;overflow-x:hidden;min-height:100vh;}
+body::before,body::after{content:"";position:fixed;pointer-events:none;z-index:0;width:700px;height:700px;border-radius:50%;filter:blur(140px);opacity:.22;}
+body::before{background:radial-gradient(circle,#be123c,transparent 70%);top:-250px;left:-180px;animation:f1 17s ease-in-out infinite;}
+body::after{background:radial-gradient(circle,#f43f5e,transparent 70%);bottom:-250px;right:-180px;animation:f2 21s ease-in-out infinite;}
+@keyframes f1{0%,100%{transform:translate(0,0);}50%{transform:translate(60px,40px);}}
+@keyframes f2{0%,100%{transform:translate(0,0);}50%{transform:translate(-50px,-30px);}}
+.grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(244,63,94,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(244,63,94,.04) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;z-index:0;mask-image:radial-gradient(ellipse at center,#000 0%,transparent 70%);}
+
+/* ── NAV ── */
+nav{position:relative;z-index:10;padding:18px 40px;display:flex;align-items:center;gap:14px;backdrop-filter:blur(10px);background:rgba(12,2,6,.6);border-bottom:1px solid rgba(255,255,255,.05);}
+.nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none;}
+.nav-logo-mark{width:42px;height:42px;border-radius:11px;background:var(--gradient);display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#fff;box-shadow:0 8px 22px rgba(244,63,94,.5);}
+.nav-logo-name{font-weight:800;font-size:1.15rem;color:#fff;}
+.nav-logo-name span{background:var(--gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.btn-ghost{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#f0c4cc;text-decoration:none;font-weight:600;font-size:.92rem;transition:all .15s;}
+.btn-ghost:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:#fff;}
+.nav-right{margin-left:auto;display:flex;gap:10px;}
+.btn-primary{display:inline-flex;align-items:center;gap:10px;padding:11px 22px;background:var(--gradient);color:#fff;text-decoration:none;border:none;border-radius:10px;font-weight:700;font-size:.95rem;font-family:inherit;cursor:pointer;box-shadow:0 8px 24px rgba(244,63,94,.4);transition:transform .15s,filter .15s;}
+.btn-primary:hover{transform:translateY(-2px);filter:brightness(1.08);}
+
+/* ── COMING BANNER ── */
+.coming-banner{position:relative;z-index:10;text-align:center;padding:10px 20px;background:linear-gradient(90deg,rgba(244,63,94,.13),rgba(251,113,133,.1));border-bottom:1px solid rgba(244,63,94,.28);font-size:.82rem;font-weight:600;color:var(--accent2);letter-spacing:.03em;}
+.coming-banner i{margin-right:6px;color:var(--warm);}
+
+/* ── HERO ── */
+.hero{position:relative;z-index:5;display:grid;grid-template-columns:1.15fr 1fr;gap:50px;align-items:center;max-width:1200px;margin:0 auto;padding:70px 30px 60px;}
+@media(max-width:980px){.hero{grid-template-columns:1fr;text-align:center;padding-top:50px;}}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:7px 16px;background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.4);border-radius:99px;color:var(--accent2);font-size:.82rem;font-weight:600;margin-bottom:20px;}
+.hero-badge::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);animation:dot-pulse 1.6s ease-in-out infinite;}
+@keyframes dot-pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.hero h1{font-size:clamp(2.4rem,5.6vw,4.2rem);font-weight:900;letter-spacing:-1.5px;line-height:1.05;margin-bottom:20px;}
+.hero h1 .brand{background:var(--gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.hero p.lede{font-size:clamp(1rem,1.5vw,1.15rem);color:var(--muted);max-width:560px;margin-bottom:30px;}
+@media(max-width:980px){.hero p.lede{margin:0 auto 30px;}}
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;}
+@media(max-width:980px){.hero-cta{justify-content:center;}}
+.hero-cta .btn-primary,.hero-cta .btn-ghost{padding:14px 26px;font-size:1rem;}
+.status-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:22px;}
+@media(max-width:980px){.status-row{justify-content:center;}}
+.status-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:99px;font-size:.78rem;font-weight:700;}
+.status-pill.building{background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.35);color:#fbbf24;}
+.status-pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;animation:dot-pulse 1.4s ease-in-out infinite;}
+
+/* ── HERO ART: TV mockup with watch party avatars ── */
+.hero-art{position:relative;width:100%;display:flex;align-items:center;justify-content:center;min-height:360px;}
+.tv-wrap{position:relative;width:340px;max-width:92vw;}
+.tv-screen{width:100%;aspect-ratio:16/9;border-radius:16px;background:linear-gradient(135deg,#1a0508,#2d0a10);border:2px solid rgba(244,63,94,.35);box-shadow:0 0 0 8px rgba(244,63,94,.06),0 30px 70px rgba(0,0,0,.6);overflow:hidden;position:relative;}
+.tv-content{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;}
+.tv-play{width:56px;height:56px;border-radius:50%;background:var(--gradient);display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;box-shadow:0 0 30px rgba(244,63,94,.6);animation:play-pulse 2.5s ease-in-out infinite;}
+@keyframes play-pulse{0%,100%{box-shadow:0 0 30px rgba(244,63,94,.6);}50%{box-shadow:0 0 60px rgba(244,63,94,.9),0 0 90px rgba(244,63,94,.4);}}
+.tv-live{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;background:rgba(239,68,68,.9);border-radius:99px;font-size:.72rem;font-weight:800;letter-spacing:.1em;color:#fff;animation:live-blink 2s ease-in-out infinite;}
+@keyframes live-blink{0%,100%{opacity:1;}50%{opacity:.7;}}
+.tv-live::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff;animation:dot-pulse 1s ease-in-out infinite;}
+.tv-scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);pointer-events:none;}
+.tv-glow{position:absolute;inset:-2px;border-radius:18px;background:var(--gradient);opacity:0;z-index:-1;filter:blur(20px);animation:glow-pulse 3s ease-in-out infinite;}
+@keyframes glow-pulse{0%,100%{opacity:0.2;}50%{opacity:0.45;}}
+/* viewer avatars */
+.tv-viewers{display:flex;justify-content:center;gap:8px;margin-top:16px;}
+.av{width:34px;height:34px;border-radius:50%;border:2px solid rgba(244,63,94,.5);display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:800;color:#fff;animation:av-float 4s ease-in-out infinite;}
+.av:nth-child(2){animation-delay:.5s;}.av:nth-child(3){animation-delay:1s;}.av:nth-child(4){animation-delay:1.5s;}.av:nth-child(5){animation-delay:2s;}
+@keyframes av-float{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+.tv-viewer-label{text-align:center;font-size:.76rem;color:var(--muted);margin-top:8px;}
+/* floating chips */
+.sig{position:absolute;font-size:.72rem;font-weight:700;color:#ffe8ec;background:rgba(12,2,6,.9);border:1px solid rgba(244,63,94,.35);padding:5px 10px;border-radius:8px;white-space:nowrap;box-shadow:0 6px 18px rgba(244,63,94,.15);animation:sfloat 5s ease-in-out infinite;z-index:4;}
+.sig i{color:var(--accent2);margin-right:5px;}
+.sig.s1{left:-40px;top:5%;animation-delay:0s;}
+.sig.s2{right:-30px;top:50%;animation-delay:1.5s;}
+.sig.s3{left:5%;bottom:-5%;animation-delay:3s;}
+@keyframes sfloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+
+/* ── ARCH DIAGRAM ── */
+.arch{position:relative;z-index:5;padding:60px 24px;max-width:1100px;margin:0 auto;}
+.arch-title{text-align:center;font-size:.82rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent2);margin-bottom:8px;}
+.arch h2{text-align:center;font-size:clamp(1.9rem,4vw,2.6rem);font-weight:800;letter-spacing:-.5px;margin-bottom:14px;}
+.arch h2 span{background:var(--gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.arch p.sub{text-align:center;color:var(--muted);max-width:640px;margin:0 auto 50px;font-size:1rem;}
+.arch-flow{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;row-gap:24px;}
+.arch-node{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:130px;max-width:160px;}
+.arch-icon{width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;box-shadow:0 8px 28px rgba(0,0,0,.3);}
+.arch-icon.red{background:var(--gradient);}
+.arch-icon.dark{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);}
+.arch-label{font-size:.82rem;font-weight:700;text-align:center;color:var(--text);}
+.arch-sub{font-size:.72rem;color:var(--muted);text-align:center;line-height:1.4;}
+.arch-arrow{display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 8px;flex-shrink:0;}
+.arch-arrow-line{width:40px;height:2px;background:linear-gradient(90deg,rgba(244,63,94,.5),rgba(251,113,133,.3));}
+.arch-arrow i{color:var(--accent);font-size:.7rem;}
+.arch-label-sm{font-size:.6rem;color:var(--muted);white-space:nowrap;font-weight:600;}
+
+/* ── SECTION ── */
+.section{position:relative;z-index:5;padding:70px 24px;max-width:1200px;margin:0 auto;}
+.section-eyebrow{text-align:center;font-size:.82rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent2);margin-bottom:8px;}
+.section h2{text-align:center;font-size:clamp(1.9rem,4vw,2.8rem);font-weight:800;letter-spacing:-.5px;margin-bottom:14px;}
+.section h2 span{background:var(--gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.section .subtitle{text-align:center;color:var(--muted);max-width:680px;margin:0 auto 50px;font-size:1.05rem;}
+
+/* ── FEATURES ── */
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;}
+.feature-card{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:28px 26px;transition:transform .2s,border-color .2s,background .2s;}
+.feature-card:hover{transform:translateY(-4px);border-color:rgba(244,63,94,.45);background:linear-gradient(180deg,rgba(244,63,94,.07),rgba(255,255,255,.01));}
+.feature-card .icon{width:48px;height:48px;border-radius:12px;background:rgba(244,63,94,.12);color:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:18px;}
+.feature-card h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:#fff;}
+.feature-card p{color:var(--muted);font-size:.93rem;line-height:1.55;}
+.soon-pill{display:inline-block;font-size:.62rem;letter-spacing:.08em;font-weight:800;text-transform:uppercase;padding:3px 8px;border-radius:99px;background:rgba(250,204,21,.15);color:#facc15;border:1px solid rgba(250,204,21,.35);margin-left:8px;}
+
+/* ── COMMANDS ── */
+.commands{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+.cmd{background:linear-gradient(180deg,rgba(244,63,94,.06),rgba(255,255,255,.01));border:1px solid rgba(244,63,94,.18);border-radius:12px;padding:18px 20px;transition:border-color .15s,transform .15s;}
+.cmd:hover{border-color:rgba(244,63,94,.45);transform:translateY(-2px);}
+.cmd code{display:inline-block;background:#0c0206;border:1px solid rgba(244,63,94,.25);color:#fda4af;padding:4px 10px;border-radius:8px;font-size:.92rem;font-weight:600;margin-bottom:8px;font-family:'SF Mono',Menlo,Consolas,monospace;}
+.cmd p{color:var(--muted);font-size:.88rem;}
+
+/* ── TECH STACK ── */
+.stack{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:30px;}
+.stack-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#f0c4cc;font-size:.84rem;font-weight:600;transition:all .15s;}
+.stack-chip:hover{background:rgba(244,63,94,.1);border-color:rgba(244,63,94,.35);}
+.stack-chip i{color:var(--accent2);}
+
+/* ── PROGRESS ── */
+.progress-section{position:relative;z-index:5;padding:60px 24px;background:linear-gradient(180deg,transparent,rgba(244,63,94,.04));}
+.progress-inner{max-width:700px;margin:0 auto;text-align:center;}
+.progress-inner h2{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:800;margin-bottom:10px;}
+.progress-inner p{color:var(--muted);margin-bottom:36px;}
+.prog-label{display:flex;justify-content:space-between;align-items:center;font-size:.84rem;font-weight:600;margin-bottom:8px;color:var(--text);}
+.prog-label span{color:var(--muted);font-size:.78rem;}
+.prog-track{height:10px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;margin-bottom:18px;}
+.prog-fill{height:100%;border-radius:99px;background:var(--gradient);box-shadow:0 0 12px rgba(244,63,94,.5);}
+.progress-chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:28px;}
+.progress-chips .chip{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:99px;font-size:.8rem;font-weight:600;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);color:var(--accent2);}
+.progress-chips .chip.done{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:#34d399;}
+.progress-chips .chip.done::before{content:"✓ ";}
+
+/* ── NOTIFY ── */
+.notify-strip{position:relative;z-index:5;padding:60px 24px;display:flex;justify-content:center;}
+.notify-card{position:relative;width:100%;max-width:900px;border-radius:24px;overflow:hidden;background:linear-gradient(135deg,rgba(244,63,94,.12),rgba(251,113,133,.08));border:1px solid rgba(244,63,94,.3);padding:40px 44px;display:grid;grid-template-columns:auto 1fr auto;gap:28px;align-items:center;box-shadow:0 30px 80px rgba(0,0,0,.4);}
+.notify-glow{position:absolute;inset:-40%;background:radial-gradient(circle at 20% 30%,rgba(244,63,94,.18),transparent 55%),radial-gradient(circle at 85% 70%,rgba(251,113,133,.13),transparent 55%);pointer-events:none;}
+.notify-icon{width:80px;height:80px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:var(--gradient);color:#fff;font-size:2rem;box-shadow:0 14px 36px rgba(244,63,94,.45);position:relative;z-index:1;flex-shrink:0;}
+.notify-text{position:relative;z-index:1;}
+.notify-eyebrow{font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent2);font-weight:700;margin-bottom:8px;}
+.notify-text h2{font-size:1.7rem;margin:0 0 8px;line-height:1.15;}
+.notify-text p{margin:0;color:var(--muted);max-width:480px;line-height:1.55;}
+.notify-cta{position:relative;z-index:1;display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+.btn-notify{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;background:var(--gradient);color:#fff;text-decoration:none;border:none;border-radius:11px;font-weight:700;font-size:.97rem;font-family:inherit;cursor:pointer;box-shadow:0 8px 24px rgba(244,63,94,.4);transition:transform .15s,filter .15s;}
+.btn-notify:hover{transform:translateY(-2px);filter:brightness(1.1);}
+.notify-hint{font-size:.78rem;color:var(--muted);display:inline-flex;align-items:center;gap:5px;}
+@media(max-width:860px){.notify-card{grid-template-columns:1fr;text-align:center;padding:30px 20px;gap:18px;}.notify-icon{margin:0 auto;}.notify-cta{align-items:center;}}
+
+/* ── CTA STRIP ── */
+.cta-strip{background:linear-gradient(135deg,rgba(244,63,94,.12),rgba(251,113,133,.08));border:1px solid rgba(244,63,94,.25);border-radius:22px;padding:46px 30px;text-align:center;margin:20px auto 60px;max-width:980px;position:relative;z-index:5;}
+.cta-strip h2{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:800;margin-bottom:14px;}
+.cta-strip p{color:var(--muted);margin-bottom:24px;}
+
+/* ── FOOTER ── */
+footer{position:relative;z-index:5;padding:40px 24px 24px;border-top:1px solid rgba(255,255,255,.05);background:rgba(12,2,6,.6);}
+.footer-inner{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center;}
+.footer-socials{display:flex;gap:14px;}
+.footer-socials a{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#f0c4cc;text-decoration:none;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:.95rem;}
+.footer-socials a:hover{background:var(--gradient);border-color:transparent;color:#fff;transform:translateY(-3px);}
+.footer-copy{color:var(--muted);font-size:.86rem;}
+.footer-copy b{color:var(--accent2);}
+@media(max-width:600px){nav{padding:14px 18px;flex-wrap:wrap;}.nav-right{width:100%;justify-content:flex-start;}.hero{padding:50px 18px 40px;}.arch,.section{padding:50px 18px;}}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<div class="coming-banner">
+  <i class="fas fa-circle-dot"></i>
+  Wave is in development — join the waitlist for early access when it launches.
+</div>
+
+<nav>
+  <a class="nav-logo" href="{{ url_for('landing') }}">
+    <div class="nav-logo-mark"><i class="fas fa-tower-broadcast"></i></div>
+    <div class="nav-logo-name"><span>Wave</span></div>
+  </a>
+  <a href="{{ url_for('bots_showcase') }}" class="btn-ghost"><i class="fas fa-arrow-left"></i> Our Bots</a>
+  <div class="nav-right">
+    <a class="btn-primary" href="#notify"><i class="fas fa-bell"></i> Notify Me</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-text">
+    <div class="hero-badge">Streaming &amp; Watch Parties</div>
+    <h1>Stream together,<br><span class="brand">perfectly in sync</span>.</h1>
+    <p class="lede">
+      Paste any stream URL — live or on-demand. Your server pulls it through FFmpeg, 
+      converts it to HLS, and every viewer watches in sync with one-click Discord control.
+    </p>
+    <div class="hero-cta">
+      <a class="btn-primary" href="#features"><i class="fas fa-play"></i> See Features</a>
+      <a class="btn-ghost" href="#notify"><i class="fas fa-bell"></i> Notify Me at Launch</a>
+    </div>
+    <div class="status-row">
+      <span class="status-pill building"><span class="dot"></span> In Development · 25% Complete</span>
+    </div>
+  </div>
+
+  <!-- TV art -->
+  <div class="hero-art" aria-hidden="true">
+    <div class="tv-wrap">
+      <div class="tv-screen">
+        <div class="tv-glow"></div>
+        <div class="tv-scan"></div>
+        <div class="tv-content">
+          <div class="tv-live"><span></span> LIVE</div>
+          <div class="tv-play"><i class="fas fa-play"></i></div>
+        </div>
+      </div>
+      <div class="tv-viewers">
+        <div class="av" style="background:linear-gradient(135deg,#be123c,#f43f5e);">A</div>
+        <div class="av" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);">B</div>
+        <div class="av" style="background:linear-gradient(135deg,#0891b2,#22d3ee);">C</div>
+        <div class="av" style="background:linear-gradient(135deg,#059669,#34d399);">D</div>
+        <div class="av" style="background:linear-gradient(135deg,#d97706,#fbbf24);">E</div>
+      </div>
+      <div class="tv-viewer-label">5 watching together</div>
+    </div>
+    <div class="sig s1"><i class="fas fa-rotate-right"></i> Synced — 0:12 lag</div>
+    <div class="sig s2"><i class="fas fa-comment"></i> Alex: 🔥 bro this scene</div>
+    <div class="sig s3"><i class="fas fa-signal"></i> HLS stream active</div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<div class="arch" id="how-it-works">
+  <div class="arch-title">How it works</div>
+  <h2>Real streaming. <span>Real architecture.</span></h2>
+  <p class="sub">Wave isn't just a bot — it's a full streaming pipeline. Discord acts as the controller. Your server does the heavy lifting.</p>
+
+  <div class="arch-flow">
+    <div class="arch-node">
+      <div class="arch-icon red"><i class="fab fa-discord"></i></div>
+      <div class="arch-label">Discord Bot</div>
+      <div class="arch-sub">/watch command<br>inputs stream URL</div>
+    </div>
+    <div class="arch-arrow">
+      <div class="arch-arrow-line"></div>
+      <i class="fas fa-chevron-right"></i>
+      <div class="arch-label-sm">sends URL</div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-icon dark"><i class="fas fa-server"></i></div>
+      <div class="arch-label">Node.js / Flask</div>
+      <div class="arch-sub">Stream ingestion<br>+ room management</div>
+    </div>
+    <div class="arch-arrow">
+      <div class="arch-arrow-line"></div>
+      <i class="fas fa-chevron-right"></i>
+      <div class="arch-label-sm">spawns</div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-icon red"><i class="fas fa-film"></i></div>
+      <div class="arch-label">FFmpeg</div>
+      <div class="arch-sub">Pulls stream<br>converts to HLS</div>
+    </div>
+    <div class="arch-arrow">
+      <div class="arch-arrow-line"></div>
+      <i class="fas fa-chevron-right"></i>
+      <div class="arch-label-sm">.m3u8 segments</div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-icon dark"><i class="fas fa-globe"></i></div>
+      <div class="arch-label">HLS.js Player</div>
+      <div class="arch-sub">Browser plays<br>synced for all</div>
+    </div>
+    <div class="arch-arrow">
+      <div class="arch-arrow-line"></div>
+      <i class="fas fa-chevron-right"></i>
+      <div class="arch-label-sm">realtime sync</div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-icon red"><i class="fas fa-users"></i></div>
+      <div class="arch-label">Viewers</div>
+      <div class="arch-sub">Watch together<br>perfectly in sync</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="stack-chip"><i class="fas fa-film"></i> FFmpeg · HLS ingestion</div>
+    <div class="stack-chip"><i class="fab fa-youtube"></i> yt-dlp · YouTube/RTMP</div>
+    <div class="stack-chip"><i class="fas fa-play-circle"></i> HLS.js · Browser player</div>
+    <div class="stack-chip"><i class="fas fa-bolt"></i> WebSockets · Real-time sync</div>
+    <div class="stack-chip"><i class="fab fa-discord"></i> discord.py · Controller</div>
+    <div class="stack-chip"><i class="fas fa-server"></i> Flask · Streaming backend</div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="section" id="features">
+  <div class="section-eyebrow">What's included</div>
+  <h2>Watch parties, <span>fully engineered</span>.</h2>
+  <p class="subtitle">Every piece of the streaming stack is built-in — from ingestion to sync to chat overlay.</p>
+
+  <div class="features">
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-link"></i></div>
+      <h3>Any Stream URL</h3>
+      <p>YouTube live, Twitch, direct HLS .m3u8, RTMP, or any direct video URL. Wave handles extraction and conversion automatically via yt-dlp + FFmpeg.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-film"></i></div>
+      <h3>FFmpeg HLS Pipeline</h3>
+      <p>Your server pulls the raw stream and transcodes it into HLS segments. Works with any source — no relying on third-party embeds that block or expire.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-rotate-right"></i></div>
+      <h3>Real-Time Sync</h3>
+      <p>Host plays, pauses, or seeks — all viewers snap to the same position instantly. Uses WebSocket-driven state propagation for sub-second sync latency.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-users"></i></div>
+      <h3>Watch Party Rooms</h3>
+      <p>Each Discord server gets its own room with a shareable link. Invite anyone — members join via browser, no install needed.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-comment-dots"></i></div>
+      <h3>Live Chat Overlay</h3>
+      <p>Floating chat panel over the player so your community reacts in real time without leaving the stream page. Messages sync across all viewers.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon"><i class="fab fa-discord"></i></div>
+      <h3>Discord as Controller</h3>
+      <p><code>/watch</code>, <code>/sync</code>, <code>/status</code>, <code>/endstream</code> — control the whole stream from Discord. The bot links your community to the room instantly.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-lock"></i></div>
+      <h3>Host Permissions <span class="soon-pill">Soon</span></h3>
+      <p>Only the room creator has play/pause/seek control. Viewers are locked to the host's stream position — perfect for movie nights.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-eye"></i></div>
+      <h3>Viewer Count &amp; Presence <span class="soon-pill">Soon</span></h3>
+      <p>See who's in the room, who joined late, and who's still buffering. Full presence list with Discord avatars pulled automatically.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon"><i class="fas fa-calendar"></i></div>
+      <h3>Scheduled Streams <span class="soon-pill">Soon</span></h3>
+      <p>Schedule a watch party for a future time. Wave posts a reminder in Discord and opens the room automatically at the right moment.</p>
+    </div>
+  </div>
+</section>
+
+<!-- COMMANDS -->
+<section class="section" id="commands">
+  <div class="section-eyebrow">Discord Commands</div>
+  <h2>Control everything <span>from Discord</span>.</h2>
+  <p class="subtitle">Wave keeps Discord as your hub. The web room is where people watch — Discord is where you control it.</p>
+  <div class="commands">
+    <div class="cmd"><code>/watch [title] [url]</code><p>Create a watch-party room. Optionally set a title and pre-load a stream URL. Posts the shareable room link.</p></div>
+    <div class="cmd"><code>/sync</code><p>Force all viewers to snap to the host's current playback position. Fixes drift in large rooms instantly.</p></div>
+    <div class="cmd"><code>/status</code><p>Check the current room — playing/paused, stream URL, position timestamp, and viewer count.</p></div>
+    <div class="cmd"><code>/endstream</code><p>Close the room, disconnect all viewers, and clean up. Requires Manage Server permission.</p></div>
+    <div class="cmd"><code>/wave-help</code><p>Full command reference with how-it-works guide and platform link.</p></div>
+  </div>
+</section>
+
+<!-- PROGRESS -->
+<div class="progress-section">
+  <div class="progress-inner">
+    <div class="section-eyebrow">Build Progress</div>
+    <h2>What's done, what's next</h2>
+    <p>Wave is our most ambitious bot yet. Here's the honest build status.</p>
+    <div>
+      <div class="prog-label">Overall completion <span id="pct">0%</span></div>
+      <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+      <div class="prog-label">Discord bot (/watch, /sync, /status) <span>90%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:90%"></div></div>
+      <div class="prog-label">Watch party room (HLS.js player + chat) <span>65%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:65%"></div></div>
+      <div class="prog-label">FFmpeg HLS pipeline <span>55%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:55%"></div></div>
+      <div class="prog-label">Real-time sync engine <span>40%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:40%"></div></div>
+      <div class="prog-label">Host permissions &amp; viewer presence <span>15%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:15%"></div></div>
+      <div class="prog-label">Scheduled streams <span>0%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:0%"></div></div>
+    </div>
+    <div class="progress-chips">
+      <span class="chip done">Discord bot</span>
+      <span class="chip done">Room creation</span>
+      <span class="chip done">HLS.js player</span>
+      <span class="chip done">Chat overlay</span>
+      <span class="chip">FFmpeg pipeline</span>
+      <span class="chip">WebSocket sync</span>
+      <span class="chip">Viewer presence</span>
+      <span class="chip">Scheduled streams</span>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFY -->
+<section class="notify-strip" id="notify">
+  <div class="notify-card">
+    <div class="notify-glow"></div>
+    <div class="notify-icon"><i class="fas fa-tower-broadcast"></i></div>
+    <div class="notify-text">
+      <div class="notify-eyebrow">Early Access</div>
+      <h2>Be first when Wave goes live</h2>
+      <p>Join the waitlist and we'll reach out as soon as Wave launches — early invites and a free first look at the streaming dashboard included.</p>
+    </div>
+    <div class="notify-cta">
+      <a class="btn-notify" href="mailto:contact@bytelabs.dev?subject=Wave%20Waitlist&body=I%20want%20early%20access%20to%20Wave!">
+        <i class="fas fa-envelope"></i> Join Waitlist
+      </a>
+      <span class="notify-hint"><i class="fas fa-lock" style="color:var(--accent2);"></i> No spam. One email when live.</span>
+    </div>
+  </div>
+</section>
+
+<section class="cta-strip" style="margin-left:24px;margin-right:24px;">
+  <h2>While you wait — try our live bots</h2>
+  <p>SP4RK and Server Official are live right now. Tempo and Pulse are in active development.</p>
+  <a class="btn-primary" href="{{ url_for('bots_showcase') }}"><i class="fas fa-robot"></i> See All Bots</a>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-socials">
+      <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+      <a href="#" aria-label="Discord"><i class="fab fa-discord"></i></a>
+      <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
+    </div>
+    <div class="footer-copy">&copy; <span id="yr"></span> Byte Labs &nbsp;·&nbsp; <b>Wave</b> &nbsp;·&nbsp; Coming Soon</div>
+  </div>
+</footer>
+
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+const fill = document.getElementById('progFill');
+const pct  = document.getElementById('pct');
+const ob = new IntersectionObserver(entries => {
+  if (!entries[0].isIntersecting) return;
+  let v = 0;
+  const t = setInterval(() => {
+    v = Math.min(v + 1, 25);
+    fill.style.width = v + '%';
+    pct.textContent  = v + '%';
+    if (v >= 25) clearInterval(t);
+  }, 30);
+  ob.disconnect();
+}, {threshold:.3});
+if (fill) ob.observe(fill);
+</script>
+
+{% include "_cookie_consent.html" %}
+</body>
+</html>

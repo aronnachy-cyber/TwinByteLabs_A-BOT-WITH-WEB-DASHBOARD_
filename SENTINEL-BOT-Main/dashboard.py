@@ -3326,6 +3326,218 @@ def so_api_embeds_preview():
         return jsonify({"ok": False, "error": str(e)}), 400
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# WAVE — STREAMING & WATCH PARTY ROUTES
+# ════════════════════════════════════════════════════════════════════════════
+import secrets as _secrets
+import subprocess as _subprocess
+import time as _wave_time
+
+_WAVE_ROOMS_FILE = os.path.join(os.path.dirname(__file__), 'wave_rooms.json')
+_WAVE_LOCK = __import__('threading').Lock()
+_WAVE_PRESENCE: dict = {}   # room_id → {name: last_ping_ts}
+
+def _wave_read() -> dict:
+    try:
+        p = __import__('pathlib').Path(_WAVE_ROOMS_FILE)
+        if p.exists():
+            return __import__('json').loads(p.read_text())
+    except Exception:
+        pass
+    return {}
+
+def _wave_write(data: dict):
+    import json as _j, pathlib as _pl
+    p = _pl.Path(_WAVE_ROOMS_FILE)
+    tmp = p.with_suffix('.tmp')
+    tmp.write_text(_j.dumps(data, indent=2))
+    tmp.replace(p)
+
+def _wave_room(rid: str) -> dict | None:
+    return _wave_read().get(rid)
+
+@app.route('/wave')
+def wave_landing():
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html',
+                               maintenance_eta=_load_dev_state().get('maintenance_eta', '')), 200
+    return render_template('wave_landing.html')
+
+@app.route('/watch/<room_id>')
+def watch_room(room_id):
+    room = _wave_room(room_id)
+    if not room:
+        return render_template('404.html'), 404
+    host_token = request.args.get('host', '')
+    is_host    = host_token == room.get('host_token', '')
+    return render_template('stream_room.html',
+                           room_id=room_id,
+                           room=room,
+                           is_host=is_host,
+                           host_token=host_token if is_host else '')
+
+# ── API: create room ──────────────────────────────────────────────────────────
+@app.route('/api/wave/create', methods=['POST'])
+def wave_api_create():
+    import json as _j, time as _t
+    data  = request.get_json(silent=True) or {}
+    rid   = _secrets.token_urlsafe(6)
+    tok   = _secrets.token_hex(16)
+    room  = {
+        'title':       data.get('title', 'Watch Party'),
+        'stream_url':  data.get('url', ''),
+        'playing':     False,
+        'position':    0.0,
+        'position_ts': _t.time(),
+        'sync_pulse':  0.0,
+        'host_token':  tok,
+        'created_at':  __import__('datetime').datetime.utcnow().isoformat(),
+        'chat':        [],
+        'guild_id':    data.get('guild_id', ''),
+    }
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        rooms[rid] = room
+        _wave_write(rooms)
+    base = request.host_url.rstrip('/')
+    return jsonify({'ok': True, 'room_id': rid, 'host_token': tok,
+                    'watch_url': f'{base}/watch/{rid}',
+                    'host_url':  f'{base}/watch/{rid}?host={tok}'})
+
+# ── API: room state (poll endpoint) ──────────────────────────────────────────
+@app.route('/api/wave/state/<room_id>')
+def wave_api_state(room_id):
+    import time as _t
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    # Build viewers list from presence
+    now   = _t.time()
+    pres  = _WAVE_PRESENCE.get(room_id, {})
+    vlist = [{'name': n, 'host': False} for n, ts in pres.items() if now - ts < 12]
+    out   = dict(room)
+    out.pop('host_token', None)
+    out['viewer_count'] = len(vlist)
+    out['viewers_list'] = vlist
+    return jsonify({'ok': True, 'room': out})
+
+# ── API: playback control (host only) ─────────────────────────────────────────
+@app.route('/api/wave/control/<room_id>', methods=['POST'])
+def wave_api_control(room_id):
+    import time as _t
+    data  = request.get_json(silent=True) or {}
+    room  = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    if data.get('host_token') != room.get('host_token'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+    action   = data.get('action', '')
+    position = float(data.get('position', room.get('position', 0)))
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        r     = rooms.get(room_id, room)
+        r['position_ts'] = _t.time()
+        if action == 'play':
+            r['position'] = position
+            r['playing']  = True
+        elif action == 'pause':
+            r['position'] = position
+            r['playing']  = False
+        elif action == 'seek':
+            r['position'] = position
+        rooms[room_id] = r
+        _wave_write(rooms)
+    return jsonify({'ok': True})
+
+# ── API: set stream URL ───────────────────────────────────────────────────────
+@app.route('/api/wave/set-stream/<room_id>', methods=['POST'])
+def wave_api_set_stream(room_id):
+    import time as _t
+    data = request.get_json(silent=True) or {}
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    if data.get('host_token') != room.get('host_token'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+    url = data.get('url', '').strip()
+    if not url:
+        return jsonify({'ok': False, 'error': 'no url'}), 400
+
+    # Try to resolve YouTube / generic URLs to direct stream via yt-dlp
+    resolved = url
+    try:
+        import yt_dlp
+        opts = {'format': 'bestaudio/best', 'quiet': True, 'no_warnings': True,
+                'skip_download': True, 'noplaylist': True}
+        ytdl = yt_dlp.YoutubeDL(opts)
+        info = ytdl.extract_info(url, download=False)
+        if info:
+            if 'entries' in info:
+                info = info['entries'][0]
+            resolved = info.get('url', url)
+    except Exception:
+        pass  # use raw URL if yt-dlp fails
+
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        r = rooms.get(room_id, room)
+        r['stream_url']  = resolved
+        r['original_url'] = url
+        r['playing']     = False
+        r['position']    = 0.0
+        r['position_ts'] = _t.time()
+        rooms[room_id]   = r
+        _wave_write(rooms)
+    return jsonify({'ok': True, 'resolved_url': resolved})
+
+# ── API: chat ─────────────────────────────────────────────────────────────────
+@app.route('/api/wave/chat/<room_id>', methods=['POST'])
+def wave_api_chat(room_id):
+    data = request.get_json(silent=True) or {}
+    name = str(data.get('name', 'Anonymous'))[:32]
+    text = str(data.get('text', ''))[:280].strip()
+    if not text:
+        return jsonify({'ok': False}), 400
+    ts   = __import__('datetime').datetime.utcnow().strftime('%H:%M')
+    msg  = {'name': name, 'text': text, 'ts': ts}
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        room  = rooms.get(room_id)
+        if not room:
+            return jsonify({'ok': False, 'error': 'not found'}), 404
+        room.setdefault('chat', []).append(msg)
+        if len(room['chat']) > 100:
+            room['chat'] = room['chat'][-100:]
+        rooms[room_id] = room
+        _wave_write(rooms)
+    return jsonify({'ok': True})
+
+# ── API: presence ping ────────────────────────────────────────────────────────
+@app.route('/api/wave/ping/<room_id>', methods=['POST'])
+def wave_api_ping(room_id):
+    import time as _t
+    data = request.get_json(silent=True) or {}
+    name = str(data.get('name', 'Viewer'))[:32]
+    _WAVE_PRESENCE.setdefault(room_id, {})[name] = _t.time()
+    return jsonify({'ok': True})
+
+# ── API: end session ──────────────────────────────────────────────────────────
+@app.route('/api/wave/end/<room_id>', methods=['POST'])
+def wave_api_end(room_id):
+    data = request.get_json(silent=True) or {}
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    if data.get('host_token') != room.get('host_token'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        rooms.pop(room_id, None)
+        _wave_write(rooms)
+    _WAVE_PRESENCE.pop(room_id, None)
+    return jsonify({'ok': True})
+
+
 # ---- HEALTH CHECK ----
 @app.route('/health')
 @app.route('/ping')
