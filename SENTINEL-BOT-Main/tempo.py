@@ -248,6 +248,24 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="t!", intents=intents, help_command=None)
 
+# ── Global slash-command gate: admin / owner only ──────────────────────────────
+@bot.tree.interaction_check
+async def _admin_only(interaction: discord.Interaction) -> bool:
+    """All Tempo slash commands are restricted to server admins and the owner."""
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "⚠️ Tempo commands can only be used inside a server.", ephemeral=True
+        )
+        return False
+    perms = interaction.user.guild_permissions
+    if perms.administrator or interaction.guild.owner_id == interaction.user.id:
+        return True
+    await interaction.response.send_message(
+        "🔒 Only **server administrators** and the **server owner** can use Tempo commands.",
+        ephemeral=True,
+    )
+    return False
+
 # ── Permission helper ──────────────────────────────────────────────────────────
 def _is_dj(interaction: discord.Interaction) -> bool:
     gid = str(interaction.guild_id)
@@ -389,7 +407,7 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ─── /play ────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="play", description="Play a song by name or URL")
+@bot.tree.command(name="play", description="Play a song by name or URL", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(query="Song name, YouTube URL, playlist link, etc.")
 async def cmd_play(interaction: discord.Interaction, query: str):
     vc_channel = await _require_vc(interaction)
@@ -435,7 +453,7 @@ async def cmd_play(interaction: discord.Interaction, query: str):
 
 
 # ─── /pause ───────────────────────────────────────────────────────────────────
-@bot.tree.command(name="pause", description="Pause playback")
+@bot.tree.command(name="pause", description="Pause playback", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_pause(interaction: discord.Interaction):
     if not await _require_dj(interaction): return
     player = _get_player(interaction.guild_id)
@@ -447,7 +465,7 @@ async def cmd_pause(interaction: discord.Interaction):
 
 
 # ─── /resume ──────────────────────────────────────────────────────────────────
-@bot.tree.command(name="resume", description="Resume playback")
+@bot.tree.command(name="resume", description="Resume playback", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_resume(interaction: discord.Interaction):
     if not await _require_dj(interaction): return
     player = _get_player(interaction.guild_id)
@@ -459,7 +477,7 @@ async def cmd_resume(interaction: discord.Interaction):
 
 
 # ─── /skip ────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="skip", description="Skip the current track")
+@bot.tree.command(name="skip", description="Skip the current track", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_skip(interaction: discord.Interaction):
     if not await _require_dj(interaction): return
     player = _get_player(interaction.guild_id)
@@ -471,7 +489,7 @@ async def cmd_skip(interaction: discord.Interaction):
 
 
 # ─── /stop ────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="stop", description="Stop playback and clear the queue")
+@bot.tree.command(name="stop", description="Stop playback and clear the queue", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_stop(interaction: discord.Interaction):
     if not await _require_dj(interaction): return
     player = _get_player(interaction.guild_id)
@@ -485,7 +503,7 @@ async def cmd_stop(interaction: discord.Interaction):
 
 
 # ─── /nowplaying ──────────────────────────────────────────────────────────────
-@bot.tree.command(name="nowplaying", description="Show the currently playing track")
+@bot.tree.command(name="nowplaying", description="Show the currently playing track", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_np(interaction: discord.Interaction):
     player = _get_player(interaction.guild_id)
     if not player.current:
@@ -516,7 +534,7 @@ async def cmd_np(interaction: discord.Interaction):
 
 
 # ─── /queue ───────────────────────────────────────────────────────────────────
-@bot.tree.command(name="queue", description="View the current queue")
+@bot.tree.command(name="queue", description="View the current queue", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(page="Page number (10 tracks per page)")
 async def cmd_queue(interaction: discord.Interaction, page: int = 1):
     player = _get_player(interaction.guild_id)
@@ -548,7 +566,7 @@ async def cmd_queue(interaction: discord.Interaction, page: int = 1):
 
 
 # ─── /volume ──────────────────────────────────────────────────────────────────
-@bot.tree.command(name="volume", description="Set playback volume (0–200)")
+@bot.tree.command(name="volume", description="Set playback volume (0–200)", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(level="Volume level from 0 to 200")
 async def cmd_volume(interaction: discord.Interaction, level: int):
     if not await _require_dj(interaction): return
@@ -562,7 +580,7 @@ async def cmd_volume(interaction: discord.Interaction, level: int):
 
 
 # ─── /loop ────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="loop", description="Set loop mode: none / track / queue")
+@bot.tree.command(name="loop", description="Set loop mode: none / track / queue", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(mode="Loop mode to set")
 @app_commands.choices(mode=[
     app_commands.Choice(name="none",  value="none"),
@@ -578,7 +596,7 @@ async def cmd_loop(interaction: discord.Interaction, mode: str):
 
 
 # ─── /shuffle ─────────────────────────────────────────────────────────────────
-@bot.tree.command(name="shuffle", description="Shuffle the current queue")
+@bot.tree.command(name="shuffle", description="Shuffle the current queue", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_shuffle(interaction: discord.Interaction):
     if not await _require_dj(interaction): return
     player = _get_player(interaction.guild_id)
@@ -589,7 +607,7 @@ async def cmd_shuffle(interaction: discord.Interaction):
 
 
 # ─── /remove ──────────────────────────────────────────────────────────────────
-@bot.tree.command(name="remove", description="Remove a track from the queue by position")
+@bot.tree.command(name="remove", description="Remove a track from the queue by position", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(position="Position number from /queue")
 async def cmd_remove(interaction: discord.Interaction, position: int):
     if not await _require_dj(interaction): return
@@ -601,7 +619,7 @@ async def cmd_remove(interaction: discord.Interaction, position: int):
 
 
 # ─── /move ────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="move", description="Move a track to a new position in the queue")
+@bot.tree.command(name="move", description="Move a track to a new position in the queue", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(from_pos="Current position", to_pos="Target position")
 async def cmd_move(interaction: discord.Interaction, from_pos: int, to_pos: int):
     if not await _require_dj(interaction): return
@@ -615,7 +633,7 @@ async def cmd_move(interaction: discord.Interaction, from_pos: int, to_pos: int)
 
 
 # ─── /filter ──────────────────────────────────────────────────────────────────
-@bot.tree.command(name="filter", description="Apply an audio filter to playback")
+@bot.tree.command(name="filter", description="Apply an audio filter to playback", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(name="Filter to apply")
 @app_commands.choices(name=[app_commands.Choice(name=k, value=k) for k in FILTERS])
 async def cmd_filter(interaction: discord.Interaction, name: str):
@@ -634,7 +652,7 @@ async def cmd_filter(interaction: discord.Interaction, name: str):
 
 
 # ─── /247 ─────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="247", description="Toggle 24/7 mode — Tempo stays in VC permanently")
+@bot.tree.command(name="247", description="Toggle 24/7 mode — Tempo stays in VC permanently", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_247(interaction: discord.Interaction):
     if not await _require_dj(interaction): return
     gid = str(interaction.guild_id)
@@ -645,7 +663,7 @@ async def cmd_247(interaction: discord.Interaction):
 
 
 # ─── /djrole ──────────────────────────────────────────────────────────────────
-@bot.tree.command(name="djrole", description="Set the DJ role (only this role can control Tempo)")
+@bot.tree.command(name="djrole", description="Set the DJ role (only this role can control Tempo)", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(role="The role to assign as DJ")
 async def cmd_djrole(interaction: discord.Interaction, role: Optional[discord.Role] = None):
     if not interaction.user.guild_permissions.manage_guild:
@@ -660,7 +678,7 @@ async def cmd_djrole(interaction: discord.Interaction, role: Optional[discord.Ro
 
 
 # ─── /music-top ───────────────────────────────────────────────────────────────
-@bot.tree.command(name="music-top", description="Show the listener leaderboard")
+@bot.tree.command(name="music-top", description="Show the listener leaderboard", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_music_top(interaction: discord.Interaction):
     await interaction.response.defer()
     board = _get_leaderboard(str(interaction.guild_id))
@@ -748,7 +766,7 @@ async def cmd_pl_del(interaction: discord.Interaction, name: str):
 
 
 # ─── /disconnect ──────────────────────────────────────────────────────────────
-@bot.tree.command(name="disconnect", description="Disconnect Tempo from the voice channel")
+@bot.tree.command(name="disconnect", description="Disconnect Tempo from the voice channel", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_dc(interaction: discord.Interaction):
     if not await _require_dj(interaction): return
     player = _get_player(interaction.guild_id)
@@ -764,7 +782,7 @@ async def cmd_dc(interaction: discord.Interaction):
 
 
 # ─── /tempo-help ──────────────────────────────────────────────────────────────
-@bot.tree.command(name="tempo-help", description="Show all Tempo commands")
+@bot.tree.command(name="tempo-help", description="Show all Tempo commands", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_help(interaction: discord.Interaction):
     e = discord.Embed(
         title="🎵 Tempo — Command Reference",

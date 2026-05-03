@@ -145,6 +145,24 @@ intents.reactions        = True
 
 bot = commands.Bot(command_prefix="p!", intents=intents, help_command=None)
 
+# ── Global slash-command gate: admin / owner only ──────────────────────────────
+@bot.tree.interaction_check
+async def _admin_only(interaction: discord.Interaction) -> bool:
+    """All Pulse slash commands are restricted to server admins and the owner."""
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "⚠️ Pulse commands can only be used inside a server.", ephemeral=True
+        )
+        return False
+    perms = interaction.user.guild_permissions
+    if perms.administrator or interaction.guild.owner_id == interaction.user.id:
+        return True
+    await interaction.response.send_message(
+        "🔒 Only **server administrators** and the **server owner** can use Pulse commands.",
+        ephemeral=True,
+    )
+    return False
+
 # ══════════════════════════════════════════════════════════════════════════════
 # EVENTS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -211,7 +229,7 @@ async def on_reaction_add(reaction: discord.Reaction, user: discord.User):
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ─── /stats ───────────────────────────────────────────────────────────────────
-@bot.tree.command(name="stats", description="Full server overview — members, activity and more")
+@bot.tree.command(name="stats", description="Full server overview — members, activity and more", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_stats(interaction: discord.Interaction):
     await interaction.response.defer()
     guild = interaction.guild
@@ -243,7 +261,7 @@ async def cmd_stats(interaction: discord.Interaction):
 
 
 # ─── /activity ────────────────────────────────────────────────────────────────
-@bot.tree.command(name="activity", description="Message activity breakdown by channel")
+@bot.tree.command(name="activity", description="Message activity breakdown by channel", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(top="How many channels to show (default 10)")
 async def cmd_activity(interaction: discord.Interaction, top: int = 10):
     await interaction.response.defer()
@@ -267,7 +285,7 @@ async def cmd_activity(interaction: discord.Interaction, top: int = 10):
 
 
 # ─── /top ─────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="top", description="Top members leaderboard by messages, voice time, or reactions")
+@bot.tree.command(name="top", description="Top members leaderboard by messages, voice time, or reactions", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(by="Sort by: messages / voice / reactions")
 @app_commands.choices(by=[
     app_commands.Choice(name="messages",  value="messages"),
@@ -301,7 +319,7 @@ async def cmd_top(interaction: discord.Interaction, by: str = "messages"):
 
 
 # ─── /growth ──────────────────────────────────────────────────────────────────
-@bot.tree.command(name="growth", description="Member join/leave count and net growth over N days")
+@bot.tree.command(name="growth", description="Member join/leave count and net growth over N days", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(days="Look-back window: 7, 30, or 90 days")
 @app_commands.choices(days=[
     app_commands.Choice(name="7 days",  value=7),
@@ -332,7 +350,7 @@ async def cmd_growth(interaction: discord.Interaction, days: int = 7):
 
 
 # ─── /voicetime ───────────────────────────────────────────────────────────────
-@bot.tree.command(name="voicetime", description="Voice activity leaderboard — who's spent most time in VC")
+@bot.tree.command(name="voicetime", description="Voice activity leaderboard — who's spent most time in VC", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_voicetime(interaction: discord.Interaction):
     await interaction.response.defer()
     gid  = str(interaction.guild_id)
@@ -356,7 +374,7 @@ async def cmd_voicetime(interaction: discord.Interaction):
 
 
 # ─── /channelstats ────────────────────────────────────────────────────────────
-@bot.tree.command(name="channelstats", description="Ranked channel activity list from most to least active")
+@bot.tree.command(name="channelstats", description="Ranked channel activity list from most to least active", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_channelstats(interaction: discord.Interaction):
     await interaction.response.defer()
     gid  = str(interaction.guild_id)
@@ -380,7 +398,7 @@ async def cmd_channelstats(interaction: discord.Interaction):
 
 
 # ─── /memberstats ─────────────────────────────────────────────────────────────
-@bot.tree.command(name="memberstats", description="Detailed stats for a specific member")
+@bot.tree.command(name="memberstats", description="Detailed stats for a specific member", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(member="The member to look up (defaults to you)")
 async def cmd_memberstats(interaction: discord.Interaction, member: Optional[discord.Member] = None):
     await interaction.response.defer()
@@ -416,7 +434,7 @@ async def cmd_memberstats(interaction: discord.Interaction, member: Optional[dis
 
 
 # ─── /heatmap ─────────────────────────────────────────────────────────────────
-@bot.tree.command(name="heatmap", description="Hour-of-day message activity heatmap")
+@bot.tree.command(name="heatmap", description="Hour-of-day message activity heatmap", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_heatmap(interaction: discord.Interaction):
     gid   = str(interaction.guild_id)
     g     = _g(gid)
@@ -442,7 +460,7 @@ async def cmd_heatmap(interaction: discord.Interaction):
 
 
 # ─── /report ──────────────────────────────────────────────────────────────────
-@bot.tree.command(name="report", description="Generate a full weekly summary report")
+@bot.tree.command(name="report", description="Generate a full weekly summary report", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_report(interaction: discord.Interaction):
     await interaction.response.defer()
     guild = interaction.guild
@@ -501,7 +519,7 @@ async def cmd_report(interaction: discord.Interaction):
 
 
 # ─── /pulse-help ──────────────────────────────────────────────────────────────
-@bot.tree.command(name="pulse-help", description="Show all Pulse analytics commands")
+@bot.tree.command(name="pulse-help", description="Show all Pulse analytics commands", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_help(interaction: discord.Interaction):
     e = discord.Embed(
         title="📊 Pulse — Command Reference",

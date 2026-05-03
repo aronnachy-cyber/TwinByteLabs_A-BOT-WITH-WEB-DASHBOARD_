@@ -65,6 +65,24 @@ intents.members          = True
 
 bot = commands.Bot(command_prefix="w!", intents=intents, help_command=None)
 
+# ── Global slash-command gate: admin / owner only ──────────────────────────────
+@bot.tree.interaction_check
+async def _admin_only(interaction: discord.Interaction) -> bool:
+    """All Wave slash commands are restricted to server admins and the owner."""
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "⚠️ Wave commands can only be used inside a server.", ephemeral=True
+        )
+        return False
+    perms = interaction.user.guild_permissions
+    if perms.administrator or interaction.guild.owner_id == interaction.user.id:
+        return True
+    await interaction.response.send_message(
+        "🔒 Only **server administrators** and the **server owner** can use Wave commands.",
+        ephemeral=True,
+    )
+    return False
+
 @bot.event
 async def on_ready():
     try:
@@ -85,7 +103,7 @@ def _base_url() -> str:
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ─── /watch ───────────────────────────────────────────────────────────────────
-@bot.tree.command(name="watch", description="Create a Wave watch-party room and share the link")
+@bot.tree.command(name="watch", description="Create a Wave watch-party room and share the link", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(
     title="Session title (e.g. 'Movie Night')",
     url="Optional stream URL to pre-load (HLS .m3u8, YouTube, direct video, etc.)"
@@ -145,7 +163,7 @@ async def cmd_watch(interaction: discord.Interaction,
 
 
 # ─── /sync ────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="sync", description="Force all viewers to sync to the host's current position")
+@bot.tree.command(name="sync", description="Force all viewers to sync to the host's current position", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_sync(interaction: discord.Interaction):
     await interaction.response.defer()
     guild_id = str(interaction.guild_id)
@@ -170,7 +188,7 @@ async def cmd_sync(interaction: discord.Interaction):
 
 
 # ─── /status ──────────────────────────────────────────────────────────────────
-@bot.tree.command(name="status", description="Check the current Wave watch-party room status")
+@bot.tree.command(name="status", description="Check the current Wave watch-party room status", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_status(interaction: discord.Interaction):
     guild_id = str(interaction.guild_id)
     room     = _get_room_by_guild(guild_id)
@@ -199,7 +217,7 @@ async def cmd_status(interaction: discord.Interaction):
 
 
 # ─── /endstream ───────────────────────────────────────────────────────────────
-@bot.tree.command(name="endstream", description="End the current watch-party session")
+@bot.tree.command(name="endstream", description="End the current watch-party session", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_end(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.manage_guild:
         return await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
@@ -218,7 +236,7 @@ async def cmd_end(interaction: discord.Interaction):
 
 
 # ─── /wave-help ───────────────────────────────────────────────────────────────
-@bot.tree.command(name="wave-help", description="Show all Wave streaming commands")
+@bot.tree.command(name="wave-help", description="Show all Wave streaming commands", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_help(interaction: discord.Interaction):
     e = discord.Embed(
         title="📺 Wave — Command Reference",
