@@ -239,9 +239,23 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <span class="tb-name">Wave</span>
   </a>
   <span class="tb-badge">Dashboard</span>
+  {% if guilds %}
+  <select onchange="window.location='/wave/dashboard?guild_id='+this.value" style="background:rgba(255,255,255,.05);border:1px solid rgba(244,63,94,.25);border-radius:8px;padding:6px 12px;color:var(--text);font-size:.82rem;font-family:inherit;outline:none;cursor:pointer;margin-left:8px;">
+    <option value="" {% if not selected_gid %}selected{% endif %}>All Servers</option>
+    {% for g in guilds %}
+    <option value="{{ g.id }}" {% if g.id == selected_gid %}selected{% endif %}>
+      {{ g.name }} ({{ g.member_count }} members)
+    </option>
+    {% endfor %}
+  </select>
+  {% else %}
+  <span style="font-size:.78rem;color:rgba(244,63,94,.5);margin-left:8px;font-style:italic;">Bot offline — no servers</span>
+  {% endif %}
   <div class="tb-right">
+    <span style="font-size:.8rem;color:var(--muted);"><i class="fas fa-user" style="font-size:.7rem"></i> {{ user_name }}</span>
     <span id="tbRoomLabel" style="font-size:.82rem;color:var(--muted);">No active room</span>
     <button class="btn-sm ghost" onclick="refreshAll()"><i class="fas fa-rotate-right"></i> Refresh</button>
+    <a class="btn-sm ghost" href="{{ url_for('logout') }}" title="Logout"><i class="fas fa-right-from-bracket"></i></a>
     <button class="btn-sm primary" onclick="showPage('rooms');openCreateModal()"><i class="fas fa-plus"></i> New Room</button>
   </div>
 </div>

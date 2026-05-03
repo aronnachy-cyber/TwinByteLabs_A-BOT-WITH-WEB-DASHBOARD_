@@ -174,8 +174,22 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
     <span class="off-dot" id="botDot"></span>
     <span id="botStatus" style="font-size:.78rem;color:var(--muted);">Loading…</span>
   </div>
+  {% if guilds %}
+  <select class="guild-select" onchange="window.location='/tempo/dashboard?guild_id='+this.value" style="background:rgba(255,255,255,.05);border:1px solid rgba(139,92,246,.25);border-radius:8px;padding:6px 12px;color:var(--text);font-size:.82rem;font-family:inherit;outline:none;cursor:pointer;margin-left:6px;">
+    <option value="" {% if not selected_gid %}selected{% endif %}>All Servers</option>
+    {% for g in guilds %}
+    <option value="{{ g.id }}" {% if g.id == selected_gid %}selected{% endif %}>
+      {{ g.name }} ({{ g.member_count }} members)
+    </option>
+    {% endfor %}
+  </select>
+  {% else %}
+  <span style="font-size:.78rem;color:rgba(139,92,246,.5);margin-left:8px;font-style:italic;">Bot offline — no servers</span>
+  {% endif %}
   <div class="tb-right">
+    <span style="font-size:.8rem;color:var(--muted);"><i class="fas fa-user" style="font-size:.7rem"></i> {{ user_name }}</span>
     <button class="btn-sm ghost" onclick="refresh()"><i class="fas fa-rotate-right"></i> Refresh</button>
+    <a class="btn-sm ghost" href="{{ url_for('logout') }}"><i class="fas fa-right-from-bracket"></i></a>
     <a class="btn-sm ghost" href="{{ url_for('bots_showcase') }}"><i class="fas fa-arrow-left"></i> All Bots</a>
   </div>
 </div>
@@ -319,9 +333,12 @@ function fmtMins(s) {
   return `${m}m`;
 }
 
+const _GUILD_ID = '{{ selected_gid }}';
+
 async function refresh() {
   try {
-    const r = await fetch('/api/tempo/status');
+    const url = '/api/tempo/status' + (_GUILD_ID ? '?guild_id='+encodeURIComponent(_GUILD_ID) : '');
+    const r = await fetch(url);
     const d = await r.json();
     if(!d.ok) return;
     _data = d;

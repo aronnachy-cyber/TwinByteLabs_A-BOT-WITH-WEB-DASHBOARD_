@@ -219,6 +219,53 @@ def _sp4rk_live_state(user_guild_ids=None) -> dict:
         app.logger.warning(f"[sp4rk_live_state] {e}")
     return out
 
+def _bot_live_guilds(module_name: str, user_guild_ids=None) -> list:
+    """Query any bot module for its guild list, filtered to the user's admin guilds.
+
+    Returns a list of dicts: [{id, name, member_count, icon_url}, ...]
+    """
+    try:
+        import importlib
+        mod = importlib.import_module(module_name)
+        b = getattr(mod, 'bot', None)
+        if b and b.is_ready():
+            filter_ids = None
+            if user_guild_ids is not None:
+                filter_ids = {str(x) for x in user_guild_ids if x}
+            guilds = []
+            for g in b.guilds:
+                gid_str = str(g.id)
+                if filter_ids is not None and gid_str not in filter_ids:
+                    continue
+                icon_url = None
+                try:
+                    if g.icon:
+                        icon_url = str(g.icon.url)
+                except Exception:
+                    pass
+                guilds.append({
+                    "id":           gid_str,
+                    "name":         g.name,
+                    "member_count": g.member_count or 0,
+                    "icon_url":     icon_url,
+                })
+            return sorted(guilds, key=lambda x: x["member_count"], reverse=True)
+    except Exception as e:
+        app.logger.warning(f"[bot_live_guilds:{module_name}] {e}")
+    return []
+
+def _require_discord_login(dest_url: str):
+    """Redirect to login if the user is not logged in, preserving the destination."""
+    if not session.get('logged_in'):
+        session['post_login_redirect'] = dest_url
+        return redirect(url_for('login'))
+    if 'user_admin_guild_ids' not in session:
+        session['post_login_redirect'] = dest_url
+        session.clear()
+        session['post_login_redirect'] = dest_url
+        return redirect(url_for('login'))
+    return None
+
 warnings_db = []
 
 # ---- WARNINGS (Supabase-backed, JSON fallback) ----
@@ -1843,14 +1890,31 @@ def pulse_landing():
 
 @app.route('/pulse/dashboard')
 def pulse_dashboard():
-    """Pulse analytics bot web dashboard."""
+    """Pulse analytics bot web dashboard — requires Discord login."""
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
-    return render_template('pulse_dashboard.html')
+    redir = _require_discord_login(url_for('pulse_dashboard', **request.args))
+    if redir:
+        return redir
+    guilds = _bot_live_guilds('pulse', user_guild_ids=_user_admin_guild_ids())
+    selected_gid = request.args.get('guild_id', '').strip()
+    if not selected_gid and len(guilds) == 1:
+        selected_gid = guilds[0]['id']
+    return render_template('pulse_dashboard.html',
+        guilds=guilds,
+        selected_gid=selected_gid,
+        user_name=session.get('user_name', 'User'),
+    )
 
 @app.route('/api/pulse/data')
 def pulse_api_data():
-    """Return all Pulse analytics data from pulse_data.json."""
+    """Return Pulse analytics data, optionally filtered to a specific guild."""
+    guild_id = request.args.get('guild_id', '').strip()
+    # Access check — if logged in, guild must be in user's admin list
+    if session.get('logged_in') and guild_id:
+        allowed = {str(x) for x in (_user_admin_guild_ids() or [])}
+        if allowed and guild_id not in allowed:
+            return jsonify({'ok': False, 'error': 'Access denied'}), 403
     try:
         import json as _json
         from pathlib import Path
@@ -1858,6 +1922,11 @@ def pulse_api_data():
         data = {}
         if data_file.exists():
             data = _json.loads(data_file.read_text(encoding='utf-8'))
+        # Filter to selected guild if specified
+        if guild_id and guild_id in data:
+            data = {guild_id: data[guild_id]}
+        elif guild_id:
+            data = {}
         return jsonify({'ok': True, 'data': data})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e), 'data': {}})
@@ -1871,18 +1940,38 @@ def tempo_landing():
 
 @app.route('/tempo/dashboard')
 def tempo_dashboard():
-    """Tempo music bot web dashboard."""
+    """Tempo music bot web dashboard — requires Discord login."""
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
-    return render_template('tempo_dashboard.html')
+    redir = _require_discord_login(url_for('tempo_dashboard', **request.args))
+    if redir:
+        return redir
+    guilds = _bot_live_guilds('tempo', user_guild_ids=_user_admin_guild_ids())
+    selected_gid = request.args.get('guild_id', '').strip()
+    if not selected_gid and len(guilds) == 1:
+        selected_gid = guilds[0]['id']
+    return render_template('tempo_dashboard.html',
+        guilds=guilds,
+        selected_gid=selected_gid,
+        user_name=session.get('user_name', 'User'),
+    )
 
 @app.route('/api/tempo/status')
 def tempo_api_status():
     """Return live Tempo player state + playlists + listener leaderboard."""
+    guild_id = request.args.get('guild_id', '').strip()
+    # Access check
+    if session.get('logged_in') and guild_id:
+        allowed = {str(x) for x in (_user_admin_guild_ids() or [])}
+        if allowed and guild_id not in allowed:
+            return jsonify({'ok': False, 'error': 'Access denied'}), 403
     try:
         import tempo as _tempo
         snapshot = {}
         for gid, player in list(getattr(_tempo, '_players', {}).items()):
+            # Filter to requested guild if specified
+            if guild_id and str(gid) != guild_id:
+                continue
             track = getattr(player, 'current', None)
             snapshot[str(gid)] = {
                 'current': {
@@ -1901,16 +1990,23 @@ def tempo_api_status():
                 'loop_mode': getattr(player, 'loop_mode', 'none'),
                 'filter_name': getattr(player, 'filter_name', 'none'),
             }
-        playlists = {}
-        listeners = {}
+        playlists_raw = {}
+        listeners_raw = {}
         try:
-            playlists = _tempo._read_json(_tempo._PLAYLISTS_FILE)
+            playlists_raw = _tempo._read_json(_tempo._PLAYLISTS_FILE)
         except Exception:
             pass
         try:
-            listeners = _tempo._read_json(_tempo._LISTENERS_FILE)
+            listeners_raw = _tempo._read_json(_tempo._LISTENERS_FILE)
         except Exception:
             pass
+        # Filter playlists and listeners to the selected guild
+        if guild_id:
+            playlists = {guild_id: playlists_raw.get(guild_id, {})}
+            listeners = {guild_id: listeners_raw.get(guild_id, {})}
+        else:
+            playlists = playlists_raw
+            listeners = listeners_raw
         return jsonify({'ok': True, 'players': snapshot, 'playlists': playlists, 'listeners': listeners})
     except Exception as e:
         return jsonify({'ok': True, 'players': {}, 'playlists': {}, 'listeners': {}, 'note': str(e)})
@@ -3425,10 +3521,22 @@ def _wave_room(rid: str) -> dict | None:
 
 @app.route('/wave/dashboard')
 def wave_dashboard():
+    """Wave streaming bot web dashboard — requires Discord login."""
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html',
                                maintenance_eta=_load_dev_state().get('maintenance_eta', '')), 200
-    return render_template('wave_dashboard.html')
+    redir = _require_discord_login(url_for('wave_dashboard', **request.args))
+    if redir:
+        return redir
+    guilds = _bot_live_guilds('wavebot', user_guild_ids=_user_admin_guild_ids())
+    selected_gid = request.args.get('guild_id', '').strip()
+    if not selected_gid and len(guilds) == 1:
+        selected_gid = guilds[0]['id']
+    return render_template('wave_dashboard.html',
+        guilds=guilds,
+        selected_gid=selected_gid,
+        user_name=session.get('user_name', 'User'),
+    )
 
 @app.route('/wave')
 def wave_landing():
