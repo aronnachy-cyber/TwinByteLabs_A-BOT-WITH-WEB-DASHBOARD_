@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Wave Dashboard · Byte Labs</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0c0206; --surface:#130408; --surface2:#1c060c; --surface3:#240810;
+  --accent:#f43f5e; --accent2:#fb7185; --accent3:#fda4af;
+  --text:#ffe8ec; --muted:#9d7880; --border:rgba(244,63,94,.18);
+  --border2:rgba(255,255,255,.07);
+  --grad:linear-gradient(135deg,#be123c,#f43f5e,#fb7185);
+  --grad-h:linear-gradient(90deg,#be123c,#f43f5e);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(244,63,94,.3);border-radius:99px;}
+
+/* ══ LAYOUT ══════════════════════════════════════════════════════════ */
+.shell{display:grid;grid-template-columns:240px 1fr 320px;grid-template-rows:52px 1fr;height:100vh;overflow:hidden;}
+
+/* ── TOP BAR ── */
+.topbar{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:0 20px;
+  background:rgba(19,4,8,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);z-index:100;}
+.tb-logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0;}
+.tb-mark{width:32px;height:32px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.95rem;color:#fff;box-shadow:0 4px 14px rgba(244,63,94,.45);}
+.tb-name{font-weight:800;font-size:1rem;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.tb-badge{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.35);color:var(--accent2);}
+.tb-right{margin-left:auto;display:flex;gap:10px;align-items:center;}
+.btn-sm{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:.8rem;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s;}
+.btn-sm.ghost{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--border2);}
+.btn-sm.ghost:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.15);}
+.btn-sm.primary{background:var(--grad);color:#fff;box-shadow:0 4px 14px rgba(244,63,94,.35);}
+.btn-sm.primary:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.btn-sm.danger{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.28);}
+.btn-sm.danger:hover{background:rgba(239,68,68,.22);}
+
+/* ── SIDEBAR ── */
+.sidebar{grid-row:2;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.sidebar-section{padding:12px 14px 6px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-radius:0;transition:all .15s;color:var(--muted);font-size:.88rem;font-weight:500;border:none;background:none;width:100%;text-align:left;font-family:inherit;}
+.nav-item:hover{background:rgba(255,255,255,.04);color:var(--text);}
+.nav-item.active{background:rgba(244,63,94,.1);color:var(--accent2);border-right:2px solid var(--accent);}
+.nav-item .ni-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;}
+.nav-item.active .ni-icon{background:rgba(244,63,94,.15);}
+.nav-item:hover:not(.active) .ni-icon{background:rgba(255,255,255,.05);}
+.sb-divider{height:1px;background:var(--border2);margin:8px 14px;}
+/* active room widget */
+.active-room-widget{margin:12px 14px;padding:12px 14px;border-radius:12px;background:linear-gradient(135deg,rgba(244,63,94,.1),rgba(190,18,60,.06));border:1px solid rgba(244,63,94,.25);}
+.arw-title{font-size:.72rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+.arw-name{font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.arw-status{display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--muted);}
+.arw-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:blink 1.4s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.arw-actions{display:flex;gap:6px;margin-top:10px;}
+.arw-btn{flex:1;padding:6px;border-radius:7px;border:none;cursor:pointer;font-size:.75rem;font-weight:700;font-family:inherit;transition:all .15s;}
+.arw-btn.play{background:rgba(244,63,94,.15);color:var(--accent2);border:1px solid rgba(244,63,94,.3);}
+.arw-btn.play:hover{background:rgba(244,63,94,.28);}
+.arw-btn.copy{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--border2);}
+.arw-btn.copy:hover{background:rgba(255,255,255,.12);}
+.arw-btn.stop{background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.25);}
+.arw-btn.stop:hover{background:rgba(239,68,68,.2);}
+
+/* ── MAIN CONTENT ── */
+.main{grid-row:2;overflow-y:auto;display:flex;flex-direction:column;}
+.page{display:none;flex-direction:column;height:100%;padding:0;overflow:hidden;}
+.page.active{display:flex;}
+
+/* ── PAGE HEADER ── */
+.page-head{padding:20px 24px 14px;border-bottom:1px solid var(--border2);flex-shrink:0;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.page-head h1{font-size:1.25rem;font-weight:800;}
+.page-head p{color:var(--muted);font-size:.88rem;margin-top:2px;}
+.ph-actions{margin-left:auto;display:flex;gap:8px;}
+
+/* ── SEARCH BAR ── */
+.search-bar{display:flex;gap:10px;padding:14px 24px;border-bottom:1px solid var(--border2);flex-shrink:0;}
+.search-input{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border2);border-radius:10px;padding:10px 14px;color:var(--text);font-size:.9rem;font-family:inherit;outline:none;transition:border-color .15s;}
+.search-input::placeholder{color:var(--muted);}
+.search-input:focus{border-color:rgba(244,63,94,.5);}
+.scan-btn{padding:10px 18px;border-radius:10px;background:var(--grad);border:none;color:#fff;font-weight:700;font-size:.88rem;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap;transition:filter .15s;}
+.scan-btn:hover{filter:brightness(1.1);}
+.scan-btn:disabled{opacity:.5;cursor:wait;}
+
+/* ── SCAN RESULTS ── */
+.scan-results{padding:0 24px 12px;display:none;flex-direction:column;gap:8px;flex-shrink:0;}
+.scan-results.show{display:flex;}
+.scan-result-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--border2);cursor:pointer;transition:all .15s;}
+.scan-result-item:hover{background:rgba(244,63,94,.06);border-color:rgba(244,63,94,.3);}
+.sri-thumb{width:56px;height:38px;border-radius:6px;background:var(--surface2);object-fit:cover;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:1rem;}
+.sri-info{flex:1;min-width:0;}
+.sri-title{font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sri-url{font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.sri-type{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:99px;background:rgba(244,63,94,.12);color:var(--accent2);border:1px solid rgba(244,63,94,.25);flex-shrink:0;}
+.sri-use-btn{padding:6px 14px;border-radius:8px;background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.3);color:var(--accent2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;flex-shrink:0;}
+.sri-use-btn:hover{background:rgba(244,63,94,.3);}
+.scan-info{font-size:.8rem;color:var(--muted);padding:6px 0;}
+.scan-empty{text-align:center;padding:24px;color:var(--muted);font-size:.88rem;}
+
+/* ── TABS ── */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border2);padding:0 24px;flex-shrink:0;}
+.tab{padding:12px 16px;font-size:.85rem;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;border:none;background:none;font-family:inherit;display:flex;align-items:center;gap:7px;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent);}
+.tab-content{flex:1;overflow-y:auto;padding:16px 24px;}
+
+/* ── CHANNEL GRID ── */
+.cat-label{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;display:flex;align-items:center;gap:8px;}
+.cat-label::after{content:"";flex:1;height:1px;background:var(--border2);}
+.channels-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:4px;}
+.channel-card{border-radius:12px;background:var(--surface2);border:1px solid var(--border2);cursor:pointer;overflow:hidden;transition:all .18s;}
+.channel-card:hover{transform:translateY(-3px);border-color:rgba(244,63,94,.4);box-shadow:0 8px 24px rgba(0,0,0,.3);}
+.cc-banner{height:72px;display:flex;align-items:center;justify-content:center;font-size:2rem;position:relative;overflow:hidden;}
+.cc-live{position:absolute;top:6px;right:6px;font-size:.58rem;font-weight:800;padding:2px 6px;border-radius:99px;background:rgba(239,68,68,.9);color:#fff;display:flex;align-items:center;gap:4px;}
+.cc-live::before{content:"";width:4px;height:4px;border-radius:50%;background:#fff;animation:blink 1s ease-in-out infinite;}
+.cc-body{padding:8px 10px;}
+.cc-name{font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:2px;}
+.cc-tag{font-size:.68rem;color:var(--muted);}
+
+/* ── DIRECT URL TAB ── */
+.url-tab-inner{max-width:700px;}
+.url-tab-inner h3{font-size:1rem;font-weight:700;margin-bottom:8px;}
+.url-tab-inner p{color:var(--muted);font-size:.88rem;margin-bottom:16px;line-height:1.55;}
+.url-big-input{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;color:var(--text);font-size:.95rem;font-family:inherit;outline:none;margin-bottom:12px;transition:border-color .15s;}
+.url-big-input::placeholder{color:var(--muted);}
+.url-big-input:focus{border-color:rgba(244,63,94,.5);}
+.url-actions{display:flex;gap:10px;margin-bottom:24px;}
+.btn-lg{display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border-radius:10px;font-size:.9rem;font-weight:700;border:none;cursor:pointer;font-family:inherit;transition:all .15s;}
+.btn-lg.primary{background:var(--grad);color:#fff;box-shadow:0 6px 18px rgba(244,63,94,.35);}
+.btn-lg.primary:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.btn-lg.ghost{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--border2);}
+.btn-lg.ghost:hover{background:rgba(255,255,255,.1);}
+.url-tips{padding:16px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--border2);}
+.url-tips h4{font-size:.82rem;font-weight:700;margin-bottom:10px;color:var(--muted);}
+.url-tips li{font-size:.82rem;color:var(--muted);margin-bottom:5px;list-style:none;display:flex;align-items:center;gap:8px;}
+.url-tips li::before{content:"→";color:var(--accent);}
+
+/* ── MINI PREVIEW ── */
+.mini-preview{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:16px;display:none;}
+.mini-preview.show{display:block;}
+.mp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.mp-title{font-size:.88rem;font-weight:700;}
+.mp-video{width:100%;aspect-ratio:16/9;border-radius:10px;background:#000;overflow:hidden;}
+.mp-video video{width:100%;height:100%;object-fit:contain;}
+.mp-actions{display:flex;gap:8px;margin-top:10px;}
+
+/* ── ROOMS PAGE ── */
+.rooms-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+.room-card{background:var(--surface2);border:1px solid var(--border2);border-radius:16px;padding:18px 20px;transition:all .18s;}
+.room-card:hover{border-color:rgba(244,63,94,.35);transform:translateY(-2px);}
+.rc-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.rc-icon{width:40px;height:40px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:#fff;}
+.rc-info{flex:1;min-width:0;}
+.rc-name{font-size:.95rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rc-id{font-size:.7rem;color:var(--muted);}
+.rc-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.rc-meta-item{background:rgba(255,255,255,.03);border-radius:8px;padding:8px 10px;}
+.rc-meta-label{font-size:.66rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px;}
+.rc-meta-val{font-size:.85rem;font-weight:700;}
+.rc-actions{display:flex;gap:8px;}
+.rc-btn{flex:1;padding:8px;border-radius:8px;border:none;cursor:pointer;font-size:.78rem;font-weight:700;font-family:inherit;transition:all .15s;text-align:center;}
+.rc-btn.open{background:var(--grad);color:#fff;}
+.rc-btn.open:hover{filter:brightness(1.1);}
+.rc-btn.copy{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--border2);}
+.rc-btn.copy:hover{background:rgba(255,255,255,.12);}
+.rc-btn.del{background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.25);}
+.rc-btn.del:hover{background:rgba(239,68,68,.2);}
+.no-rooms{text-align:center;padding:60px 24px;color:var(--muted);}
+.no-rooms i{font-size:2.5rem;color:rgba(244,63,94,.2);margin-bottom:14px;display:block;}
+.no-rooms h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--text);}
+
+/* ── RIGHT PANEL ── */
+.right-panel{grid-row:2;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.rp-section{padding:16px;}
+.rp-section+.rp-section{border-top:1px solid var(--border2);}
+.rp-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:12px;}
+
+/* Create room form */
+.create-form .cf-input{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border2);border-radius:9px;padding:9px 12px;color:var(--text);font-size:.85rem;font-family:inherit;outline:none;margin-bottom:8px;transition:border-color .15s;}
+.create-form .cf-input::placeholder{color:var(--muted);}
+.create-form .cf-input:focus{border-color:rgba(244,63,94,.4);}
+.create-form textarea.cf-input{resize:none;height:56px;}
+.create-btn{width:100%;padding:10px;border-radius:9px;background:var(--grad);border:none;color:#fff;font-weight:700;font-size:.88rem;font-family:inherit;cursor:pointer;transition:filter .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.create-btn:hover{filter:brightness(1.1);}
+
+/* preview player */
+.preview-wrap{width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;position:relative;margin-bottom:12px;}
+.preview-wrap video{width:100%;height:100%;object-fit:contain;}
+.preview-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);}
+.preview-placeholder i{font-size:2rem;color:rgba(244,63,94,.25);}
+.preview-placeholder p{font-size:.78rem;}
+.preview-url-row{display:flex;gap:7px;margin-bottom:10px;}
+.prev-url-in{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.8rem;font-family:inherit;outline:none;}
+.prev-url-in::placeholder{color:var(--muted);}
+.prev-url-in:focus{border-color:rgba(244,63,94,.4);}
+.prev-load-btn{padding:8px 12px;border-radius:8px;background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.3);color:var(--accent2);font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
+
+/* toast */
+.toast{position:fixed;bottom:22px;right:22px;padding:12px 18px;border-radius:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.88rem;font-weight:600;box-shadow:0 8px 28px rgba(0,0,0,.5);z-index:999;transform:translateY(60px);opacity:0;transition:all .25s;max-width:320px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-color:rgba(16,185,129,.4);color:#34d399;}
+.toast.error{border-color:rgba(239,68,68,.4);color:#fca5a5;}
+
+/* loading spinner */
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* settings page */
+.settings-grid{display:grid;gap:14px;}
+.setting-row{background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:16px;}
+.setting-info{flex:1;}
+.setting-title{font-size:.9rem;font-weight:700;margin-bottom:3px;}
+.setting-desc{font-size:.8rem;color:var(--muted);}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-track{position:absolute;inset:0;border-radius:99px;background:rgba(255,255,255,.1);cursor:pointer;transition:background .2s;}
+.toggle input:checked+.toggle-track{background:var(--accent);}
+.toggle-track::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;}
+.toggle input:checked+.toggle-track::after{transform:translateX(18px);}
+.setting-input{background:rgba(255,255,255,.05);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.85rem;font-family:inherit;outline:none;width:180px;}
+.setting-input:focus{border-color:rgba(244,63,94,.4);}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <a class="tb-logo" href="{{ url_for('wave_landing') }}">
+    <div class="tb-mark"><i class="fas fa-tower-broadcast"></i></div>
+    <span class="tb-name">Wave</span>
+  </a>
+  <span class="tb-badge">Dashboard</span>
+  <div class="tb-right">
+    <span id="tbRoomLabel" style="font-size:.82rem;color:var(--muted);">No active room</span>
+    <button class="btn-sm ghost" onclick="refreshAll()"><i class="fas fa-rotate-right"></i> Refresh</button>
+    <button class="btn-sm primary" onclick="showPage('rooms');openCreateModal()"><i class="fas fa-plus"></i> New Room</button>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-section">Navigation</div>
+  <button class="nav-item active" onclick="showPage('browse',this)" id="nav-browse">
+    <div class="ni-icon"><i class="fas fa-tv"></i></div> Browse Channels
+  </button>
+  <button class="nav-item" onclick="showPage('scan',this)" id="nav-scan">
+    <div class="ni-icon"><i class="fas fa-magnifying-glass"></i></div> Scan Website
+  </button>
+  <button class="nav-item" onclick="showPage('direct',this)" id="nav-direct">
+    <div class="ni-icon"><i class="fas fa-link"></i></div> Direct URL
+  </button>
+  <div class="sb-divider"></div>
+  <div class="sidebar-section">Rooms</div>
+  <button class="nav-item" onclick="showPage('rooms',this)" id="nav-rooms">
+    <div class="ni-icon"><i class="fas fa-film"></i></div> My Rooms
+  </button>
+  <div class="sb-divider"></div>
+  <div class="sidebar-section">Other</div>
+  <button class="nav-item" onclick="showPage('settings',this)" id="nav-settings">
+    <div class="ni-icon"><i class="fas fa-gear"></i></div> Settings
+  </button>
+  <a href="{{ url_for('wave_landing') }}" class="nav-item" style="margin-top:auto;">
+    <div class="ni-icon"><i class="fas fa-arrow-left"></i></div> Back to Site
+  </a>
+
+  <!-- Active Room Widget -->
+  <div class="sb-divider"></div>
+  <div class="active-room-widget" id="activeRoomWidget" style="display:none;">
+    <div class="arw-title"><i class="fas fa-circle-dot arw-dot"></i> Active Room</div>
+    <div class="arw-name" id="arwName">—</div>
+    <div class="arw-status">
+      <span class="arw-dot"></span>
+      <span id="arwStatus">Loading…</span>
+    </div>
+    <div class="arw-actions">
+      <button class="arw-btn play" id="arwPlay" onclick="toggleActiveRoom()"><i class="fas fa-play"></i></button>
+      <button class="arw-btn copy" onclick="copyActiveRoomLink()"><i class="fas fa-copy"></i></button>
+      <button class="arw-btn stop" onclick="endActiveRoom()"><i class="fas fa-stop"></i></button>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════
+     PAGES
+═══════════════════════════════════════════════════════ -->
+<div class="main">
+
+  <!-- ── BROWSE CHANNELS ── -->
+  <div class="page active" id="page-browse">
+    <div class="page-head">
+      <div>
+        <h1><i class="fas fa-tv" style="color:var(--accent2);"></i> Browse Channels</h1>
+        <p>Click any channel to load it into the preview player, then start a room.</p>
+      </div>
+    </div>
+    <div class="tab-bar">
+      <button class="tab active" onclick="filterCat('all',this)">All</button>
+      <button class="tab" onclick="filterCat('news',this)"><i class="fas fa-newspaper"></i> News</button>
+      <button class="tab" onclick="filterCat('entertainment',this)"><i class="fas fa-star"></i> Entertainment</button>
+      <button class="tab" onclick="filterCat('music',this)"><i class="fas fa-music"></i> Music</button>
+      <button class="tab" onclick="filterCat('science',this)"><i class="fas fa-flask"></i> Science</button>
+      <button class="tab" onclick="filterCat('sports',this)"><i class="fas fa-trophy"></i> Sports</button>
+    </div>
+    <div class="tab-content" id="channelGrid"></div>
+  </div>
+
+  <!-- ── SCAN WEBSITE ── -->
+  <div class="page" id="page-scan">
+    <div class="page-head">
+      <div>
+        <h1><i class="fas fa-magnifying-glass" style="color:var(--accent2);"></i> Scan Website for Streams</h1>
+        <p>Paste any website URL — we'll extract available video streams using yt-dlp and HLS detection.</p>
+      </div>
+    </div>
+    <div class="search-bar">
+      <input class="search-input" id="scanUrlIn" placeholder="https://xyz.tv.info  or  https://youtube.com/@channel/live  or any stream website…" onkeydown="if(event.key==='Enter')scanUrl()"/>
+      <button class="scan-btn" id="scanBtn" onclick="scanUrl()"><i class="fas fa-radar"></i> Scan</button>
+    </div>
+    <div class="scan-results" id="scanResults"></div>
+    <div class="tab-content" style="padding-top:8px;">
+      <p style="color:var(--muted);font-size:.85rem;margin-bottom:16px;">Examples of what works:</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">
+        <div class="url-tips">
+          <h4><i class="fab fa-youtube" style="color:#ff0000;"></i> YouTube</h4>
+          <ul>
+            <li>youtube.com/watch?v=... (live)</li>
+            <li>youtube.com/@Channel/live</li>
+            <li>youtu.be/... (any public video)</li>
+          </ul>
+        </div>
+        <div class="url-tips">
+          <h4><i class="fas fa-signal" style="color:var(--accent2);"></i> HLS Streams</h4>
+          <ul>
+            <li>Any URL containing .m3u8</li>
+            <li>IPTV playlist URLs</li>
+            <li>CDN stream endpoints</li>
+          </ul>
+        </div>
+        <div class="url-tips">
+          <h4><i class="fas fa-globe" style="color:var(--accent2);"></i> Other Sites</h4>
+          <ul>
+            <li>Twitch.tv/channelname</li>
+            <li>Dailymotion, Vimeo, Rumble</li>
+            <li>Any yt-dlp supported site</li>
+          </ul>
+        </div>
+        <div class="url-tips">
+          <h4><i class="fas fa-broadcast-tower" style="color:var(--accent2);"></i> TV & News Sites</h4>
+          <ul>
+            <li>TV channel websites with players</li>
+            <li>We scan page source for m3u8 URLs</li>
+            <li>Works with most embedded players</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DIRECT URL ── -->
+  <div class="page" id="page-direct">
+    <div class="page-head">
+      <div>
+        <h1><i class="fas fa-link" style="color:var(--accent2);"></i> Direct Stream URL</h1>
+        <p>Paste a direct link and preview it instantly before starting a room.</p>
+      </div>
+    </div>
+    <div class="tab-content">
+      <div class="url-tab-inner">
+        <h3>Stream URL</h3>
+        <p>Supports: HLS (.m3u8), YouTube live, direct MP4/WebM, RTMP (via yt-dlp resolution), or any URL yt-dlp can handle.</p>
+        <input class="url-big-input" id="directUrlIn" placeholder="https://example.com/live/stream.m3u8  or  https://youtube.com/watch?v=..."/>
+        <div class="url-actions">
+          <button class="btn-lg primary" onclick="previewDirect()"><i class="fas fa-play"></i> Preview</button>
+          <button class="btn-lg ghost" onclick="useDirectInRoom()"><i class="fas fa-plus"></i> Load into Room</button>
+          <button class="btn-lg ghost" onclick="document.getElementById('directUrlIn').value=''"><i class="fas fa-xmark"></i> Clear</button>
+        </div>
+
+        <!-- Mini preview -->
+        <div class="mini-preview" id="directPreview">
+          <div class="mp-head">
+            <span class="mp-title" id="directPreviewTitle">Preview</span>
+            <button class="btn-sm ghost" onclick="stopDirectPreview()"><i class="fas fa-xmark"></i> Close</button>
+          </div>
+          <div class="mp-video"><video id="directVid" controls playsinline></video></div>
+          <div class="mp-actions">
+            <button class="btn-lg primary" onclick="useDirectInRoom()" style="padding:9px 18px;font-size:.85rem;"><i class="fas fa-plus"></i> Create Room with This</button>
+          </div>
+        </div>
+
+        <div class="url-tips" style="margin-top:20px;">
+          <h4>Supported formats</h4>
+          <ul>
+            <li>HLS streams (.m3u8 playlists) — best for live TV</li>
+            <li>YouTube / Twitch / Vimeo / Dailymotion (resolved server-side)</li>
+            <li>Direct video files (.mp4, .webm, .ogv)</li>
+            <li>IPTV m3u8 stream URLs from any provider</li>
+            <li>Any URL supported by yt-dlp (1000+ sites)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MY ROOMS ── -->
+  <div class="page" id="page-rooms">
+    <div class="page-head">
+      <div>
+        <h1><i class="fas fa-film" style="color:var(--accent2);"></i> My Rooms</h1>
+        <p>Active watch party rooms. Anyone with the link can join.</p>
+      </div>
+      <div class="ph-actions">
+        <button class="btn-sm primary" onclick="openCreateModal()"><i class="fas fa-plus"></i> New Room</button>
+      </div>
+    </div>
+    <div class="tab-content">
+      <div class="rooms-grid" id="roomsGrid">
+        <div class="no-rooms"><i class="fas fa-film"></i><h3>No active rooms</h3><p>Create a room to start a watch party.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SETTINGS ── -->
+  <div class="page" id="page-settings">
+    <div class="page-head">
+      <div><h1><i class="fas fa-gear" style="color:var(--accent2);"></i> Settings</h1><p>Wave dashboard preferences.</p></div>
+    </div>
+    <div class="tab-content">
+      <div class="settings-grid">
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-title">Auto-sync viewers</div>
+            <div class="setting-desc">Force viewers to re-sync every 10 seconds to prevent drift.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="settingAutoSync" checked onchange="saveSetting('auto_sync',this.checked)"><div class="toggle-track"></div></label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-title">Sync tolerance</div>
+            <div class="setting-desc">Maximum seconds of drift before auto-snap to host position.</div>
+          </div>
+          <input class="setting-input" type="number" id="settingTol" value="3" min="1" max="30" onchange="saveSetting('sync_tol',this.value)">
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-title">Default room title</div>
+            <div class="setting-desc">Pre-fill room title when creating new rooms.</div>
+          </div>
+          <input class="setting-input" type="text" id="settingTitle" placeholder="Watch Party" oninput="saveSetting('default_title',this.value)">
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-title">Chat visible by default</div>
+            <div class="setting-desc">Show chat panel when viewers first open the room.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="settingChat" checked onchange="saveSetting('chat_visible',this.checked)"><div class="toggle-track"></div></label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.main -->
+
+<!-- ══ RIGHT PANEL ═════════════════════════════════════════════════════ -->
+<div class="right-panel">
+  <!-- Preview Player -->
+  <div class="rp-section">
+    <div class="rp-title"><i class="fas fa-play-circle"></i> Preview Player</div>
+    <div class="preview-wrap">
+      <video id="previewVid" playsinline controls></video>
+      <div class="preview-placeholder" id="previewPlaceholder">
+        <i class="fas fa-tower-broadcast"></i>
+        <p>Select a channel or paste a URL</p>
+      </div>
+    </div>
+    <div class="preview-url-row">
+      <input class="prev-url-in" id="previewUrlIn" placeholder="Paste URL to preview…" onkeydown="if(event.key==='Enter')previewUrl(this.value)"/>
+      <button class="prev-load-btn" onclick="previewUrl(document.getElementById('previewUrlIn').value)"><i class="fas fa-play"></i></button>
+    </div>
+    <div id="previewTitle" style="font-size:.78rem;color:var(--muted);margin-bottom:8px;min-height:18px;"></div>
+    <button class="create-btn" onclick="createRoomFromPreview()" id="createFromPreviewBtn" style="display:none;">
+      <i class="fas fa-plus"></i> Start Room with This Stream
+    </button>
+  </div>
+
+  <!-- Create Room -->
+  <div class="rp-section">
+    <div class="rp-title"><i class="fas fa-plus-circle"></i> Create Room</div>
+    <div class="create-form">
+      <input class="cf-input" id="cfTitle" placeholder="Room title (e.g. Movie Night)" maxlength="60"/>
+      <input class="cf-input" id="cfUrl" placeholder="Stream URL (optional — set it later)" id="cfUrl"/>
+      <button class="create-btn" onclick="createRoom()"><i class="fas fa-play"></i> Create Watch Party</button>
+    </div>
+  </div>
+
+  <!-- Room list mini -->
+  <div class="rp-section">
+    <div class="rp-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span><i class="fas fa-list"></i> Active Rooms</span>
+      <button onclick="refreshAll()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.75rem;"><i class="fas fa-rotate-right"></i></button>
+    </div>
+    <div id="rpRoomList" style="display:flex;flex-direction:column;gap:6px;">
+      <div style="font-size:.8rem;color:var(--muted);text-align:center;padding:16px;">No active rooms</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /.shell -->
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ───────────────────────────────────────────────────────────────
+let activeRoom   = null;  // {id, host_token, title, ...}
+let previewHls   = null;
+let previewUrl_  = '';
+let rooms        = {};
+
+const BASE = window.location.origin;
+
+// ── Curated Channels ────────────────────────────────────────────────────
+const CHANNELS = [
+  // News
+  { name:'NASA Live',        cat:'science',       emoji:'🚀', live:true,  url:'https://www.youtube.com/@NASA/live',              color:'#1a237e' },
+  { name:'Al Jazeera',       cat:'news',          emoji:'📡', live:true,  url:'https://www.youtube.com/@AlJazeeraEnglish/live',  color:'#1b5e20' },
+  { name:'DW News',          cat:'news',          emoji:'🌐', live:true,  url:'https://www.youtube.com/@dwnews/live',             color:'#b71c1c' },
+  { name:'France 24',        cat:'news',          emoji:'🇫🇷', live:true, url:'https://www.youtube.com/@France24_en/live',       color:'#0d47a1' },
+  { name:'RT News',          cat:'news',          emoji:'📰', live:true,  url:'https://www.youtube.com/@RT/live',                color:'#bf360c' },
+  { name:'CGTN',             cat:'news',          emoji:'🇨🇳', live:true, url:'https://www.youtube.com/@CGTNOfficial/live',      color:'#c62828' },
+  { name:'Sky News',         cat:'news',          emoji:'🌤️', live:true,  url:'https://www.youtube.com/@SkyNews/live',           color:'#0277bd' },
+  { name:'Bloomberg',        cat:'news',          emoji:'💹', live:true,  url:'https://www.youtube.com/@Bloomberg/live',         color:'#212121' },
+  // Entertainment
+  { name:'Lofi Girl',        cat:'entertainment', emoji:'📚', live:true,  url:'https://www.youtube.com/@LofiGirl/live',          color:'#4a148c' },
+  { name:'Peaceful Piano',   cat:'music',         emoji:'🎹', live:true,  url:'https://www.youtube.com/watch?v=77ZozI0rw7w',    color:'#1a237e' },
+  { name:'Jazz Vibes',       cat:'music',         emoji:'🎷', live:true,  url:'https://www.youtube.com/watch?v=neV3EPgvZ3g',    color:'#3e2723' },
+  { name:'ChilledCow',       cat:'music',         emoji:'☕', live:true,  url:'https://www.youtube.com/@LofiGirl/live',          color:'#263238' },
+  // Science
+  { name:'ISS Live Feed',    cat:'science',       emoji:'🛸', live:true,  url:'https://www.youtube.com/watch?v=P9C25Un7xaM',    color:'#1a237e' },
+  { name:'Space Engine',     cat:'science',       emoji:'🌌', live:false, url:'https://www.youtube.com/@SpaceEngine/live',       color:'#0d0d1a' },
+  // Sports  
+  { name:'Olympics Channel', cat:'sports',        emoji:'🏅', live:false, url:'https://www.youtube.com/@Olympics/live',          color:'#b71c1c' },
+  { name:'ESPN Highlights',  cat:'sports',        emoji:'🏆', live:false, url:'https://www.youtube.com/@SportsCenter/videos',   color:'#e65100' },
+];
+
+// ── Page routing ─────────────────────────────────────────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id)?.classList.add('active');
+  if (btn) btn.classList.add('active');
+  else document.getElementById('nav-' + id)?.classList.add('active');
+  if (id === 'rooms') loadRooms();
+}
+
+// ── Channel grid ─────────────────────────────────────────────────────────
+let currentCat = 'all';
+function filterCat(cat, btn) {
+  currentCat = cat;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  buildChannelGrid();
+}
+
+function buildChannelGrid() {
+  const grid  = document.getElementById('channelGrid');
+  const list  = CHANNELS.filter(c => currentCat === 'all' || c.cat === currentCat);
+  if (!list.length) { grid.innerHTML = '<p style="color:var(--muted);padding:20px;">No channels in this category.</p>'; return; }
+
+  const byCat = {};
+  list.forEach(c => { (byCat[c.cat] = byCat[c.cat] || []).push(c); });
+
+  let html = '';
+  for (const cat in byCat) {
+    const label = {news:'📰 News & Media', entertainment:'🎭 Entertainment', music:'🎵 Music & Radio', science:'🔬 Science & Space', sports:'🏆 Sports'};
+    html += `<div class="cat-label">${label[cat]||cat}</div><div class="channels-grid">`;
+    byCat[cat].forEach(c => {
+      html += `<div class="channel-card" onclick="loadChannel(${JSON.stringify(c.url).replace(/</g,'&lt;')}, '${esc(c.name)}')">
+        <div class="cc-banner" style="background:${c.color};">
+          ${c.emoji}
+          ${c.live ? '<div class="cc-live">LIVE</div>' : ''}
+        </div>
+        <div class="cc-body">
+          <div class="cc-name">${esc(c.name)}</div>
+          <div class="cc-tag">${c.cat}</div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+function loadChannel(url, name) {
+  toast(`Loading ${name}…`, 'info');
+  previewUrl(url, name);
+  showPage('direct', document.getElementById('nav-direct'));
+}
+
+// ── URL Scan ──────────────────────────────────────────────────────────────
+async function scanUrl() {
+  const url = document.getElementById('scanUrlIn').value.trim();
+  if (!url) { document.getElementById('scanUrlIn').focus(); return; }
+
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Scanning…';
+
+  const res = document.getElementById('scanResults');
+  res.innerHTML = '';
+  res.classList.remove('show');
+
+  try {
+    const r = await fetch('/api/wave/scan', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url })
+    });
+    const d = await r.json();
+
+    if (!d.ok || !d.results.length) {
+      res.innerHTML = `<div class="scan-empty"><i class="fas fa-circle-xmark" style="font-size:1.5rem;color:rgba(244,63,94,.4);display:block;margin-bottom:10px;"></i>No streams found at that URL.<br><small>Try a different URL, or use Direct URL to paste a stream link manually.</small></div>`;
+      res.classList.add('show');
+      return;
+    }
+
+    res.innerHTML = `<div class="scan-info"><i class="fas fa-check" style="color:var(--accent2);"></i> Found <b>${d.results.length}</b> stream${d.results.length!==1?'s':''} · click to preview or use in a room</div>`;
+    d.results.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'scan-result-item';
+      el.innerHTML = `
+        <div class="sri-thumb">${item.thumbnail ? `<img src="${esc(item.thumbnail)}" style="width:100%;height:100%;border-radius:6px;object-fit:cover;">` : '<i class="fas fa-play-circle"></i>'}</div>
+        <div class="sri-info">
+          <div class="sri-title">${esc(item.title||'Stream')}</div>
+          <div class="sri-url">${esc(item.url||'')}</div>
+        </div>
+        <span class="sri-type">${esc(item.type||'stream')}</span>
+        <button class="sri-use-btn" onclick="previewUrl('${esc(item.url||'')}','${esc(item.title||'Stream')}');toast('Loaded into preview!','success')">Preview</button>
+        <button class="sri-use-btn" onclick="useStreamInRoom('${esc(item.url||'')}','${esc(item.title||'Watch Party')}')">+ Room</button>
+      `;
+      res.appendChild(el);
+    });
+    res.classList.add('show');
+  } catch(e) {
+    res.innerHTML = `<div class="scan-empty">Error scanning: ${esc(String(e))}</div>`;
+    res.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-radar"></i> Scan';
+  }
+}
+
+// ── Preview player ────────────────────────────────────────────────────────
+async function previewUrl(url, title) {
+  if (!url) return;
+  url = url.trim();
+  previewUrl_ = url;
+  document.getElementById('previewUrlIn').value = url;
+  document.getElementById('previewTitle').textContent = title || 'Resolving…';
+  document.getElementById('previewPlaceholder').style.display = 'none';
+  document.getElementById('createFromPreviewBtn').style.display = 'flex';
+
+  // Resolve URL server-side (handles YouTube etc)
+  let resolved = url;
+  try {
+    const r = await fetch('/api/wave/resolve', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url })
+    });
+    const d = await r.json();
+    if (d.ok && d.url) {
+      resolved = d.url;
+      if (d.title) document.getElementById('previewTitle').textContent = d.title;
+    }
+  } catch(e) {}
+
+  const vid = document.getElementById('previewVid');
+  if (previewHls) { previewHls.destroy(); previewHls = null; }
+
+  if (Hls.isSupported() && (resolved.includes('.m3u8') || resolved.includes('m3u8'))) {
+    previewHls = new Hls({ enableWorker:true });
+    previewHls.loadSource(resolved);
+    previewHls.attachMedia(vid);
+    previewHls.on(Hls.Events.MANIFEST_PARSED, () => vid.play().catch(()=>{}));
+    previewHls.on(Hls.Events.ERROR, (_, d) => {
+      if (d.fatal) { toast('HLS error: '+d.details,'error'); loadAsDirect(vid,resolved); }
+    });
+  } else {
+    loadAsDirect(vid, resolved);
+  }
+}
+
+function loadAsDirect(vid, url) {
+  vid.src = url;
+  vid.load();
+  vid.play().catch(()=>{});
+}
+
+// ── Direct URL tab ────────────────────────────────────────────────────────
+function previewDirect() {
+  const url = document.getElementById('directUrlIn').value.trim();
+  if (!url) { toast('Enter a URL first','error'); return; }
+  previewUrl(url);
+  document.getElementById('directPreview').classList.add('show');
+}
+function stopDirectPreview() {
+  document.getElementById('directPreview').classList.remove('show');
+  const vid = document.getElementById('directVid');
+  vid.pause(); vid.src = '';
+}
+function useDirectInRoom() {
+  const url = document.getElementById('directUrlIn').value.trim();
+  if (!url) { toast('Enter a URL first','error'); return; }
+  document.getElementById('cfUrl').value = url;
+  showPage('rooms', document.getElementById('nav-rooms'));
+  toast('URL loaded — fill in a title and create your room!','success');
+}
+
+// ── Room management ───────────────────────────────────────────────────────
+async function createRoom() {
+  const title = document.getElementById('cfTitle').value.trim() || 'Watch Party';
+  const url   = document.getElementById('cfUrl').value.trim();
+  toast('Creating room…','info');
+  try {
+    const r = await fetch('/api/wave/create', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ title, url })
+    });
+    const d = await r.json();
+    if (!d.ok) { toast('Error: '+(d.error||'unknown'),'error'); return; }
+    activeRoom = { id: d.room_id, host_token: d.host_token, title, watch_url: d.watch_url, host_url: d.host_url };
+    localStorage.setItem('wave_active_room', JSON.stringify(activeRoom));
+    updateActiveRoomWidget();
+    document.getElementById('cfTitle').value = '';
+    document.getElementById('cfUrl').value   = '';
+    toast('Room created! Opening…','success');
+    setTimeout(() => window.open(d.host_url, '_blank'), 800);
+    loadRooms();
+  } catch(e) { toast('Error: '+e,'error'); }
+}
+
+async function createRoomFromPreview() {
+  if (!previewUrl_) { toast('No stream loaded into preview','error'); return; }
+  document.getElementById('cfUrl').value = previewUrl_;
+  showPage('rooms', document.getElementById('nav-rooms'));
+  toast('Stream loaded — give it a title and create the room!','success');
+}
+
+function useStreamInRoom(url, title) {
+  document.getElementById('cfUrl').value   = url;
+  document.getElementById('cfTitle').value = title;
+  showPage('rooms', document.getElementById('nav-rooms'));
+  toast('Stream queued — create your room below!','success');
+}
+
+async function loadRooms() {
+  try {
+    const r = await fetch('/api/wave/rooms');
+    const d = await r.json();
+    if (!d.ok) return;
+    rooms = d.rooms || {};
+    renderRooms();
+    renderRpRooms();
+  } catch(e) {}
+}
+
+function renderRooms() {
+  const grid = document.getElementById('roomsGrid');
+  const entries = Object.entries(rooms);
+  if (!entries.length) {
+    grid.innerHTML = '<div class="no-rooms"><i class="fas fa-film"></i><h3>No active rooms</h3><p>Create a room to start a watch party.</p></div>';
+    return;
+  }
+  grid.innerHTML = entries.map(([rid, room]) => `
+    <div class="room-card">
+      <div class="rc-header">
+        <div class="rc-icon"><i class="fas fa-tower-broadcast"></i></div>
+        <div class="rc-info">
+          <div class="rc-name">${esc(room.title||'Watch Party')}</div>
+          <div class="rc-id">ID: ${esc(rid)}</div>
+        </div>
+      </div>
+      <div class="rc-meta">
+        <div class="rc-meta-item"><div class="rc-meta-label">Status</div><div class="rc-meta-val">${room.playing?'▶ Playing':'⏸ Paused'}</div></div>
+        <div class="rc-meta-item"><div class="rc-meta-label">Created</div><div class="rc-meta-val">${new Date(room.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></div>
+      </div>
+      <div class="rc-actions">
+        <button class="rc-btn open" onclick="window.open('${BASE}/watch/${rid}','_blank')">Open</button>
+        <button class="rc-btn copy" onclick="navigator.clipboard.writeText('${BASE}/watch/${rid}');toast('Link copied!','success')">Copy Link</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderRpRooms() {
+  const list = document.getElementById('rpRoomList');
+  const entries = Object.entries(rooms);
+  if (!entries.length) {
+    list.innerHTML = '<div style="font-size:.8rem;color:var(--muted);text-align:center;padding:16px;">No active rooms</div>';
+    return;
+  }
+  list.innerHTML = entries.map(([rid, room]) => `
+    <div style="background:rgba(255,255,255,.03);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;cursor:pointer;" onclick="window.open('${BASE}/watch/${rid}','_blank')">
+      <div style="font-size:.85rem;font-weight:700;margin-bottom:3px;">${esc(room.title||'Watch Party')}</div>
+      <div style="font-size:.72rem;color:var(--muted);">${room.playing?'▶ Playing':'⏸ Paused'} · ${esc(rid)}</div>
+    </div>`).join('');
+  document.getElementById('tbRoomLabel').textContent = entries.length + ' active room' + (entries.length!==1?'s':'');
+}
+
+// ── Active room widget ─────────────────────────────────────────────────────
+function updateActiveRoomWidget() {
+  const w = document.getElementById('activeRoomWidget');
+  if (!activeRoom) { w.style.display='none'; return; }
+  w.style.display = 'block';
+  document.getElementById('arwName').textContent    = activeRoom.title || 'Watch Party';
+  document.getElementById('arwStatus').textContent  = 'Room active';
+}
+
+async function toggleActiveRoom() {
+  if (!activeRoom) return;
+  try {
+    const r = await fetch(`/api/wave/state/${activeRoom.id}`);
+    const d = await r.json();
+    const playing = d.room?.playing;
+    await fetch(`/api/wave/control/${activeRoom.id}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action: playing?'pause':'play', position: d.room?.position||0, host_token: activeRoom.host_token })
+    });
+    const icon = document.getElementById('arwPlay').querySelector('i');
+    icon.className = playing ? 'fas fa-play' : 'fas fa-pause';
+  } catch(e) {}
+}
+
+function copyActiveRoomLink() {
+  if (!activeRoom) return;
+  navigator.clipboard.writeText(BASE + '/watch/' + activeRoom.id);
+  toast('Invite link copied!','success');
+}
+
+async function endActiveRoom() {
+  if (!activeRoom || !confirm('End this watch party?')) return;
+  await fetch(`/api/wave/end/${activeRoom.id}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ host_token: activeRoom.host_token })
+  });
+  localStorage.removeItem('wave_active_room');
+  activeRoom = null;
+  updateActiveRoomWidget();
+  document.getElementById('tbRoomLabel').textContent = 'No active room';
+  toast('Room ended','info');
+  loadRooms();
+}
+
+function openCreateModal() { document.getElementById('cfTitle').focus(); }
+
+// ── Settings persistence ───────────────────────────────────────────────────
+function saveSetting(key, val) {
+  const s = JSON.parse(localStorage.getItem('wave_settings')||'{}');
+  s[key] = val;
+  localStorage.setItem('wave_settings', JSON.stringify(s));
+}
+function loadSettings() {
+  const s = JSON.parse(localStorage.getItem('wave_settings')||'{}');
+  if (s.default_title) document.getElementById('settingTitle').value = s.default_title;
+  if (s.sync_tol !== undefined) document.getElementById('settingTol').value = s.sync_tol;
+  if (s.auto_sync !== undefined) document.getElementById('settingAutoSync').checked = s.auto_sync;
+  if (s.chat_visible !== undefined) document.getElementById('settingChat').checked = s.chat_visible;
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+let _toastTimer;
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = 'toast show ' + (type==='success'?'success':type==='error'?'error':'');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function refreshAll() {
+  loadRooms();
+  toast('Refreshed','info');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  buildChannelGrid();
+  loadSettings();
+  // Restore active room from localStorage
+  const saved = localStorage.getItem('wave_active_room');
+  if (saved) { try { activeRoom = JSON.parse(saved); updateActiveRoomWidget(); } catch(e) {} }
+  loadRooms();
+  // Auto-refresh rooms every 15s
+  setInterval(loadRooms, 15000);
+});
+</script>
+</body>
+</html>

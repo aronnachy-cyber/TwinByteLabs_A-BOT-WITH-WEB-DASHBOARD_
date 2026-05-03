@@ -3356,6 +3356,13 @@ def _wave_write(data: dict):
 def _wave_room(rid: str) -> dict | None:
     return _wave_read().get(rid)
 
+@app.route('/wave/dashboard')
+def wave_dashboard():
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html',
+                               maintenance_eta=_load_dev_state().get('maintenance_eta', '')), 200
+    return render_template('wave_dashboard.html')
+
 @app.route('/wave')
 def wave_landing():
     if is_maintenance_mode() and not is_dev_session():
@@ -3520,6 +3527,121 @@ def wave_api_ping(room_id):
     name = str(data.get('name', 'Viewer'))[:32]
     _WAVE_PRESENCE.setdefault(room_id, {})[name] = _t.time()
     return jsonify({'ok': True})
+
+# ── API: list all rooms (no tokens exposed) ───────────────────────────────────
+@app.route('/api/wave/rooms')
+def wave_api_rooms():
+    rooms = _wave_read()
+    safe  = {}
+    for rid, room in rooms.items():
+        r = dict(room)
+        r.pop('host_token', None)
+        safe[rid] = r
+    return jsonify({'ok': True, 'rooms': safe})
+
+# ── API: resolve URL to direct stream (yt-dlp) ────────────────────────────────
+@app.route('/api/wave/resolve', methods=['POST'])
+def wave_api_resolve():
+    data  = request.get_json(silent=True) or {}
+    url   = data.get('url', '').strip()
+    if not url:
+        return jsonify({'ok': False, 'error': 'no url'}), 400
+    try:
+        import yt_dlp
+        opts = {'format': 'bestaudio[ext=m4a]/bestaudio/best', 'quiet': True,
+                'no_warnings': True, 'skip_download': True, 'noplaylist': True}
+        with yt_dlp.YoutubeDL(opts) as ytdl:
+            info = ytdl.extract_info(url, download=False)
+            if info:
+                if 'entries' in info:
+                    info = info['entries'][0]
+                return jsonify({
+                    'ok':       True,
+                    'url':      info.get('url', url),
+                    'title':    info.get('title', ''),
+                    'thumbnail': info.get('thumbnail', ''),
+                    'duration': info.get('duration'),
+                })
+    except Exception:
+        pass
+    # Return raw URL if yt-dlp can't handle it (might be a direct HLS URL)
+    return jsonify({'ok': True, 'url': url, 'title': ''})
+
+# ── API: scan URL for streams ─────────────────────────────────────────────────
+@app.route('/api/wave/scan', methods=['POST'])
+def wave_api_scan():
+    import re as _re
+    data = request.get_json(silent=True) or {}
+    url  = data.get('url', '').strip()
+    if not url:
+        return jsonify({'ok': False, 'error': 'no url'}), 400
+
+    results = []
+
+    # 1. Try yt-dlp (handles YouTube, Twitch, Vimeo, 1000+ sites)
+    try:
+        import yt_dlp
+        flat_opts = {
+            'quiet': True, 'no_warnings': True,
+            'extract_flat': True, 'noplaylist': False,
+        }
+        with yt_dlp.YoutubeDL(flat_opts) as ytdl:
+            info = ytdl.extract_info(url, download=False)
+            if info:
+                if 'entries' in info:
+                    for e in list(info['entries'])[:20]:
+                        if not e:
+                            continue
+                        results.append({
+                            'title':     e.get('title') or 'Stream',
+                            'url':       e.get('url') or e.get('webpage_url', ''),
+                            'thumbnail': e.get('thumbnail', ''),
+                            'type':      'youtube' if 'youtube' in url else 'video',
+                        })
+                else:
+                    # Single item — get the actual stream URL
+                    stream_opts = {'quiet': True, 'no_warnings': True,
+                                   'format': 'bestaudio/best', 'skip_download': True, 'noplaylist': True}
+                    with yt_dlp.YoutubeDL(stream_opts) as ytdl2:
+                        info2 = ytdl2.extract_info(url, download=False)
+                        if info2:
+                            results.append({
+                                'title':     info2.get('title') or info.get('title') or 'Stream',
+                                'url':       info2.get('url', url),
+                                'thumbnail': info2.get('thumbnail', ''),
+                                'type':      'live' if info2.get('is_live') else 'video',
+                            })
+    except Exception:
+        pass
+
+    # 2. Fallback: scrape page HTML for .m3u8 patterns
+    if not results:
+        try:
+            import requests as _req
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            resp = _req.get(url, timeout=12, headers=headers)
+            text = resp.text
+            # Find m3u8 URLs
+            m3u8s = list(dict.fromkeys(
+                _re.findall(r'https?://[^\s"\'<>]+\.m3u8[^\s"\'<>]*', text)
+            ))
+            for i, mu in enumerate(m3u8s[:10]):
+                results.append({'title': f'HLS Stream {i+1}', 'url': mu, 'thumbnail': '', 'type': 'm3u8'})
+            # Find mp4 URLs
+            if not m3u8s:
+                mp4s = list(dict.fromkeys(
+                    _re.findall(r'https?://[^\s"\'<>]+\.mp4[^\s"\'<>]*', text)
+                ))
+                for i, mu in enumerate(mp4s[:5]):
+                    results.append({'title': f'Video {i+1}', 'url': mu, 'thumbnail': '', 'type': 'mp4'})
+        except Exception:
+            pass
+
+    # 3. Check if the URL itself is already an m3u8
+    if not results and ('.m3u8' in url or 'm3u8' in url):
+        results.append({'title': 'HLS Stream', 'url': url, 'thumbnail': '', 'type': 'm3u8'})
+
+    return jsonify({'ok': True, 'results': results, 'count': len(results)})
 
 # ── API: end session ──────────────────────────────────────────────────────────
 @app.route('/api/wave/end/<room_id>', methods=['POST'])
