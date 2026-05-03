@@ -31,7 +31,30 @@ logging.basicConfig(level=logging.INFO)
 TOKEN  = os.environ.get("W_TOKEN", "").strip()
 _DIR   = Path(__file__).parent
 _ROOMS = _DIR / "wave_rooms.json"
-_lock  = threading.Lock()
+_lock     = threading.Lock()
+_WAVE_CFG = _DIR / "wave_config.json"
+_wave_cfg: dict = {}
+
+# ── Wave config helpers ─────────────────────────────────────────────────────────
+def _load_wave_cfg():
+    global _wave_cfg
+    try:
+        if _WAVE_CFG.exists():
+            _wave_cfg = json.loads(_WAVE_CFG.read_text(encoding="utf-8"))
+    except Exception:
+        _wave_cfg = {}
+
+def _save_wave_cfg():
+    tmp = _WAVE_CFG.with_suffix(".tmp")
+    tmp.write_text(json.dumps(_wave_cfg, indent=2), encoding="utf-8")
+    tmp.replace(_WAVE_CFG)
+
+def _wcfg(gid: str) -> dict:
+    return _wave_cfg.setdefault(str(gid), {})
+
+def _set_wcfg(gid: str, key: str, val):
+    _wcfg(gid)[key] = val
+    _save_wave_cfg()
 
 # ── JSON helpers ───────────────────────────────────────────────────────────────
 def _read_rooms() -> dict:
@@ -85,6 +108,7 @@ async def _admin_only(interaction: discord.Interaction) -> bool:
 
 @bot.event
 async def on_ready():
+    _load_wave_cfg()
     try:
         synced = await bot.tree.sync()
         logger.info(f"[Wave] Logged in as {bot.user} — synced {len(synced)} commands")
@@ -143,6 +167,10 @@ async def cmd_watch(interaction: discord.Interaction,
     watch_url = f"{base}/watch/{room_id}"
     host_url  = f"{base}/watch/{room_id}?host={host_tok}"
 
+    cfg = _wcfg(guild_id)
+    vc_id = cfg.get("voice_channel_id")
+    tc_id = cfg.get("text_channel_id")
+
     e = discord.Embed(
         title="📺 Watch Party Started!",
         description=f"**{title}**\n\nA watch-party room is ready. Click below to join!",
@@ -151,6 +179,10 @@ async def cmd_watch(interaction: discord.Interaction,
     )
     e.add_field(name="🔗 Watch Link",   value=f"[Open Room]({watch_url})", inline=True)
     e.add_field(name="⚙️ Host Controls", value=f"[Host View]({host_url})", inline=True)
+    if vc_id:
+        vc = interaction.guild.get_channel(int(vc_id))
+        if vc:
+            e.add_field(name="🔊 Voice Channel", value=vc.mention, inline=True)
     if url:
         e.add_field(name="📡 Stream URL", value=f"`{url[:80]}{'…' if len(url)>80 else ''}`", inline=False)
     e.add_field(
@@ -159,6 +191,24 @@ async def cmd_watch(interaction: discord.Interaction,
         inline=False
     )
     e.set_footer(text="Wave · Byte Labs · Streaming & Watch Parties")
+
+    # If a text channel is configured, post the public embed there
+    # and send the host link privately to the command user
+    if tc_id:
+        tc = interaction.guild.get_channel(int(tc_id))
+        if tc:
+            try:
+                await tc.send(embed=e)
+                host_e = discord.Embed(
+                    title="⚙️ Your Host Link",
+                    description=f"[Open Host View]({host_url})\n\nKeep this private — it gives full control over the room.",
+                    color=PINK,
+                )
+                return await interaction.followup.send(embed=host_e, ephemeral=True)
+            except Exception as _tc_err:
+                logger.warning(f"[Wave] Could not post to text channel: {_tc_err}")
+
+    # Fallback: respond in the current channel (no text channel configured)
     await interaction.followup.send(embed=e)
 
 
@@ -257,6 +307,49 @@ async def cmd_help(interaction: discord.Interaction):
     ), inline=False)
     e.add_field(name="🔗 Platform", value="[bytelabs.dev/wave](https://bytelabs.dev/wave)", inline=False)
     e.set_footer(text="Wave · Byte Labs · Streaming & Watch Parties")
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+
+# ─── /wave-config ─────────────────────────────────────────────────────────────
+@bot.tree.command(
+    name="wave-config",
+    description="View or set Wave's stream voice channel and watch party text channel",
+    default_member_permissions=discord.Permissions(administrator=True),
+)
+@app_commands.describe(
+    voice_channel="Voice channel users stream in (shown in watch party embeds)",
+    text_channel="Text channel where watch party links are automatically posted",
+)
+async def cmd_wave_config(
+    interaction: discord.Interaction,
+    voice_channel: Optional[discord.VoiceChannel] = None,
+    text_channel: Optional[discord.TextChannel]   = None,
+):
+    if not interaction.user.guild_permissions.manage_guild:
+        return await interaction.response.send_message(
+            "❌ You need Manage Server permission.", ephemeral=True
+        )
+    gid = str(interaction.guild_id)
+    changed = []
+    if voice_channel is not None:
+        _set_wcfg(gid, "voice_channel_id", str(voice_channel.id))
+        changed.append(f"🔊 Stream voice channel → **{voice_channel.name}**")
+    if text_channel is not None:
+        _set_wcfg(gid, "text_channel_id", str(text_channel.id))
+        changed.append(f"💬 Watch party channel → {text_channel.mention}")
+    if changed:
+        e = discord.Embed(title="✅ Wave Config Updated", color=ROSE, description="\n".join(changed))
+        return await interaction.response.send_message(embed=e, ephemeral=True)
+    # No args — show current config
+    cfg   = _wcfg(gid)
+    vc_id = cfg.get("voice_channel_id")
+    tc_id = cfg.get("text_channel_id")
+    vc_ch = interaction.guild.get_channel(int(vc_id)) if vc_id else None
+    tc_ch = interaction.guild.get_channel(int(tc_id)) if tc_id else None
+    e = discord.Embed(title="⚙️ Wave Config", color=ROSE)
+    e.add_field(name="🔊 Stream Voice Channel", value=vc_ch.name if vc_ch else "Not set", inline=False)
+    e.add_field(name="💬 Watch Party Channel",  value=tc_ch.mention if tc_ch else "Not set", inline=False)
+    e.set_footer(text="Use /wave-config voice_channel: #vc text_channel: #tc to set channels")
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 

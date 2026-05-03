@@ -288,12 +288,21 @@ async def _require_dj(interaction: discord.Interaction) -> bool:
     return True
 
 async def _require_vc(interaction: discord.Interaction) -> Optional[discord.VoiceChannel]:
-    if interaction.user.voice is None or interaction.user.voice.channel is None:
-        await interaction.response.send_message(
-            "❌ Join a voice channel first!", ephemeral=True
-        )
-        return None
-    return interaction.user.voice.channel
+    # 1. User is already in a voice channel — use it
+    if interaction.user.voice and interaction.user.voice.channel:
+        return interaction.user.voice.channel
+    # 2. Fall back to the server's configured default voice channel
+    gid = str(interaction.guild_id)
+    vc_id = _guild_cfg(gid).get("voice_channel_id")
+    if vc_id:
+        ch = interaction.guild.get_channel(int(vc_id))
+        if isinstance(ch, discord.VoiceChannel):
+            return ch
+    await interaction.response.send_message(
+        "❌ You're not in a voice channel — join one, or set a default with `/tempo-config`.",
+        ephemeral=True,
+    )
+    return None
 
 # ── Colour ──────────────────────────────────────────────────────────────────
 PURPLE = 0x8b5cf6
@@ -355,6 +364,35 @@ async def _play_next(guild: discord.Guild, player: GuildPlayer):
         player.vc.stop()
 
     player.vc.play(source, after=after_play)
+
+    # Post "Now Playing" card to the configured text channel (if set)
+    gid = str(guild.id)
+    tc_id = _guild_cfg(gid).get("text_channel_id")
+    if tc_id:
+        tc = guild.get_channel(int(tc_id))
+        if tc:
+            try:
+                thumb = track.get("thumbnail")
+                dur   = track.get("duration", 0)
+                m, s  = divmod(int(dur), 60) if dur else (0, 0)
+                e = discord.Embed(
+                    title="🎵 Now Playing",
+                    description=f"**{track.get('title', 'Unknown')}**",
+                    color=PURPLE,
+                )
+                if thumb:
+                    e.set_thumbnail(url=thumb)
+                if dur:
+                    e.add_field(name="Duration", value=f"{m}:{s:02d}", inline=True)
+                e.add_field(name="Volume",    value=f"{int(player.volume*100)}%", inline=True)
+                e.add_field(name="Loop",      value=player.loop_mode or "none",   inline=True)
+                if player.queue:
+                    next_track = player.queue[0]
+                    e.add_field(name="Up Next", value=next_track.get("title", "?"), inline=False)
+                e.set_footer(text=f"Tempo · {len(player.queue)} track(s) in queue")
+                await tc.send(embed=e)
+            except Exception as _np_err:
+                logger.warning(f"[Tempo] NP card post failed: {_np_err}")
 
     # Tick listener XP for all members in VC
     if player.vc.channel:
@@ -675,6 +713,50 @@ async def cmd_djrole(interaction: discord.Interaction, role: Optional[discord.Ro
     else:
         _set_guild_cfg(gid, "dj_role", str(role.id))
         await interaction.response.send_message(f"🎧 DJ role set to **{role.name}**.")
+
+
+# ─── /tempo-config ────────────────────────────────────────────────────────────
+@bot.tree.command(
+    name="tempo-config",
+    description="View or set Tempo's default voice & Now Playing text channel for this server",
+    default_member_permissions=discord.Permissions(administrator=True),
+)
+@app_commands.describe(
+    voice_channel="Default voice channel Tempo joins when you're not already in one",
+    text_channel="Text channel where Tempo posts Now Playing cards automatically",
+)
+async def cmd_tempo_config(
+    interaction: discord.Interaction,
+    voice_channel: Optional[discord.VoiceChannel] = None,
+    text_channel: Optional[discord.TextChannel]   = None,
+):
+    if not interaction.user.guild_permissions.manage_guild:
+        return await interaction.response.send_message(
+            "❌ You need Manage Server permission.", ephemeral=True
+        )
+    gid = str(interaction.guild_id)
+    changed = []
+    if voice_channel is not None:
+        _set_guild_cfg(gid, "voice_channel_id", str(voice_channel.id))
+        changed.append(f"🔊 Default voice channel → **{voice_channel.name}**")
+    if text_channel is not None:
+        _set_guild_cfg(gid, "text_channel_id", str(text_channel.id))
+        changed.append(f"💬 Now Playing channel → {text_channel.mention}")
+    if changed:
+        e = discord.Embed(title="✅ Tempo Config Updated", color=PURPLE, description="\n".join(changed))
+        return await interaction.response.send_message(embed=e, ephemeral=True)
+    # No args — show current config
+    cfg  = _guild_cfg(gid)
+    vc_id = cfg.get("voice_channel_id")
+    tc_id = cfg.get("text_channel_id")
+    vc_ch = interaction.guild.get_channel(int(vc_id)) if vc_id else None
+    tc_ch = interaction.guild.get_channel(int(tc_id)) if tc_id else None
+    e = discord.Embed(title="⚙️ Tempo Config", color=PURPLE)
+    e.add_field(name="🔊 Default Voice Channel", value=vc_ch.name if vc_ch else "Not set", inline=False)
+    e.add_field(name="💬 Now Playing Channel",   value=tc_ch.mention if tc_ch else "Not set", inline=False)
+    e.add_field(name="🎧 DJ Role",  value=f"<@&{cfg['dj_role']}>" if cfg.get("dj_role") else "Not set", inline=True)
+    e.add_field(name="🕐 24/7 Mode", value="Enabled ✅" if cfg.get("mode_247") else "Disabled ⛔", inline=True)
+    await interaction.response.send_message(embed=e, ephemeral=True)
 
 
 # ─── /music-top ───────────────────────────────────────────────────────────────
