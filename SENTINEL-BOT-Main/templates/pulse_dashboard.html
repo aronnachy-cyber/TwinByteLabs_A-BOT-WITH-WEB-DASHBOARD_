@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Pulse Dashboard · Byte Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#020c14;--surface:#041624;--surface2:#061e30;--surface3:#08263c;
+  --accent:#06b6d4;--accent2:#22d3ee;--accent3:#67e8f9;
+  --text:#e8f8ff;--muted:#6ba4c0;--border:rgba(6,182,212,.18);--border2:rgba(255,255,255,.07);
+  --grad:linear-gradient(135deg,#0891b2,#06b6d4,#22d3ee);
+  --green:#10b981;--yellow:#fbbf24;--red:#f87171;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(6,182,212,.3);border-radius:99px;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.shell{display:grid;grid-template-columns:230px 1fr 290px;grid-template-rows:52px 1fr;height:100vh;overflow:hidden;}
+
+/* TOP BAR */
+.topbar{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:0 20px;background:rgba(4,22,36,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);z-index:100;}
+.tb-logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0;}
+.tb-mark{width:32px;height:32px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.95rem;color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.45);}
+.tb-name{font-weight:800;font-size:1rem;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.tb-badge{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.35);color:var(--accent2);}
+.tb-right{margin-left:auto;display:flex;gap:10px;align-items:center;}
+.btn-sm{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:.8rem;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s;}
+.btn-sm.ghost{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--border2);}
+.btn-sm.ghost:hover{background:rgba(255,255,255,.09);}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 1.4s ease-in-out infinite;}
+.off-dot{width:7px;height:7px;border-radius:50%;background:#6b7280;}
+
+/* GUILD SELECTOR */
+.guild-select{background:rgba(255,255,255,.05);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-size:.82rem;font-family:inherit;outline:none;cursor:pointer;}
+.guild-select option{background:#041624;}
+
+/* SIDEBAR */
+.sidebar{grid-row:2;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.sidebar-section{padding:12px 14px 6px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:all .15s;color:var(--muted);font-size:.88rem;font-weight:500;border:none;background:none;width:100%;text-align:left;font-family:inherit;}
+.nav-item:hover{background:rgba(255,255,255,.04);color:var(--text);}
+.nav-item.active{background:rgba(6,182,212,.1);color:var(--accent2);border-right:2px solid var(--accent);}
+.nav-item .ni-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;}
+.nav-item.active .ni-icon{background:rgba(6,182,212,.15);}
+.sb-divider{height:1px;background:var(--border2);margin:8px 14px;}
+.sb-stat{margin:8px 14px;padding:10px 12px;border-radius:10px;background:linear-gradient(135deg,rgba(6,182,212,.08),rgba(8,145,178,.04));border:1px solid rgba(6,182,212,.2);}
+.sb-stat-label{font-size:.68rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;}
+.sb-stat-val{font-size:1.4rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+
+/* MAIN */
+.main{grid-row:2;overflow-y:auto;display:flex;flex-direction:column;}
+.page{display:none;flex-direction:column;height:100%;}
+.page.active{display:flex;}
+.page-head{padding:20px 24px 14px;border-bottom:1px solid var(--border2);flex-shrink:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.page-head h1{font-size:1.2rem;font-weight:800;}
+.page-head p{color:var(--muted);font-size:.85rem;margin-top:2px;}
+.ph-info{flex:1;}
+.tab-content{flex:1;overflow-y:auto;padding:18px 24px;}
+
+/* STAT CARDS */
+.stat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px;}
+.stat-card{background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .15s;}
+.stat-card:hover{border-color:rgba(6,182,212,.3);}
+.stat-card::before{content:"";position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;opacity:.06;}
+.stat-card.cyan::before{background:var(--accent);}
+.stat-card.green::before{background:var(--green);}
+.stat-card.yellow::before{background:var(--yellow);}
+.stat-card.red::before{background:var(--red);}
+.sc-icon{font-size:1.1rem;margin-bottom:8px;}
+.sc-icon.cyan{color:var(--accent2);}
+.sc-icon.green{color:var(--green);}
+.sc-icon.yellow{color:var(--yellow);}
+.sc-icon.red{color:var(--red);}
+.sc-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px;}
+.sc-val{font-size:1.6rem;font-weight:800;color:var(--text);line-height:1;}
+.sc-sub{font-size:.72rem;color:var(--muted);margin-top:4px;}
+
+/* CHART WRAP */
+.chart-wrap{background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:16px 18px;margin-bottom:16px;}
+.chart-title{font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.chart-canvas-wrap{position:relative;height:200px;}
+
+/* HEATMAP */
+.heatmap-grid{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:8px;}
+.heat-cell{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.55rem;font-weight:700;color:rgba(255,255,255,.6);cursor:default;transition:transform .1s;}
+.heat-cell:hover{transform:scale(1.3);}
+.heat-hours{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:3px;}
+.heat-hour-label{font-size:.55rem;color:var(--muted);text-align:center;}
+
+/* LEADERBOARD TABLE */
+.lb-table{width:100%;border-collapse:collapse;}
+.lb-table th{padding:8px 12px;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border2);}
+.lb-table td{padding:10px 12px;font-size:.88rem;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;}
+.lb-table tr:hover td{background:rgba(255,255,255,.02);}
+.lb-medal{width:36px;font-size:1rem;}
+.lb-bar-wrap{height:4px;background:rgba(255,255,255,.06);border-radius:99px;margin-top:4px;overflow:hidden;min-width:80px;}
+.lb-bar{height:100%;border-radius:99px;}
+.lb-bar.cyan{background:var(--grad);}
+.lb-bar.green{background:linear-gradient(90deg,#059669,#10b981);}
+.lb-bar.yellow{background:linear-gradient(90deg,#d97706,#fbbf24);}
+
+/* GROWTH ROW */
+.growth-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.growth-card{background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:14px 16px;text-align:center;}
+.growth-num{font-size:2rem;font-weight:800;}
+.growth-num.positive{color:var(--green);}
+.growth-num.negative{color:var(--red);}
+.growth-label{font-size:.75rem;color:var(--muted);margin-top:4px;}
+
+/* CHANNEL BAR ITEMS */
+.chan-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.chan-item:last-child{border-bottom:none;}
+.chan-rank{font-size:.7rem;color:var(--muted);width:20px;text-align:center;flex-shrink:0;}
+.chan-name{font-size:.85rem;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.chan-bar-wrap{width:100px;height:5px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;flex-shrink:0;}
+.chan-bar{height:100%;background:var(--grad);border-radius:99px;}
+.chan-count{font-size:.75rem;color:var(--muted);flex-shrink:0;width:52px;text-align:right;}
+
+/* RIGHT PANEL */
+.right-panel{grid-row:2;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.rp-section{padding:16px;}
+.rp-section+.rp-section{border-top:1px solid var(--border2);}
+.rp-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;}
+
+/* MINI HEATMAP IN RIGHT PANEL */
+.mini-heat{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;}
+.mh-cell{aspect-ratio:1;border-radius:3px;}
+
+/* RECENT EVENTS */
+.event-list{display:flex;flex-direction:column;gap:6px;}
+.event-item{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.02);}
+.event-icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;}
+.event-icon.join{background:rgba(16,185,129,.15);color:var(--green);}
+.event-icon.leave{background:rgba(248,113,113,.12);color:var(--red);}
+.event-icon.msg{background:rgba(6,182,212,.12);color:var(--accent2);}
+.event-body{flex:1;min-width:0;}
+.event-label{font-size:.78rem;font-weight:600;}
+.event-time{font-size:.68rem;color:var(--muted);margin-top:1px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;padding:12px 18px;border-radius:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.88rem;font-weight:600;box-shadow:0 8px 28px rgba(0,0,0,.5);z-index:999;transform:translateY(60px);opacity:0;transition:all .25s;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-color:rgba(16,185,129,.4);color:#34d399;}
+.toast.error{border-color:rgba(239,68,68,.4);color:#fca5a5;}
+.empty-state{text-align:center;padding:48px 24px;color:var(--muted);}
+.empty-state i{font-size:2.2rem;color:rgba(6,182,212,.18);display:block;margin-bottom:12px;}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <a class="tb-logo" href="{{ url_for('pulse_landing') }}">
+    <div class="tb-mark"><i class="fas fa-chart-line"></i></div>
+    <span class="tb-name">Pulse</span>
+  </a>
+  <span class="tb-badge">Dashboard</span>
+  <div style="display:flex;align-items:center;gap:7px;margin-left:8px;">
+    <span class="off-dot" id="botDot"></span>
+    <span id="botStatus" style="font-size:.78rem;color:var(--muted);">Loading…</span>
+  </div>
+  <select class="guild-select" id="guildSelect" onchange="switchGuild(this.value)">
+    <option value="">All Servers</option>
+  </select>
+  <div class="tb-right">
+    <button class="btn-sm ghost" onclick="refresh()"><i class="fas fa-rotate-right"></i> Refresh</button>
+    <a class="btn-sm ghost" href="{{ url_for('bots_showcase') }}"><i class="fas fa-arrow-left"></i> All Bots</a>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-section">Analytics</div>
+  <button class="nav-item active" onclick="showPage('overview',this)"><div class="ni-icon"><i class="fas fa-gauge-high"></i></div>Overview</button>
+  <button class="nav-item" onclick="showPage('activity',this)"><div class="ni-icon"><i class="fas fa-comments"></i></div>Activity</button>
+  <button class="nav-item" onclick="showPage('growth',this)"><div class="ni-icon"><i class="fas fa-chart-line"></i></div>Growth</button>
+  <button class="nav-item" onclick="showPage('leaderboard',this)"><div class="ni-icon"><i class="fas fa-trophy"></i></div>Leaderboard</button>
+  <div class="sb-divider"></div>
+  <div class="sidebar-section">Live Totals</div>
+  <div class="sb-stat"><div class="sb-stat-label">Messages</div><div class="sb-stat-val" id="sbMsgs">—</div></div>
+  <div class="sb-stat"><div class="sb-stat-label">Members</div><div class="sb-stat-val" id="sbMembers">—</div></div>
+  <div class="sb-stat"><div class="sb-stat-label">Voice Hours</div><div class="sb-stat-val" id="sbVoice">—</div></div>
+  <div class="sb-divider"></div>
+  <a href="{{ url_for('pulse_landing') }}" class="nav-item" style="margin-top:auto;"><div class="ni-icon"><i class="fas fa-arrow-left"></i></div>Back to Site</a>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- OVERVIEW -->
+  <div class="page active" id="page-overview">
+    <div class="page-head">
+      <div class="ph-info">
+        <h1><i class="fas fa-gauge-high" style="color:var(--accent2)"></i> Overview</h1>
+        <p>High-level server health at a glance.</p>
+      </div>
+    </div>
+    <div class="tab-content">
+      <div class="stat-cards" id="statCards"></div>
+      <div class="chart-wrap">
+        <div class="chart-title"><i class="fas fa-comments"></i> Message Activity by Channel (Top 10)</div>
+        <div class="chart-canvas-wrap"><canvas id="channelChart"></canvas></div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title"><i class="fas fa-clock"></i> Hourly Activity Heatmap (UTC)</div>
+        <div class="heatmap-grid" id="heatmapGrid"></div>
+        <div class="heat-hours" id="heatmapLabels"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY -->
+  <div class="page" id="page-activity">
+    <div class="page-head">
+      <div class="ph-info">
+        <h1><i class="fas fa-comments" style="color:var(--accent2)"></i> Activity</h1>
+        <p>Channel-by-channel message breakdown.</p>
+      </div>
+    </div>
+    <div class="tab-content">
+      <div class="chart-wrap" style="margin-bottom:20px;">
+        <div class="chart-title"><i class="fas fa-bar-chart"></i> Messages Per Channel</div>
+        <div class="chart-canvas-wrap" style="height:280px;"><canvas id="chanBarChart"></canvas></div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title"><i class="fas fa-list"></i> Full Channel Rankings</div>
+        <div id="channelList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GROWTH -->
+  <div class="page" id="page-growth">
+    <div class="page-head">
+      <div class="ph-info">
+        <h1><i class="fas fa-chart-line" style="color:var(--accent2)"></i> Member Growth</h1>
+        <p>Join and leave trends over time.</p>
+      </div>
+    </div>
+    <div class="tab-content">
+      <div class="growth-row" id="growthCards"></div>
+      <div class="chart-wrap">
+        <div class="chart-title"><i class="fas fa-users"></i> Joins vs Leaves (Last 30 Days)</div>
+        <div class="chart-canvas-wrap" style="height:220px;"><canvas id="growthChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div class="page" id="page-leaderboard">
+    <div class="page-head">
+      <div class="ph-info">
+        <h1><i class="fas fa-trophy" style="color:var(--accent2)"></i> Leaderboard</h1>
+        <p>Top members by messages, voice time, and reactions.</p>
+      </div>
+    </div>
+    <div class="tab-content">
+      <div style="display:flex;gap:8px;margin-bottom:16px;" id="lbTabs">
+        <button class="btn-sm ghost active-lb" id="lbt-msg" onclick="showLb('messages',this)"><i class="fas fa-message"></i> Messages</button>
+        <button class="btn-sm ghost" id="lbt-voice" onclick="showLb('voice',this)"><i class="fas fa-microphone"></i> Voice</button>
+        <button class="btn-sm ghost" id="lbt-rxn" onclick="showLb('reactions',this)"><i class="fas fa-star"></i> Reactions</button>
+      </div>
+      <table class="lb-table">
+        <thead><tr><th></th><th>Member</th><th id="lbMetaHead">Messages</th><th>Activity</th></tr></thead>
+        <tbody id="lbBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /.main -->
+
+<!-- RIGHT PANEL -->
+<div class="right-panel">
+  <div class="rp-section">
+    <div class="rp-title"><i class="fas fa-clock"></i> Hour Heatmap</div>
+    <div class="mini-heat" id="miniHeat"></div>
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted);margin-top:6px;"><span>12am</span><span>12pm</span><span>11pm</span></div>
+    <div style="font-size:.7rem;color:var(--muted);margin-top:8px;">Peak hour: <span id="peakHour" style="color:var(--accent2);font-weight:700;">—</span></div>
+  </div>
+
+  <div class="rp-section">
+    <div class="rp-title"><i class="fas fa-bell"></i> Recent Events</div>
+    <div class="event-list" id="recentEvents">
+      <div style="font-size:.78rem;color:var(--muted);text-align:center;padding:16px;">Loading…</div>
+    </div>
+  </div>
+
+  <div class="rp-section">
+    <div class="rp-title"><i class="fas fa-circle-info"></i> Commands</div>
+    <div style="font-size:.78rem;color:var(--muted);line-height:1.65;">
+      <code style="color:var(--accent2)">/stats</code> — full server overview<br>
+      <code style="color:var(--accent2)">/top [messages|voice|reactions]</code><br>
+      <code style="color:var(--accent2)">/growth [7|30|90]</code> — trends<br>
+      <code style="color:var(--accent2)">/activity</code> — channel breakdown<br>
+      <code style="color:var(--accent2)">/heatmap</code> — hourly heatmap<br>
+      <code style="color:var(--accent2)">/memberstats [@user]</code><br>
+      <code style="color:var(--accent2)">/report</code> — weekly summary
+    </div>
+  </div>
+</div>
+
+</div><!-- /.shell -->
+<div class="toast" id="toast"></div>
+
+<script>
+let _rawData = {};   // all guilds
+let _gData   = {};   // current guild data
+let _gid     = '';   // selected guild id ('' = aggregate)
+let _lbMode  = 'messages';
+let _charts  = {};
+
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id)?.classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+function fmtNum(n){ return n>=1000000?(n/1000000).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'k':String(n); }
+function fmtTime(s){ const h=Math.floor(s/3600),m=Math.floor((s%3600)/60); return h?`${h}h ${m}m`:`${m}m`; }
+function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString([],{month:'short',day:'numeric'}); }catch{return iso;} }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function refresh() {
+  try {
+    const r = await fetch('/api/pulse/data');
+    const d = await r.json();
+    if(!d.ok){ toast('No data yet','error'); return; }
+    _rawData = d.data || {};
+    populateGuildSelect();
+    switchGuild(_gid);
+    updateBotStatus();
+  } catch(e){ toast('Failed to load analytics','error'); }
+}
+
+function populateGuildSelect() {
+  const sel = document.getElementById('guildSelect');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All Servers</option>';
+  for(const gid of Object.keys(_rawData)) {
+    const opt = document.createElement('option');
+    opt.value = gid; opt.textContent = 'Guild ' + gid.slice(-6);
+    if(gid === current) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+function switchGuild(gid) {
+  _gid = gid;
+  if(gid && _rawData[gid]) {
+    _gData = _rawData[gid];
+  } else {
+    // Aggregate all guilds
+    _gData = aggregateAll(_rawData);
+  }
+  renderAll();
+}
+
+function aggregateAll(raw) {
+  const agg = { messages:{}, chan_msgs:{}, joins:[], leaves:[], voice:{}, hourly:new Array(24).fill(0), reactions:{} };
+  for(const g of Object.values(raw)) {
+    for(const [k,v] of Object.entries(g.messages||{})) agg.messages[k]=(agg.messages[k]||0)+v;
+    for(const [k,v] of Object.entries(g.chan_msgs||{})) agg.chan_msgs[k]=(agg.chan_msgs[k]||0)+v;
+    for(const [k,v] of Object.entries(g.voice||{})) agg.voice[k]=(agg.voice[k]||0)+v;
+    for(const [k,v] of Object.entries(g.reactions||{})) agg.reactions[k]=(agg.reactions[k]||0)+v;
+    agg.joins.push(...(g.joins||[]));
+    agg.leaves.push(...(g.leaves||[]));
+    (g.hourly||[]).forEach((v,i)=>{ agg.hourly[i]+=v; });
+  }
+  return agg;
+}
+
+function renderAll() {
+  renderOverview();
+  renderActivity();
+  renderGrowth();
+  renderLeaderboard(_lbMode);
+  renderRightPanel();
+}
+
+function updateBotStatus() {
+  const guilds = Object.keys(_rawData).length;
+  const dot = document.getElementById('botDot');
+  const st  = document.getElementById('botStatus');
+  if(guilds > 0) {
+    dot.className='live-dot'; st.textContent=`Tracking ${guilds} server${guilds!==1?'s':''}`;
+  } else {
+    dot.className='off-dot'; st.textContent='No data yet';
+  }
+}
+
+function renderOverview() {
+  const msgs   = Object.values(_gData.messages||{}).reduce((a,b)=>a+b,0);
+  const voice  = Object.values(_gData.voice||{}).reduce((a,b)=>a+b,0);
+  const joins  = (_gData.joins||[]).length;
+  const leaves = (_gData.leaves||[]).length;
+  const net    = joins - leaves;
+  const chans  = Object.keys(_gData.chan_msgs||{}).length;
+
+  // Sidebar
+  document.getElementById('sbMsgs').textContent    = fmtNum(msgs);
+  document.getElementById('sbMembers').textContent = fmtNum(joins);
+  document.getElementById('sbVoice').textContent   = Math.round(voice/3600)+'h';
+
+  document.getElementById('statCards').innerHTML = `
+    <div class="stat-card cyan"><div class="sc-icon cyan"><i class="fas fa-comment"></i></div><div class="sc-label">Total Messages</div><div class="sc-val">${fmtNum(msgs)}</div><div class="sc-sub">All time tracked</div></div>
+    <div class="stat-card green"><div class="sc-icon green"><i class="fas fa-users"></i></div><div class="sc-label">Total Joins</div><div class="sc-val">${fmtNum(joins)}</div><div class="sc-sub">Net: ${net>=0?'+':''}${net}</div></div>
+    <div class="stat-card yellow"><div class="sc-icon yellow"><i class="fas fa-microphone"></i></div><div class="sc-label">Voice Hours</div><div class="sc-val">${Math.round(voice/3600)}</div><div class="sc-sub">${fmtTime(voice)} total</div></div>
+    <div class="stat-card cyan"><div class="sc-icon cyan"><i class="fas fa-hashtag"></i></div><div class="sc-label">Active Channels</div><div class="sc-val">${chans}</div><div class="sc-sub">With messages</div></div>
+  `;
+
+  // Channel mini chart in overview
+  const chanData = Object.entries(_gData.chan_msgs||{}).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  renderChart('channelChart', 'bar',
+    chanData.map(([id])=>'#'+id.slice(-5)),
+    chanData.map(([,v])=>v),
+    'Messages', 'rgba(6,182,212,.7)', 'rgba(6,182,212,1)');
+
+  // Heatmap
+  renderHeatmap('heatmapGrid', 'heatmapLabels', _gData.hourly||new Array(24).fill(0));
+}
+
+function renderActivity() {
+  const chanData = Object.entries(_gData.chan_msgs||{}).sort((a,b)=>b[1]-a[1]);
+  const top10 = chanData.slice(0,10);
+
+  // Bar chart
+  renderChart('chanBarChart', 'bar',
+    top10.map(([id])=>'#'+id.slice(-5)),
+    top10.map(([,v])=>v),
+    'Messages', 'rgba(6,182,212,.6)', 'rgba(6,182,212,1)');
+
+  // Full list
+  const total = chanData.reduce((s,[,v])=>s+v,0)||1;
+  const maxV  = chanData[0]?.[1]||1;
+  document.getElementById('channelList').innerHTML = chanData.slice(0,25).map(([id,cnt],i)=>`
+    <div class="chan-item">
+      <span class="chan-rank">${i+1}</span>
+      <span class="chan-name">#${id.slice(-8)}</span>
+      <div class="chan-bar-wrap"><div class="chan-bar" style="width:${Math.round(cnt/maxV*100)}%"></div></div>
+      <span class="chan-count">${fmtNum(cnt)}</span>
+    </div>`).join('') || '<div class="empty-state"><i class="fas fa-comments"></i><p>No channel data yet.</p></div>';
+}
+
+function renderGrowth() {
+  const joins  = _gData.joins  || [];
+  const leaves = _gData.leaves || [];
+  const net    = joins.length - leaves.length;
+  const now    = new Date();
+  const j7  = joins.filter(d=> (now-new Date(d))<7*864e5).length;
+  const l7  = leaves.filter(d=>(now-new Date(d))<7*864e5).length;
+
+  document.getElementById('growthCards').innerHTML = `
+    <div class="growth-card"><div class="growth-num positive">+${joins.length}</div><div class="growth-label">Total Joins tracked</div></div>
+    <div class="growth-card"><div class="growth-num ${net>=0?'positive':'negative'}">${net>=0?'+':''}${net}</div><div class="growth-label">Net growth (all time)</div></div>
+    <div class="growth-card"><div class="growth-num positive">+${j7}</div><div class="growth-label">Joins last 7 days</div></div>
+    <div class="growth-card"><div class="growth-num negative">-${l7}</div><div class="growth-label">Leaves last 7 days</div></div>
+  `;
+
+  // Build 30-day chart
+  const days = 30;
+  const labels = [], joinCounts = [], leaveCounts = [];
+  for(let i=days-1;i>=0;i--) {
+    const d = new Date(now); d.setDate(d.getDate()-i);
+    const label = d.toLocaleDateString([],{month:'short',day:'numeric'});
+    const dayStr = d.toISOString().slice(0,10);
+    labels.push(i%5===0?label:'');
+    joinCounts.push( joins.filter(s=>s.startsWith(dayStr)).length);
+    leaveCounts.push(leaves.filter(s=>s.startsWith(dayStr)).length);
+  }
+
+  destroyChart('growthChart');
+  const ctx = document.getElementById('growthChart').getContext('2d');
+  _charts['growthChart'] = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Joins', data:joinCounts, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.1)', tension:.4, fill:true, pointRadius:0},
+        {label:'Leaves',data:leaveCounts,borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.1)', tension:.4, fill:true, pointRadius:0},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#6ba4c0',font:{size:11}}}},scales:{x:{ticks:{color:'#6ba4c0',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},y:{ticks:{color:'#6ba4c0',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}}}}
+  });
+}
+
+function showLb(mode, btn) {
+  _lbMode = mode;
+  document.querySelectorAll('#lbTabs button').forEach(b=>{b.classList.remove('active-lb');b.style.borderColor='';b.style.color='';});
+  btn.classList.add('active-lb');
+  btn.style.borderColor='rgba(6,182,212,.5)';
+  btn.style.color='var(--accent2)';
+  const heads = {messages:'Messages',voice:'Voice Time',reactions:'Reactions'};
+  document.getElementById('lbMetaHead').textContent = heads[mode];
+  renderLeaderboard(mode);
+}
+
+function renderLeaderboard(mode) {
+  const raw = Object.entries(_gData[mode]||{}).sort((a,b)=>b[1]-a[1]);
+  const medals=['🥇','🥈','🥉'];
+  const maxV = raw[0]?.[1]||1;
+  const barClass = {messages:'cyan',voice:'green',reactions:'yellow'}[mode];
+  if(!raw.length) {
+    document.getElementById('lbBody').innerHTML=`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px;">No ${mode} data yet.</td></tr>`;
+    return;
+  }
+  document.getElementById('lbBody').innerHTML = raw.slice(0,20).map(([uid,val],i)=>{
+    const display = mode==='voice'?fmtTime(val):fmtNum(val);
+    return `<tr>
+      <td class="lb-medal">${medals[i]||`<span style="color:var(--muted);font-size:.8rem">${i+1}</span>`}</td>
+      <td style="font-weight:600;">User …${uid.slice(-6)}</td>
+      <td style="font-weight:700;color:var(--text)">${display}</td>
+      <td><div class="lb-bar-wrap"><div class="lb-bar ${barClass}" style="width:${Math.round(val/maxV*100)}%"></div></div></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRightPanel() {
+  const hourly = _gData.hourly || new Array(24).fill(0);
+  const maxH = Math.max(...hourly)||1;
+  const peakH = hourly.indexOf(Math.max(...hourly));
+
+  // Mini heatmap (24 cells)
+  document.getElementById('miniHeat').innerHTML = hourly.map((v,h)=>{
+    const pct = v/maxH;
+    const bg = `rgba(6,182,212,${0.08+pct*0.7})`;
+    return `<div class="mh-cell" style="background:${bg}" title="${h}:00 — ${fmtNum(v)} msgs"></div>`;
+  }).join('');
+  document.getElementById('peakHour').textContent = `${peakH}:00 UTC (${fmtNum(hourly[peakH])} msgs)`;
+
+  // Recent events (joins + leaves, last 10 combined)
+  const joins  = (_gData.joins||[]).map(d=>({type:'join', date:d}));
+  const leaves = (_gData.leaves||[]).map(d=>({type:'leave',date:d}));
+  const recent = [...joins,...leaves].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,8);
+
+  if(!recent.length) {
+    document.getElementById('recentEvents').innerHTML='<div style="font-size:.78rem;color:var(--muted);text-align:center;padding:16px;">No events yet</div>';
+  } else {
+    document.getElementById('recentEvents').innerHTML = recent.map(ev=>`
+      <div class="event-item">
+        <div class="event-icon ${ev.type}"><i class="fas fa-${ev.type==='join'?'user-plus':'user-minus'}"></i></div>
+        <div class="event-body">
+          <div class="event-label">Member ${ev.type==='join'?'joined':'left'}</div>
+          <div class="event-time">${fmtDate(ev.date)}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+
+function renderHeatmap(gridId, labelsId, hourly) {
+  const max = Math.max(...hourly)||1;
+  document.getElementById(gridId).innerHTML = hourly.map((v,h)=>{
+    const pct=v/max;
+    const bg=`rgba(6,182,212,${0.06+pct*0.75})`;
+    const txt=pct>.5?Math.round(pct*100)+'%':'';
+    return `<div class="heat-cell" style="background:${bg}" title="${h}:00 UTC — ${v} msgs">${txt}</div>`;
+  }).join('');
+  if(labelsId) document.getElementById(labelsId).innerHTML=[0,4,8,12,16,20].map(h=>`<div class="heat-hour-label" style="grid-column:${h+1}">${h}h</div>`).join('');
+}
+
+function renderChart(id, type, labels, data, label, bgColor, borderColor) {
+  destroyChart(id);
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if(!ctx) return;
+  _charts[id] = new Chart(ctx, {
+    type,
+    data:{ labels, datasets:[{label, data, backgroundColor:bgColor, borderColor, borderWidth:1, borderRadius:4}] },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#6ba4c0',font:{size:10},maxRotation:45},grid:{color:'rgba(255,255,255,.04)'}},
+              y:{ticks:{color:'#6ba4c0',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}}}}
+  });
+}
+
+function destroyChart(id) {
+  if(_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+}
+
+let _toastTimer;
+function toast(msg,type='info'){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show '+(type==='success'?'success':type==='error'?'error':'');clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>el.classList.remove('show'),3200);}
+
+window.addEventListener('load',()=>{
+  refresh();
+  setInterval(refresh,20000);
+});
+</script>
+</body>
+</html>

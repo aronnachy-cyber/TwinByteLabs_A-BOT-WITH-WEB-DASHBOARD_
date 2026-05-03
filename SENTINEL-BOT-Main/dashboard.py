@@ -1841,12 +1841,79 @@ def pulse_landing():
         return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
     return render_template('pulse_landing.html')
 
+@app.route('/pulse/dashboard')
+def pulse_dashboard():
+    """Pulse analytics bot web dashboard."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
+    return render_template('pulse_dashboard.html')
+
+@app.route('/api/pulse/data')
+def pulse_api_data():
+    """Return all Pulse analytics data from pulse_data.json."""
+    try:
+        import json as _json
+        from pathlib import Path
+        data_file = Path(__file__).parent / 'pulse_data.json'
+        data = {}
+        if data_file.exists():
+            data = _json.loads(data_file.read_text(encoding='utf-8'))
+        return jsonify({'ok': True, 'data': data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e), 'data': {}})
+
 @app.route('/tempo')
 def tempo_landing():
     """Tempo music bot landing page."""
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
     return render_template('tempo_landing.html')
+
+@app.route('/tempo/dashboard')
+def tempo_dashboard():
+    """Tempo music bot web dashboard."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
+    return render_template('tempo_dashboard.html')
+
+@app.route('/api/tempo/status')
+def tempo_api_status():
+    """Return live Tempo player state + playlists + listener leaderboard."""
+    try:
+        import tempo as _tempo
+        snapshot = {}
+        for gid, player in list(getattr(_tempo, '_players', {}).items()):
+            track = getattr(player, 'current', None)
+            snapshot[str(gid)] = {
+                'current': {
+                    'title':     getattr(track, 'title', None) if track else None,
+                    'thumbnail': getattr(track, 'thumbnail', None) if track else None,
+                    'duration':  getattr(track, 'duration', 0) if track else 0,
+                    'elapsed':   0,
+                } if track else None,
+                'playing':    getattr(player, '_playing', False),
+                'queue_count': len(getattr(player, 'queue', [])),
+                'queue': [
+                    {'title': getattr(t, 'title', str(t)), 'duration': getattr(t, 'duration', 0)}
+                    for t in list(getattr(player, 'queue', []))[:8]
+                ],
+                'volume':    getattr(player, 'volume', 1.0),
+                'loop_mode': getattr(player, 'loop_mode', 'none'),
+                'filter_name': getattr(player, 'filter_name', 'none'),
+            }
+        playlists = {}
+        listeners = {}
+        try:
+            playlists = _tempo._read_json(_tempo._PLAYLISTS_FILE)
+        except Exception:
+            pass
+        try:
+            listeners = _tempo._read_json(_tempo._LISTENERS_FILE)
+        except Exception:
+            pass
+        return jsonify({'ok': True, 'players': snapshot, 'playlists': playlists, 'listeners': listeners})
+    except Exception as e:
+        return jsonify({'ok': True, 'players': {}, 'playlists': {}, 'listeners': {}, 'note': str(e)})
 
 @app.route('/sp4rk')
 def sp4rk_landing():

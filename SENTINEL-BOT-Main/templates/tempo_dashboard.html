@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Tempo Dashboard · Byte Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#06030f;--surface:#0d0820;--surface2:#140d2c;--surface3:#1a1038;
+  --accent:#8b5cf6;--accent2:#c084fc;--accent3:#e879f9;
+  --text:#f0ebff;--muted:#9d88c8;--border:rgba(139,92,246,.18);--border2:rgba(255,255,255,.07);
+  --grad:linear-gradient(135deg,#7c3aed,#8b5cf6,#c084fc);
+  --grad-h:linear-gradient(90deg,#7c3aed,#8b5cf6);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(139,92,246,.3);border-radius:99px;}
+
+.shell{display:grid;grid-template-columns:230px 1fr 300px;grid-template-rows:52px 1fr;height:100vh;overflow:hidden;}
+
+/* TOP BAR */
+.topbar{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:0 20px;background:rgba(13,8,32,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);z-index:100;}
+.tb-logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0;}
+.tb-mark{width:32px;height:32px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.95rem;color:#fff;box-shadow:0 4px 14px rgba(139,92,246,.45);}
+.tb-name{font-weight:800;font-size:1rem;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.tb-badge{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.35);color:var(--accent2);}
+.tb-right{margin-left:auto;display:flex;gap:10px;align-items:center;}
+.btn-sm{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:.8rem;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s;}
+.btn-sm.ghost{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--border2);}
+.btn-sm.ghost:hover{background:rgba(255,255,255,.09);}
+.btn-sm.primary{background:var(--grad);color:#fff;box-shadow:0 4px 14px rgba(139,92,246,.35);}
+.btn-sm.primary:hover{filter:brightness(1.1);}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;animation:blink 1.4s ease-in-out infinite;flex-shrink:0;}
+.off-dot{width:7px;height:7px;border-radius:50%;background:#6b7280;flex-shrink:0;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* SIDEBAR */
+.sidebar{grid-row:2;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.sidebar-section{padding:12px 14px 6px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:all .15s;color:var(--muted);font-size:.88rem;font-weight:500;border:none;background:none;width:100%;text-align:left;font-family:inherit;}
+.nav-item:hover{background:rgba(255,255,255,.04);color:var(--text);}
+.nav-item.active{background:rgba(139,92,246,.1);color:var(--accent2);border-right:2px solid var(--accent);}
+.nav-item .ni-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;}
+.nav-item.active .ni-icon{background:rgba(139,92,246,.15);}
+.sb-divider{height:1px;background:var(--border2);margin:8px 14px;}
+.sb-stat{margin:8px 14px;padding:10px 12px;border-radius:10px;background:linear-gradient(135deg,rgba(139,92,246,.08),rgba(124,58,237,.04));border:1px solid rgba(139,92,246,.2);}
+.sb-stat-label{font-size:.68rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;}
+.sb-stat-val{font-size:1.4rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+
+/* MAIN */
+.main{grid-row:2;overflow-y:auto;display:flex;flex-direction:column;}
+.page{display:none;flex-direction:column;height:100%;}
+.page.active{display:flex;}
+.page-head{padding:20px 24px 14px;border-bottom:1px solid var(--border2);flex-shrink:0;}
+.page-head h1{font-size:1.2rem;font-weight:800;}
+.page-head p{color:var(--muted);font-size:.85rem;margin-top:3px;}
+.tab-content{flex:1;overflow-y:auto;padding:18px 24px;}
+
+/* CARDS GRID */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:20px;}
+.card{background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:16px 18px;transition:border-color .15s;}
+.card:hover{border-color:rgba(139,92,246,.3);}
+.card-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;}
+.card-val{font-size:1.5rem;font-weight:800;color:var(--text);}
+.card-sub{font-size:.78rem;color:var(--muted);margin-top:3px;}
+
+/* NOW PLAYING CARDS */
+.now-playing-grid{display:grid;gap:12px;}
+.np-card{background:var(--surface2);border:1px solid var(--border2);border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px;transition:all .18s;}
+.np-card:hover{border-color:rgba(139,92,246,.35);}
+.np-thumb{width:52px;height:52px;border-radius:10px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;overflow:hidden;}
+.np-thumb img{width:100%;height:100%;object-fit:cover;border-radius:10px;}
+.np-info{flex:1;min-width:0;}
+.np-guild{font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;}
+.np-title{font-size:.95rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;}
+.np-meta{display:flex;gap:12px;font-size:.75rem;color:var(--muted);}
+.np-status{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;font-size:.72rem;font-weight:700;flex-shrink:0;}
+.np-status.playing{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.25);}
+.np-status.paused{background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2);}
+.np-status.idle{background:rgba(107,114,128,.1);color:#9ca3af;border:1px solid rgba(107,114,128,.2);}
+.progress-bar{height:3px;border-radius:99px;background:rgba(255,255,255,.08);margin-top:8px;overflow:hidden;}
+.progress-fill{height:100%;background:var(--grad);border-radius:99px;transition:width .5s;}
+.empty-state{text-align:center;padding:60px 24px;color:var(--muted);}
+.empty-state i{font-size:2.5rem;color:rgba(139,92,246,.2);display:block;margin-bottom:14px;}
+
+/* PLAYLIST GRID */
+.pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+.pl-card{background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:16px;cursor:pointer;transition:all .18s;}
+.pl-card:hover{transform:translateY(-2px);border-color:rgba(139,92,246,.4);}
+.pl-icon{width:44px;height:44px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:#fff;margin-bottom:10px;}
+.pl-name{font-size:.9rem;font-weight:700;margin-bottom:3px;}
+.pl-count{font-size:.75rem;color:var(--muted);}
+.pl-guild{font-size:.68rem;color:var(--muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border2);}
+
+/* LEADERBOARD */
+.lb-table{width:100%;border-collapse:collapse;}
+.lb-table th{padding:8px 12px;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border2);}
+.lb-table td{padding:10px 12px;font-size:.88rem;border-bottom:1px solid rgba(255,255,255,.04);}
+.lb-table tr:hover td{background:rgba(255,255,255,.02);}
+.lb-rank{font-weight:800;color:var(--accent2);width:40px;}
+.lb-medal{font-size:1rem;width:30px;}
+.lb-bar-wrap{height:4px;background:rgba(255,255,255,.06);border-radius:99px;margin-top:4px;overflow:hidden;}
+.lb-bar{height:100%;background:var(--grad);border-radius:99px;}
+
+/* SETTINGS */
+.settings-list{display:flex;flex-direction:column;gap:10px;}
+.setting-row{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;}
+.setting-info{flex:1;}
+.setting-title{font-size:.9rem;font-weight:700;margin-bottom:2px;}
+.setting-desc{font-size:.78rem;color:var(--muted);}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-track{position:absolute;inset:0;border-radius:99px;background:rgba(255,255,255,.1);cursor:pointer;transition:background .2s;}
+.toggle input:checked+.toggle-track{background:var(--accent);}
+.toggle-track::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;}
+.toggle input:checked+.toggle-track::after{transform:translateX(18px);}
+.filter-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.filter-chip{padding:5px 12px;border-radius:99px;font-size:.75rem;font-weight:700;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.25);color:var(--muted);cursor:pointer;transition:all .15s;}
+.filter-chip.active{background:rgba(139,92,246,.25);color:var(--accent2);border-color:rgba(139,92,246,.5);}
+
+/* RIGHT PANEL */
+.right-panel{grid-row:2;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.rp-section{padding:16px;}
+.rp-section+.rp-section{border-top:1px solid var(--border2);}
+.rp-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;}
+.now-playing-mini{background:linear-gradient(135deg,rgba(139,92,246,.08),rgba(192,132,252,.04));border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:14px;}
+.npm-thumb{width:100%;aspect-ratio:16/9;background:var(--surface2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;margin-bottom:10px;overflow:hidden;}
+.npm-thumb img{width:100%;height:100%;object-fit:cover;border-radius:8px;}
+.npm-title{font-size:.9rem;font-weight:700;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.npm-guild{font-size:.72rem;color:var(--muted);margin-bottom:8px;}
+.npm-controls{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.ctrl-btn{padding:8px;border-radius:8px;border:none;cursor:pointer;font-size:.85rem;font-family:inherit;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.ctrl-btn.primary{background:var(--grad);color:#fff;}
+.ctrl-btn.ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--border2);}
+.ctrl-btn:hover{filter:brightness(1.2);}
+.vol-wrap{margin-top:10px;}
+.vol-label{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-bottom:4px;}
+input[type=range]{width:100%;-webkit-appearance:none;height:4px;border-radius:99px;background:rgba(255,255,255,.1);outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 8px rgba(139,92,246,.5);}
+
+/* QUEUE LIST */
+.queue-list{display:flex;flex-direction:column;gap:4px;}
+.queue-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.02);border:1px solid transparent;font-size:.8rem;}
+.queue-item:hover{border-color:var(--border2);}
+.qi-pos{font-size:.7rem;color:var(--muted);width:18px;flex-shrink:0;text-align:center;}
+.qi-title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;}
+.qi-dur{font-size:.7rem;color:var(--muted);flex-shrink:0;}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;padding:12px 18px;border-radius:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:.88rem;font-weight:600;box-shadow:0 8px 28px rgba(0,0,0,.5);z-index:999;transform:translateY(60px);opacity:0;transition:all .25s;max-width:320px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-color:rgba(16,185,129,.4);color:#34d399;}
+.toast.error{border-color:rgba(239,68,68,.4);color:#fca5a5;}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <a class="tb-logo" href="{{ url_for('tempo_landing') }}">
+    <div class="tb-mark"><i class="fas fa-music"></i></div>
+    <span class="tb-name">Tempo</span>
+  </a>
+  <span class="tb-badge">Dashboard</span>
+  <div style="display:flex;align-items:center;gap:7px;margin-left:8px;">
+    <span class="off-dot" id="botDot"></span>
+    <span id="botStatus" style="font-size:.78rem;color:var(--muted);">Loading…</span>
+  </div>
+  <div class="tb-right">
+    <button class="btn-sm ghost" onclick="refresh()"><i class="fas fa-rotate-right"></i> Refresh</button>
+    <a class="btn-sm ghost" href="{{ url_for('bots_showcase') }}"><i class="fas fa-arrow-left"></i> All Bots</a>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-section">Music</div>
+  <button class="nav-item active" onclick="showPage('overview',this)"><div class="ni-icon"><i class="fas fa-tower-broadcast"></i></div>Now Playing</button>
+  <button class="nav-item" onclick="showPage('playlists',this)"><div class="ni-icon"><i class="fas fa-list-music"></i></div>Playlists</button>
+  <button class="nav-item" onclick="showPage('leaderboard',this)"><div class="ni-icon"><i class="fas fa-trophy"></i></div>Leaderboard</button>
+  <div class="sb-divider"></div>
+  <div class="sidebar-section">Stats</div>
+  <div class="sb-stat"><div class="sb-stat-label">Active Guilds</div><div class="sb-stat-val" id="sbGuilds">—</div></div>
+  <div class="sb-stat"><div class="sb-stat-label">Total Playlists</div><div class="sb-stat-val" id="sbPlaylists">—</div></div>
+  <div class="sb-stat"><div class="sb-stat-label">Listeners Tracked</div><div class="sb-stat-val" id="sbListeners">—</div></div>
+  <div class="sb-divider"></div>
+  <a href="{{ url_for('tempo_landing') }}" class="nav-item" style="margin-top:auto;"><div class="ni-icon"><i class="fas fa-arrow-left"></i></div>Back to Site</a>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- NOW PLAYING -->
+  <div class="page active" id="page-overview">
+    <div class="page-head">
+      <h1><i class="fas fa-tower-broadcast" style="color:var(--accent2)"></i> Now Playing</h1>
+      <p>Live playback status across all connected guilds.</p>
+    </div>
+    <div class="tab-content">
+      <div class="cards-grid" id="statsRow"></div>
+      <div class="now-playing-grid" id="nowPlayingGrid">
+        <div class="empty-state"><i class="fas fa-music"></i><p>Loading player status…</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAYLISTS -->
+  <div class="page" id="page-playlists">
+    <div class="page-head">
+      <h1><i class="fas fa-list-music" style="color:var(--accent2)"></i> Saved Playlists</h1>
+      <p>Playlists saved with <code style="color:var(--accent2)">/playlist save</code> in Discord. Load them with <code style="color:var(--accent2)">/playlist load</code>.</p>
+    </div>
+    <div class="tab-content">
+      <div class="pl-grid" id="playlistGrid">
+        <div class="empty-state"><i class="fas fa-list-music"></i><p>No playlists saved yet.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div class="page" id="page-leaderboard">
+    <div class="page-head">
+      <h1><i class="fas fa-trophy" style="color:var(--accent2)"></i> Listener Leaderboard</h1>
+      <p>Total minutes listened per user across all servers.</p>
+    </div>
+    <div class="tab-content">
+      <table class="lb-table" id="lbTable">
+        <thead><tr><th></th><th>Member</th><th>Time Listened</th><th>Activity</th></tr></thead>
+        <tbody id="lbBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /.main -->
+
+<!-- RIGHT PANEL -->
+<div class="right-panel">
+  <div class="rp-section">
+    <div class="rp-title"><i class="fas fa-play-circle"></i> Current Track</div>
+    <div class="now-playing-mini">
+      <div class="npm-thumb" id="npmThumb">🎵</div>
+      <div class="npm-title" id="npmTitle">Nothing playing</div>
+      <div class="npm-guild" id="npmGuild">—</div>
+      <div class="progress-bar"><div class="progress-fill" id="npmProgress" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted);margin-top:4px;">
+        <span id="npmElapsed">0:00</span><span id="npmDuration">0:00</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rp-section">
+    <div class="rp-title"><i class="fas fa-sliders"></i> Audio</div>
+    <div class="vol-wrap">
+      <div class="vol-label"><span>Volume</span><span id="volVal">100%</span></div>
+      <input type="range" id="volSlider" min="0" max="200" value="100" oninput="document.getElementById('volVal').textContent=this.value+'%'">
+    </div>
+    <div style="margin-top:10px;">
+      <div class="rp-title" style="margin-bottom:6px;"><i class="fas fa-wand-magic-sparkles"></i> Active Filter</div>
+      <span id="activeFilter" style="font-size:.85rem;font-weight:700;color:var(--accent2);">none</span>
+    </div>
+    <div style="margin-top:10px;">
+      <div class="rp-title" style="margin-bottom:6px;"><i class="fas fa-rotate"></i> Loop Mode</div>
+      <span id="loopMode" style="font-size:.85rem;font-weight:700;color:var(--accent2);">none</span>
+    </div>
+  </div>
+
+  <div class="rp-section">
+    <div class="rp-title"><i class="fas fa-layer-group"></i> Up Next</div>
+    <div class="queue-list" id="rpQueue">
+      <div style="font-size:.78rem;color:var(--muted);text-align:center;padding:12px;">Queue empty</div>
+    </div>
+  </div>
+
+  <div class="rp-section">
+    <div class="rp-title"><i class="fas fa-circle-info"></i> How to use</div>
+    <div style="font-size:.78rem;color:var(--muted);line-height:1.6;">
+      Control Tempo directly from Discord:<br>
+      <code style="color:var(--accent2)">/play [song]</code> — play a track<br>
+      <code style="color:var(--accent2)">/skip</code> — skip current<br>
+      <code style="color:var(--accent2)">/pause</code> / <code style="color:var(--accent2)">/resume</code><br>
+      <code style="color:var(--accent2)">/volume [0-200]</code><br>
+      <code style="color:var(--accent2)">/filter [name]</code><br>
+      <code style="color:var(--accent2)">/playlist save/load [name]</code>
+    </div>
+  </div>
+</div>
+
+</div><!-- /.shell -->
+<div class="toast" id="toast"></div>
+
+<script>
+let _data = { players:{}, playlists:{}, listeners:{} };
+let _firstActive = null;
+
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id)?.classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+function fmtTime(s) {
+  if(!s) return '0:00';
+  const m=Math.floor(s/60),sec=s%60;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function fmtMins(s) {
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);
+  if(h) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+async function refresh() {
+  try {
+    const r = await fetch('/api/tempo/status');
+    const d = await r.json();
+    if(!d.ok) return;
+    _data = d;
+    renderOverview();
+    renderPlaylists();
+    renderLeaderboard();
+    updateSidebar();
+    updateRightPanel();
+  } catch(e) { toast('Failed to load data','error'); }
+}
+
+function renderOverview() {
+  const players = _data.players || {};
+  const entries = Object.entries(players);
+  const playing = entries.filter(([,p])=>p.playing).length;
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="card"><div class="card-label">Active Guilds</div><div class="card-val">${entries.length}</div><div class="card-sub">Connected servers</div></div>
+    <div class="card"><div class="card-label">Playing Now</div><div class="card-val">${playing}</div><div class="card-sub">Across all servers</div></div>
+    <div class="card"><div class="card-label">Queued Tracks</div><div class="card-val">${entries.reduce((a,[,p])=>a+(p.queue_count||0),0)}</div><div class="card-sub">Total in queues</div></div>
+  `;
+
+  const botDot = document.getElementById('botDot');
+  const botStatus = document.getElementById('botStatus');
+  if(entries.length > 0) {
+    botDot.className='live-dot'; botStatus.textContent=`Online · ${entries.length} guild${entries.length!==1?'s':''}`;
+  } else {
+    botDot.className='off-dot'; botStatus.textContent='Bot offline or idle';
+  }
+
+  if(!entries.length) {
+    document.getElementById('nowPlayingGrid').innerHTML=`<div class="empty-state"><i class="fas fa-music"></i><p>No active players. Use <code>/play</code> in Discord to start.</p></div>`;
+    return;
+  }
+
+  _firstActive = entries[0][0];
+  document.getElementById('nowPlayingGrid').innerHTML = entries.map(([gid, p]) => {
+    const status = p.playing?'playing':p.current?'paused':'idle';
+    const label = {playing:'▶ Playing',paused:'⏸ Paused',idle:'⏹ Idle'}[status];
+    const thumb = p.current?.thumbnail ? `<img src="${esc(p.current.thumbnail)}" alt="">` : '🎵';
+    return `
+      <div class="np-card">
+        <div class="np-thumb">${thumb}</div>
+        <div class="np-info">
+          <div class="np-guild">Guild ${esc(gid)}</div>
+          <div class="np-title">${esc(p.current?.title||'Nothing playing')}</div>
+          <div class="np-meta">
+            <span><i class="fas fa-volume-high" style="font-size:.7rem"></i> ${Math.round((p.volume||1)*100)}%</span>
+            <span><i class="fas fa-list" style="font-size:.7rem"></i> ${p.queue_count||0} queued</span>
+            <span><i class="fas fa-rotate" style="font-size:.7rem"></i> ${p.loop_mode||'none'}</span>
+            ${p.filter_name&&p.filter_name!=='none'?`<span><i class="fas fa-wand-magic-sparkles" style="font-size:.7rem"></i> ${esc(p.filter_name)}</span>`:''}
+          </div>
+        </div>
+        <div class="np-status ${status}">${label}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderPlaylists() {
+  const allPlaylists = _data.playlists || {};
+  const cards = [];
+  for(const [gid, lists] of Object.entries(allPlaylists)) {
+    for(const [name, tracks] of Object.entries(lists)) {
+      cards.push({gid, name, count: (tracks||[]).length});
+    }
+  }
+  if(!cards.length) {
+    document.getElementById('playlistGrid').innerHTML=`<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-list-music"></i><p>No playlists saved yet. Use <code>/playlist save [name]</code> in Discord.</p></div>`;
+    return;
+  }
+  document.getElementById('playlistGrid').innerHTML = cards.map(pl=>`
+    <div class="pl-card">
+      <div class="pl-icon"><i class="fas fa-music"></i></div>
+      <div class="pl-name">${esc(pl.name)}</div>
+      <div class="pl-count">${pl.count} track${pl.count!==1?'s':''}</div>
+      <div class="pl-guild">Guild ${esc(pl.gid)}</div>
+    </div>`).join('');
+  document.getElementById('sbPlaylists').textContent = cards.length;
+}
+
+function renderLeaderboard() {
+  const listeners = _data.listeners || {};
+  // Flatten all guilds into one leaderboard by user ID
+  const totals = {};
+  for(const [gid, users] of Object.entries(listeners)) {
+    for(const [uid, secs] of Object.entries(users)) {
+      totals[uid] = (totals[uid]||0) + secs;
+    }
+  }
+  const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+  const medals = ['🥇','🥈','🥉'];
+  const maxVal = sorted[0]?.[1] || 1;
+
+  if(!sorted.length) {
+    document.getElementById('lbBody').innerHTML=`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px;">No listening data yet. Play some music in Discord!</td></tr>`;
+    document.getElementById('sbListeners').textContent='0';
+    return;
+  }
+
+  document.getElementById('sbListeners').textContent = sorted.length;
+  document.getElementById('lbBody').innerHTML = sorted.slice(0,25).map(([uid,secs],i)=>`
+    <tr>
+      <td class="lb-medal">${medals[i]||`<span style="color:var(--muted);font-size:.8rem">${i+1}</span>`}</td>
+      <td style="font-weight:600;">User ${uid.slice(-6)}</td>
+      <td>${fmtMins(secs)}</td>
+      <td style="width:140px;"><div class="lb-bar-wrap"><div class="lb-bar" style="width:${Math.round(secs/maxVal*100)}%"></div></div></td>
+    </tr>`).join('');
+}
+
+function updateSidebar() {
+  const players = _data.players || {};
+  const playlists = _data.playlists || {};
+  let totalPl = 0;
+  for(const lists of Object.values(playlists)) totalPl += Object.keys(lists).length;
+  document.getElementById('sbGuilds').textContent = Object.keys(players).length;
+  document.getElementById('sbPlaylists').textContent = totalPl;
+}
+
+function updateRightPanel() {
+  const players = _data.players || {};
+  const entries = Object.entries(players);
+  // Show first active player
+  const active = entries.find(([,p])=>p.playing) || entries[0];
+  if(!active) return;
+  const [gid, p] = active;
+  const track = p.current;
+  if(track) {
+    document.getElementById('npmTitle').textContent = track.title || 'Unknown';
+    document.getElementById('npmGuild').textContent = `Guild ${gid}`;
+    if(track.thumbnail) {
+      document.getElementById('npmThumb').innerHTML = `<img src="${esc(track.thumbnail)}" alt="">`;
+    }
+    document.getElementById('npmElapsed').textContent = fmtTime(track.elapsed||0);
+    document.getElementById('npmDuration').textContent = fmtTime(track.duration||0);
+  }
+  document.getElementById('volSlider').value = Math.round((p.volume||1)*100);
+  document.getElementById('volVal').textContent = Math.round((p.volume||1)*100)+'%';
+  document.getElementById('activeFilter').textContent = p.filter_name || 'none';
+  document.getElementById('loopMode').textContent = p.loop_mode || 'none';
+
+  // Queue preview
+  if(p.queue && p.queue.length) {
+    document.getElementById('rpQueue').innerHTML = p.queue.slice(0,8).map((t,i)=>`
+      <div class="queue-item"><span class="qi-pos">${i+1}</span><span class="qi-title">${esc(t.title||'Track')}</span><span class="qi-dur">${fmtTime(t.duration||0)}</span></div>`).join('');
+  } else {
+    document.getElementById('rpQueue').innerHTML='<div style="font-size:.78rem;color:var(--muted);text-align:center;padding:12px;">Queue empty</div>';
+  }
+}
+
+let _toastTimer;
+function toast(msg,type='info'){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show '+(type==='success'?'success':type==='error'?'error':'');clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>el.classList.remove('show'),3200);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+window.addEventListener('load',()=>{
+  refresh();
+  setInterval(refresh, 15000);
+});
+</script>
+</body>
+</html>
