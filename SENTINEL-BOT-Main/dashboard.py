@@ -1933,14 +1933,14 @@ def pulse_api_data():
 
 @app.route('/tempo')
 def tempo_landing():
-    """Tempo music bot landing page."""
+    """ROCKSTAR🎸 music bot landing page."""
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
     return render_template('tempo_landing.html')
 
 @app.route('/tempo/dashboard')
 def tempo_dashboard():
-    """Tempo music bot web dashboard — requires Discord login."""
+    """ROCKSTAR🎸 music bot web dashboard — requires Discord login."""
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
     redir = _require_discord_login(url_for('tempo_dashboard', **request.args))
@@ -3521,7 +3521,7 @@ def _wave_room(rid: str) -> dict | None:
 
 @app.route('/wave/dashboard')
 def wave_dashboard():
-    """Wave streaming bot web dashboard — requires Discord login."""
+    """Wave📶 streaming bot web dashboard — requires Discord login."""
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html',
                                maintenance_eta=_load_dev_state().get('maintenance_eta', '')), 200

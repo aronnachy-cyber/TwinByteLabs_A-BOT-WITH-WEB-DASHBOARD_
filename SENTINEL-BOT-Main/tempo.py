@@ -1,5 +1,5 @@
 """
-Tempo — Byte Labs Music Bot
+ROCKSTAR🎸 — Byte Labs Music Bot
 Token env var: T_TOKEN
 
 Features:
@@ -37,7 +37,7 @@ try:
     YT_DLP_OK = True
 except ImportError:
     YT_DLP_OK = False
-    logging.warning("[Tempo] yt_dlp not found — music playback disabled")
+    logging.warning("[ROCKSTAR🎸] yt_dlp not found — music playback disabled")
 
 logger = logging.getLogger("tempo")
 logging.basicConfig(level=logging.INFO)
@@ -181,7 +181,7 @@ async def _extract(query: str, loop: asyncio.AbstractEventLoop) -> Optional[dict
             data = data["entries"][0]
         return data
     except Exception as e:
-        logger.warning(f"[Tempo] extract error: {e}")
+        logger.warning(f"[ROCKSTAR🎸] extract error: {e}")
         return None
 
 def _track_from_data(data: dict, requester: discord.Member) -> dict:
@@ -251,17 +251,17 @@ bot = commands.Bot(command_prefix="t!", intents=intents, help_command=None)
 # ── Global slash-command gate: admin / owner only ──────────────────────────────
 @bot.tree.interaction_check
 async def _admin_only(interaction: discord.Interaction) -> bool:
-    """All Tempo slash commands are restricted to server admins and the owner."""
+    """All ROCKSTAR🎸 slash commands are restricted to server admins and the owner."""
     if interaction.guild is None:
         await interaction.response.send_message(
-            "⚠️ Tempo commands can only be used inside a server.", ephemeral=True
+            "⚠️ ROCKSTAR🎸 commands can only be used inside a server.", ephemeral=True
         )
         return False
     perms = interaction.user.guild_permissions
     if perms.administrator or interaction.guild.owner_id == interaction.user.id:
         return True
     await interaction.response.send_message(
-        "🔒 Only **server administrators** and the **server owner** can use Tempo commands.",
+        "🔒 Only **server administrators** and the **server owner** can use ROCKSTAR🎸 commands.",
         ephemeral=True,
     )
     return False
@@ -348,7 +348,7 @@ async def _play_next(guild: discord.Guild, player: GuildPlayer):
         )
         stream_url = data.get("url", track["url"])
     except Exception as e:
-        logger.warning(f"[Tempo] re-extract failed: {e}")
+        logger.warning(f"[ROCKSTAR🎸] re-extract failed: {e}")
         stream_url = track["url"]
 
     source = discord.FFmpegPCMAudio(stream_url, **_ffmpeg_opts(player.af))
@@ -356,7 +356,7 @@ async def _play_next(guild: discord.Guild, player: GuildPlayer):
 
     def after_play(err):
         if err:
-            logger.warning(f"[Tempo] playback error: {err}")
+            logger.warning(f"[ROCKSTAR🎸] playback error: {err}")
         player._playing = False
         asyncio.run_coroutine_threadsafe(_play_next(guild, player), guild._state.loop)
 
@@ -389,10 +389,10 @@ async def _play_next(guild: discord.Guild, player: GuildPlayer):
                 if player.queue:
                     next_track = player.queue[0]
                     e.add_field(name="Up Next", value=next_track.get("title", "?"), inline=False)
-                e.set_footer(text=f"Tempo · {len(player.queue)} track(s) in queue")
+                e.set_footer(text=f"ROCKSTAR🎸 · {len(player.queue)} track(s) in queue")
                 await tc.send(embed=e)
             except Exception as _np_err:
-                logger.warning(f"[Tempo] NP card post failed: {_np_err}")
+                logger.warning(f"[ROCKSTAR🎸] NP card post failed: {_np_err}")
 
     # Tick listener XP for all members in VC
     if player.vc.channel:
@@ -420,9 +420,9 @@ async def on_ready():
     _load_cfg()
     try:
         synced = await bot.tree.sync()
-        logger.info(f"[Tempo] Logged in as {bot.user} — synced {len(synced)} commands")
+        logger.info(f"[ROCKSTAR🎸] Logged in as {bot.user} — synced {len(synced)} commands")
     except Exception as e:
-        logger.error(f"[Tempo] Sync failed: {e}")
+        logger.error(f"[ROCKSTAR🎸] Sync failed: {e}")
 
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
@@ -486,7 +486,7 @@ async def cmd_play(interaction: discord.Interaction, query: str):
         e.set_thumbnail(url=track["thumbnail"])
     e.add_field(name="Duration", value=_fmt_dur(track["duration"]), inline=True)
     e.add_field(name="Requested by", value=track["requester"], inline=True)
-    e.set_footer(text="Tempo · Byte Labs")
+    e.set_footer(text="ROCKSTAR🎸 · Byte Labs")
     await interaction.followup.send(embed=e)
 
 
@@ -567,7 +567,7 @@ async def cmd_np(interaction: discord.Interaction):
     e.add_field(name="Filter",   value=player.filter_name.title(), inline=True)
     e.add_field(name="Requested by", value=t["requester"], inline=True)
     e.add_field(name="Queue",    value=f"{len(player.queue)} track(s) up next", inline=True)
-    e.set_footer(text="Tempo · Byte Labs")
+    e.set_footer(text="ROCKSTAR🎸 · Byte Labs")
     await interaction.response.send_message(embed=e)
 
 
@@ -599,7 +599,7 @@ async def cmd_queue(interaction: discord.Interaction, page: int = 1):
         e.add_field(name="Up Next", value="Queue is empty.", inline=False)
 
     total_dur = sum(t.get("duration", 0) for t in q)
-    e.set_footer(text=f"{len(q)} tracks · Total {_fmt_dur(total_dur)} · Loop: {player.loop_mode} · Tempo · Byte Labs")
+    e.set_footer(text=f"{len(q)} tracks · Total {_fmt_dur(total_dur)} · Loop: {player.loop_mode} · ROCKSTAR🎸 · Byte Labs")
     await interaction.response.send_message(embed=e)
 
 
@@ -690,7 +690,7 @@ async def cmd_filter(interaction: discord.Interaction, name: str):
 
 
 # ─── /247 ─────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="247", description="Toggle 24/7 mode — Tempo stays in VC permanently", default_member_permissions=discord.Permissions(administrator=True))
+@bot.tree.command(name="247", description="Toggle 24/7 mode — ROCKSTAR🎸 stays in VC permanently", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_247(interaction: discord.Interaction):
     if not await _require_dj(interaction): return
     gid = str(interaction.guild_id)
@@ -701,7 +701,7 @@ async def cmd_247(interaction: discord.Interaction):
 
 
 # ─── /djrole ──────────────────────────────────────────────────────────────────
-@bot.tree.command(name="djrole", description="Set the DJ role (only this role can control Tempo)", default_member_permissions=discord.Permissions(administrator=True))
+@bot.tree.command(name="djrole", description="Set the DJ role (only this role can control ROCKSTAR🎸)", default_member_permissions=discord.Permissions(administrator=True))
 @app_commands.describe(role="The role to assign as DJ")
 async def cmd_djrole(interaction: discord.Interaction, role: Optional[discord.Role] = None):
     if not interaction.user.guild_permissions.manage_guild:
@@ -709,7 +709,7 @@ async def cmd_djrole(interaction: discord.Interaction, role: Optional[discord.Ro
     gid = str(interaction.guild_id)
     if role is None:
         _set_guild_cfg(gid, "dj_role", None)
-        await interaction.response.send_message("🎧 DJ role cleared — everyone can now control Tempo.")
+        await interaction.response.send_message("🎧 DJ role cleared — everyone can now control ROCKSTAR🎸.")
     else:
         _set_guild_cfg(gid, "dj_role", str(role.id))
         await interaction.response.send_message(f"🎧 DJ role set to **{role.name}**.")
@@ -718,12 +718,12 @@ async def cmd_djrole(interaction: discord.Interaction, role: Optional[discord.Ro
 # ─── /tempo-config ────────────────────────────────────────────────────────────
 @bot.tree.command(
     name="tempo-config",
-    description="View or set Tempo's default voice & Now Playing text channel for this server",
+    description="View or set ROCKSTAR🎸's default voice & Now Playing text channel for this server",
     default_member_permissions=discord.Permissions(administrator=True),
 )
 @app_commands.describe(
-    voice_channel="Default voice channel Tempo joins when you're not already in one",
-    text_channel="Text channel where Tempo posts Now Playing cards automatically",
+    voice_channel="Default voice channel ROCKSTAR🎸 joins when you're not already in one",
+    text_channel="Text channel where ROCKSTAR🎸 posts Now Playing cards automatically",
 )
 async def cmd_tempo_config(
     interaction: discord.Interaction,
@@ -743,7 +743,7 @@ async def cmd_tempo_config(
         _set_guild_cfg(gid, "text_channel_id", str(text_channel.id))
         changed.append(f"💬 Now Playing channel → {text_channel.mention}")
     if changed:
-        e = discord.Embed(title="✅ Tempo Config Updated", color=PURPLE, description="\n".join(changed))
+        e = discord.Embed(title="✅ ROCKSTAR🎸 Config Updated", color=PURPLE, description="\n".join(changed))
         return await interaction.response.send_message(embed=e, ephemeral=True)
     # No args — show current config
     cfg  = _guild_cfg(gid)
@@ -751,7 +751,7 @@ async def cmd_tempo_config(
     tc_id = cfg.get("text_channel_id")
     vc_ch = interaction.guild.get_channel(int(vc_id)) if vc_id else None
     tc_ch = interaction.guild.get_channel(int(tc_id)) if tc_id else None
-    e = discord.Embed(title="⚙️ Tempo Config", color=PURPLE)
+    e = discord.Embed(title="⚙️ ROCKSTAR🎸 Config", color=PURPLE)
     e.add_field(name="🔊 Default Voice Channel", value=vc_ch.name if vc_ch else "Not set", inline=False)
     e.add_field(name="💬 Now Playing Channel",   value=tc_ch.mention if tc_ch else "Not set", inline=False)
     e.add_field(name="🎧 DJ Role",  value=f"<@&{cfg['dj_role']}>" if cfg.get("dj_role") else "Not set", inline=True)
@@ -784,12 +784,16 @@ async def cmd_music_top(interaction: discord.Interaction):
         description="\n".join(lines),
         color=PURPLE
     )
-    e.set_footer(text="Tempo · Byte Labs")
+    e.set_footer(text="ROCKSTAR🎸 · Byte Labs")
     await interaction.followup.send(embed=e)
 
 
 # ─── /playlist ────────────────────────────────────────────────────────────────
-playlist_group = app_commands.Group(name="playlist", description="Manage saved playlists")
+playlist_group = app_commands.Group(
+    name="playlist",
+    description="Manage saved playlists",
+    default_member_permissions=discord.Permissions(administrator=True),
+)
 bot.tree.add_command(playlist_group)
 
 @playlist_group.command(name="save", description="Save the current queue as a named playlist")
@@ -832,7 +836,7 @@ async def cmd_pl_list(interaction: discord.Interaction):
         return await interaction.response.send_message("No saved playlists yet. Use `/playlist save`.", ephemeral=True)
     lines = [f"• **{n}** — {len(t)} tracks" for n, t in plists.items()]
     e = discord.Embed(title="📚 Saved Playlists", description="\n".join(lines), color=PURPLE)
-    e.set_footer(text="Tempo · Byte Labs")
+    e.set_footer(text="ROCKSTAR🎸 · Byte Labs")
     await interaction.response.send_message(embed=e)
 
 @playlist_group.command(name="delete", description="Delete a saved playlist")
@@ -846,9 +850,80 @@ async def cmd_pl_del(interaction: discord.Interaction, name: str):
     _save_playlists()
     await interaction.response.send_message(f"🗑 Playlist **{name}** deleted.")
 
+@playlist_group.command(name="show", description="Show all tracks in a saved playlist")
+@app_commands.describe(name="Playlist name to inspect")
+async def cmd_pl_show(interaction: discord.Interaction, name: str):
+    gid = str(interaction.guild_id)
+    tracks = _playlists.get(gid, {}).get(name)
+    if not tracks:
+        return await interaction.response.send_message(f"❌ No playlist named **{name}**.", ephemeral=True)
+    lines = []
+    for i, t in enumerate(tracks[:20], 1):
+        dur = t.get("duration", 0)
+        m, s = divmod(int(dur), 60) if dur else (0, 0)
+        dur_str = f"`{m}:{s:02d}`" if dur else ""
+        lines.append(f"`{i}.` **{t.get('title','Unknown')}** {dur_str}")
+    remaining = len(tracks) - 20
+    desc = "\n".join(lines)
+    if remaining > 0:
+        desc += f"\n*…and {remaining} more*"
+    e = discord.Embed(title=f"🎵 Playlist — {name}", description=desc, color=PURPLE)
+    e.set_footer(text=f"ROCKSTAR🎸 · {len(tracks)} tracks total")
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+@playlist_group.command(name="add", description="Search for a song and add it directly to a saved playlist")
+@app_commands.describe(name="Playlist name", query="Song name or URL to add")
+async def cmd_pl_add(interaction: discord.Interaction, name: str, query: str):
+    if not await _require_dj(interaction): return
+    gid = str(interaction.guild_id)
+    if name not in _playlists.get(gid, {}):
+        return await interaction.response.send_message(f"❌ No playlist named **{name}**. Create it with `/playlist save`.", ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    try:
+        ytdl = yt_dlp.YoutubeDL({**YTDL_OPTS, "noplaylist": True})
+        data = await interaction.guild._state.loop.run_in_executor(
+            None, lambda: ytdl.extract_info(query, download=False)
+        )
+        entries = data.get("entries", [data])
+        added = []
+        for entry in entries[:10]:
+            if not entry:
+                continue
+            track = {
+                "title":       entry.get("title", query),
+                "url":         entry.get("url", ""),
+                "webpage_url": entry.get("webpage_url", query),
+                "duration":    entry.get("duration", 0),
+                "thumbnail":   entry.get("thumbnail", ""),
+                "uploader":    entry.get("uploader", ""),
+            }
+            _playlists[gid][name].append(track)
+            added.append(track["title"])
+        _save_playlists()
+        desc = "\n".join(f"• **{t}**" for t in added) if added else "No tracks found."
+        e = discord.Embed(title=f"✅ Added to **{name}**", description=desc, color=PURPLE)
+        e.set_footer(text=f"ROCKSTAR🎸 · Playlist now has {len(_playlists[gid][name])} tracks")
+        await interaction.followup.send(embed=e, ephemeral=True)
+    except Exception as ex:
+        await interaction.followup.send(f"❌ Could not find that track: `{ex}`", ephemeral=True)
+
+@playlist_group.command(name="rename", description="Rename an existing playlist")
+@app_commands.describe(old_name="Current playlist name", new_name="New name for the playlist")
+async def cmd_pl_rename(interaction: discord.Interaction, old_name: str, new_name: str):
+    if not await _require_dj(interaction): return
+    gid = str(interaction.guild_id)
+    guild_pls = _playlists.get(gid, {})
+    if old_name not in guild_pls:
+        return await interaction.response.send_message(f"❌ No playlist named **{old_name}**.", ephemeral=True)
+    if new_name in guild_pls:
+        return await interaction.response.send_message(f"❌ A playlist named **{new_name}** already exists.", ephemeral=True)
+    guild_pls[new_name] = guild_pls.pop(old_name)
+    _save_playlists()
+    await interaction.response.send_message(f"✏️ Renamed **{old_name}** → **{new_name}**.", ephemeral=True)
+
 
 # ─── /disconnect ──────────────────────────────────────────────────────────────
-@bot.tree.command(name="disconnect", description="Disconnect Tempo from the voice channel", default_member_permissions=discord.Permissions(administrator=True))
+@bot.tree.command(name="disconnect", description="Disconnect ROCKSTAR🎸 from the voice channel", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_dc(interaction: discord.Interaction):
     if not await _require_dj(interaction): return
     player = _get_player(interaction.guild_id)
@@ -864,10 +939,10 @@ async def cmd_dc(interaction: discord.Interaction):
 
 
 # ─── /tempo-help ──────────────────────────────────────────────────────────────
-@bot.tree.command(name="tempo-help", description="Show all Tempo commands", default_member_permissions=discord.Permissions(administrator=True))
+@bot.tree.command(name="tempo-help", description="Show all ROCKSTAR🎸 commands", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_help(interaction: discord.Interaction):
     e = discord.Embed(
-        title="🎵 Tempo — Command Reference",
+        title="🎵 ROCKSTAR🎸 — Command Reference",
         description="High-quality music for your Discord server.",
         color=PURPLE
     )
@@ -903,7 +978,7 @@ async def cmd_help(interaction: discord.Interaction):
     }
     for title, lines in sections.items():
         e.add_field(name=title, value="\n".join(lines), inline=False)
-    e.set_footer(text="Tempo · Byte Labs · Music & Voice Engagement")
+    e.set_footer(text="ROCKSTAR🎸 · Byte Labs · Music & Voice Engagement")
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
@@ -915,7 +990,7 @@ _bot_thread: Optional[threading.Thread] = None
 def start_bot_thread():
     global _bot_thread
     if not TOKEN:
-        logger.warning("[Tempo] T_TOKEN not set — Tempo bot will not start.")
+        logger.warning("[ROCKSTAR🎸] T_TOKEN not set — ROCKSTAR🎸 bot will not start.")
         return
 
     def _run():
@@ -924,10 +999,10 @@ def start_bot_thread():
         try:
             loop.run_until_complete(bot.start(TOKEN))
         except Exception as e:
-            logger.error(f"[Tempo] Bot crashed: {e}")
+            logger.error(f"[ROCKSTAR🎸] Bot crashed: {e}")
         finally:
             loop.close()
 
     _bot_thread = threading.Thread(target=_run, name="tempo-bot", daemon=True)
     _bot_thread.start()
-    logger.info("[Tempo] Bot thread started.")
+    logger.info("[ROCKSTAR🎸] Bot thread started.")
