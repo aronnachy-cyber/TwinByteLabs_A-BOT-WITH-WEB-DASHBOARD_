@@ -95,4 +95,23 @@ elif not _server_token_present:
           "invite tracking and stats.")
 
 
+def _start_wave():
+    try:
+        import wavebot as wave_bot
+        wave_bot.start_bot_thread()
+        print("[WSGI] Wave bot thread started.")
+    except Exception as e:
+        import traceback
+        print(f"[WSGI] Wave start error: {e}")
+        traceback.print_exc()
+
+
+_wave_token_present = bool(os.environ.get("W_TOKEN", "").strip())
+if _wave_token_present and not _disabled:
+    threading.Thread(target=_start_wave, daemon=True).start()
+elif not _wave_token_present:
+    print("[WSGI] W_TOKEN not set — Wave streaming bot will not start. "
+          "Set W_TOKEN to a Discord bot token to enable watch party commands.")
+
+
 threading.Thread(target=_self_ping, daemon=True, name="self-keepalive").start()

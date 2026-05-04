@@ -149,6 +149,24 @@ Storage for Server Official extras lives inside the existing per-guild `server_c
 - All `tasks.loop` background loops (`sync_bot_settings`, `daily_report_task`, `scheduler_tick`, `reminder_tick`) wrapped in top-level try/except so a single bad iteration can never silently kill the loop and leave the bot frozen on stale state.
 - Scheduler/reminder duplicate-fire race fixed: items are marked `posted=True` / `sent=True` and persisted **before** the network send, so a crash mid-send can never replay an announcement on next boot.
 
+## Wave📡 — Streaming & Watch Parties
+Discord bot (`wavebot.py`) + web watch room. Uses `W_TOKEN` env var. Admin-only commands:
+- `/here` — designates the current channel as the Wave announcement channel for the guild (stored in `wave_config.json`)
+- `/start [title] [url]` — creates a watch room via `/api/wave/create`, posts the viewer link to the designated channel, sends the host link to the admin via ephemeral reply
+
+**Web watch room (`stream_room.html` at `/watch/<room_id>`):**
+- **Host view**: URL bar + Browse button (opens collapsible mini browser panel) + Find Videos (yt-dlp scan) + Stream This button
+- **Mini browser**: embedded iframe of any URL; cross-origin blocked sites show an overlay with fallback to Find Videos
+- **Stream This Page**: sends the current URL to all viewers as an iframe stream (stream_type=iframe)
+- **Find Videos**: POSTs to `/api/wave/scan` — yt-dlp extracts HLS/MP4/direct stream URLs from the page; host picks one → all viewers get direct video playback (stream_type=video) with HLS.js
+- **Viewer view**: sees whatever the host is streaming (iframe or synced video player) + live chat
+- **Chat**: live chat sidebar, polled every 2s
+- **Presence**: viewers send a ping every 6s; viewer count shown live
+
+**Routes**: `GET /wave`, `GET /watch/<room_id>`, `POST /api/wave/create`, `GET /api/wave/state/<room_id>`, `POST /api/wave/set-stream/<room_id>`, `POST /api/wave/control/<room_id>`, `POST /api/wave/chat/<room_id>`, `POST /api/wave/ping/<room_id>`, `POST /api/wave/scan`, `POST /api/wave/end/<room_id>`
+
+**Storage**: `wave_rooms.json` (atomic write, thread-safe lock), `wave_config.json` (guild → stream channel id)
+
 ## Routes
 - `/` - Public landing page
 - `/login` - UID-based login (format: TBLS-XXXX-XXXX)

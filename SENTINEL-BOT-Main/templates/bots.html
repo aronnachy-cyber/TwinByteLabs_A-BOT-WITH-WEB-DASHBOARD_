@@ -1029,7 +1029,7 @@ footer{
 <!-- ===== STATS STRIP ===== -->
 <section class="bx-stats reveal" aria-label="Lineup stats">
   <div class="bx-stat">
-    <div class="bx-stat-num" data-target="2">0</div>
+    <div class="bx-stat-num" data-target="3">0</div>
     <div class="bx-stat-label">Bots Crafted</div>
   </div>
   <div class="bx-stat-divider" aria-hidden="true"></div>
@@ -1052,10 +1052,13 @@ footer{
 <!-- ===== FILTER CHIPS ===== -->
 <div class="bx-filters" role="tablist" aria-label="Filter bots">
   <button type="button" class="bx-chip active" data-filter="all" role="tab" aria-selected="true">
-    <i class="fas fa-grip"></i> All Bots <span class="bx-count">2</span>
+    <i class="fas fa-grip"></i> All Bots <span class="bx-count">3</span>
   </button>
   <button type="button" class="bx-chip" data-filter="live" role="tab" aria-selected="false">
     <i class="fas fa-bolt"></i> Live <span class="bx-count">2</span>
+  </button>
+  <button type="button" class="bx-chip" data-filter="beta" role="tab" aria-selected="false">
+    <i class="fas fa-flask"></i> Beta <span class="bx-count">1</span>
   </button>
 </div>
 
@@ -1122,6 +1125,35 @@ footer{
     </div>
   </a>
 
+  <!-- Wave card -->
+  <a href="{{ url_for('wave_landing') }}" class="bot-card coming is-live reveal reveal-delay-3" data-status="beta" style="text-decoration:none;">
+    <div class="bot-banner" style="background:linear-gradient(135deg,#1a0206 0%,#3b0a14 60%,#6b1525 100%);">
+      <span class="bx-shimmer" aria-hidden="true"></span>
+      <div class="bot-icon" style="background:linear-gradient(135deg,#be123c,#f43f5e);box-shadow:0 8px 24px rgba(244,63,94,.5);">
+        <i class="fas fa-tower-broadcast"></i>
+      </div>
+      <div class="bot-status" style="background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.4);color:#fb7185;">
+        <span class="dot" style="background:#f43f5e;box-shadow:0 0 6px #f43f5e;animation:pulse 1.4s ease-in-out infinite;"></span> Beta
+      </div>
+    </div>
+    <div class="bot-body">
+      <div class="bot-name" style="background:linear-gradient(135deg,#f43f5e,#fb7185);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">Wave</div>
+      <div class="bot-tag" style="color:#fb7185;">Streaming &amp; Watch Parties</div>
+      <div class="bot-desc">
+        Stream any website to your server. Browse to a page, pick a stream, and everyone watches together in real time — right in their browser.
+      </div>
+      <div class="bot-tags">
+        <span class="chip">Streaming</span>
+        <span class="chip">Watch Parties</span>
+        <span class="chip">Mini Browser</span>
+        <span class="chip">Live Chat</span>
+        <span class="chip">HLS</span>
+      </div>
+      <span class="bot-cta" style="color:#fb7185;border-color:rgba(251,113,133,.4);">
+        View Wave <i class="fas fa-arrow-right"></i>
+      </span>
+    </div>
+  </a>
 
 </section>
 

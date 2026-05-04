@@ -3360,6 +3360,287 @@ def so_api_embeds_preview():
         return jsonify({"ok": False, "error": str(e)}), 400
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# WAVE — STREAMING & WATCH PARTY ROUTES
+# ════════════════════════════════════════════════════════════════════════════
+import secrets as _secrets
+import threading as _wv_threading
+import time as _wv_time
+
+_WAVE_ROOMS_FILE = os.path.join(os.path.dirname(__file__), 'wave_rooms.json')
+_WAVE_LOCK = _wv_threading.Lock()
+_WAVE_PRESENCE: dict = {}   # room_id → {viewer_name: last_ping_ts}
+
+
+def _wave_read() -> dict:
+    try:
+        from pathlib import Path as _P
+        p = _P(_WAVE_ROOMS_FILE)
+        if p.exists():
+            import json as _j
+            return _j.loads(p.read_text(encoding='utf-8'))
+    except Exception:
+        pass
+    return {}
+
+
+def _wave_write(data: dict):
+    import json as _j
+    from pathlib import Path as _P
+    p = _P(_WAVE_ROOMS_FILE)
+    tmp = p.with_suffix('.tmp')
+    tmp.write_text(_j.dumps(data, indent=2), encoding='utf-8')
+    tmp.replace(p)
+
+
+def _wave_room(rid: str) -> dict | None:
+    return _wave_read().get(rid)
+
+
+@app.route('/wave')
+def wave_landing():
+    """Wave streaming bot landing page."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html',
+                               maintenance_eta=_load_dev_state().get('maintenance_eta', '')), 200
+    return render_template('wave_landing.html')
+
+
+@app.route('/watch/<room_id>')
+def watch_room(room_id):
+    """Public watch-party room — accessible without login."""
+    room = _wave_room(room_id)
+    if not room:
+        return render_template('404.html'), 404
+    host_token = request.args.get('host', '')
+    is_host = host_token == room.get('host_token', '__invalid__')
+    return render_template(
+        'stream_room.html',
+        room_id=room_id,
+        room=room,
+        is_host=is_host,
+        host_token=host_token if is_host else '',
+    )
+
+
+# ── API: create room (called by wavebot /start) ───────────────────────────
+@app.route('/api/wave/create', methods=['POST'])
+def wave_api_create():
+    import json as _j, datetime as _dt
+    data  = request.get_json(silent=True) or {}
+    rid   = _secrets.token_urlsafe(8)
+    tok   = _secrets.token_hex(20)
+    room  = {
+        'title':       data.get('title', 'Watch Party')[:80],
+        'stream_url':  data.get('url', '').strip(),
+        'stream_type': 'iframe' if data.get('url', '').strip() else 'none',
+        'playing':     False,
+        'position':    0.0,
+        'position_ts': _wv_time.time(),
+        'host_token':  tok,
+        'created_at':  _dt.datetime.utcnow().isoformat(),
+        'chat':        [],
+        'guild_id':    data.get('guild_id', ''),
+    }
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        rooms[rid] = room
+        _wave_write(rooms)
+    base = request.host_url.rstrip('/')
+    return jsonify({
+        'ok':        True,
+        'room_id':   rid,
+        'host_token': tok,
+        'watch_url': f'{base}/watch/{rid}',
+        'host_url':  f'{base}/watch/{rid}?host={tok}',
+    })
+
+
+# ── API: room state (polling) ─────────────────────────────────────────────
+@app.route('/api/wave/state/<room_id>')
+def wave_api_state(room_id):
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    now  = _wv_time.time()
+    pres = _WAVE_PRESENCE.get(room_id, {})
+    viewers = [{'name': n, 'host': False}
+               for n, ts in pres.items() if now - ts < 14]
+    out = {k: v for k, v in room.items() if k != 'host_token'}
+    out['viewer_count'] = max(1, len(viewers))
+    out['viewers_list'] = viewers
+    return jsonify({'ok': True, 'room': out})
+
+
+# ── API: set stream URL (host only) ──────────────────────────────────────
+@app.route('/api/wave/set-stream/<room_id>', methods=['POST'])
+def wave_api_set_stream(room_id):
+    data = request.get_json(silent=True) or {}
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    if data.get('host_token') != room.get('host_token'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+    url  = data.get('url', '').strip()
+    stype = data.get('type', 'iframe')  # 'iframe' | 'video' | 'none'
+    if not url:
+        stype = 'none'
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        r = rooms.get(room_id, room)
+        r['stream_url']  = url
+        r['stream_type'] = stype
+        r['playing']     = False
+        r['position']    = 0.0
+        r['position_ts'] = _wv_time.time()
+        rooms[room_id] = r
+        _wave_write(rooms)
+    return jsonify({'ok': True})
+
+
+# ── API: playback control for video streams (host only) ───────────────────
+@app.route('/api/wave/control/<room_id>', methods=['POST'])
+def wave_api_control(room_id):
+    data = request.get_json(silent=True) or {}
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    if data.get('host_token') != room.get('host_token'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+    action   = data.get('action', '')
+    position = float(data.get('position', room.get('position', 0)))
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        r = rooms.get(room_id, room)
+        r['position_ts'] = _wv_time.time()
+        if action == 'play':
+            r['position'] = position
+            r['playing']  = True
+        elif action == 'pause':
+            r['position'] = position
+            r['playing']  = False
+        elif action == 'seek':
+            r['position'] = position
+        rooms[room_id] = r
+        _wave_write(rooms)
+    return jsonify({'ok': True})
+
+
+# ── API: chat ─────────────────────────────────────────────────────────────
+@app.route('/api/wave/chat/<room_id>', methods=['POST'])
+def wave_api_chat(room_id):
+    import datetime as _dt
+    data = request.get_json(silent=True) or {}
+    name = str(data.get('name', 'Viewer'))[:28].strip() or 'Viewer'
+    text = str(data.get('text', ''))[:240].strip()
+    if not text:
+        return jsonify({'ok': False, 'error': 'empty'}), 400
+    ts  = _dt.datetime.utcnow().strftime('%H:%M')
+    msg = {'name': name, 'text': text, 'ts': ts}
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        room  = rooms.get(room_id)
+        if not room:
+            return jsonify({'ok': False, 'error': 'not found'}), 404
+        room.setdefault('chat', []).append(msg)
+        if len(room['chat']) > 120:
+            room['chat'] = room['chat'][-120:]
+        rooms[room_id] = room
+        _wave_write(rooms)
+    return jsonify({'ok': True})
+
+
+# ── API: presence ping ────────────────────────────────────────────────────
+@app.route('/api/wave/ping/<room_id>', methods=['POST'])
+def wave_api_ping(room_id):
+    data = request.get_json(silent=True) or {}
+    name = str(data.get('name', 'Viewer'))[:28].strip() or 'Viewer'
+    _WAVE_PRESENCE.setdefault(room_id, {})[name] = _wv_time.time()
+    return jsonify({'ok': True})
+
+
+# ── API: scan URL for video streams (yt-dlp) ─────────────────────────────
+@app.route('/api/wave/scan', methods=['POST'])
+def wave_api_scan():
+    import re as _re
+    data = request.get_json(silent=True) or {}
+    url  = data.get('url', '').strip()
+    if not url:
+        return jsonify({'ok': False, 'error': 'no url'}), 400
+
+    results = []
+
+    # 1. yt-dlp — handles YouTube, Twitch, Vimeo, 1000+ sites
+    try:
+        import yt_dlp
+        flat_opts = {'quiet': True, 'no_warnings': True,
+                     'extract_flat': True, 'noplaylist': False}
+        with yt_dlp.YoutubeDL(flat_opts) as ytdl:
+            info = ytdl.extract_info(url, download=False)
+            if info:
+                if 'entries' in info:
+                    for e in list(info['entries'])[:20]:
+                        if not e:
+                            continue
+                        results.append({
+                            'title':     e.get('title') or 'Stream',
+                            'url':       e.get('url') or e.get('webpage_url', ''),
+                            'thumbnail': e.get('thumbnail', ''),
+                            'type':      'youtube' if 'youtube' in url else 'video',
+                        })
+                else:
+                    stream_opts = {'quiet': True, 'no_warnings': True,
+                                   'format': 'bestaudio/best',
+                                   'skip_download': True, 'noplaylist': True}
+                    with yt_dlp.YoutubeDL(stream_opts) as ytdl2:
+                        info2 = ytdl2.extract_info(url, download=False)
+                        if info2:
+                            results.append({
+                                'title':     info2.get('title') or 'Stream',
+                                'url':       info2.get('url', url),
+                                'thumbnail': info2.get('thumbnail', ''),
+                                'type':      'live' if info2.get('is_live') else 'video',
+                            })
+    except Exception:
+        pass
+
+    # 2. Fallback — scrape page for .m3u8 / .mp4 URLs
+    if not results:
+        try:
+            import requests as _req
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            resp = _req.get(url, timeout=12, headers=headers)
+            txt  = resp.text
+            for mu in list(dict.fromkeys(_re.findall(r'https?://[^\s"\'<>]+\.m3u8[^\s"\'<>]*', txt)))[:10]:
+                results.append({'title': f'HLS Stream', 'url': mu, 'thumbnail': '', 'type': 'm3u8'})
+            if not results:
+                for mu in list(dict.fromkeys(_re.findall(r'https?://[^\s"\'<>]+\.mp4[^\s"\'<>]*', txt)))[:5]:
+                    results.append({'title': f'Video', 'url': mu, 'thumbnail': '', 'type': 'mp4'})
+        except Exception:
+            pass
+
+    # 3. URL itself is a direct stream
+    if not results and ('.m3u8' in url or url.endswith('.mp4') or url.endswith('.webm')):
+        results.append({'title': 'Direct Stream', 'url': url, 'thumbnail': '', 'type': 'm3u8'})
+
+    return jsonify({'ok': True, 'results': results, 'count': len(results)})
+
+
+# ── API: end session (host only) ──────────────────────────────────────────
+@app.route('/api/wave/end/<room_id>', methods=['POST'])
+def wave_api_end(room_id):
+    data = request.get_json(silent=True) or {}
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    if data.get('host_token') != room.get('host_token'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        rooms.pop(room_id, None)
+        _wave_write(rooms)
+    _WAVE_PRESENCE.pop(room_id, None)
+    return jsonify({'ok': True})
 
 
 # ---- HEALTH CHECK ----
