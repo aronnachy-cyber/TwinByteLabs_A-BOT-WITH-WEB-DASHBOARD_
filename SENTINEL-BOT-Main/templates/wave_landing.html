@@ -150,8 +150,11 @@
     <a href="#features">Features</a>
     <a href="#how">How It Works</a>
     <a href="/bots">All Bots</a>
+    <a href="{{ url_for('wave_dashboard') }}" style="color:var(--accent2);">Dashboard</a>
   </div>
-  <a href="/" class="nav-cta">← Back to Byte Labs</a>
+  <a href="{{ url_for('wave_dashboard') }}" class="nav-cta">
+    <i class="fas fa-gauge-high" style="font-size:.8rem;"></i> Dashboard
+  </a>
 </nav>
 
 <!-- HERO -->
@@ -171,8 +174,8 @@
       Browse to any page, pick what to stream, and everyone watches in sync — right in their browser.
     </p>
     <div class="hero-actions">
-      <a href="/bots" class="btn-primary">
-        <i class="fas fa-tower-broadcast"></i> Get Wave
+      <a href="{{ url_for('wave_dashboard') }}" class="btn-primary">
+        <i class="fas fa-gauge-high"></i> Open Dashboard
       </a>
       <a href="#how" class="btn-ghost">
         <i class="fas fa-play"></i> See How It Works
@@ -289,8 +292,8 @@
   <div class="cta-box">
     <h2 class="cta-title">Ready to stream?</h2>
     <p class="cta-sub">Add Wave to your Discord server and start your first watch party in under a minute.</p>
-    <a href="/bots" class="btn-primary" style="justify-content:center;">
-      <i class="fas fa-tower-broadcast"></i> Get Wave
+    <a href="{{ url_for('wave_dashboard') }}" class="btn-primary" style="justify-content:center;">
+      <i class="fas fa-gauge-high"></i> Open Dashboard
     </a>
   </div>
 </section>

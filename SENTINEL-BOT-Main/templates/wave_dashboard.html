@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wave — Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0510;--bg2:#130818;--bg3:#1c0d24;--bg-card:#150a1c;
+  --accent:#f43f5e;--accent2:#fb7185;--accent3:#fda4af;
+  --accent-soft:rgba(244,63,94,.14);--accent-glow:rgba(244,63,94,.35);
+  --text:#f0e8f4;--muted:#9982aa;--muted-soft:#6b5578;
+  --border:rgba(244,63,94,.15);--border-strong:rgba(244,63,94,.3);
+  --grad:linear-gradient(135deg,#be123c 0%,#f43f5e 50%,#fb7185 100%);
+  --ok:#10b981;--warn:#f59e0b;--bad:#ef4444;
+  --shadow-sm:0 2px 10px rgba(0,0,0,.3);
+  --shadow-md:0 8px 28px rgba(0,0,0,.38);
+  --shadow-lg:0 16px 48px rgba(0,0,0,.5);
+  --radius:14px;
+}
+html,body{font-family:'Inter',system-ui,sans-serif;letter-spacing:-.005em;}
+body{
+  background:var(--bg);color:var(--text);min-height:100vh;display:flex;
+  background-image:
+    radial-gradient(900px 600px at 110% -5%,rgba(244,63,94,.09),transparent 65%),
+    radial-gradient(700px 500px at -10% 110%,rgba(251,113,133,.06),transparent 60%);
+  background-attachment:fixed;
+}
+
+/* ── SIDEBAR ──────────────────────────────────────────────── */
+.sidebar{
+  width:230px;background:linear-gradient(180deg,var(--bg2) 0%,#0a030f 100%);
+  border-right:1px solid var(--border);padding:20px 12px;flex-shrink:0;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  box-shadow:4px 0 30px rgba(0,0,0,.35);
+}
+.sidebar::-webkit-scrollbar{width:5px;}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(244,63,94,.18);border-radius:3px;}
+.sb-brand{display:flex;align-items:center;gap:11px;margin-bottom:22px;padding:0 6px;}
+.sb-brand-mark{
+  width:40px;height:40px;border-radius:10px;background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:1.1rem;box-shadow:0 6px 18px rgba(244,63,94,.45);
+}
+.sb-brand-name{font-weight:800;font-size:1rem;line-height:1.15;letter-spacing:.1px;}
+.sb-brand-sub{font-size:.7rem;color:var(--muted);font-weight:400;}
+.sb-section{
+  margin-top:16px;font-size:.64rem;text-transform:uppercase;
+  letter-spacing:1.6px;color:var(--muted-soft);padding:0 10px;font-weight:700;
+}
+.sb-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;margin:2px 0;border-radius:8px;
+  color:var(--muted);text-decoration:none;font-weight:500;font-size:.88rem;
+  cursor:pointer;border:none;background:transparent;width:100%;
+  text-align:left;font-family:inherit;position:relative;
+  transition:background .18s,color .18s,padding-left .15s;
+}
+.sb-item:hover{background:rgba(244,63,94,.08);color:var(--text);padding-left:13px;}
+.sb-item.active{
+  background:linear-gradient(90deg,rgba(244,63,94,.2),rgba(251,113,133,.05));
+  color:var(--text);font-weight:600;
+  box-shadow:inset 3px 0 0 var(--accent),0 0 0 1px rgba(244,63,94,.05);
+}
+.sb-item.active i{color:var(--accent);filter:drop-shadow(0 0 6px rgba(244,63,94,.5));}
+.sb-item i{width:17px;text-align:center;transition:color .15s;}
+.sb-foot{
+  margin-top:28px;padding:12px 8px;font-size:.74rem;
+  color:var(--muted);border-top:1px solid var(--border);line-height:1.6;
+}
+.sb-foot a{color:var(--accent);text-decoration:none;}
+.sb-foot a:hover{text-decoration:underline;}
+.bot-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:99px;
+}
+.bot-pill.on{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3);}
+.bot-pill.off{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.bot-pill .dp{width:5px;height:5px;border-radius:50%;background:currentColor;}
+
+/* ── MAIN ─────────────────────────────────────────────────── */
+.main{flex:1;padding:28px 36px;overflow-x:hidden;min-width:0;}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);
+  gap:14px;flex-wrap:wrap;
+}
+.topbar h1{font-size:1.6rem;font-weight:800;letter-spacing:-.5px;}
+.topbar .crumb{color:var(--muted);font-size:.82rem;margin-top:3px;}
+.topbar .crumb a{color:var(--accent);text-decoration:none;}
+.topbar .crumb a:hover{text-decoration:underline;}
+.menu-toggle{
+  display:none;background:transparent;border:1px solid var(--border);
+  color:var(--text);padding:6px 10px;border-radius:7px;cursor:pointer;
+  font-size:1rem;margin-right:10px;
+}
+
+/* ── SECTIONS ─────────────────────────────────────────────── */
+.section{display:none;}
+.section.active{display:block;}
+
+/* ── CARDS ────────────────────────────────────────────────── */
+.card{
+  background:linear-gradient(180deg,rgba(21,10,28,.85) 0%,rgba(13,6,18,.92) 100%);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:22px;margin-bottom:18px;box-shadow:var(--shadow-sm);
+  transition:border-color .2s,box-shadow .2s;
+}
+.card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-md);}
+.card h2{
+  font-size:1rem;font-weight:700;margin-bottom:12px;
+  display:flex;align-items:center;gap:10px;letter-spacing:-.1px;
+}
+.card h2 i{color:var(--accent);filter:drop-shadow(0 0 7px rgba(244,63,94,.4));}
+.card .help{font-size:.84rem;color:var(--muted);margin-bottom:12px;line-height:1.55;}
+.card .help code{background:var(--accent-soft);color:var(--accent3);
+  padding:1px 6px;border-radius:4px;font-family:ui-monospace,monospace;font-size:.84em;}
+
+.grid{display:grid;gap:16px;}
+.grid-4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));}
+.grid-2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr));}
+
+/* ── STAT CARDS ───────────────────────────────────────────── */
+.stat{
+  background:linear-gradient(180deg,var(--bg-card),var(--bg3));
+  border:1px solid var(--border);border-radius:var(--radius);padding:18px;
+  transition:border-color .2s,transform .15s;
+}
+.stat:hover{border-color:var(--border-strong);transform:translateY(-2px);}
+.stat-icon{
+  width:38px;height:38px;border-radius:9px;
+  background:var(--accent-soft);border:1px solid rgba(244,63,94,.2);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--accent);font-size:.95rem;margin-bottom:12px;
+}
+.stat-val{font-size:1.8rem;font-weight:800;line-height:1;letter-spacing:-.04em;}
+.stat-label{font-size:.75rem;color:var(--muted);margin-top:5px;text-transform:uppercase;letter-spacing:.06em;}
+.stat-badge{
+  display:inline-block;font-size:.65rem;font-weight:700;
+  padding:2px 7px;border-radius:99px;margin-top:6px;
+}
+.badge-ok{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3);}
+.badge-off{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.badge-warn{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.3);}
+
+/* ── FORM ELEMENTS ────────────────────────────────────────── */
+.form-group{margin-bottom:16px;}
+.form-label{display:block;font-size:.8rem;font-weight:600;color:var(--muted);
+  margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;}
+.form-input,.form-select{
+  width:100%;background:var(--bg3);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:9px 12px;
+  font-size:.88rem;font-family:inherit;outline:none;
+  transition:border-color .2s;
+}
+.form-input:focus,.form-select:focus{border-color:var(--accent);}
+.form-input::placeholder{color:var(--muted);}
+.form-hint{font-size:.75rem;color:var(--muted);margin-top:5px;line-height:1.4;}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 18px;border-radius:8px;border:none;cursor:pointer;
+  font-size:.85rem;font-weight:600;font-family:inherit;transition:all .15s;
+}
+.btn-primary{background:var(--grad);color:#fff;box-shadow:0 4px 14px rgba(244,63,94,.3);}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px);}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{background:var(--accent-soft);color:var(--text);border-color:var(--border-strong);}
+.btn-danger{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.btn-danger:hover{background:rgba(239,68,68,.22);}
+.btn-sm{padding:5px 11px;font-size:.75rem;}
+.btn-copy{background:var(--accent-soft);color:var(--accent2);border:1px solid rgba(244,63,94,.3);}
+.btn-copy:hover{background:rgba(244,63,94,.22);}
+
+/* ── ROOMS TABLE ──────────────────────────────────────────── */
+.rooms-empty{
+  text-align:center;padding:48px 24px;color:var(--muted);
+}
+.rooms-empty i{font-size:2.5rem;color:var(--accent);opacity:.3;display:block;margin-bottom:12px;}
+.room-item{
+  background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+  padding:16px 18px;margin-bottom:10px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  transition:border-color .2s;
+}
+.room-item:hover{border-color:var(--border-strong);}
+.room-live-dot{
+  width:9px;height:9px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);flex-shrink:0;
+  animation:ripple 1.4s ease-in-out infinite;
+}
+@keyframes ripple{0%,100%{box-shadow:0 0 0 0 rgba(244,63,94,.6)}50%{box-shadow:0 0 0 5px transparent}}
+.room-info{flex:1;min-width:0;}
+.room-title{font-size:.92rem;font-weight:700;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.room-meta{font-size:.74rem;color:var(--muted);margin-top:3px;display:flex;gap:12px;flex-wrap:wrap;}
+.room-meta span{display:flex;align-items:center;gap:4px;}
+.room-actions{display:flex;gap:7px;flex-wrap:wrap;flex-shrink:0;}
+.no-stream{color:var(--muted);font-style:italic;}
+
+/* ── GUILD CONFIG TABLE ───────────────────────────────────── */
+.cfg-table{width:100%;border-collapse:collapse;}
+.cfg-table th{
+  font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--border);
+  text-align:left;
+}
+.cfg-table td{
+  padding:10px 12px;border-bottom:1px solid rgba(244,63,94,.07);
+  font-size:.82rem;vertical-align:middle;
+}
+.cfg-table tr:last-child td{border-bottom:none;}
+.cfg-table code{
+  background:var(--accent-soft);color:var(--accent3);
+  padding:2px 7px;border-radius:5px;font-family:ui-monospace,monospace;font-size:.8em;
+}
+
+/* ── RESULT BOX (create room) ─────────────────────────────── */
+.result-box{
+  display:none;background:var(--bg3);border:1px solid var(--border-strong);
+  border-radius:12px;padding:20px;margin-top:16px;
+}
+.result-box.show{display:block;}
+.result-box h4{font-size:.88rem;font-weight:700;margin-bottom:12px;color:var(--accent2);}
+.link-row{
+  display:flex;align-items:center;gap:8px;margin-bottom:8px;
+}
+.link-field{
+  flex:1;background:var(--bg);border:1px solid var(--border);
+  color:var(--text);border-radius:6px;padding:6px 10px;
+  font-size:.78rem;font-family:ui-monospace,monospace;
+  outline:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  cursor:text;
+}
+.link-label{font-size:.72rem;color:var(--muted);width:60px;flex-shrink:0;font-weight:600;}
+
+/* ── TOKEN STATUS ─────────────────────────────────────────── */
+.token-status{
+  display:flex;align-items:center;gap:12px;padding:14px 16px;
+  border-radius:10px;border:1px solid var(--border);background:var(--bg3);
+  margin-bottom:16px;
+}
+.token-status i{font-size:1.3rem;}
+.token-status .ts-label{font-size:.82rem;color:var(--muted);}
+.token-status .ts-val{font-size:.88rem;font-weight:700;}
+.ts-set i{color:#34d399;}
+.ts-set .ts-val{color:#34d399;}
+.ts-unset i{color:#fbbf24;}
+.ts-unset .ts-val{color:#fbbf24;}
+
+/* ── COMMAND CHIP ─────────────────────────────────────────── */
+.cmd-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  background:var(--accent-soft);border:1px solid rgba(244,63,94,.25);
+  color:var(--accent2);padding:8px 14px;border-radius:8px;
+  font-family:ui-monospace,monospace;font-size:.85rem;font-weight:600;margin:4px;
+}
+.cmd-desc{font-size:.78rem;color:var(--muted);margin-top:2px;}
+
+/* ── TOAST ────────────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:24px;right:24px;z-index:999;
+  background:var(--bg2);border:1px solid var(--border-strong);
+  color:var(--text);padding:10px 18px;border-radius:10px;
+  font-size:.84rem;box-shadow:var(--shadow-md);
+  opacity:0;transform:translateY(8px);transition:all .22s;
+  pointer-events:none;max-width:300px;
+}
+#toast.show{opacity:1;transform:translateY(0);}
+
+/* ── MOBILE ───────────────────────────────────────────────── */
+.sidebar-backdrop{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:198;
+}
+.sidebar-backdrop.open{display:block;}
+@media(max-width:900px){
+  .menu-toggle{display:inline-flex;}
+  .sidebar{position:fixed;left:0;top:0;z-index:199;transform:translateX(-100%);transition:transform .25s;}
+  .sidebar.open{transform:translateX(0);}
+  .main{padding:20px 16px;}
+  .topbar h1{font-size:1.3rem;}
+}
+@media(max-width:560px){
+  .grid-4,.grid-2{grid-template-columns:1fr;}
+}
+
+/* scrollbar */
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(244,63,94,.18);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div class="sidebar-backdrop" id="backdrop" onclick="closeSidebar()"></div>
+
+<!-- ── SIDEBAR ─────────────────────────────────────────────── -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-brand">
+    <div class="sb-brand-mark"><i class="fas fa-tower-broadcast"></i></div>
+    <div>
+      <div class="sb-brand-name">Wave</div>
+      <div class="sb-brand-sub">by Byte Labs</div>
+    </div>
+  </div>
+
+  <button class="sb-item active" data-section="overview">
+    <i class="fas fa-gauge-high"></i> Overview
+  </button>
+
+  <div class="sb-section">Sessions</div>
+  <button class="sb-item" data-section="rooms">
+    <i class="fas fa-tower-broadcast"></i> Active Rooms
+  </button>
+  <button class="sb-item" data-section="create">
+    <i class="fas fa-circle-plus"></i> Create Room
+  </button>
+
+  <div class="sb-section">Configure</div>
+  <button class="sb-item" data-section="bot">
+    <i class="fas fa-robot"></i> Bot Setup
+  </button>
+  <button class="sb-item" data-section="guilds">
+    <i class="fab fa-discord"></i> Guild Config
+  </button>
+
+  <div class="sb-foot">
+    Bot: <span id="botFootStatus">—</span><br>
+    <a href="{{ url_for('wave_landing') }}">Wave home</a>
+    &nbsp;·&nbsp;
+    <a href="{{ url_for('bots_showcase') }}">← All bots</a>
+  </div>
+</aside>
+
+<!-- ── MAIN ─────────────────────────────────────────────────── -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <button class="menu-toggle" onclick="openSidebar()"><i class="fas fa-bars"></i></button>
+      <h1 id="pageTitle">Overview</h1>
+      <div class="crumb">
+        <a href="{{ url_for('landing') }}">Byte Labs</a> /
+        <a href="{{ url_for('bots_showcase') }}">Bots</a> /
+        <a href="{{ url_for('wave_landing') }}">Wave</a>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span class="bot-pill {{ 'on' if bot_running else 'off' }}" id="topBotPill">
+        <span class="dp"></span> {{ 'BOT ONLINE' if bot_running else 'BOT OFFLINE' }}
+      </span>
+      <a href="{{ url_for('wave_landing') }}" class="btn btn-ghost btn-sm">
+        <i class="fas fa-globe"></i> Landing Page
+      </a>
+    </div>
+  </div>
+
+  <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+  <div class="section active" id="sec-overview">
+    <div class="grid grid-4" style="margin-bottom:20px;">
+      <div class="stat">
+        <div class="stat-icon"><i class="fas fa-tower-broadcast"></i></div>
+        <div class="stat-val" id="stat-rooms">{{ rooms | length }}</div>
+        <div class="stat-label">Active Rooms</div>
+        <div class="stat-badge {{ 'badge-ok' if rooms else 'badge-warn' }}">
+          {{ 'Streaming' if rooms else 'Idle' }}
+        </div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon"><i class="fas fa-users"></i></div>
+        <div class="stat-val" id="stat-viewers">{{ total_viewers }}</div>
+        <div class="stat-label">Viewers Online</div>
+        <div class="stat-badge badge-ok">Live</div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon"><i class="fab fa-discord"></i></div>
+        <div class="stat-val">{{ guilds_configured }}</div>
+        <div class="stat-label">Guilds Configured</div>
+        <div class="stat-badge {{ 'badge-ok' if guilds_configured else 'badge-off' }}">
+          {{ 'Ready' if guilds_configured else 'No guilds' }}
+        </div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon"><i class="fas fa-robot"></i></div>
+        <div class="stat-val">{{ 'ON' if bot_running else 'OFF' }}</div>
+        <div class="stat-label">Bot Status</div>
+        <div class="stat-badge {{ 'badge-ok' if bot_running else 'badge-off' }}">
+          {{ 'Connected' if bot_running else 'No W_TOKEN' }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Active rooms preview -->
+    <div class="card">
+      <h2><i class="fas fa-satellite-dish"></i> Live Rooms</h2>
+      <div id="ov-rooms-wrap">
+        {% if rooms %}
+          {% for rid, rm in rooms.items() %}
+          <div class="room-item">
+            <span class="room-live-dot"></span>
+            <div class="room-info">
+              <div class="room-title">{{ rm.title }}</div>
+              <div class="room-meta">
+                <span><i class="fas fa-users"></i> {{ rm.viewer_count or 1 }} watching</span>
+                <span><i class="fas fa-link"></i>
+                  {% if rm.stream_url %}
+                    <a href="{{ rm.stream_url }}" target="_blank" rel="noopener"
+                       style="color:var(--accent2);text-decoration:none;">
+                      {{ rm.stream_url[:50] }}{% if rm.stream_url|length > 50 %}…{% endif %}
+                    </a>
+                  {% else %}
+                    <span class="no-stream">No stream set</span>
+                  {% endif %}
+                </span>
+                <span><i class="fas fa-clock"></i> {{ rm.created_at[:16].replace('T',' ') }} UTC</span>
+              </div>
+            </div>
+            <div class="room-actions">
+              <a href="/watch/{{ rid }}" target="_blank" class="btn btn-ghost btn-sm">
+                <i class="fas fa-eye"></i> View
+              </a>
+              <button class="btn btn-copy btn-sm" onclick="copyLink('/watch/{{ rid }}')">
+                <i class="fas fa-link"></i> Copy Link
+              </button>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="rooms-empty">
+            <i class="fas fa-tower-broadcast"></i>
+            <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:6px;">No active rooms</div>
+            <div style="font-size:.82rem;">Use <code style="background:var(--accent-soft);color:var(--accent3);padding:1px 6px;border-radius:4px;">/start</code> in Discord or create a room from the dashboard.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="card">
+      <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="showSection('create')">
+          <i class="fas fa-circle-plus"></i> Create Room
+        </button>
+        <button class="btn btn-ghost" onclick="refreshRooms()">
+          <i class="fas fa-rotate-right"></i> Refresh
+        </button>
+        <a href="{{ url_for('wave_landing') }}" class="btn btn-ghost">
+          <i class="fas fa-globe"></i> Public Landing Page
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ACTIVE ROOMS ══════════════════════════════════════ -->
+  <div class="section" id="sec-rooms">
+    <div class="card">
+      <h2><i class="fas fa-tower-broadcast"></i> Active Watch Rooms</h2>
+      <p class="help">All currently running Wave watch rooms. End a session to remove it and disconnect viewers.</p>
+      <div style="margin-bottom:12px;">
+        <button class="btn btn-ghost btn-sm" onclick="refreshRooms()">
+          <i class="fas fa-rotate-right"></i> Refresh
+        </button>
+      </div>
+      <div id="rooms-list">
+        {% if rooms %}
+          {% for rid, rm in rooms.items() %}
+          <div class="room-item" id="ri-{{ rid }}">
+            <span class="room-live-dot"></span>
+            <div class="room-info">
+              <div class="room-title">{{ rm.title }}</div>
+              <div class="room-meta">
+                <span><i class="fas fa-users"></i> {{ rm.viewer_count or 1 }} watching</span>
+                <span><i class="fas fa-film"></i>
+                  {% if rm.stream_type and rm.stream_type != 'none' %}{{ rm.stream_type | upper }}{% else %}No stream{% endif %}
+                </span>
+                {% if rm.stream_url %}
+                <span><i class="fas fa-link"></i>
+                  <a href="{{ rm.stream_url }}" target="_blank" rel="noopener"
+                     style="color:var(--accent2);text-decoration:none;">
+                    {{ rm.stream_url[:48] }}{% if rm.stream_url|length > 48 %}…{% endif %}
+                  </a>
+                </span>
+                {% endif %}
+                <span><i class="fas fa-clock"></i> {{ rm.created_at[:16].replace('T',' ') }} UTC</span>
+              </div>
+            </div>
+            <div class="room-actions">
+              <a href="/watch/{{ rid }}" target="_blank" class="btn btn-ghost btn-sm">
+                <i class="fas fa-eye"></i> View Room
+              </a>
+              <button class="btn btn-copy btn-sm" onclick="copyLink('/watch/{{ rid }}')">
+                <i class="fas fa-link"></i> Viewer Link
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="endRoom('{{ rid }}')">
+                <i class="fas fa-stop"></i> End
+              </button>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="rooms-empty">
+            <i class="fas fa-tower-broadcast"></i>
+            <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:6px;">No active rooms</div>
+            <div style="font-size:.82rem;">Start one with the Discord bot or <button class="btn btn-primary btn-sm" onclick="showSection('create')" style="display:inline-flex;"><i class="fas fa-circle-plus"></i> Create Room</button></div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CREATE ROOM ════════════════════════════════════════ -->
+  <div class="section" id="sec-create">
+    <div class="card" style="max-width:540px;">
+      <h2><i class="fas fa-circle-plus"></i> Create a Watch Room</h2>
+      <p class="help">Create a room manually — no Discord bot required. Share the viewer link with your audience, keep the host link private.</p>
+
+      <div class="form-group">
+        <label class="form-label">Room Title</label>
+        <input type="text" id="cr-title" class="form-input"
+               placeholder="Match Day · Episode 3 · Movie Night…" maxlength="80">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Starting URL <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <input type="url" id="cr-url" class="form-input"
+               placeholder="https://cricstreams.tv/ or paste a direct stream URL">
+        <div class="form-hint">You can also set or change the stream once the room is open.</div>
+      </div>
+
+      <button class="btn btn-primary" onclick="createRoom()" id="cr-btn">
+        <i class="fas fa-tower-broadcast"></i> Create Room
+      </button>
+
+      <div class="result-box" id="cr-result">
+        <h4><i class="fas fa-check-circle" style="color:#34d399;"></i> Room Created!</h4>
+        <div class="link-row">
+          <span class="link-label">Viewer</span>
+          <input type="text" class="link-field" id="cr-viewer-link" readonly>
+          <button class="btn btn-copy btn-sm" onclick="copyField('cr-viewer-link')">
+            <i class="fas fa-copy"></i>
+          </button>
+          <a id="cr-viewer-open" href="#" target="_blank" class="btn btn-ghost btn-sm">
+            <i class="fas fa-arrow-up-right-from-square"></i>
+          </a>
+        </div>
+        <div class="link-row">
+          <span class="link-label">Host</span>
+          <input type="text" class="link-field" id="cr-host-link" readonly>
+          <button class="btn btn-copy btn-sm" onclick="copyField('cr-host-link')">
+            <i class="fas fa-copy"></i>
+          </button>
+          <a id="cr-host-open" href="#" target="_blank" class="btn btn-primary btn-sm">
+            <i class="fas fa-tower-broadcast"></i> Open
+          </a>
+        </div>
+        <p style="font-size:.75rem;color:var(--muted);margin-top:10px;">
+          <i class="fas fa-shield-halved"></i> Keep the <strong>host link</strong> private — it gives full stream control.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ BOT SETUP ══════════════════════════════════════════ -->
+  <div class="section" id="sec-bot">
+    <div class="card">
+      <h2><i class="fas fa-robot"></i> Bot Configuration</h2>
+      <p class="help">Wave's Discord bot uses the <code>W_TOKEN</code> environment variable. Set it to your Discord bot token in Replit Secrets to enable <code>/here</code> and <code>/start</code> commands.</p>
+
+      <div class="token-status {{ 'ts-set' if bot_running else 'ts-unset' }}">
+        <i class="fas {{ 'fa-circle-check' if bot_running else 'fa-triangle-exclamation' }}"></i>
+        <div>
+          <div class="ts-label">W_TOKEN</div>
+          <div class="ts-val">{{ 'Set — bot is connected' if bot_running else 'Not set — bot is offline' }}</div>
+        </div>
+      </div>
+
+      {% if not bot_running %}
+      <div class="help" style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:12px 14px;margin-bottom:16px;">
+        <strong style="color:#fbbf24;"><i class="fas fa-key"></i> To enable the bot:</strong><br>
+        Go to <strong>Replit Secrets</strong> (the lock icon in the left panel) and add a secret named
+        <code>W_TOKEN</code> with your Discord bot token as the value, then restart the app.
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2><i class="fas fa-terminal"></i> Slash Commands</h2>
+      <p class="help" style="margin-bottom:14px;">These commands are available to server administrators in any guild the Wave bot has joined.</p>
+      <div>
+        <div style="margin-bottom:14px;">
+          <span class="cmd-chip"><i class="fas fa-location-crosshairs"></i> /here</span>
+          <div class="cmd-desc">Sets the current channel as the Wave announcement channel for this server. Run this once before using <code>/start</code>.</div>
+        </div>
+        <div>
+          <span class="cmd-chip"><i class="fas fa-circle-play"></i> /start</span>
+          <span class="cmd-chip" style="font-size:.75rem;opacity:.7;">title: …</span>
+          <span class="cmd-chip" style="font-size:.75rem;opacity:.7;">url: …</span>
+          <div class="cmd-desc">Creates a watch room and posts the viewer link in the configured channel. Sends the private host link to the admin via ephemeral reply.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ GUILD CONFIG ════════════════════════════════════════ -->
+  <div class="section" id="sec-guilds">
+    <div class="card">
+      <h2><i class="fab fa-discord"></i> Guild Stream Channels</h2>
+      <p class="help">
+        Each Discord server that has run <code>/here</code> appears here.
+        Wave will post stream announcements in the configured channel when <code>/start</code> is run.
+      </p>
+      {% if guild_config %}
+      <div style="overflow-x:auto;">
+        <table class="cfg-table">
+          <thead>
+            <tr>
+              <th>Guild ID</th>
+              <th>Stream Channel ID</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for gid, gcfg in guild_config.items() %}
+            <tr>
+              <td><code>{{ gid }}</code></td>
+              <td><code>{{ gcfg.get('stream_channel', '—') }}</code></td>
+              <td>
+                <span class="stat-badge badge-ok">Configured</span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="rooms-empty" style="padding:32px 0;">
+        <i class="fab fa-discord"></i>
+        <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:6px;">No guilds configured</div>
+        <div style="font-size:.82rem;">Invite Wave to your Discord server and run <code style="background:var(--accent-soft);color:var(--accent3);padding:1px 6px;border-radius:4px;">/here</code> in the channel where you want stream announcements.</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</main>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+/* ── Navigation ────────────────────────────────────────── */
+const sections = {
+  overview: 'Overview',
+  rooms:    'Active Rooms',
+  create:   'Create Room',
+  bot:      'Bot Setup',
+  guilds:   'Guild Config',
+};
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+  const sec = document.getElementById('sec-' + id);
+  if (sec) sec.classList.add('active');
+  const btn = document.querySelector(`.sb-item[data-section="${id}"]`);
+  if (btn) btn.classList.add('active');
+  document.getElementById('pageTitle').textContent = sections[id] || id;
+  closeSidebar();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.querySelectorAll('.sb-item[data-section]').forEach(btn => {
+  btn.addEventListener('click', () => showSection(btn.dataset.section));
+});
+
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('backdrop').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('open');
+}
+
+/* ── Toast ─────────────────────────────────────────────── */
+function toast(msg, ms=2400) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+
+/* ── Copy helpers ──────────────────────────────────────── */
+function copyLink(path) {
+  const url = window.location.origin + path;
+  navigator.clipboard.writeText(url).then(() => toast('Link copied!')).catch(() => {});
+}
+function copyField(id) {
+  const v = document.getElementById(id).value;
+  navigator.clipboard.writeText(v).then(() => toast('Copied!')).catch(() => {});
+}
+
+/* ── Create room ───────────────────────────────────────── */
+async function createRoom() {
+  const title = document.getElementById('cr-title').value.trim() || 'Watch Party';
+  const url   = document.getElementById('cr-url').value.trim();
+  const btn   = document.getElementById('cr-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Creating…';
+  try {
+    const d = await fetch('/api/wave/create', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({title, url})
+    }).then(r => r.json());
+    if (!d.ok) throw new Error(d.error || 'Unknown error');
+    document.getElementById('cr-viewer-link').value = d.watch_url;
+    document.getElementById('cr-host-link').value   = d.host_url;
+    document.getElementById('cr-viewer-open').href  = d.watch_url;
+    document.getElementById('cr-host-open').href    = d.host_url;
+    document.getElementById('cr-result').classList.add('show');
+    document.getElementById('cr-title').value = '';
+    document.getElementById('cr-url').value   = '';
+    toast('Room created!');
+  } catch(e) {
+    toast('Error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-tower-broadcast"></i> Create Room';
+  }
+}
+
+/* ── End room (dashboard admin) ────────────────────────── */
+async function endRoom(rid) {
+  if (!confirm('End this watch room? All viewers will be disconnected.')) return;
+  try {
+    const d = await fetch(`/api/wave/end/${rid}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({host_token: '_admin_', _admin: true})
+    }).then(r => r.json());
+    const el = document.getElementById('ri-' + rid);
+    if (el) el.remove();
+    toast('Room ended.');
+    refreshRooms();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+/* ── Refresh rooms list ────────────────────────────────── */
+async function refreshRooms() {
+  try {
+    const d = await fetch('/api/wave/admin/rooms').then(r => r.json());
+    if (!d.ok) return;
+    document.getElementById('stat-rooms').textContent   = d.rooms.length;
+    document.getElementById('stat-viewers').textContent = d.total_viewers;
+    renderRoomsList(d.rooms);
+    renderRoomsOverview(d.rooms);
+  } catch(_) {}
+}
+
+function renderRoomsList(rooms) {
+  const el = document.getElementById('rooms-list');
+  if (!rooms.length) {
+    el.innerHTML = `<div class="rooms-empty">
+      <i class="fas fa-tower-broadcast"></i>
+      <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:6px;">No active rooms</div>
+      <div style="font-size:.82rem;">Start one with the Discord bot or create one above.</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = rooms.map(r => `
+    <div class="room-item" id="ri-${r.id}">
+      <span class="room-live-dot"></span>
+      <div class="room-info">
+        <div class="room-title">${esc(r.title)}</div>
+        <div class="room-meta">
+          <span><i class="fas fa-users"></i> ${r.viewer_count} watching</span>
+          <span><i class="fas fa-film"></i> ${r.stream_type !== 'none' ? r.stream_type.toUpperCase() : 'No stream'}</span>
+          ${r.stream_url ? `<span><i class="fas fa-link"></i> <a href="${esc(r.stream_url)}" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:none;">${esc(r.stream_url.slice(0,48))}${r.stream_url.length>48?'…':''}</a></span>` : ''}
+          <span><i class="fas fa-clock"></i> ${esc(r.created_at.slice(0,16).replace('T',' '))} UTC</span>
+        </div>
+      </div>
+      <div class="room-actions">
+        <a href="/watch/${r.id}" target="_blank" class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i> View</a>
+        <button class="btn btn-copy btn-sm" onclick="copyLink('/watch/${r.id}')"><i class="fas fa-link"></i> Viewer Link</button>
+        <button class="btn btn-danger btn-sm" onclick="endRoom('${r.id}')"><i class="fas fa-stop"></i> End</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderRoomsOverview(rooms) {
+  const el = document.getElementById('ov-rooms-wrap');
+  if (!rooms.length) {
+    el.innerHTML = `<div class="rooms-empty"><i class="fas fa-tower-broadcast"></i><div>No active rooms</div></div>`;
+    return;
+  }
+  el.innerHTML = rooms.slice(0,4).map(r => `
+    <div class="room-item">
+      <span class="room-live-dot"></span>
+      <div class="room-info">
+        <div class="room-title">${esc(r.title)}</div>
+        <div class="room-meta">
+          <span><i class="fas fa-users"></i> ${r.viewer_count} watching</span>
+          ${r.stream_url ? `<span><i class="fas fa-link"></i> ${esc(r.stream_url.slice(0,40))}${r.stream_url.length>40?'…':''}</span>` : ''}
+        </div>
+      </div>
+      <div class="room-actions">
+        <a href="/watch/${r.id}" target="_blank" class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i> View</a>
+        <button class="btn btn-copy btn-sm" onclick="copyLink('/watch/${r.id}')"><i class="fas fa-link"></i> Copy</button>
+      </div>
+    </div>`).join('');
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Auto-refresh every 10s ───────────────────────────── */
+setInterval(refreshRooms, 10000);
+</script>
+</body>
+</html>

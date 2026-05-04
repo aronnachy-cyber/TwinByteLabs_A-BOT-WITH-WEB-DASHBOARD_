@@ -163,7 +163,14 @@ Discord bot (`wavebot.py`) + web watch room. Uses `W_TOKEN` env var. Admin-only 
 - **Chat**: live chat sidebar, polled every 2s
 - **Presence**: viewers send a ping every 6s; viewer count shown live
 
-**Routes**: `GET /wave`, `GET /watch/<room_id>`, `POST /api/wave/create`, `GET /api/wave/state/<room_id>`, `POST /api/wave/set-stream/<room_id>`, `POST /api/wave/control/<room_id>`, `POST /api/wave/chat/<room_id>`, `POST /api/wave/ping/<room_id>`, `POST /api/wave/scan`, `POST /api/wave/end/<room_id>`
+**Routes**: `GET /wave`, `GET /wave/dashboard` (login required), `GET /watch/<room_id>`, `POST /api/wave/create`, `GET /api/wave/state/<room_id>`, `POST /api/wave/set-stream/<room_id>`, `POST /api/wave/control/<room_id>`, `POST /api/wave/chat/<room_id>`, `POST /api/wave/ping/<room_id>`, `POST /api/wave/scan`, `POST /api/wave/end/<room_id>`, `GET /api/wave/admin/rooms` (login required)
+
+**Wave Dashboard** (`wave_dashboard.html`) — sidebar + main layout matching Server Official style, rose/red theme:
+- **Overview**: stat cards (active rooms, viewers online, guilds configured, bot status), live rooms list, quick actions
+- **Active Rooms**: full table of running rooms with viewer count, stream type/URL, created time; View, Copy Viewer Link, End Session per row; auto-refreshes every 10s
+- **Create Room**: title + optional URL form → POST /api/wave/create → shows viewer link + host link with copy buttons
+- **Bot Setup**: W_TOKEN status display, /here and /start command reference
+- **Guild Config**: table of guild IDs and their configured stream channel IDs from wave_config.json
 
 **Storage**: `wave_rooms.json` (atomic write, thread-safe lock), `wave_config.json` (guild → stream channel id)
 

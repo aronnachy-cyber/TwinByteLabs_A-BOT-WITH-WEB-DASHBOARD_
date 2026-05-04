@@ -3406,6 +3406,58 @@ def wave_landing():
     return render_template('wave_landing.html')
 
 
+@app.route('/wave/dashboard')
+def wave_dashboard():
+    """Wave admin dashboard — requires login."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html',
+                               maintenance_eta=_load_dev_state().get('maintenance_eta', '')), 200
+    if not session.get('logged_in'):
+        session['post_login_redirect'] = url_for('wave_dashboard')
+        return redirect(url_for('login'))
+
+    # Load active rooms + attach viewer counts
+    rooms_raw = _wave_read()
+    now = _wv_time.time()
+    rooms_out = {}
+    total_viewers = 0
+    for rid, rm in rooms_raw.items():
+        pres = _WAVE_PRESENCE.get(rid, {})
+        vc   = max(1, len([ts for ts in pres.values() if now - ts < 14]))
+        rm_copy = dict(rm)
+        rm_copy['viewer_count'] = vc
+        total_viewers += vc
+        rooms_out[rid] = rm_copy
+
+    # Guild config
+    try:
+        from pathlib import Path as _P
+        import json as _j
+        cfg_path = _P(__file__).parent / 'wave_config.json'
+        guild_cfg = _j.loads(cfg_path.read_text(encoding='utf-8')) if cfg_path.exists() else {}
+    except Exception:
+        guild_cfg = {}
+
+    # Bot running detection
+    try:
+        import wavebot as _wb
+        bot_running = bool(
+            _wb._bot_thread and _wb._bot_thread.is_alive()
+            and os.environ.get('W_TOKEN', '').strip()
+        )
+    except Exception:
+        bot_running = False
+
+    return render_template(
+        'wave_dashboard.html',
+        rooms=rooms_out,
+        total_viewers=total_viewers,
+        guilds_configured=len(guild_cfg),
+        guild_config=guild_cfg,
+        bot_running=bot_running,
+    )
+
+
 @app.route('/watch/<room_id>')
 def watch_room(room_id):
     """Public watch-party room — accessible without login."""
@@ -3626,14 +3678,15 @@ def wave_api_scan():
     return jsonify({'ok': True, 'results': results, 'count': len(results)})
 
 
-# ── API: end session (host only) ──────────────────────────────────────────
+# ── API: end session (host or logged-in admin) ────────────────────────────
 @app.route('/api/wave/end/<room_id>', methods=['POST'])
 def wave_api_end(room_id):
     data = request.get_json(silent=True) or {}
     room = _wave_room(room_id)
     if not room:
         return jsonify({'ok': False, 'error': 'not found'}), 404
-    if data.get('host_token') != room.get('host_token'):
+    is_admin = session.get('logged_in') and data.get('_admin')
+    if not is_admin and data.get('host_token') != room.get('host_token'):
         return jsonify({'ok': False, 'error': 'unauthorized'}), 403
     with _WAVE_LOCK:
         rooms = _wave_read()
@@ -3641,6 +3694,32 @@ def wave_api_end(room_id):
         _wave_write(rooms)
     _WAVE_PRESENCE.pop(room_id, None)
     return jsonify({'ok': True})
+
+
+# ── API: admin rooms list (dashboard polling) ─────────────────────────────
+@app.route('/api/wave/admin/rooms')
+def wave_api_admin_rooms():
+    if not session.get('logged_in'):
+        return jsonify({'ok': False, 'error': 'Login required'}), 401
+    rooms_raw = _wave_read()
+    now = _wv_time.time()
+    rooms_out = []
+    total = 0
+    for rid, rm in rooms_raw.items():
+        pres = _WAVE_PRESENCE.get(rid, {})
+        vc   = max(1, len([ts for ts in pres.values() if now - ts < 14]))
+        total += vc
+        rooms_out.append({
+            'id':          rid,
+            'title':       rm.get('title', 'Watch Party'),
+            'stream_url':  rm.get('stream_url', ''),
+            'stream_type': rm.get('stream_type', 'none'),
+            'playing':     rm.get('playing', False),
+            'created_at':  rm.get('created_at', ''),
+            'guild_id':    rm.get('guild_id', ''),
+            'viewer_count': vc,
+        })
+    return jsonify({'ok': True, 'rooms': rooms_out, 'total_viewers': total})
 
 
 # ---- HEALTH CHECK ----
