@@ -3818,6 +3818,34 @@ def wave_api_scan():
 
     return jsonify({'ok': True, 'results': results, 'count': len(results)})
 
+# ── API: frame-check (can a URL be iframed?) ──────────────────────────────────
+@app.route('/api/wave/frame-check', methods=['POST'])
+def wave_api_frame_check():
+    """HEAD-request a URL and check whether X-Frame-Options / CSP deny iframing."""
+    import re as _re
+    data = request.get_json(silent=True) or {}
+    url  = data.get('url', '').strip()
+    if not url:
+        return jsonify({'ok': False, 'embeddable': False, 'reason': 'no url'}), 400
+    try:
+        import requests as _req
+        resp = _req.head(url, timeout=8, allow_redirects=True,
+                         headers={'User-Agent': 'Mozilla/5.0'})
+        xfo = resp.headers.get('X-Frame-Options', '').upper()
+        csp = resp.headers.get('Content-Security-Policy', '')
+        blocked = bool(xfo in ('DENY', 'SAMEORIGIN'))
+        if not blocked and csp:
+            # Look for frame-ancestors 'none' or frame-ancestors 'self'
+            fa = _re.search(r'frame-ancestors\s+([^;]+)', csp)
+            if fa:
+                fa_val = fa.group(1).strip().lower()
+                if "'none'" in fa_val or fa_val == "'self'":
+                    blocked = True
+        return jsonify({'ok': True, 'embeddable': not blocked, 'xfo': xfo, 'url': url})
+    except Exception as ex:
+        return jsonify({'ok': True, 'embeddable': True, 'note': str(ex)})
+
+
 # ── API: end session ──────────────────────────────────────────────────────────
 @app.route('/api/wave/end/<room_id>', methods=['POST'])
 def wave_api_end(room_id):

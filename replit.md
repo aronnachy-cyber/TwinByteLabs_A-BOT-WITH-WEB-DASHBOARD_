@@ -149,6 +149,23 @@ Storage for Server Official extras lives inside the existing per-guild `server_c
 - All `tasks.loop` background loops (`sync_bot_settings`, `daily_report_task`, `scheduler_tick`, `reminder_tick`) wrapped in top-level try/except so a single bad iteration can never silently kill the loop and leave the bot frozen on stale state.
 - Scheduler/reminder duplicate-fire race fixed: items are marked `posted=True` / `sent=True` and persisted **before** the network send, so a crash mid-send can never replay an announcement on next boot.
 
+## Wave📶 — Mini Browser & Stream Channel Commands (May 2026)
+Two new Discord slash commands and a mini browser panel added to the Wave📶 bot and stream room.
+
+**New bot commands (`wavebot.py`):**
+- `/here` — Designates the current channel as the Wave📶 stream channel. Must be run before `/start`.
+- `/start [title]` — Creates a watch-party room and posts the join link in the designated stream channel. The bot will not stream until this command is run. Sends the private host dashboard link to the command user via ephemeral reply.
+
+**Host stream room — mini browser panel (`stream_room.html`):**
+- New **Browse Web** button in the host URL bar opens a collapsible mini browser panel below the video.
+- The mini browser has a full address bar with back/reload navigation.
+- **Stream This** button (next to address bar) scans the current URL using `/api/wave/scan` (yt-dlp + m3u8 scraping) and shows found video streams in a modal.
+- Host picks a stream from the scan results — it immediately loads for all viewers.
+- If a site blocks iFrame embedding (X-Frame-Options / CSP), the panel shows a "blocked" notice with a "Find Videos Anyway" button that still runs the scan on the URL.
+
+**New API endpoint (`dashboard.py`):**
+- `POST /api/wave/frame-check` — HEAD-requests a URL server-side and checks X-Frame-Options / Content-Security-Policy headers to determine if the page can be embedded in an iframe.
+
 ## Routes
 - `/` - Public landing page
 - `/login` - UID-based login (format: TBLS-XXXX-XXXX)

@@ -133,9 +133,75 @@ video{width:100%;height:100%;object-fit:contain;}
 .modal-btn{width:100%;padding:12px;border-radius:10px;background:var(--grad);border:none;color:#fff;font-weight:700;font-size:1rem;font-family:inherit;cursor:pointer;}
 
 .hidden{display:none!important;}
+
+/* ── BROWSE TOGGLE ── */
+.browse-toggle{padding:8px 14px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:var(--text);font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:7px;transition:all .15s;white-space:nowrap;}
+.browse-toggle:hover{background:rgba(255,255,255,.13);}
+.browse-toggle.active{background:rgba(244,63,94,.1);border-color:rgba(244,63,94,.35);color:var(--accent2);}
+
+/* ── MINI BROWSER PANEL ── */
+.browser-panel{flex-shrink:0;display:flex;flex-direction:column;height:340px;border-top:2px solid var(--accent);background:var(--surface);animation:slideUp .22s ease;}
+@keyframes slideUp{from{height:0;opacity:0;}to{height:340px;opacity:1;}}
+.browser-bar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;}
+.browser-nav-btn{width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--text);cursor:pointer;font-size:.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
+.browser-nav-btn:hover{background:rgba(255,255,255,.14);}
+.browser-url-input{flex:1;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px;color:var(--text);font-size:.82rem;font-family:inherit;outline:none;transition:border-color .15s;}
+.browser-url-input::placeholder{color:var(--muted);}
+.browser-url-input:focus{border-color:var(--accent);}
+.browser-go-btn{padding:6px 13px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--text);font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s;}
+.browser-go-btn:hover{background:rgba(255,255,255,.15);}
+.browser-stream-btn{padding:6px 14px;border-radius:8px;background:var(--grad);border:none;color:#fff;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:filter .15s;flex-shrink:0;}
+.browser-stream-btn:hover{filter:brightness(1.12);}
+.browser-close-btn{width:30px;height:30px;border-radius:7px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);color:#fca5a5;cursor:pointer;font-size:.78rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
+.browser-close-btn:hover{background:rgba(239,68,68,.22);}
+.browser-frame-wrap{flex:1;position:relative;overflow:hidden;background:#fff;}
+.browser-frame{width:100%;height:100%;border:none;}
+.browser-blocked{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--surface);color:var(--muted);text-align:center;padding:24px;}
+.browser-blocked i{font-size:2rem;color:var(--border);}
+.browser-blocked p{font-size:.9rem;font-weight:600;color:var(--text);}
+.browser-blocked small{font-size:.8rem;line-height:1.5;}
+.browser-blocked .try-btn{margin-top:10px;padding:8px 18px;border-radius:8px;background:var(--grad);border:none;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;}
+
+/* ── SCAN MODAL ── */
+.scan-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:300;display:flex;align-items:center;justify-content:center;}
+.scan-modal-card{background:var(--surface2);border:1px solid var(--border);border-radius:16px;width:min(580px,94vw);max-height:78vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6);}
+.scan-modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);}
+.scan-modal-hdr span{font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:8px;}
+.scan-modal-hdr button{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:var(--muted);cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:.8rem;transition:all .15s;}
+.scan-modal-hdr button:hover{background:rgba(255,255,255,.14);color:var(--text);}
+.scan-results{padding:12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;}
+.scan-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);cursor:pointer;transition:all .15s;}
+.scan-item:hover{background:rgba(244,63,94,.08);border-color:rgba(244,63,94,.3);}
+.scan-thumb{width:72px;height:40px;border-radius:6px;object-fit:cover;background:rgba(255,255,255,.06);flex-shrink:0;}
+.scan-thumb-ph{width:72px;height:40px;border-radius:6px;background:rgba(255,255,255,.06);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.85rem;color:var(--muted);}
+.scan-item-info{flex:1;min-width:0;}
+.scan-item-title{font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.scan-item-type{font-size:.72rem;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.05em;}
+.scan-play-btn{padding:7px 16px;border-radius:8px;background:var(--grad);border:none;color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;flex-shrink:0;transition:filter .15s;}
+.scan-play-btn:hover{filter:brightness(1.1);}
+.scan-scanning{text-align:center;padding:36px;color:var(--muted);}
+.scan-scanning i{font-size:1.6rem;display:block;margin-bottom:12px;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.scan-none{text-align:center;padding:36px;color:var(--muted);}
+.scan-none i{font-size:1.6rem;display:block;margin-bottom:10px;color:var(--border);}
+.scan-none p{font-size:.9rem;margin-bottom:6px;color:var(--text);}
+.scan-none small{font-size:.8rem;line-height:1.5;}
 </style>
 </head>
 <body>
+
+<!-- SCAN RESULTS MODAL -->
+<div class="scan-modal-bg hidden" id="scanModal">
+  <div class="scan-modal-card">
+    <div class="scan-modal-hdr">
+      <span><i class="fas fa-magnifying-glass"></i> Select a stream to play</span>
+      <button onclick="closeScanModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="scan-results" id="scanResults">
+      <div class="scan-scanning"><i class="fas fa-circle-notch"></i> Scanning for video streams…</div>
+    </div>
+  </div>
+</div>
 
 <!-- NAME PROMPT -->
 <div class="modal-bg" id="nameProm">
@@ -211,6 +277,31 @@ video{width:100%;height:100%;object-fit:contain;}
     <div class="url-bar">
       <input class="url-input" id="urlInput" placeholder="Paste stream URL: YouTube, HLS .m3u8, or direct video…" value="{{ room.stream_url or '' }}"/>
       <button class="url-btn" onclick="loadStream()"><i class="fas fa-play"></i> Load Stream</button>
+      <button class="browse-toggle" id="browseToggle" onclick="toggleBrowser()"><i class="fas fa-globe"></i> Browse Web</button>
+    </div>
+
+    <!-- MINI BROWSER PANEL -->
+    <div class="browser-panel" id="browserPanel" style="display:none;">
+      <div class="browser-bar">
+        <button class="browser-nav-btn" title="Back" onclick="browserBack()"><i class="fas fa-arrow-left"></i></button>
+        <button class="browser-nav-btn" title="Reload" onclick="browserReload()"><i class="fas fa-rotate-right"></i></button>
+        <input class="browser-url-input" id="browserUrlInput" placeholder="Enter a website URL and press Go…" onkeydown="if(event.key==='Enter')navigateBrowser()"/>
+        <button class="browser-go-btn" onclick="navigateBrowser()"><i class="fas fa-arrow-right"></i> Go</button>
+        <button class="browser-stream-btn" onclick="scanAndStream()"><i class="fas fa-tower-broadcast"></i> Stream This</button>
+        <button class="browser-close-btn" title="Close browser" onclick="toggleBrowser()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="browser-frame-wrap">
+        <iframe id="browserFrame" class="browser-frame"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
+          allowfullscreen></iframe>
+        <div class="browser-blocked" id="browserBlocked">
+          <i class="fas fa-shield-halved"></i>
+          <p>This site can't be shown in the mini browser.</p>
+          <small>Many sites block being embedded for security reasons.<br>
+          You can still click <b>Stream This</b> above — it will scan the URL for video streams directly.</small>
+          <button class="try-btn" onclick="scanAndStream()"><i class="fas fa-magnifying-glass"></i> Find Videos Anyway</button>
+        </div>
+      </div>
     </div>
     {% endif %}
   </div>
@@ -445,6 +536,184 @@ if (IS_HOST) {
 async function loadStream() {
   const url = document.getElementById('urlInput').value.trim();
   if (!url) return;
+  await fetch(`/api/wave/set-stream/${ROOM_ID}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ url, host_token: HOST_TOK })
+  });
+  poll();
+}
+
+// ── Mini Browser ──────────────────────────────────────────────────────────────
+let browserOpen   = false;
+let currentBrowserUrl = '';
+let blockedCheckTimer = null;
+
+function toggleBrowser() {
+  browserOpen = !browserOpen;
+  const panel  = document.getElementById('browserPanel');
+  const toggle = document.getElementById('browseToggle');
+  if (browserOpen) {
+    panel.style.display = 'flex';
+    toggle.classList.add('active');
+    toggle.innerHTML = '<i class="fas fa-globe"></i> Close Browser';
+  } else {
+    panel.style.display = 'none';
+    toggle.classList.remove('active');
+    toggle.innerHTML = '<i class="fas fa-globe"></i> Browse Web';
+  }
+}
+
+function _normalizeUrl(raw) {
+  raw = raw.trim();
+  if (!raw) return '';
+  if (!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
+  return raw;
+}
+
+function navigateBrowser() {
+  const raw = document.getElementById('browserUrlInput').value.trim();
+  const url = _normalizeUrl(raw);
+  if (!url) return;
+  document.getElementById('browserUrlInput').value = url;
+  _loadInFrame(url);
+}
+
+async function _loadInFrame(url) {
+  const frame   = document.getElementById('browserFrame');
+  const blocked = document.getElementById('browserBlocked');
+
+  blocked.style.display = 'none';
+  frame.style.display   = 'block';
+  currentBrowserUrl     = url;
+  clearTimeout(blockedCheckTimer);
+
+  // Pre-check embeddability server-side (strips X-Frame-Options headers)
+  try {
+    const ck = await fetch('/api/wave/frame-check', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url })
+    });
+    const cd = await ck.json();
+    if (cd.ok && cd.embeddable === false) {
+      _showBlocked();
+      return;
+    }
+  } catch(_) {}
+
+  frame.src = url;
+
+  frame.onload = () => {
+    clearTimeout(blockedCheckTimer);
+    // Try to update address bar with actual navigated URL (same-origin only)
+    try {
+      const nav = frame.contentWindow.location.href;
+      if (nav && nav !== 'about:blank') {
+        document.getElementById('browserUrlInput').value = nav;
+        currentBrowserUrl = nav;
+      }
+    } catch(_) {
+      // Cross-origin — keep address bar as-is, page is still visible
+    }
+    // Delayed blank-check: if page truly failed to load content, show blocked
+    blockedCheckTimer = setTimeout(() => {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        if (!doc || !doc.body || doc.body.innerHTML.trim() === '') _showBlocked();
+      } catch(_) {}
+    }, 1800);
+  };
+
+  frame.onerror = () => _showBlocked();
+}
+
+function _showBlocked() {
+  const frame   = document.getElementById('browserFrame');
+  const blocked = document.getElementById('browserBlocked');
+  frame.style.display   = 'none';
+  blocked.style.display = 'flex';
+}
+
+function browserBack() {
+  const frame = document.getElementById('browserFrame');
+  try { frame.contentWindow.history.back(); } catch(_) {}
+}
+
+function browserReload() {
+  const frame = document.getElementById('browserFrame');
+  try { frame.contentWindow.location.reload(); }
+  catch(_) { frame.src = frame.src; }
+}
+
+// ── Scan & Stream ─────────────────────────────────────────────────────────────
+function openScanModal() {
+  document.getElementById('scanModal').classList.remove('hidden');
+  document.getElementById('scanResults').innerHTML =
+    '<div class="scan-scanning"><i class="fas fa-circle-notch"></i> Scanning for video streams…</div>';
+}
+function closeScanModal() {
+  document.getElementById('scanModal').classList.add('hidden');
+}
+
+async function scanAndStream() {
+  // Get URL to scan: prefer current iframe URL, fallback to address bar, fallback to stream URL input
+  let targetUrl = currentBrowserUrl
+    || document.getElementById('browserUrlInput')?.value?.trim()
+    || document.getElementById('urlInput').value.trim();
+
+  if (!targetUrl) {
+    alert('Enter a website URL in the browser bar first, then click Stream This.');
+    return;
+  }
+
+  openScanModal();
+
+  try {
+    const r = await fetch('/api/wave/scan', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url: targetUrl })
+    });
+    const d = await r.json();
+
+    if (!d.ok || !d.results || !d.results.length) {
+      document.getElementById('scanResults').innerHTML = `
+        <div class="scan-none">
+          <i class="fas fa-video-slash"></i>
+          <p>No video streams found on that page.</p>
+          <small>Try navigating deeper into the page (e.g. click play on a video) before scanning,
+          or paste the direct video/stream URL into the Load Stream box above.</small>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('scanResults').innerHTML = d.results.map((item, i) => `
+      <div class="scan-item" onclick="pickStream(${JSON.stringify(item.url)}, ${JSON.stringify(item.title || 'Stream')})">
+        ${item.thumbnail
+          ? `<img class="scan-thumb" src="${esc(item.thumbnail)}" onerror="this.style.display='none'">`
+          : `<div class="scan-thumb-ph"><i class="fas fa-film"></i></div>`}
+        <div class="scan-item-info">
+          <div class="scan-item-title">${esc(item.title || 'Stream ' + (i+1))}</div>
+          <div class="scan-item-type">${esc(item.type || 'video')}</div>
+        </div>
+        <button class="scan-play-btn"><i class="fas fa-play"></i> Stream</button>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('scanResults').innerHTML = `
+      <div class="scan-none">
+        <i class="fas fa-triangle-exclamation"></i>
+        <p>Scan failed.</p>
+        <small>Check the URL and try again.</small>
+      </div>`;
+  }
+}
+
+async function pickStream(url, title) {
+  closeScanModal();
+  // Pre-fill the URL bar so host can see what's being loaded
+  document.getElementById('urlInput').value = url;
+  // Load it as the room stream
   await fetch(`/api/wave/set-stream/${ROOM_ID}`, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},

@@ -308,6 +308,130 @@ async def cmd_end(interaction: discord.Interaction):
         await interaction.followup.send("No active room found.", ephemeral=True)
 
 
+# ─── /here ────────────────────────────────────────────────────────────────────
+@bot.tree.command(
+    name="here",
+    description="Designate this channel as the Wave📶 stream channel for /start",
+    default_member_permissions=discord.Permissions(administrator=True),
+)
+async def cmd_here(interaction: discord.Interaction):
+    gid = str(interaction.guild_id)
+    _set_wcfg(gid, "stream_channel_id", str(interaction.channel_id))
+    e = discord.Embed(
+        title="📍 Wave📶 Stream Channel Set!",
+        description=(
+            f"**{interaction.channel.mention}** is now the designated stream channel.\n\n"
+            "Use `/start` to begin a watch-party session here.\n"
+            "The bot will not stream until `/start` is run."
+        ),
+        color=ROSE,
+        timestamp=datetime.now(timezone.utc),
+    )
+    e.set_footer(text="Wave📶 · Byte Labs · Streaming & Watch Parties")
+    await interaction.response.send_message(embed=e)
+
+
+# ─── /start ───────────────────────────────────────────────────────────────────
+@bot.tree.command(
+    name="start",
+    description="Start a Wave📶 streaming session in the designated stream channel",
+    default_member_permissions=discord.Permissions(administrator=True),
+)
+@app_commands.describe(title="Session title shown to viewers (e.g. 'Movie Night')")
+async def cmd_start(interaction: discord.Interaction, title: str = "Watch Party"):
+    await interaction.response.defer(ephemeral=True)
+    gid = str(interaction.guild_id)
+    cfg = _wcfg(gid)
+    stream_ch_id = cfg.get("stream_channel_id")
+
+    if not stream_ch_id:
+        return await interaction.followup.send(
+            "❌ No stream channel set.\n"
+            "First run `/here` in the channel you want Wave📶 to use, then try `/start` again.",
+            ephemeral=True,
+        )
+
+    stream_ch = interaction.guild.get_channel(int(stream_ch_id))
+    if not stream_ch:
+        return await interaction.followup.send(
+            "❌ The configured stream channel no longer exists. "
+            "Run `/here` in a valid channel to re-set it.",
+            ephemeral=True,
+        )
+
+    import time as _t
+    room_id  = secrets.token_urlsafe(6)
+    host_tok = secrets.token_hex(16)
+    room = {
+        "guild_id":    gid,
+        "title":       title,
+        "stream_url":  "",
+        "playing":     False,
+        "position":    0.0,
+        "position_ts": _t.time(),
+        "host_token":  host_tok,
+        "created_at":  datetime.now(timezone.utc).isoformat(),
+        "chat":        [],
+        "ffmpeg_pid":  None,
+    }
+    with _lock:
+        rooms = _read_rooms()
+        old = [k for k, v in rooms.items() if v.get("guild_id") == gid]
+        for k in old:
+            rooms.pop(k, None)
+        rooms[room_id] = room
+        _write_rooms(rooms)
+
+    base      = _base_url()
+    watch_url = f"{base}/watch/{room_id}"
+    host_url  = f"{base}/watch/{room_id}?host={host_tok}"
+
+    pub_e = discord.Embed(
+        title="📺 Stream is Live!",
+        description=(
+            f"**{title}**\n\n"
+            "Click the link below to join the watch party.\n"
+            "The host will browse and pick a video to stream — join in!"
+        ),
+        color=ROSE,
+        timestamp=datetime.now(timezone.utc),
+    )
+    pub_e.add_field(name="🔗 Watch Link", value=f"[Join Stream]({watch_url})", inline=True)
+    vc_id = cfg.get("voice_channel_id")
+    if vc_id:
+        vc = interaction.guild.get_channel(int(vc_id))
+        if vc:
+            pub_e.add_field(name="🔊 Voice Channel", value=vc.mention, inline=True)
+    pub_e.add_field(
+        name="💡 Tip",
+        value="The host will open a website in the mini browser, find a video, and press **Stream This** to start.",
+        inline=False,
+    )
+    pub_e.set_footer(text="Wave📶 · Byte Labs · Streaming & Watch Parties")
+
+    try:
+        await stream_ch.send(embed=pub_e)
+    except discord.Forbidden:
+        return await interaction.followup.send(
+            f"❌ I don't have permission to send messages in {stream_ch.mention}.", ephemeral=True
+        )
+
+    host_e = discord.Embed(
+        title="⚙️ Your Host Dashboard",
+        description=(
+            f"[Open Host View]({host_url})\n\n"
+            "In the host view:\n"
+            "• Paste a website URL and click **Browse** to open it in the mini browser\n"
+            "• Navigate the site to find a video\n"
+            "• Hit **Stream This** to extract and start streaming it\n"
+            "• Use **Stop Stream** or `/endstream` to end the session"
+        ),
+        color=PINK,
+    )
+    host_e.set_footer(text="Keep this link private — it gives full host control")
+    await interaction.followup.send(embed=host_e, ephemeral=True)
+
+
 # ─── /wave-help ───────────────────────────────────────────────────────────────
 @bot.tree.command(name="wave-help", description="Show all Wave📶 streaming commands", default_member_permissions=discord.Permissions(administrator=True))
 async def cmd_help(interaction: discord.Interaction):
@@ -316,6 +440,11 @@ async def cmd_help(interaction: discord.Interaction):
         description="Streaming & synchronized watch parties for Discord.",
         color=ROSE
     )
+    e.add_field(name="🚀 Setup", value=(
+        "`/here` — Set this channel as the stream channel\n"
+        "`/start [title]` — Start a stream session in the stream channel\n"
+        "_The bot won't stream until `/start` is run in the designated channel._"
+    ), inline=False)
     e.add_field(name="🎬 Watch Parties", value=(
         "`/watch [title] [url]` — Create a watch-party room\n"
         "`/sync` — Force all viewers to sync\n"
@@ -323,10 +452,10 @@ async def cmd_help(interaction: discord.Interaction):
         "`/endstream` — Close the room"
     ), inline=False)
     e.add_field(name="💡 How it works", value=(
-        "Wave📶 creates a web room all your members join.\n"
-        "Paste any stream URL — YouTube, HLS, direct video.\n"
-        "The host controls play/pause/seek for everyone.\n"
-        "Chat overlay keeps the watch-party vibe alive."
+        "1. Run `/here` in the channel you want Wave📶 in.\n"
+        "2. Run `/start` — a watch link is posted for viewers.\n"
+        "3. Open your host link, paste a website URL, click **Browse**.\n"
+        "4. Navigate to a video, click **Stream This** — everyone sees it!"
     ), inline=False)
     e.add_field(name="🔗 Platform", value="[bytelabs.dev/wave](https://bytelabs.dev/wave)", inline=False)
     e.set_footer(text="Wave📶 · Byte Labs · Streaming & Watch Parties")
