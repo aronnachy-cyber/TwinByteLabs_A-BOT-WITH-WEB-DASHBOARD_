@@ -2319,6 +2319,7 @@ def auth_discord_callback():
     # We keep guilds where the user is the owner OR has Manage Server (0x20).
     # Best-effort: failures here MUST NOT block login.
     user_admin_guild_ids = []
+    user_admin_guilds = []   # full metadata: [{id, name, icon_url}]
     try:
         guilds_res = http_requests.get(
             f"{DISCORD_API_BASE}/users/@me/guilds",
@@ -2338,6 +2339,16 @@ def auth_discord_callback():
                     gid = str(g.get('id', '')).strip()
                     if gid:
                         user_admin_guild_ids.append(gid)
+                        icon_hash = g.get('icon') or ''
+                        icon_url = (
+                            f"https://cdn.discordapp.com/icons/{gid}/{icon_hash}.png?size=128"
+                            if icon_hash else None
+                        )
+                        user_admin_guilds.append({
+                            'id':       gid,
+                            'name':     g.get('name', 'Unknown Server'),
+                            'icon_url': icon_url,
+                        })
     except Exception as e:
         app.logger.warning(f"[oauth] could not fetch user guilds: {e}")
 
@@ -2384,6 +2395,8 @@ def auth_discord_callback():
     # dashboards (Server Official, etc.) can scope correctly without an extra
     # Discord API call on every request.
     session['user_admin_guild_ids'] = user_admin_guild_ids
+    session['user_guilds']          = user_admin_guilds
+    session['user_avatar']          = avatar_url
     session.modified = True
     add_dashboard_log("✅ LOGIN", f"{discord_global} logged in via Discord")
 
@@ -2412,7 +2425,7 @@ def auth_discord_callback():
     next_url = session.pop('post_login_redirect', None)
     if next_url:
         return redirect(next_url)
-    return redirect(url_for('landing'))
+    return redirect(url_for('server_select'))
 
 # ---- REMOVED: UID-based register/forgot-password (Discord-only auth) ----
 @app.route('/register')
@@ -2425,6 +2438,28 @@ def _legacy_auth_redirect():
 def activate_license():
     # Tiers are now automatically applied on login — no manual code entry needed.
     return redirect(url_for('landing'))
+
+
+# ---- SERVER SELECTION ----
+@app.route('/servers')
+def server_select():
+    """Post-login server picker — shows every admin server with its Discord icon."""
+    if not session.get('logged_in'):
+        session['post_login_redirect'] = url_for('server_select')
+        return redirect(url_for('login'))
+    user_guilds  = session.get('user_guilds', [])
+    user_avatar  = session.get('user_avatar', '') or ''
+    discord_id   = session.get('discord_id', '')
+    if not user_avatar and discord_id:
+        u = find_user_by_discord_id(discord_id)
+        user_avatar = (u or {}).get('avatar_url', '') or ''
+    return render_template(
+        'server_select.html',
+        user_guilds=user_guilds,
+        user_avatar=user_avatar,
+        user_name=session.get('user_name', 'User'),
+        discord_configured=bool(DISCORD_CLIENT_ID),
+    )
 
 
 # ---- MAIN DASHBOARD ----
@@ -2481,6 +2516,9 @@ def index():
 
     live = _sp4rk_live_state(user_guild_ids=_user_admin_guild_ids())
 
+    user_avatar = current_user.get('avatar_url', '') or session.get('user_avatar', '') or ''
+    preselect_guild = request.args.get('guild', '')
+
     try:
         return render_template(
             'index.html',
@@ -2496,6 +2534,8 @@ def index():
             user_license_code=user_license_code or current_user.get('license_code', ''),
             is_premium=is_premium,
             live=live,
+            user_avatar=user_avatar,
+            preselect_guild=preselect_guild,
         )
     except Exception as e:
         print(f"❌ Dashboard template render error: {e}")

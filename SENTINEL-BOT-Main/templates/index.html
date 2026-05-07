@@ -518,6 +518,11 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   </nav>
   <div class="sidebar-footer">
     <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      {% if user_avatar %}
+      <img src="{{ user_avatar }}" alt="{{ current_user_name }}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--border);flex-shrink:0;" onerror="this.style.display='none'">
+      {% else %}
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;flex-shrink:0;">{{ current_user_name[0]|upper if current_user_name else 'U' }}</div>
+      {% endif %}
       <span style="font-size:0.78rem;color:var(--text);font-weight:600;">{{ current_user_name }}</span>
       {% if user_tier == 'premium' %}
       <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.35);border-radius:999px;font-size:.65rem;font-weight:700;color:#f59e0b;letter-spacing:.3px;"><i class="fas fa-crown" style="font-size:.6rem;"></i> PRO</span>
@@ -558,8 +563,21 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     <button class="btn btn-success" id="restart-bot-btn" onclick="restartBot()" title="Restarts the bot worker process. Settings are reloaded fresh.">
       <i class="fas fa-sync-alt"></i> Restart Bot
     </button>
+    <a href="{{ url_for('server_select') }}" title="{{ current_user_name }} — Switch server" style="display:flex;align-items:center;text-decoration:none;">
+      {% if user_avatar %}
+      <img src="{{ user_avatar }}" alt="{{ current_user_name }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--border);transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onerror="this.outerHTML='<div style=\'width:36px;height:36px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;\'>{{ current_user_name[0]|upper if current_user_name else \'U\' }}</div>'">
+      {% else %}
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;">{{ current_user_name[0]|upper if current_user_name else 'U' }}</div>
+      {% endif %}
+    </a>
   </div>
 </div>
+
+{% if preselect_guild %}
+<script>
+  window._PRESELECT_GUILD = "{{ preselect_guild | e }}";
+</script>
+{% endif %}
 
 {% if is_admin %}
 <!-- Pending Registration Notification Banner (admin only, shown/hidden by JS) -->
@@ -2506,6 +2524,24 @@ function onGuildChange() {
   currentGuildId = pick ? pick.value : '';
   loadGuildConfig();
 }
+
+// Auto-select guild when arriving from the server picker (/servers page)
+(function(){
+  var preselectId = (typeof window._PRESELECT_GUILD !== 'undefined') ? window._PRESELECT_GUILD : '';
+  if (!preselectId) return;
+  document.addEventListener('DOMContentLoaded', function(){
+    var pick = document.getElementById('guildPick');
+    if (!pick) return;
+    for (var i = 0; i < pick.options.length; i++) {
+      if (pick.options[i].value === preselectId) {
+        pick.selectedIndex = i;
+        currentGuildId = preselectId;
+        loadGuildConfig();
+        break;
+      }
+    }
+  });
+})();
 
 async function loadGuildConfig() {
   try {
