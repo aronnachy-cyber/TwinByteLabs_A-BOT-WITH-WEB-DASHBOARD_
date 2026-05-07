@@ -578,8 +578,23 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
       </div>
     </div>
     <div class="card">
-      <h2><i class="fas fa-image-portrait"></i> Bot Profile Picture (this server only)</h2>
-      <p class="help">Only the <b>server owner</b>, an <b>Administrator</b>, or someone with <b>Manage Server</b> can change the bot's profile picture. PNG, JPG, GIF, or WEBP, max 10 MB.</p>
+      <h2><i class="fas fa-earth-americas"></i> Bot Profile Picture (Global — all servers)</h2>
+      <p class="help">This changes the bot's profile picture on <b>Discord globally</b> — it will update across every server the bot is in. PNG, JPG, GIF, or WEBP, max 10 MB. Discord limits avatar changes to a few times per hour.</p>
+      <div class="row" style="align-items:center;gap:18px;">
+        <img id="globalAvatarPreview" alt="Current global avatar"
+             style="width:96px;height:96px;border-radius:50%;object-fit:cover;background:#0e1525;border:2px solid var(--accent);" />
+        <div style="flex:1;">
+          <input type="file" id="globalAvatarFile" accept="image/png,image/jpeg,image/gif,image/webp" onchange="previewGlobalAvatar(event)" />
+          <div class="row" style="margin-top:10px;">
+            <button class="btn" id="btnGlobalAvatarUpload" onclick="uploadGlobalAvatar()"><i class="fas fa-upload"></i> Upload &amp; Apply to Discord</button>
+          </div>
+          <div id="globalAvatarStatus" class="muted" style="margin-top:8px;font-size:.85rem;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-image-portrait"></i> Bot Profile Picture (Dashboard preview only)</h2>
+      <p class="help">Upload a custom image to display in <b>this dashboard</b> for this server. Discord does not support per-server bot avatars, so this image is for dashboard display purposes only and does not affect how the bot appears in Discord.</p>
       <div id="avatarPermBanner" class="muted" style="margin-bottom:10px;">Checking permission…</div>
       <div class="row" style="align-items:center;gap:18px;">
         <img id="avatarPreview" alt="Current avatar"
@@ -587,8 +602,8 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
         <div style="flex:1;">
           <input type="file" id="avatarFile" accept="image/png,image/jpeg,image/gif,image/webp" disabled />
           <div class="row" style="margin-top:10px;">
-            <button class="btn" id="btnAvatarUpload" onclick="uploadAvatar()" disabled><i class="fas fa-upload"></i> Upload &amp; Apply</button>
-            <button class="btn btn-ghost" id="btnAvatarReset" onclick="resetAvatar()" disabled><i class="fas fa-trash"></i> Remove Custom Avatar</button>
+            <button class="btn" id="btnAvatarUpload" onclick="uploadAvatar()" disabled><i class="fas fa-upload"></i> Save Dashboard Preview</button>
+            <button class="btn btn-ghost" id="btnAvatarReset" onclick="resetAvatar()" disabled><i class="fas fa-trash"></i> Remove</button>
           </div>
           <div id="avatarStatus" class="muted" style="margin-top:8px;font-size:.85rem;"></div>
         </div>
@@ -1411,6 +1426,43 @@ async function resetAvatar(){
     $('#avatarStatus').textContent = (j.data && j.data.discord_status) || 'Removed';
   }catch(e){
     toast('Reset failed: ' + e.message, 'err');
+  }
+}
+function previewGlobalAvatar(event){
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { $('#globalAvatarPreview').src = e.target.result; };
+  reader.readAsDataURL(file);
+}
+async function uploadGlobalAvatar(){
+  const fileEl = $('#globalAvatarFile');
+  if (!fileEl.files || !fileEl.files[0]) return toast('Choose an image first','err');
+  const f = fileEl.files[0];
+  if (f.size > 10*1024*1024) return toast('Image too large (max 10 MB)','err');
+  const fd = new FormData();
+  fd.append('image', f);
+  const stat = $('#globalAvatarStatus');
+  const btn  = $('#btnGlobalAvatarUpload');
+  stat.textContent = 'Uploading to Discord…';
+  btn.disabled = true;
+  try{
+    const r = await fetch('/server-official/api/global_avatar', {method:'POST', body:fd, credentials:'same-origin'});
+    const j = await r.json();
+    if (!r.ok || !j.ok){
+      toast(j.error || 'Upload failed','err');
+      stat.textContent = j.error || 'Upload failed';
+    } else {
+      toast('Global bot avatar updated on Discord!','ok');
+      stat.textContent = (j.data && j.data.discord_status) || 'Updated successfully';
+      setSidebarAvatar($('#globalAvatarPreview').src);
+      fileEl.value = '';
+    }
+  } catch(e){
+    toast('Upload failed: ' + e.message,'err');
+    stat.textContent = 'Upload failed';
+  } finally {
+    btn.disabled = false;
   }
 }
 async function saveGuildConfig(){

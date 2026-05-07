@@ -2719,6 +2719,32 @@ def delete_guild_avatar(guild_id: str) -> Dict[str, Any]:
     return {"ok": True, "removed": removed, "discord_status": discord_status}
 
 
+def set_global_avatar(image_bytes: bytes, ext: str) -> Dict[str, Any]:
+    """Change the bot's global Discord profile picture via bot.user.edit().
+
+    This is fully supported by Discord for bots — it updates the avatar
+    everywhere, across every server the bot is in.
+    """
+    ext = (ext or "png").lower().lstrip(".")
+    if ext not in ("png", "jpg", "jpeg", "gif", "webp"):
+        return {"ok": False, "error": "Unsupported format. Use PNG, JPG, GIF, or WEBP."}
+    if len(image_bytes) > 10 * 1024 * 1024:
+        return {"ok": False, "error": "Image too large (max 10 MB)"}
+
+    if not (bot and bot.is_ready()):
+        return {"ok": False, "error": "Bot is not running — cannot update Discord avatar."}
+
+    try:
+        fut = _asyncio.run_coroutine_threadsafe(
+            bot.user.edit(avatar=image_bytes),
+            bot.loop
+        )
+        fut.result(timeout=15)
+        return {"ok": True, "discord_status": "Global bot avatar updated on Discord successfully"}
+    except Exception as e:
+        return {"ok": False, "error": f"Discord rejected the avatar change: {e.__class__.__name__}: {e}"}
+
+
 def set_guild_bot_nickname(guild_id: str, nickname: str) -> Dict[str, Any]:
     """Apply a per-guild nickname to the bot user on Discord.
 

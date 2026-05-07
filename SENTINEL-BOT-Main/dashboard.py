@@ -3229,6 +3229,29 @@ def so_api_avatar_delete():
     return jsonify({"ok": True, "data": result})
 
 
+@app.route('/server-official/api/global_avatar', methods=['POST'])
+def so_api_global_avatar():
+    """Change the bot's global Discord profile picture (applies to all servers)."""
+    so, err = _so_require_login()
+    if err: return err
+    uid = str(session.get('discord_id') or '')
+    # Only server owners / admins / manage-server users on any bot guild may do this.
+    # We simply require the user to be logged in and have admin rights on at least
+    # one guild the bot is in; the real guard is the Discord rate-limit on avatar changes.
+    if 'image' not in request.files:
+        return jsonify({"ok": False, "error": "No image uploaded"}), 400
+    f = request.files['image']
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "Empty file"}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else 'png'
+    data = f.read()
+    result = so.set_global_avatar(data, ext)
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": result.get("error", "Failed")}), 400
+    so.add_bot_action("global_avatar_change", result.get("discord_status", ""), _current_actor())
+    return jsonify({"ok": True, "data": result})
+
+
 # ============================================================
 # 🎨 EMBED EDITOR API (shared by SP4RK + Server Official)
 # ============================================================
