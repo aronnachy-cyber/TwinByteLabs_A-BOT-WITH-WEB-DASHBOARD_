@@ -786,6 +786,7 @@ def build_help_embed(prefix):
     ))
     embed.add_field(name="🧹 Channel Control (prefix)", inline=False, value=(
         f"`{prefix}purge <1-200>` — bulk delete messages\n"
+        f"`{prefix}purgereaction <1-100>` — clear reactions from last N messages\n"
         f"`{prefix}purgeuser @user <n>` — delete a user's recent messages\n"
         f"`{prefix}slowmode <seconds>` — set slowmode\n"
         f"`{prefix}lock [#channel]` — lock a channel\n"
@@ -2234,6 +2235,37 @@ async def purge(ctx, amount: int = 10):
         await ctx.send("❌ **Permission Denied** — I don't have permission to delete messages in this channel.")
     except Exception as e:
         await ctx.send(f"❌ **Purge Failed** — `{e}`")
+
+@bot.command(name="purgereaction")
+@commands.has_permissions(manage_messages=True)
+async def purge_reaction(ctx, amount: int = 10):
+    """Remove all reactions from the last <amount> messages. Usage: !purgereaction 20"""
+    if amount < 1 or amount > 100:
+        await ctx.send("❌ **Invalid Amount** — Please provide a number between 1 and 100.", delete_after=5)
+        return
+    try:
+        cleared = 0
+        async for message in ctx.channel.history(limit=amount):
+            if message.reactions:
+                await message.clear_reactions()
+                cleared += 1
+        msg = await ctx.send(
+            f"🧹 **Reactions Purged** — Cleared reactions from **{cleared}** message(s) in {ctx.channel.mention}.\n"
+            f"> 🛡️ **By:** {ctx.author.mention}"
+        )
+        await asyncio.sleep(5)
+        try: await msg.delete()
+        except: pass
+        await logs.log_event(
+            bot, config, "🧹 Purge Reactions",
+            f"{ctx.author} cleared reactions from {cleared} messages in #{ctx.channel.name}",
+            color=0x9b59b6, guild_id=ctx.guild.id if ctx.guild else None
+        )
+        dlog("🧹 PURGEREACTION", f"{ctx.author} cleared reactions in #{ctx.channel.name}")
+    except discord.Forbidden:
+        await ctx.send("❌ **Permission Denied** — I need **Manage Messages** permission to clear reactions.")
+    except Exception as e:
+        await ctx.send(f"❌ **Purge Reactions Failed** — `{e}`")
 
 @bot.command(name="purgeuser")
 @commands.has_permissions(manage_messages=True)

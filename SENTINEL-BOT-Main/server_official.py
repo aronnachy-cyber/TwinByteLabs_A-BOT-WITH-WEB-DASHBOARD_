@@ -2683,23 +2683,10 @@ def save_guild_avatar(guild_id: str, image_bytes: bytes, ext: str) -> Dict[str, 
     path = os.path.join(AVATAR_DIR, f"{guild_id}.{ext}")
     with open(path, "wb") as f:
         f.write(image_bytes)
-    # best-effort: push to Discord's per-guild bot profile (newer feature)
-    discord_status = "Saved locally (dashboard only)"
-    try:
-        if bot and bot.is_ready():
-            g = bot.get_guild(int(guild_id))
-            if g and getattr(g, "me", None):
-                fut = _asyncio.run_coroutine_threadsafe(
-                    g.me.edit(avatar=image_bytes),
-                    bot.loop
-                )
-                try:
-                    fut.result(timeout=10)
-                    discord_status = "Applied to Discord per-server bot profile"
-                except Exception as inner:
-                    discord_status = f"Saved locally; Discord rejected per-guild avatar ({inner.__class__.__name__})"
-    except Exception as e:
-        discord_status = f"Saved locally; Discord update skipped ({e.__class__.__name__})"
+    # Discord's API does not support per-guild bot avatars — only global bot
+    # avatars and per-guild nicknames are supported for bots.  We store the
+    # image locally so the dashboard can show it as a custom preview.
+    discord_status = "Saved locally for dashboard display (Discord does not support per-guild bot avatars)"
     return {"ok": True, "url": get_guild_avatar_url(guild_id), "discord_status": discord_status}
 
 
