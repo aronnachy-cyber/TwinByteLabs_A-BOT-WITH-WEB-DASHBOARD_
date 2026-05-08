@@ -569,7 +569,24 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
   <!-- ============ MEMBERS ============ -->
   <section class="section" data-section="members">
     <div class="card">
-      <h2><i class="fas fa-earth-americas"></i> Bot Profile Picture</h2>
+      <h2><i class="fas fa-id-badge"></i> Bot Avatar — This Server</h2>
+      <p class="help">Upload a custom profile picture for the bot in this server. Stored in the dashboard; Discord only supports <b>global</b> bot avatars, so use the section below to push a change to Discord itself.</p>
+      <div id="avatarPermBanner" class="muted" style="margin-bottom:12px;font-size:.875rem;"></div>
+      <div class="row" style="align-items:center;gap:18px;">
+        <img id="avatarPreview" alt="Server avatar"
+             style="width:96px;height:96px;border-radius:50%;object-fit:cover;background:#0e1525;border:2px solid var(--border);flex-shrink:0;" />
+        <div style="flex:1;">
+          <input type="file" id="avatarFile" accept="image/png,image/jpeg,image/gif,image/webp" />
+          <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
+            <button class="btn" id="btnAvatarUpload" onclick="uploadAvatar()"><i class="fas fa-upload"></i> Save Avatar</button>
+            <button class="btn btn-ghost" id="btnAvatarReset" onclick="resetAvatar()"><i class="fas fa-trash"></i> Remove</button>
+          </div>
+          <div id="avatarStatus" class="muted" style="margin-top:8px;font-size:.85rem;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-earth-americas"></i> Bot Profile Picture — Global (Discord)</h2>
       <p class="help">Changes the bot's profile picture on <b>Discord globally</b> — updates across every server the bot is in. PNG, JPG, GIF, or WEBP, max 10 MB. Discord limits avatar changes to a few times per hour.</p>
       <div class="row" style="align-items:center;gap:18px;">
         <img id="globalAvatarPreview" alt="Current global avatar"
