@@ -3785,6 +3785,41 @@ def wave_api_admin_rooms():
     return jsonify({'ok': True, 'rooms': rooms_out, 'total_viewers': total})
 
 
+# ---- GUILD EMOJIS ----
+@app.route('/api/guild_emojis')
+def api_guild_emojis():
+    """Return the list of custom emojis for a guild, fetched from the live bot."""
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    gid = request.args.get('guild_id', '').strip()
+    bot_name = request.args.get('bot', 'sp4rk').strip()
+    if not gid:
+        return jsonify({"ok": False, "emojis": [], "error": "guild_id required"}), 400
+    emojis = []
+    try:
+        if bot_name == 'server_official':
+            import server_official as _so_mod
+            b = getattr(_so_mod, 'bot', None)
+        else:
+            import main as _main_mod
+            b = getattr(_main_mod, 'bot', None)
+        if b and b.is_ready():
+            guild = b.get_guild(int(gid))
+            if guild:
+                for e in guild.emojis:
+                    fmt = f'<a:{e.name}:{e.id}>' if e.animated else f'<:{e.name}:{e.id}>'
+                    emojis.append({
+                        'id':       str(e.id),
+                        'name':     e.name,
+                        'animated': e.animated,
+                        'url':      str(e.url),
+                        'format':   fmt,
+                    })
+    except Exception as ex:
+        app.logger.warning(f'[guild_emojis] {ex}')
+    return jsonify({'ok': True, 'emojis': emojis})
+
+
 # ---- HEALTH CHECK ----
 @app.route('/health')
 @app.route('/ping')

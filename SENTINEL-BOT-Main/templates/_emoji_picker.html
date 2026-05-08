@@ -1,0 +1,163 @@
+<!-- ═══════════════════════════════════════════════════════════
+     SERVER EMOJI PICKER  –  shared component
+     Include this just before </body> in any template that needs it.
+     Usage (JS):  openEmojiPicker(inputId, guildId, botName)
+     ═══════════════════════════════════════════════════════════ -->
+
+<!-- Picker overlay -->
+<div id="emojiPickerOverlay"
+     onclick="if(event.target===this)closeEmojiPicker()"
+     style="display:none;position:fixed;inset:0;z-index:9999;background:transparent;"></div>
+
+<!-- Picker popup -->
+<div id="emojiPickerPopup" style="
+  display:none;
+  position:fixed;
+  z-index:10000;
+  width:320px;
+  max-height:380px;
+  background:#0d1b2e;
+  border:1px solid rgba(91,140,255,.35);
+  border-radius:12px;
+  box-shadow:0 8px 40px rgba(0,0,0,.6);
+  flex-direction:column;
+  overflow:hidden;
+">
+  <!-- Header -->
+  <div style="padding:10px 12px 8px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:8px;">
+    <span style="font-size:.78rem;color:#7a9cc6;text-transform:uppercase;letter-spacing:1px;font-weight:700;flex:1;">Server Emojis</span>
+    <input id="emojiPickerSearch" type="text" placeholder="Search…"
+           oninput="filterEmojis(this.value)"
+           style="background:#07101f;border:1px solid rgba(91,140,255,.25);border-radius:6px;color:#e0e8ff;padding:4px 8px;font-size:.82rem;outline:none;width:110px;">
+    <button onclick="closeEmojiPicker()" title="Close"
+            style="background:none;border:none;color:#5c7aa0;font-size:1rem;cursor:pointer;line-height:1;padding:0 2px;">✕</button>
+  </div>
+
+  <!-- Status / loading -->
+  <div id="emojiPickerStatus" style="padding:10px 14px;font-size:.8rem;color:#5c7aa0;display:none;"></div>
+
+  <!-- Grid -->
+  <div id="emojiPickerGrid" style="
+    display:grid;
+    grid-template-columns:repeat(6,1fr);
+    gap:4px;
+    padding:10px;
+    overflow-y:auto;
+    flex:1;
+  "></div>
+
+  <!-- Tip -->
+  <div style="padding:6px 12px 8px;font-size:.72rem;color:#3a5470;border-top:1px solid rgba(255,255,255,.05);">
+    Click an emoji to insert · Standard emoji: just paste or type directly
+  </div>
+</div>
+
+<style>
+.ep-emoji-btn {
+  display:inline-flex;align-items:center;justify-content:center;
+  background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.25);
+  border-radius:6px;padding:6px 9px;cursor:pointer;font-size:.85rem;
+  color:#7aa3ff;white-space:nowrap;transition:background .15s;
+  margin-left:6px;flex-shrink:0;
+}
+.ep-emoji-btn:hover { background:rgba(91,140,255,.25); }
+.ep-tile {
+  display:flex;flex-direction:column;align-items:center;
+  padding:5px 3px;border-radius:7px;cursor:pointer;
+  transition:background .12s;gap:3px;
+}
+.ep-tile:hover { background:rgba(91,140,255,.18); }
+.ep-tile img { width:28px;height:28px;object-fit:contain;image-rendering:auto; }
+.ep-tile span { font-size:.55rem;color:#4a6280;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;max-width:46px;text-align:center; }
+.ep-tile.ep-hidden { display:none; }
+</style>
+
+<script>
+(function(){
+  let _targetInput = null;
+  let _allTiles    = [];
+
+  window.openEmojiPicker = async function(inputId, guildId, botName) {
+    _targetInput = document.getElementById(inputId);
+    if (!_targetInput) return;
+
+    const pop = document.getElementById('emojiPickerPopup');
+    const ov  = document.getElementById('emojiPickerOverlay');
+    const grid = document.getElementById('emojiPickerGrid');
+    const status = document.getElementById('emojiPickerStatus');
+    const search = document.getElementById('emojiPickerSearch');
+
+    // Position near the input
+    const rect = _targetInput.getBoundingClientRect();
+    let top  = rect.bottom + 6;
+    let left = rect.left;
+    if (left + 320 > window.innerWidth - 10) left = window.innerWidth - 330;
+    if (top  + 380 > window.innerHeight - 10) top  = rect.top - 390;
+    pop.style.top  = top  + 'px';
+    pop.style.left = left + 'px';
+
+    // Show
+    ov.style.display  = 'block';
+    pop.style.display = 'flex';
+    search.value = '';
+    grid.innerHTML = '';
+    _allTiles = [];
+
+    if (!guildId) {
+      status.textContent = 'No server selected — select a server first to browse its emojis.';
+      status.style.display = 'block';
+      return;
+    }
+
+    status.textContent = 'Loading server emojis…';
+    status.style.display = 'block';
+
+    try {
+      const bot = botName || 'sp4rk';
+      const res  = await fetch(`/api/guild_emojis?guild_id=${encodeURIComponent(guildId)}&bot=${encodeURIComponent(bot)}`);
+      const data = await res.json();
+      status.style.display = 'none';
+
+      if (!data.ok || !data.emojis || data.emojis.length === 0) {
+        status.textContent = 'No custom emojis found in this server, or the bot is offline.';
+        status.style.display = 'block';
+        return;
+      }
+
+      data.emojis.forEach(e => {
+        const tile = document.createElement('div');
+        tile.className = 'ep-tile';
+        tile.title = ':' + e.name + ':';
+        tile.dataset.name = e.name.toLowerCase();
+        tile.innerHTML = `<img src="${e.url}" alt="${e.name}" loading="lazy"><span>:${e.name}:</span>`;
+        tile.onclick = () => {
+          _targetInput.value = e.format;
+          _targetInput.dispatchEvent(new Event('input', {bubbles:true}));
+          _targetInput.dispatchEvent(new Event('change', {bubbles:true}));
+          closeEmojiPicker();
+        };
+        grid.appendChild(tile);
+        _allTiles.push(tile);
+      });
+
+    } catch(err) {
+      status.textContent = 'Failed to load emojis. Is the bot online?';
+      status.style.display = 'block';
+    }
+  };
+
+  window.closeEmojiPicker = function() {
+    document.getElementById('emojiPickerOverlay').style.display = 'none';
+    document.getElementById('emojiPickerPopup').style.display   = 'none';
+    _allTiles = [];
+    _targetInput = null;
+  };
+
+  window.filterEmojis = function(q) {
+    const term = q.toLowerCase().trim();
+    _allTiles.forEach(t => {
+      t.classList.toggle('ep-hidden', term && !t.dataset.name.includes(term));
+    });
+  };
+})();
+</script>
