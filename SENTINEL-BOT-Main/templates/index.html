@@ -565,7 +565,8 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     </button>
     <a href="{{ url_for('server_select') }}" title="{{ current_user_name }} — Switch server" style="display:flex;align-items:center;text-decoration:none;">
       {% if user_avatar %}
-      <img src="{{ user_avatar }}" alt="{{ current_user_name }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--border);transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onerror="this.outerHTML='<div style=\'width:36px;height:36px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;\'>{{ current_user_name[0]|upper if current_user_name else \'U\' }}</div>'">
+      {% set _nav_initial = current_user_name[0]|upper if current_user_name else 'U' %}
+      <img src="{{ user_avatar }}" alt="{{ current_user_name }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--border);transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onerror="this.outerHTML='<div style=&quot;width:36px;height:36px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;&quot;>{{ _nav_initial }}</div>'">
       {% else %}
       <div style="width:36px;height:36px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;">{{ current_user_name[0]|upper if current_user_name else 'U' }}</div>
       {% endif %}
