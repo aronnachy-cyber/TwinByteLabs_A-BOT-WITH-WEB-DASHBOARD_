@@ -121,6 +121,18 @@ config = {**DEFAULT_CONFIG}
 
 def load_config_from_supabase():
     global config
+    # 1) Postgres (preferred)
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            stored = _ds.get_settings()
+            if stored and isinstance(stored, dict):
+                config.update(stored)
+                print("📁 Settings loaded from Postgres!")
+                return
+    except Exception as _e:
+        print(f"⚠️ db_spark get_settings error: {_e}")
+    # 2) Supabase mirror
     if supabase:
         try:
             res = supabase.table("sentinel_config").select("*").eq("id", 1).execute()
@@ -137,6 +149,7 @@ def load_config_from_supabase():
                 return
         except Exception as e:
             print(f"⚠️ Supabase config load error: {e}")
+    # 3) JSON fallback
     if os.path.exists('settings.json'):
         with open('settings.json', 'r') as f:
             try:
@@ -155,6 +168,16 @@ _GUILD_CONFIGS_FILE = os.path.join(os.path.dirname(__file__), "sp4rk_guild_confi
 _guild_cfg_lock = _threading.RLock()
 
 def _load_guild_configs() -> dict:
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            db_data = _ds.get_all_guild_configs()
+            if db_data:
+                return db_data
+    except Exception:
+        pass
+    # 2) JSON fallback
     if os.path.exists(_GUILD_CONFIGS_FILE):
         try:
             with open(_GUILD_CONFIGS_FILE, "r", encoding="utf-8") as f:
@@ -164,6 +187,14 @@ def _load_guild_configs() -> dict:
     return {}
 
 def _save_guild_configs(data: dict) -> None:
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.save_all_guild_configs(data)
+    except Exception:
+        pass
+    # 2) JSON (keep as hot copy)
     with _guild_cfg_lock:
         tmp = _GUILD_CONFIGS_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
@@ -268,8 +299,42 @@ def _require_discord_login(dest_url: str):
 
 warnings_db = []
 
+# One-shot: load warnings from Postgres into the in-memory list on startup.
+def _load_warnings_from_db():
+    global warnings_db
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.get_all_warnings()
+            if rows:
+                warnings_db = rows
+                print(f"📦 Loaded {len(rows)} warning(s) from Postgres")
+                return
+    except Exception as _e:
+        print(f"[warnings] db load skipped: {_e}")
+    # JSON fallback
+    try:
+        if os.path.exists('warnings.json'):
+            with open('warnings.json', 'r') as _f:
+                import json as _j
+                _data = _j.load(_f)
+                if isinstance(_data, list):
+                    warnings_db = _data
+    except Exception:
+        pass
+
+_load_warnings_from_db()
+
 # ---- WARNINGS (Supabase-backed, JSON fallback) ----
 def supabase_save_warning(guild_id, member_id, username, count, reason, timestamp):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.upsert_warning(str(member_id), str(username), int(count), str(guild_id))
+    except Exception as _e:
+        print(f"⚠️ db_spark save_warning error: {_e}")
+    # 2) Supabase mirror
     if not supabase:
         return
     try:
@@ -285,6 +350,14 @@ def supabase_save_warning(guild_id, member_id, username, count, reason, timestam
         print(f"⚠️ Supabase save_warning error: {e}")
 
 def supabase_clear_warnings(guild_id, member_id):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.delete_warning(str(member_id), str(guild_id))
+    except Exception as _e:
+        print(f"⚠️ db_spark clear_warnings error: {_e}")
+    # 2) Supabase mirror
     if not supabase:
         return
     try:
@@ -354,6 +427,14 @@ def supabase_load_all_warnings():
     return out
 
 def supabase_save_mod_log(guild_id, action, target, moderator, reason, timestamp):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.add_mod_log(str(guild_id), str(action), str(target), str(moderator), str(reason))
+    except Exception as _e:
+        print(f"⚠️ db_spark save_mod_log error: {_e}")
+    # 2) Supabase mirror
     if not supabase:
         return
     try:
@@ -369,6 +450,14 @@ def supabase_save_mod_log(guild_id, action, target, moderator, reason, timestamp
         print(f"⚠️ Supabase save_mod_log error: {e}")
 
 def supabase_save_note(guild_id, member_id, username, note, moderator, timestamp):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.add_note(str(guild_id), str(member_id), str(username), str(note), str(moderator))
+    except Exception as _e:
+        print(f"⚠️ db_spark save_note error: {_e}")
+    # 2) Supabase mirror
     if not supabase:
         return
     try:
@@ -384,6 +473,16 @@ def supabase_save_note(guild_id, member_id, username, note, moderator, timestamp
         print(f"⚠️ Supabase save_note error: {e}")
 
 def supabase_get_notes(guild_id, member_id):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.get_notes(str(guild_id), str(member_id))
+            if rows:
+                return rows
+    except Exception:
+        pass
+    # 2) Supabase fallback
     if not supabase:
         return []
     try:
@@ -403,7 +502,15 @@ FEEDBACK_FILE = 'feedback.json'
 
 
 def _load_feedback_file():
-    """Local fallback store when Supabase is unavailable."""
+    """Load feedback: Postgres → JSON file fallback."""
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.list_feedback(limit=200)
+            if rows is not None:
+                return rows
+    except Exception:
+        pass
     try:
         if os.path.exists(FEEDBACK_FILE):
             with open(FEEDBACK_FILE, 'r', encoding='utf-8') as f:
@@ -416,6 +523,7 @@ def _load_feedback_file():
 
 
 def _save_feedback_file(items):
+    # Keep JSON as a hot copy only
     try:
         with open(FEEDBACK_FILE, 'w', encoding='utf-8') as f:
             json.dump(items, f, indent=2, default=str)
@@ -424,25 +532,41 @@ def _save_feedback_file(items):
 
 
 def supabase_save_feedback(entry):
-    """Insert one feedback row in Supabase. Returns True on success."""
-    if not supabase:
-        return False
+    """Insert one feedback row into Postgres (preferred) and Supabase mirror."""
+    saved = False
+    # 1) Postgres
     try:
-        supabase.table("sentinel_feedback").insert({
-            "discord_id": entry.get("discord_id"),
-            "user_name":  entry.get("user_name"),
-            "rating":     entry.get("rating"),
-            "comment":    entry.get("comment", ""),
-            "source":     entry.get("source", "main"),
-        }).execute()
-        return True
-    except Exception as e:
-        print(f"⚠️ Supabase save_feedback error: {e}")
-        return False
+        import db_spark as _ds
+        if _ds.is_available():
+            saved = _ds.insert_feedback(entry)
+    except Exception as _e:
+        print(f"⚠️ db_spark save_feedback error: {_e}")
+    # 2) Supabase mirror
+    if supabase:
+        try:
+            supabase.table("sentinel_feedback").insert({
+                "discord_id": entry.get("discord_id"),
+                "user_name":  entry.get("user_name"),
+                "rating":     entry.get("rating"),
+                "comment":    entry.get("comment", ""),
+                "source":     entry.get("source", "main"),
+            }).execute()
+            saved = True
+        except Exception as e:
+            print(f"⚠️ Supabase save_feedback error: {e}")
+    return saved
 
 
 def supabase_list_feedback(limit=20):
-    """Fetch the latest feedback rows from Supabase, newest first."""
+    """Fetch feedback: Postgres → Supabase → None."""
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.list_feedback(limit=limit)
+            if rows is not None:
+                return rows
+    except Exception:
+        pass
     if not supabase:
         return None
     try:
@@ -657,6 +781,13 @@ def add_dashboard_log(event_type, description):
     })
     if len(action_logs) > 300:
         action_logs.pop()
+    # Persist to Postgres asynchronously (best-effort)
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.add_action_log(event_type, description)
+    except Exception:
+        pass
 
 TOGGLE_KEYS = [
     "mod_block_links", "mod_block_mentions",
@@ -690,6 +821,15 @@ TEXT_KEYS = [
 PUBLIC_BOT_CONFIG_KEYS = set(TOGGLE_KEYS + TEXT_KEYS + ["warning_limit"])
 
 def save_config():
+    # 1) Postgres (preferred)
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.save_settings(config)
+            print("💾 Settings saved to Postgres!")
+    except Exception as _e:
+        print(f"⚠️ db_spark save_settings error: {_e}")
+    # 2) Supabase mirror
     if supabase:
         try:
             res = supabase.table("sentinel_config").select("id").eq("id", 1).execute()
@@ -697,10 +837,9 @@ def save_config():
                 supabase.table("sentinel_config").update({"data": config}).eq("id", 1).execute()
             else:
                 supabase.table("sentinel_config").insert({"id": 1, "data": config}).execute()
-            print("💾 Settings saved to Supabase!")
-            return
         except Exception as e:
             print(f"⚠️ Supabase save_config error: {e}")
+    # 3) JSON hot copy
     with open('settings.json', 'w') as f:
         json.dump(config, f, indent=4)
     print("💾 Settings saved to settings.json")
@@ -710,6 +849,16 @@ DEV_PIN = os.environ.get("DEV_PIN", "sp4rk2024")
 _DEV_STATE_FILE = "dev_state.json"
 
 def _load_dev_state():
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            db_val = _ds.get_dev_state()
+            if db_val is not None:
+                return db_val
+    except Exception:
+        pass
+    # 2) JSON fallback
     try:
         if os.path.exists(_DEV_STATE_FILE):
             with open(_DEV_STATE_FILE) as f:
@@ -719,6 +868,14 @@ def _load_dev_state():
     return {"maintenance": False, "maintenance_eta": ""}
 
 def _save_dev_state(state):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.save_dev_state(state)
+    except Exception:
+        pass
+    # 2) JSON hot copy
     try:
         tmp = _DEV_STATE_FILE + ".tmp"
         with open(tmp, "w") as f:
@@ -811,7 +968,9 @@ def save_site_settings(updates: dict):
 # file so existing data still works if the DB is ever unavailable.
 BOT_REQUESTS_FILE = "bot_requests.json"
 
-import db_forms as _db_forms  # noqa: E402
+import db_forms as _db_spark_forms  # noqa: E402
+import db_spark as _db_spark          # noqa: E402
+_db_forms = _db_spark_forms           # backwards-compat alias
 
 # One-shot: copy any pre-existing JSON into the DB on first boot. Idempotent.
 if _db_forms.is_available() and os.path.exists(BOT_REQUESTS_FILE):
@@ -3914,6 +4073,16 @@ _WAVE_PRESENCE: dict = {}   # room_id → {viewer_name: last_ping_ts}
 
 
 def _wave_read() -> dict:
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rooms = _ds.get_wave_rooms()
+            if rooms is not None:
+                return rooms
+    except Exception:
+        pass
+    # 2) JSON fallback
     try:
         from pathlib import Path as _P
         p = _P(_WAVE_ROOMS_FILE)
@@ -3926,6 +4095,14 @@ def _wave_read() -> dict:
 
 
 def _wave_write(data: dict):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.save_wave_rooms(data)
+    except Exception:
+        pass
+    # 2) JSON hot copy
     import json as _j
     from pathlib import Path as _P
     p = _P(_WAVE_ROOMS_FILE)
