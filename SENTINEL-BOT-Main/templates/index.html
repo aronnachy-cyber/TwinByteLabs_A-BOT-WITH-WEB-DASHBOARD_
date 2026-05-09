@@ -802,7 +802,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
 
   <!-- Byte Ai Button -->
   <div style="text-align:center; margin-top: 28px;">
-    <button onclick="document.getElementById('byteai-modal').style.display='flex'" style="background: linear-gradient(135deg, #6c3fc5, #4f8ef7); color:#fff; border:none; padding: 10px 28px; border-radius: 50px; font-size: 0.95rem; font-weight: 700; cursor: pointer; letter-spacing: 1px; box-shadow: 0 4px 18px rgba(108,63,197,0.35); transition: transform .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+    <button onclick="openByteAI()" style="background: linear-gradient(135deg, #6c3fc5, #4f8ef7); color:#fff; border:none; padding: 10px 28px; border-radius: 50px; font-size: 0.95rem; font-weight: 700; cursor: pointer; letter-spacing: 1px; box-shadow: 0 4px 18px rgba(108,63,197,0.35); transition: transform .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
       ✦ Byte Ai
     </button>
   </div>
@@ -840,16 +840,240 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   </div>
 </div>
 
-<!-- Byte Ai Coming Soon Modal -->
-<div id="byteai-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
-  <div style="background: linear-gradient(145deg, #1a1f2e, #212736); border: 1px solid #6c3fc5; border-radius: 18px; padding: 48px 40px; text-align:center; max-width:420px; width:90%; box-shadow: 0 0 60px rgba(108,63,197,0.4);">
-    <div style="font-size: 2.8rem; margin-bottom: 12px;">🤖</div>
-    <h2 style="font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #6c3fc5, #4f8ef7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px;">Byte Ai</h2>
-    <div style="display:inline-block; background: rgba(108,63,197,0.2); border: 1px solid #6c3fc5; color: #c39af7; font-size: 0.75rem; font-weight: 700; letter-spacing: 3px; padding: 5px 18px; border-radius: 50px; text-transform: uppercase; margin-bottom: 20px;">Coming Soon</div>
-    <p style="color: #8896a7; font-size: 0.95rem; line-height: 1.6; margin-bottom: 28px;">An intelligent AI assistant built right into your TwinLabs.com dashboard. Stay tuned.</p>
-    <button onclick="document.getElementById('byteai-modal').style.display='none'" style="background: rgba(108,63,197,0.2); border: 1px solid #6c3fc5; color: #c39af7; padding: 10px 28px; border-radius: 50px; font-size: 0.9rem; cursor: pointer; font-weight: 600;">Close</button>
+<!-- Byte AI Chat Panel -->
+<style>
+#byteai-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);
+  z-index:9998;backdrop-filter:blur(4px);
+}
+#byteai-modal{
+  display:none;position:fixed;top:0;right:0;bottom:0;width:400px;max-width:100vw;
+  background:linear-gradient(180deg,#12182e 0%,#0e1526 100%);
+  border-left:1px solid rgba(108,63,197,0.35);
+  z-index:9999;flex-direction:column;
+  box-shadow:-8px 0 48px rgba(0,0,0,0.55);
+  transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+#byteai-modal.open{ transform:translateX(0); }
+.bai-header{
+  display:flex;align-items:center;gap:12px;
+  padding:18px 20px;border-bottom:1px solid rgba(108,63,197,0.25);
+  background:rgba(108,63,197,0.08);flex-shrink:0;
+}
+.bai-logo{
+  width:38px;height:38px;border-radius:11px;flex-shrink:0;
+  background:linear-gradient(135deg,#6c3fc5,#4f8ef7);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;box-shadow:0 4px 14px rgba(108,63,197,0.45);
+}
+.bai-title{ font-size:1rem;font-weight:800;color:#e8f0ff;line-height:1.2; }
+.bai-sub{ font-size:.7rem;color:#9b7fd4;font-weight:600;letter-spacing:.4px; }
+.bai-close{
+  margin-left:auto;background:none;border:none;color:#7a93b8;
+  font-size:1.1rem;cursor:pointer;padding:4px 8px;border-radius:6px;
+  transition:color .15s,background .15s;
+}
+.bai-close:hover{ background:rgba(255,255,255,.06);color:#e8f0ff; }
+.bai-messages{
+  flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:12px;
+}
+.bai-messages::-webkit-scrollbar{width:5px;}
+.bai-messages::-webkit-scrollbar-thumb{background:rgba(108,63,197,.3);border-radius:3px;}
+.bai-msg{
+  max-width:88%;padding:10px 14px;border-radius:14px;
+  font-size:.86rem;line-height:1.55;word-break:break-word;
+}
+.bai-msg.user{
+  background:linear-gradient(135deg,rgba(108,63,197,.28),rgba(79,142,247,.22));
+  border:1px solid rgba(108,63,197,.35);color:#dce8ff;align-self:flex-end;
+  border-bottom-right-radius:4px;
+}
+.bai-msg.ai{
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  color:#c8d8f0;align-self:flex-start;border-bottom-left-radius:4px;
+}
+.bai-msg.err{ border-color:rgba(231,76,60,.35);color:#ff8a7a;background:rgba(231,76,60,.08); }
+.bai-typing{
+  display:flex;align-items:center;gap:5px;padding:10px 14px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;border-bottom-left-radius:4px;align-self:flex-start;
+}
+.bai-dot{
+  width:7px;height:7px;border-radius:50%;background:#6c3fc5;
+  animation:baiDot 1.2s ease-in-out infinite;
+}
+.bai-dot:nth-child(2){animation-delay:.2s;}
+.bai-dot:nth-child(3){animation-delay:.4s;}
+@keyframes baiDot{0%,80%,100%{opacity:.25;transform:scale(.85);}40%{opacity:1;transform:scale(1.1);}}
+.bai-footer{
+  padding:14px 16px;border-top:1px solid rgba(108,63,197,.2);
+  background:rgba(0,0,0,.2);flex-shrink:0;
+}
+.bai-input-row{ display:flex;gap:8px;align-items:flex-end; }
+#bai-input{
+  flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(108,63,197,.3);
+  border-radius:10px;padding:10px 13px;color:#e8f0ff;font-size:.86rem;
+  font-family:inherit;resize:none;outline:none;max-height:120px;min-height:40px;
+  transition:border-color .15s;
+}
+#bai-input:focus{ border-color:rgba(108,63,197,.7); }
+#bai-input::placeholder{ color:#4a5f82; }
+#bai-send{
+  width:38px;height:38px;border-radius:10px;flex-shrink:0;
+  background:linear-gradient(135deg,#6c3fc5,#4f8ef7);border:none;
+  color:#fff;font-size:.88rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:opacity .15s,transform .15s;
+}
+#bai-send:hover{ opacity:.85;transform:scale(1.05); }
+#bai-send:disabled{ opacity:.4;cursor:not-allowed;transform:none; }
+.bai-hint{
+  font-size:.68rem;color:#4a5f82;margin-top:7px;text-align:center;line-height:1.4;
+}
+.bai-welcome{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:28px 16px;flex:1;gap:10px;
+}
+.bai-welcome-icon{ font-size:2.2rem;margin-bottom:4px; }
+.bai-welcome h3{ font-size:1rem;font-weight:700;color:#c8d8f0;margin:0; }
+.bai-welcome p{ font-size:.8rem;color:#5a6f93;line-height:1.5;max-width:260px;margin:0; }
+.bai-chips{ display:flex;flex-direction:column;gap:6px;margin-top:10px;width:100%; }
+.bai-chip-btn{
+  background:rgba(108,63,197,.1);border:1px solid rgba(108,63,197,.25);
+  border-radius:8px;padding:8px 12px;color:#a78bfa;font-size:.78rem;
+  font-weight:600;cursor:pointer;text-align:left;transition:background .15s,border-color .15s;
+}
+.bai-chip-btn:hover{ background:rgba(108,63,197,.2);border-color:rgba(108,63,197,.5); }
+</style>
+
+<div id="byteai-overlay" onclick="closeByteAI()"></div>
+<div id="byteai-modal" role="dialog" aria-label="Byte AI Assistant" style="display:flex;">
+
+  <div class="bai-header">
+    <div class="bai-logo">🤖</div>
+    <div>
+      <div class="bai-title">Byte AI</div>
+      <div class="bai-sub">Powered by Gemini</div>
+    </div>
+    <button class="bai-close" onclick="closeByteAI()" title="Close"><i class="fas fa-xmark"></i></button>
   </div>
+
+  <div class="bai-messages" id="bai-messages">
+    <div class="bai-welcome" id="bai-welcome">
+      <div class="bai-welcome-icon">🤖</div>
+      <h3>Hi, I'm Byte AI!</h3>
+      <p>Ask me anything about your server settings, moderation rules, or how SP4RK features work.</p>
+      <div class="bai-chips">
+        <button class="bai-chip-btn" onclick="baiQuickSend('What settings should I configure first?')">What settings should I configure first?</button>
+        <button class="bai-chip-btn" onclick="baiQuickSend('How does automod work?')">How does automod work?</button>
+        <button class="bai-chip-btn" onclick="baiQuickSend('Review my current settings and suggest improvements')">Review my settings &amp; suggest improvements</button>
+        <button class="bai-chip-btn" onclick="baiQuickSend('How do I set up tickets?')">How do I set up tickets?</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bai-footer">
+    <div class="bai-input-row">
+      <textarea id="bai-input" rows="1" placeholder="Ask Byte AI anything…"
+        oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();baiSend();}"></textarea>
+      <button id="bai-send" onclick="baiSend()" title="Send"><i class="fas fa-paper-plane"></i></button>
+    </div>
+    <div class="bai-hint">Shift+Enter for new line · Byte AI knows your current server config</div>
+  </div>
+
 </div>
+
+<script>
+(function(){
+  let _baiHistory = [];
+  let _baiOpen = false;
+
+  window.openByteAI = function(){
+    _baiOpen = true;
+    document.getElementById('byteai-overlay').style.display = 'block';
+    const m = document.getElementById('byteai-modal');
+    m.style.display = 'flex';
+    requestAnimationFrame(() => m.classList.add('open'));
+    document.getElementById('bai-input').focus();
+  };
+
+  window.closeByteAI = function(){
+    _baiOpen = false;
+    const m = document.getElementById('byteai-modal');
+    m.classList.remove('open');
+    document.getElementById('byteai-overlay').style.display = 'none';
+    setTimeout(() => { if (!_baiOpen) m.style.display = 'none'; }, 310);
+  };
+
+  window.baiQuickSend = function(text){
+    document.getElementById('bai-input').value = text;
+    baiSend();
+  };
+
+  function baiAppendMsg(role, text){
+    const welcome = document.getElementById('bai-welcome');
+    if(welcome) welcome.remove();
+    const box = document.getElementById('bai-messages');
+    const d = document.createElement('div');
+    d.className = 'bai-msg ' + role;
+    d.textContent = text;
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+    return d;
+  }
+
+  function baiShowTyping(){
+    const welcome = document.getElementById('bai-welcome');
+    if(welcome) welcome.remove();
+    const box = document.getElementById('bai-messages');
+    const d = document.createElement('div');
+    d.className = 'bai-typing';d.id='bai-typing';
+    d.innerHTML='<div class="bai-dot"></div><div class="bai-dot"></div><div class="bai-dot"></div>';
+    box.appendChild(d);box.scrollTop=box.scrollHeight;
+  }
+
+  function baiHideTyping(){
+    const t = document.getElementById('bai-typing');
+    if(t) t.remove();
+  }
+
+  window.baiSend = async function(){
+    const inp = document.getElementById('bai-input');
+    const msg = inp.value.trim();
+    if(!msg) return;
+    const btn = document.getElementById('bai-send');
+
+    inp.value = ''; inp.style.height = 'auto'; btn.disabled = true;
+    baiAppendMsg('user', msg);
+    baiShowTyping();
+
+    const guildId = (document.getElementById('guildPick') || {}).value || '';
+
+    try{
+      const res = await fetch('/api/byte-ai',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({message: msg, guild_id: guildId, history: _baiHistory})
+      });
+      const data = await res.json();
+      baiHideTyping();
+      if(data.ok){
+        _baiHistory.push({role:'user',text:msg});
+        _baiHistory.push({role:'model',text:data.reply});
+        if(_baiHistory.length > 20) _baiHistory = _baiHistory.slice(-20);
+        baiAppendMsg('ai', data.reply);
+      } else {
+        baiAppendMsg('err ai', '⚠ ' + (data.error || 'Something went wrong. Try again.'));
+      }
+    } catch(e){
+      baiHideTyping();
+      baiAppendMsg('err ai', '⚠ Network error. Please try again.');
+    }
+    btn.disabled = false;
+    inp.focus();
+  };
+})();
+</script>
 
 <!-- ===================== MODERATION ===================== -->
 <div id="moderation" class="tab-content">
