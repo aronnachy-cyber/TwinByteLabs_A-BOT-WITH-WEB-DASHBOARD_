@@ -489,6 +489,7 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
   <button class="sb-item" data-section="integrations"><i class="fas fa-plug"></i> Integrations</button>
   <button class="sb-item" data-section="backups"><i class="fas fa-cloud-arrow-down"></i> Backups</button>
   <button class="sb-item" data-section="embeds"><i class="fas fa-paint-brush"></i> Embed Editor</button>
+  <button class="sb-item" data-section="sqleditor"><i class="fas fa-terminal"></i> SQL Editor</button>
   <div class="sb-foot">
     Bot: <span id="botStatusFoot">{{ 'ONLINE' if bot_running else 'OFFLINE' }}</span><br>
     <a href="{{ url_for('bots_showcase') }}" style="color:var(--accent);">← All bots</a>
@@ -1128,6 +1129,51 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
     </div>
     <div class="card" id="rulesLastPosted" style="display:none;">
       <div id="rulesLastPostedText" class="help" style="font-size:.88rem;"></div>
+    </div>
+  </section>
+
+  <!-- ── SQL EDITOR ── -->
+  <section class="section" data-section="sqleditor">
+    <div class="card" style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">
+
+      <!-- Schema Browser -->
+      <div id="sqlSchemaBrowser" style="flex:0 0 220px;min-width:180px;max-height:560px;overflow-y:auto;background:rgba(0,0,0,.25);border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,.08);">
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;"><i class="fas fa-database"></i> Tables</div>
+        <div id="sqlSchemaList" style="font-size:.82rem;color:var(--text);">
+          <div class="help" style="font-size:.8rem;">Loading schema…</div>
+        </div>
+      </div>
+
+      <!-- Editor + Results -->
+      <div style="flex:1;min-width:0;">
+        <h2 style="margin-top:0;"><i class="fas fa-terminal"></i> SQL Editor</h2>
+        <p class="help" style="margin-bottom:12px;">Run SELECT, INSERT, UPDATE, or DELETE queries against the PostgreSQL database. DROP, CREATE, ALTER and TRUNCATE are blocked. Results capped at 500 rows.</p>
+
+        <!-- Query textarea -->
+        <div style="position:relative;">
+          <textarea id="sqlQuery" rows="8"
+            placeholder="SELECT * FROM so_server_logs ORDER BY ts DESC LIMIT 20;"
+            style="width:100%;box-sizing:border-box;font-family:'Fira Code',monospace,sans-serif;font-size:.88rem;background:#0d0d1a;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:12px 12px 12px 14px;color:var(--text);resize:vertical;line-height:1.55;outline:none;"></textarea>
+        </div>
+
+        <!-- Toolbar -->
+        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn" onclick="sqlRun()" id="sqlRunBtn"><i class="fas fa-play"></i> Run Query</button>
+          <button class="btn btn-ghost" onclick="sqlClear()"><i class="fas fa-eraser"></i> Clear</button>
+          <div id="sqlQuickBtns" style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;"></div>
+        </div>
+
+        <!-- Execution info bar -->
+        <div id="sqlInfoBar" style="display:none;margin-top:10px;padding:7px 12px;border-radius:8px;font-size:.83rem;"></div>
+
+        <!-- Results table -->
+        <div id="sqlResultsWrap" style="margin-top:14px;overflow-x:auto;display:none;">
+          <table id="sqlResultsTable" style="width:100%;border-collapse:collapse;font-size:.82rem;">
+            <thead id="sqlResultsHead" style="background:rgba(255,255,255,.07);"></thead>
+            <tbody id="sqlResultsBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -2285,6 +2331,155 @@ async function postRules(){
     document.getElementById('rulesLastPosted').style.display = '';
   }
 }
+
+/* ============ SQL EDITOR ============ */
+(function(){
+  const SCHEMA_API = '/server-official/api/sql/schema';
+  const RUN_API    = '/server-official/api/sql';
+
+  /* Quick-select queries per table */
+  const QUICK = [
+    { label:'Logs',       q:'SELECT * FROM so_server_logs ORDER BY ts DESC LIMIT 50;' },
+    { label:'Bot Actions',q:'SELECT * FROM so_bot_actions ORDER BY ts DESC LIMIT 50;' },
+    { label:'Announce',   q:'SELECT * FROM so_announcements ORDER BY created_at DESC LIMIT 50;' },
+    { label:'Goals',      q:'SELECT * FROM so_goals ORDER BY created_at DESC;' },
+    { label:'Rules',      q:'SELECT * FROM so_server_rules;' },
+    { label:'Custom Cmds',q:'SELECT * FROM so_custom_cmds ORDER BY guild_id, trigger;' },
+  ];
+
+  function esc(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  /* Load schema into browser sidebar */
+  async function sqlLoadSchema(){
+    const list = document.getElementById('sqlSchemaList');
+    if(!list) return;
+    try{
+      const r = await fetch(SCHEMA_API);
+      const d = await r.json();
+      if(!d.ok || !d.tables.length){
+        list.innerHTML='<div class="help" style="font-size:.78rem;color:var(--muted);">No so_* tables found yet. Tables appear after first data save.</div>';
+        return;
+      }
+      list.innerHTML = d.tables.map(t=>`
+        <div style="margin-bottom:10px;">
+          <div style="font-weight:700;color:#5b8cff;font-size:.8rem;cursor:pointer;padding:3px 0;"
+               onclick="document.getElementById('sqlQuery').value='SELECT * FROM ${t.table} LIMIT 100;'"
+               title="Click to query this table">${t.table}</div>
+          <div style="padding-left:8px;color:var(--muted);font-size:.75rem;line-height:1.7;">
+            ${t.columns.map(c=>`<span title="${c.type}">· ${c.column}</span>`).join('<br>')}
+          </div>
+        </div>
+      `).join('');
+    }catch(e){
+      list.innerHTML=`<div class="help" style="font-size:.78rem;color:#f4a8a0;">${esc(e.message)}</div>`;
+    }
+  }
+
+  /* Build quick-query buttons */
+  function sqlBuildQuick(){
+    const wrap = document.getElementById('sqlQuickBtns');
+    if(!wrap) return;
+    wrap.innerHTML = QUICK.map((q,i)=>
+      `<button class="btn btn-ghost" style="font-size:.75rem;padding:4px 10px;" onclick="sqlQuick(${i})">${esc(q.label)}</button>`
+    ).join('');
+  }
+
+  window.sqlQuick = function(i){
+    const ta = document.getElementById('sqlQuery');
+    if(ta) ta.value = QUICK[i].q;
+  };
+
+  window.sqlClear = function(){
+    const ta = document.getElementById('sqlQuery');
+    if(ta) ta.value='';
+    const info = document.getElementById('sqlInfoBar');
+    const wrap = document.getElementById('sqlResultsWrap');
+    if(info){ info.style.display='none'; info.textContent=''; }
+    if(wrap) wrap.style.display='none';
+  };
+
+  window.sqlRun = async function(){
+    const ta  = document.getElementById('sqlQuery');
+    const btn = document.getElementById('sqlRunBtn');
+    const info= document.getElementById('sqlInfoBar');
+    const wrap= document.getElementById('sqlResultsWrap');
+    const head= document.getElementById('sqlResultsHead');
+    const body= document.getElementById('sqlResultsBody');
+    if(!ta||!btn||!info||!wrap||!head||!body) return;
+
+    const query = ta.value.trim();
+    if(!query){ showToast('Enter a SQL query first.','warn'); return; }
+
+    btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Running…';
+    const t0 = Date.now();
+
+    try{
+      const r = await fetch(RUN_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})});
+      const d = await r.json();
+      const elapsed = Date.now()-t0;
+
+      if(!d.ok){
+        info.style.display='block';
+        info.style.background='rgba(231,76,60,.15)';
+        info.style.border='1px solid rgba(231,76,60,.35)';
+        info.style.color='#f4a8a0';
+        info.innerHTML=`<i class="fas fa-circle-exclamation"></i> ${esc(d.error)}`;
+        wrap.style.display='none';
+      } else {
+        info.style.display='block';
+        info.style.background='rgba(46,213,115,.1)';
+        info.style.border='1px solid rgba(46,213,115,.3)';
+        info.style.color='#7eff9e';
+        info.innerHTML=`<i class="fas fa-circle-check"></i> ${esc(d.message||d.rowcount+' row(s)')} &nbsp;·&nbsp; ${elapsed}ms`;
+
+        if(d.columns && d.columns.length){
+          head.innerHTML=`<tr>${d.columns.map(c=>`<th style="padding:6px 10px;text-align:left;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.1);font-size:.78rem;color:#5b8cff;">${esc(c)}</th>`).join('')}</tr>`;
+          body.innerHTML = d.rows.map((row,ri)=>`
+            <tr style="background:${ri%2?'rgba(255,255,255,.02)':'transparent'};">
+              ${d.columns.map(c=>{
+                const v = row[c];
+                const disp = v===null ? '<span style="opacity:.4;font-style:italic;">null</span>'
+                           : typeof v==='object' ? `<span style="font-family:monospace;font-size:.76rem;">${esc(JSON.stringify(v))}</span>`
+                           : esc(String(v));
+                return `<td style="padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(String(v??''))}">${disp}</td>`;
+              }).join('')}
+            </tr>
+          `).join('');
+          wrap.style.display='block';
+        } else {
+          wrap.style.display='none';
+        }
+      }
+    }catch(e){
+      info.style.display='block';
+      info.style.background='rgba(231,76,60,.15)';
+      info.style.color='#f4a8a0';
+      info.innerHTML=`<i class="fas fa-circle-exclamation"></i> Request failed: ${esc(e.message)}`;
+      wrap.style.display='none';
+    } finally {
+      btn.disabled=false; btn.innerHTML='<i class="fas fa-play"></i> Run Query';
+    }
+  };
+
+  /* Ctrl+Enter to run */
+  document.addEventListener('keydown', e=>{
+    if((e.ctrlKey||e.metaKey) && e.key==='Enter'){
+      const active = document.querySelector('.section.active');
+      if(active && active.dataset.section==='sqleditor') sqlRun();
+    }
+  });
+
+  /* Load schema when SQL editor tab is opened */
+  let _schemaLoaded = false;
+  document.addEventListener('click', e=>{
+    const btn = e.target.closest('.sb-item[data-section="sqleditor"]');
+    if(btn && !_schemaLoaded){
+      _schemaLoaded = true;
+      sqlLoadSchema();
+      sqlBuildQuick();
+    }
+  });
+})();
 
 /* ============ EMBED EDITOR ============ */
 const SO_EMB_API = '/server-official/api/embeds';

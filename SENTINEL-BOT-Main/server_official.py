@@ -28,16 +28,22 @@ from datetime import datetime, timezone, timedelta, date
 from typing import Optional, List, Dict, Any, Tuple
 import uuid
 
+import queue
 import time
 import discord
 from discord.ext import commands, tasks
 import requests
 
+try:
+    import db_so as _db_so
+except Exception:
+    _db_so = None  # type: ignore
+
 logger = logging.getLogger("server_official")
 logging.basicConfig(level=logging.INFO)
 
 # ============================================================
-# STORAGE — local JSON (working copy) + Supabase (durable)
+# STORAGE — local JSON (working copy) + Supabase + Postgres
 # ============================================================
 _STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server_official_state.json")
 _state_lock = threading.RLock()  # reentrant: callers can wrap full read-modify-write
@@ -50,6 +56,37 @@ _supabase_client = None
 _dirty_state: Optional[Dict[str, Any]] = None     # latest state pending Supabase write
 _dirty_lock = threading.Lock()
 _flusher_started = False
+
+# --- Postgres flusher (db_so) ---
+_pg_dirty_queue: queue.Queue = queue.Queue(maxsize=10)
+_pg_flusher_started = False
+
+
+def _start_pg_flusher() -> None:
+    global _pg_flusher_started
+    if _pg_flusher_started:
+        return
+    if _db_so is None or not _db_so.is_available():
+        return
+    _pg_flusher_started = True
+
+    def _flush_loop():
+        while True:
+            try:
+                state = _pg_dirty_queue.get(timeout=30)
+                while not _pg_dirty_queue.empty():
+                    try:
+                        state = _pg_dirty_queue.get_nowait()
+                    except Exception:
+                        break
+                _db_so.save_full_state(state)
+            except queue.Empty:
+                pass
+            except Exception as _e:
+                logger.warning(f"[server_official] pg_flush error: {_e}")
+
+    t = threading.Thread(target=_flush_loop, daemon=True, name="so-pg-flusher")
+    t.start()
 
 try:
     from supabase import create_client as _sb_create_client
@@ -218,9 +255,19 @@ def _hydrate_local_from_supabase_once() -> None:
 
 def load_state() -> Dict[str, Any]:
     with _state_lock:
-        # First call also kicks off the durable-flush background thread.
+        # Kick off background flushers on first call.
         _start_supabase_flusher()
+        _start_pg_flusher()
         _hydrate_local_from_supabase_once()
+        # 1) Postgres (preferred when DATABASE_URL is set)
+        if _db_so is not None and _db_so.is_available():
+            try:
+                pg_data = _db_so.load_full_state()
+                if pg_data:
+                    return _merge_defaults(pg_data)
+            except Exception as _pg_err:
+                logger.warning(f"[server_official] pg load_state failed: {_pg_err}")
+        # 2) Local JSON fallback
         if not os.path.exists(_STATE_FILE):
             return _merge_defaults(json.loads(json.dumps(DEFAULT_STATE)))
         try:
@@ -251,6 +298,20 @@ def save_state(state: Dict[str, Any]) -> None:
                 globals()["_dirty_state"] = json.loads(json.dumps(state, default=str))
         except Exception as e:
             logger.warning(f"[server_official] mark-dirty failed: {e}")
+    # Queue for Postgres flush (non-blocking, keeps only latest snapshot).
+    if _db_so is not None and _db_so.is_available():
+        try:
+            snapshot = json.loads(json.dumps(state, default=str))
+            try:
+                _pg_dirty_queue.put_nowait(snapshot)
+            except queue.Full:
+                try:
+                    _pg_dirty_queue.get_nowait()
+                except Exception:
+                    pass
+                _pg_dirty_queue.put_nowait(snapshot)
+        except Exception as _qe:
+            logger.warning(f"[server_official] pg queue failed: {_qe}")
 
 
 def _gen_id() -> str:

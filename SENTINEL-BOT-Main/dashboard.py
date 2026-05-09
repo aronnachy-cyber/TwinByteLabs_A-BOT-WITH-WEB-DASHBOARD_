@@ -4401,6 +4401,43 @@ def byte_ai_chat():
         return jsonify({'ok': False, 'error': 'AI request failed. Check your GEMINI_KEY or try again.'}), 502
 
 
+# ---- SQL EDITOR ----
+@app.route('/server-official/api/sql/schema', methods=['GET'])
+def so_api_sql_schema():
+    """Return all so_* tables with column metadata for the schema browser."""
+    so, err = _so_require_login()
+    if err:
+        return err
+    try:
+        import db_so as _db_so
+        tables = _db_so.list_tables()
+        return jsonify({'ok': True, 'tables': tables})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e), 'tables': []}), 500
+
+
+@app.route('/server-official/api/sql', methods=['POST'])
+def so_api_sql_run():
+    """Execute a SQL query against the Postgres database (admin only)."""
+    so, err = _so_require_login()
+    if err:
+        return err
+
+    payload = request.get_json(silent=True) or {}
+    query = (payload.get('query') or '').strip()
+    if not query:
+        return jsonify({'ok': False, 'error': 'Query is required'}), 400
+
+    try:
+        import db_so as _db_so
+        if not _db_so.is_available():
+            return jsonify({'ok': False, 'error': 'Database not configured. Set DATABASE_URL to enable SQL editor.'}), 503
+        result = _db_so.run_sql(query, max_rows=500)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 # ---- HEALTH CHECK ----
 @app.route('/health')
 @app.route('/ping')
