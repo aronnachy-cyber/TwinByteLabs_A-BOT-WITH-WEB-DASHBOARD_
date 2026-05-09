@@ -1320,12 +1320,12 @@ async def on_message(message: discord.Message):
                     await old.delete()
                 except Exception:
                     pass
-                sent = await message.channel.send(embed=_embed("📌 Sticky", sticky["message"], color=0x5b8cff))
+                sent = await message.channel.send(embed=_embed("", sticky["message"], color=0x5b8cff))
                 sticky["last_message_id"] = str(sent.id)
                 state["sticky_messages"][str(message.channel.id)] = sticky
                 save_state(state)
             elif not last_id:
-                sent = await message.channel.send(embed=_embed("📌 Sticky", sticky["message"], color=0x5b8cff))
+                sent = await message.channel.send(embed=_embed("", sticky["message"], color=0x5b8cff))
                 sticky["last_message_id"] = str(sent.id)
                 state["sticky_messages"][str(message.channel.id)] = sticky
                 save_state(state)
