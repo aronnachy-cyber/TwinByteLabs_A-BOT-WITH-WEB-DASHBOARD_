@@ -1133,6 +1133,14 @@ def server_official_dashboard():
         session['post_login_redirect'] = redirect_target
         return redirect(url_for('login'))
 
+    # Persist guild selection from URL; enforce server picker if none selected.
+    so_guild_from_url = request.args.get('guild', '').strip()
+    if so_guild_from_url:
+        session['selected_guild_id'] = so_guild_from_url
+        session.modified = True
+    elif not session.get('selected_guild_id'):
+        return redirect(url_for('server_select'))
+
     so = _so_module()
     # Scope the server picker to ONLY guilds the logged-in user can administer.
     live = _so_live_state(user_guild_ids=_user_admin_guild_ids())
@@ -2481,6 +2489,16 @@ def index():
         session['post_login_redirect'] = redirect_target
         return redirect(url_for('login'))
 
+    # If a guild was passed in the URL, save it to the session so it persists
+    # across refreshes. If no guild is selected at all, send the user to the
+    # server picker first.
+    guild_from_url = request.args.get('guild', '').strip()
+    if guild_from_url:
+        session['selected_guild_id'] = guild_from_url
+        session.modified = True
+    elif not session.get('selected_guild_id'):
+        return redirect(url_for('server_select'))
+
     current_user = find_user_by_discord_id(discord_id)
     if not current_user:
         # The OAuth callback already authenticated this user and stored their
@@ -2517,7 +2535,7 @@ def index():
     live = _sp4rk_live_state(user_guild_ids=_user_admin_guild_ids())
 
     user_avatar = current_user.get('avatar_url', '') or session.get('user_avatar', '') or ''
-    preselect_guild = request.args.get('guild', '')
+    preselect_guild = request.args.get('guild', '') or session.get('selected_guild_id', '')
 
     try:
         return render_template(

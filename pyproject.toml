@@ -19,4 +19,5 @@ dependencies = [
     "supabase>=2.0.0",
     "werkzeug>=3.0.0",
     "yt-dlp>=2026.3.17",
+    "psycopg2-binary>=2.9.0",
 ]
