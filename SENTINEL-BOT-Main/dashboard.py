@@ -1735,6 +1735,466 @@ def so_api_wh_del(wid):
     return jsonify({"ok": so.delete_incoming_webhook(wid)})
 
 
+# ---- SO MANAGEMENT: ROLES ----
+def _so_bot_guild(guild_id):
+    """Returns (so, bot, guild, error) — error is None on success."""
+    so = _so_module()
+    if not so:
+        return None, None, None, (jsonify({'ok': False, 'error': 'Bot module unavailable'}), 503)
+    if not session.get('logged_in'):
+        return None, None, None, (jsonify({'ok': False, 'error': 'Login required'}), 401)
+    if not guild_id:
+        return None, None, None, (jsonify({'ok': False, 'error': 'Select a server first'}), 400)
+    bot = so.bot
+    if not bot or not bot.is_ready():
+        return None, None, None, (jsonify({'ok': False, 'error': 'Bot is offline — start the bot to use management features'}), 503)
+    try:
+        guild = bot.get_guild(int(guild_id))
+    except Exception:
+        return None, None, None, (jsonify({'ok': False, 'error': 'Invalid guild ID'}), 400)
+    if not guild:
+        return None, None, None, (jsonify({'ok': False, 'error': 'Server not found — bot may not be in this server'}), 404)
+    return so, bot, guild, None
+
+
+@app.route('/server-official/api/roles', methods=['GET'])
+def so_api_roles_list():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    roles = [
+        {'id': str(r.id), 'name': r.name, 'color': str(r.color),
+         'hoist': r.hoist, 'mentionable': r.mentionable, 'position': r.position,
+         'managed': r.managed, 'member_count': len(r.members)}
+        for r in reversed(guild.roles) if r.name != '@everyone'
+    ]
+    return jsonify({'ok': True, 'data': roles})
+
+
+@app.route('/server-official/api/roles', methods=['POST'])
+def so_api_roles_create():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    name = (p.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'name required'}), 400
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    try:
+        import discord as _discord
+        raw_color = (p.get('color') or '').strip().lstrip('#')
+        color = _discord.Color(int(raw_color, 16)) if raw_color else _discord.Color.default()
+    except Exception:
+        color = _discord.Color.default()
+    async def _do():
+        role = await guild.create_role(
+            name=name, color=color,
+            hoist=bool(p.get('hoist', False)),
+            mentionable=bool(p.get('mentionable', False)),
+            reason=f'Created via SO dashboard by {_current_actor()}')
+        return {'id': str(role.id), 'name': role.name}
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        result = fut.result(timeout=15)
+        so.add_bot_action('role_create', f'Created role "{name}"', _current_actor())
+        return jsonify({'ok': True, 'data': result})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/roles/assign', methods=['POST'])
+def so_api_roles_assign():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    role_id = (p.get('role_id') or '').strip()
+    user_id = (p.get('user_id') or '').strip()
+    action = (p.get('action') or 'add').strip()
+    if not role_id or not user_id:
+        return jsonify({'ok': False, 'error': 'role_id and user_id required'}), 400
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        member = guild.get_member(int(user_id)) or await guild.fetch_member(int(user_id))
+        if not member: raise ValueError('Member not found')
+        role = guild.get_role(int(role_id))
+        if not role: raise ValueError('Role not found')
+        if action == 'remove':
+            await member.remove_roles(role, reason=f'Via SO dashboard by {_current_actor()}')
+        else:
+            await member.add_roles(role, reason=f'Via SO dashboard by {_current_actor()}')
+        return member.display_name
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        name = fut.result(timeout=15)
+        verb = 'Added' if action == 'add' else 'Removed'
+        so.add_bot_action('role_assign', f'{verb} role to/from {name}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/roles/<role_id>', methods=['DELETE'])
+def so_api_roles_delete(role_id):
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        role = guild.get_role(int(role_id))
+        if not role: raise ValueError('Role not found')
+        rname = role.name
+        await role.delete(reason=f'Deleted via SO dashboard by {_current_actor()}')
+        return rname
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        rname = fut.result(timeout=15)
+        so.add_bot_action('role_delete', f'Deleted role "{rname}"', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ---- SO MANAGEMENT: CHANNELS ----
+@app.route('/server-official/api/channels', methods=['GET'])
+def so_api_channels_list():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import discord as _discord
+    channels = []
+    for ch in sorted(guild.channels, key=lambda c: c.position):
+        if isinstance(ch, _discord.TextChannel):
+            ch_type = 'text'
+        elif isinstance(ch, _discord.VoiceChannel):
+            ch_type = 'voice'
+        elif isinstance(ch, _discord.CategoryChannel):
+            ch_type = 'category'
+        else:
+            ch_type = 'other'
+        entry = {
+            'id': str(ch.id), 'name': ch.name, 'type': ch_type,
+            'position': ch.position,
+            'category': ch.category.name if ch.category else None,
+        }
+        if isinstance(ch, _discord.TextChannel):
+            entry['slowmode'] = ch.slowmode_delay
+            entry['topic'] = ch.topic or ''
+            entry['nsfw'] = ch.is_nsfw()
+        channels.append(entry)
+    return jsonify({'ok': True, 'data': channels})
+
+
+@app.route('/server-official/api/channels/slowmode', methods=['POST'])
+def so_api_channels_slowmode():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    channel_id = (p.get('channel_id') or '').strip()
+    if not channel_id:
+        return jsonify({'ok': False, 'error': 'channel_id required'}), 400
+    delay = max(0, min(21600, int(p.get('delay', 0))))
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        ch = bot.get_channel(int(channel_id)) or await bot.fetch_channel(int(channel_id))
+        await ch.edit(slowmode_delay=delay, reason=f'Via SO dashboard by {_current_actor()}')
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        fut.result(timeout=15)
+        so.add_bot_action('channel_slowmode', f'Set slowmode={delay}s on {channel_id}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/channels/topic', methods=['POST'])
+def so_api_channels_topic():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    channel_id = (p.get('channel_id') or '').strip()
+    topic = (p.get('topic') or '').strip()[:1024]
+    if not channel_id:
+        return jsonify({'ok': False, 'error': 'channel_id required'}), 400
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        ch = bot.get_channel(int(channel_id)) or await bot.fetch_channel(int(channel_id))
+        await ch.edit(topic=topic, reason=f'Via SO dashboard by {_current_actor()}')
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        fut.result(timeout=15)
+        so.add_bot_action('channel_topic', f'Updated topic for {channel_id}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ---- SO MANAGEMENT: INVITES ----
+@app.route('/server-official/api/invites', methods=['GET'])
+def so_api_invites_list():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        invites = await guild.invites()
+        return [
+            {'code': inv.code, 'url': inv.url,
+             'channel': inv.channel.name if inv.channel else '?',
+             'inviter': inv.inviter.name if inv.inviter else 'Unknown',
+             'uses': inv.uses or 0, 'max_uses': inv.max_uses or 0,
+             'max_age': inv.max_age or 0, 'temporary': inv.temporary,
+             'created_at': inv.created_at.isoformat() if inv.created_at else None}
+            for inv in invites
+        ]
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        data = fut.result(timeout=15)
+        return jsonify({'ok': True, 'data': data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/invites', methods=['POST'])
+def so_api_invites_create():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    channel_id = (p.get('channel_id') or '').strip()
+    if not channel_id:
+        return jsonify({'ok': False, 'error': 'channel_id required'}), 400
+    max_uses = max(0, int(p.get('max_uses', 0)))
+    max_age = max(0, int(p.get('max_age', 86400)))
+    temporary = bool(p.get('temporary', False))
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        ch = bot.get_channel(int(channel_id)) or await bot.fetch_channel(int(channel_id))
+        inv = await ch.create_invite(
+            max_uses=max_uses, max_age=max_age, temporary=temporary,
+            reason=f'Via SO dashboard by {_current_actor()}')
+        return {'code': inv.code, 'url': inv.url}
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        data = fut.result(timeout=15)
+        so.add_bot_action('invite_create', f'Created invite {data["code"]}', _current_actor())
+        return jsonify({'ok': True, 'data': data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/invites/<code>', methods=['DELETE'])
+def so_api_invites_delete(code):
+    so, err = _so_require_login()
+    if err: return err
+    so, bot, _, err = _so_bot_guild(request.args.get('guild_id', 'any'))
+    if err:
+        so2, err2 = _so_require_login()
+        if err2: return err2
+        bot2 = so2.bot if so2 else None
+        if not bot2 or not bot2.is_ready():
+            return jsonify({'ok': False, 'error': 'Bot is offline'}), 503
+        bot = bot2
+    import asyncio
+    async def _do():
+        inv = await bot.fetch_invite(code)
+        await inv.delete(reason=f'Via SO dashboard by {_current_actor()}')
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        fut.result(timeout=15)
+        so.add_bot_action('invite_delete', f'Deleted invite {code}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ---- SO MANAGEMENT: EVENTS ----
+@app.route('/server-official/api/events', methods=['GET'])
+def so_api_events_list():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        events = await guild.fetch_scheduled_events()
+        return [
+            {'id': str(ev.id), 'name': ev.name,
+             'description': ev.description or '',
+             'status': str(ev.status).split('.')[-1],
+             'start_time': ev.start_time.isoformat() if ev.start_time else None,
+             'end_time': ev.end_time.isoformat() if ev.end_time else None,
+             'location': getattr(ev.location, 'value', None) if ev.location else None,
+             'channel': ev.channel.name if getattr(ev, 'channel', None) else None,
+             'subscriber_count': ev.subscriber_count or 0}
+            for ev in events
+        ]
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        data = fut.result(timeout=15)
+        return jsonify({'ok': True, 'data': data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/events', methods=['POST'])
+def so_api_events_create():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    name = (p.get('name') or '').strip()
+    start_time_str = (p.get('start_time') or '').strip()
+    if not name or not start_time_str:
+        return jsonify({'ok': False, 'error': 'name and start_time required'}), 400
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio, discord as _discord
+    from datetime import datetime, timezone as _tz
+    async def _do():
+        dt_start = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+        if dt_start.tzinfo is None:
+            dt_start = dt_start.replace(tzinfo=_tz.utc)
+        end_str = (p.get('end_time') or '').strip()
+        dt_end = None
+        if end_str:
+            dt_end = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+            if dt_end.tzinfo is None:
+                dt_end = dt_end.replace(tzinfo=_tz.utc)
+        description = (p.get('description') or '').strip()[:1000]
+        channel_id = (p.get('channel_id') or '').strip()
+        location_str = (p.get('location') or '').strip()
+        if channel_id:
+            ch = guild.get_channel(int(channel_id))
+            ev = await guild.create_scheduled_event(
+                name=name, description=description,
+                start_time=dt_start, end_time=dt_end,
+                entity_type=_discord.EntityType.voice, channel=ch,
+                reason=f'Via SO dashboard by {_current_actor()}')
+        else:
+            ev = await guild.create_scheduled_event(
+                name=name, description=description,
+                start_time=dt_start, end_time=dt_end,
+                entity_type=_discord.EntityType.external,
+                location=location_str or 'TBD',
+                reason=f'Via SO dashboard by {_current_actor()}')
+        return {'id': str(ev.id), 'name': ev.name}
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        data = fut.result(timeout=15)
+        so.add_bot_action('event_create', f'Created event "{name}"', _current_actor())
+        return jsonify({'ok': True, 'data': data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/events/<event_id>', methods=['DELETE'])
+def so_api_events_delete(event_id):
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        ev = await guild.fetch_scheduled_event(int(event_id))
+        await ev.delete()
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        fut.result(timeout=15)
+        so.add_bot_action('event_delete', f'Deleted event {event_id}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ---- SO MANAGEMENT: SERVER RULES ----
+@app.route('/server-official/api/rules', methods=['GET'])
+def so_api_rules_get():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    state = so.load_state()
+    rules = state.get('server_rules', {}).get(guild_id, {}) if guild_id else {}
+    return jsonify({'ok': True, 'data': rules})
+
+
+@app.route('/server-official/api/rules', methods=['POST'])
+def so_api_rules_save():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    if not guild_id:
+        return jsonify({'ok': False, 'error': 'guild_id required'}), 400
+    state = so.load_state()
+    if 'server_rules' not in state:
+        state['server_rules'] = {}
+    state['server_rules'].setdefault(guild_id, {})
+    state['server_rules'][guild_id]['text'] = (p.get('text') or '').strip()
+    state['server_rules'][guild_id]['channel_id'] = (p.get('channel_id') or '').strip()
+    so.save_state(state)
+    return jsonify({'ok': True})
+
+
+@app.route('/server-official/api/rules/post', methods=['POST'])
+def so_api_rules_post():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    channel_id = (p.get('channel_id') or '').strip()
+    text = (p.get('text') or '').strip()
+    if not channel_id or not text:
+        return jsonify({'ok': False, 'error': 'channel_id and text required'}), 400
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio, discord as _discord
+    from datetime import datetime, timezone as _tz
+    async def _do():
+        ch = bot.get_channel(int(channel_id)) or await bot.fetch_channel(int(channel_id))
+        e = _discord.Embed(
+            title=f'📜 {guild.name} — Server Rules',
+            description=text, color=0x5b8cff,
+            timestamp=datetime.now(_tz.utc))
+        e.set_footer(text='Server Official • Byte Labs')
+        await ch.send(embed=e)
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        fut.result(timeout=15)
+        state = so.load_state()
+        state.setdefault('server_rules', {}).setdefault(guild_id, {})
+        from datetime import datetime
+        state['server_rules'][guild_id]['last_posted_at'] = datetime.utcnow().isoformat()
+        so.save_state(state)
+        so.add_bot_action('rules_post', f'Posted rules to channel {channel_id}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @app.route('/server-official/api/webhook_in/<secret>', methods=['POST'])
 def so_api_wh_fire(secret):
     """Public endpoint: third-party services POST here to fire an embed in the linked channel."""

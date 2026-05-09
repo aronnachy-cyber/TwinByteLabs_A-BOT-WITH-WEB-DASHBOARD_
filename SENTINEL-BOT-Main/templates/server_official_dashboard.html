@@ -473,6 +473,12 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
   <button class="sb-item" data-section="setup"><i class="fas fa-screwdriver-wrench"></i> Server Setup</button>
   <button class="sb-item" data-section="members"><i class="fas fa-users"></i> Members</button>
   <button class="sb-item" data-section="analytics"><i class="fas fa-chart-line"></i> Analytics</button>
+  <div class="sb-section">Manage</div>
+  <button class="sb-item" data-section="roles"><i class="fas fa-user-tag"></i> Roles</button>
+  <button class="sb-item" data-section="channels"><i class="fas fa-hashtag"></i> Channels</button>
+  <button class="sb-item" data-section="invites"><i class="fas fa-link"></i> Invites</button>
+  <button class="sb-item" data-section="events"><i class="fas fa-calendar-star"></i> Events</button>
+  <button class="sb-item" data-section="rules"><i class="fas fa-scroll"></i> Server Rules</button>
   <div class="sb-section">Engage</div>
   <button class="sb-item" data-section="announcements"><i class="fas fa-bullhorn"></i> Announcements</button>
   <button class="sb-item" data-section="utilities"><i class="fas fa-toolbox"></i> Utilities</button>
@@ -957,6 +963,174 @@ html.bl-compact .topbar{margin-bottom:18px;padding-bottom:14px;}
     </div>
   </section>
 
+  <!-- ============ ROLES ============ -->
+  <section class="section" data-section="roles">
+    <div class="card">
+      <h2><i class="fas fa-user-tag"></i> Role List</h2>
+      <p class="help">All roles in the selected server. Managed roles (bots/integrations) cannot be deleted here.</p>
+      <div class="row" style="margin-bottom:12px;">
+        <button class="btn" onclick="loadRoles()"><i class="fas fa-rotate"></i> Refresh</button>
+      </div>
+      <div id="rolesList" style="color:var(--muted);">Select a server to view roles.</div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-plus"></i> Create New Role</h2>
+      <div class="row">
+        <div><label>Role Name</label><input id="roleNameInput" placeholder="e.g. VIP"/></div>
+        <div><label>Color (hex)</label><input id="roleColorInput" placeholder="#5b8cff" style="width:130px;"/></div>
+        <div style="display:flex;gap:16px;align-items:flex-end;padding-bottom:4px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;color:var(--muted);"><input type="checkbox" id="roleHoist"/> Hoist</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;color:var(--muted);"><input type="checkbox" id="roleMentionable"/> Mentionable</label>
+        </div>
+        <button class="btn" onclick="createRole()" style="align-self:flex-end;"><i class="fas fa-plus"></i> Create</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-user-plus"></i> Assign / Remove Role</h2>
+      <p class="help">Enter the member's User ID. Enable Developer Mode in Discord settings, then right-click a member → Copy ID.</p>
+      <div class="row">
+        <div><label>User ID</label><input id="assignUserId" placeholder="e.g. 123456789012345678"/></div>
+        <div><label>Role ID</label><input id="assignRoleId" placeholder="e.g. 987654321098765432"/></div>
+        <button class="btn" onclick="assignRole('add')" style="align-self:flex-end;"><i class="fas fa-plus"></i> Add Role</button>
+        <button class="btn btn-ghost" onclick="assignRole('remove')" style="align-self:flex-end;"><i class="fas fa-minus"></i> Remove Role</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHANNELS ============ -->
+  <section class="section" data-section="channels">
+    <div class="card">
+      <h2><i class="fas fa-hashtag"></i> Channel List</h2>
+      <p class="help">All channels in the selected server. Click <strong>Edit</strong> on any text channel to set slowmode or update its topic.</p>
+      <div class="row" style="margin-bottom:12px;">
+        <button class="btn" onclick="loadChannels()"><i class="fas fa-rotate"></i> Refresh</button>
+      </div>
+      <div id="channelsList" style="color:var(--muted);">Select a server to view channels.</div>
+    </div>
+    <div class="card" id="channelEditCard" style="display:none;">
+      <h2><i class="fas fa-pen"></i> Edit: <span id="channelEditName"></span></h2>
+      <input type="hidden" id="channelEditId"/>
+      <div class="row">
+        <div>
+          <label>Slowmode delay (seconds, 0 = off)</label>
+          <input id="channelSlowmode" type="number" min="0" max="21600" placeholder="0" style="width:140px;"/>
+          <div class="help-text">Max 21600 (6 hours). Applies to text channels only.</div>
+        </div>
+        <button class="btn" onclick="setSlowmode()" style="align-self:flex-end;"><i class="fas fa-clock"></i> Set Slowmode</button>
+      </div>
+      <div class="row" style="margin-top:14px;">
+        <div class="grow">
+          <label>Channel Topic</label>
+          <input id="channelTopic" placeholder="Describe this channel…" maxlength="1024"/>
+        </div>
+        <button class="btn" onclick="setTopic()" style="align-self:flex-end;"><i class="fas fa-save"></i> Set Topic</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INVITES ============ -->
+  <section class="section" data-section="invites">
+    <div class="card">
+      <h2><i class="fas fa-link"></i> Active Invite Links</h2>
+      <div class="row" style="margin-bottom:12px;">
+        <button class="btn" onclick="loadInvites()"><i class="fas fa-rotate"></i> Refresh</button>
+      </div>
+      <div id="invitesList" style="color:var(--muted);">Select a server to view invites.</div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-plus"></i> Create Invite</h2>
+      <p class="help">Generate a new invite link for any channel the bot can access.</p>
+      <div class="row">
+        <div><label>Channel ID</label><input id="invChanId" placeholder="e.g. 1234567890123456789"/></div>
+        <div>
+          <label>Max Uses (0 = unlimited)</label>
+          <input id="invMaxUses" type="number" min="0" max="100" value="0" style="width:120px;"/>
+        </div>
+        <div>
+          <label>Expires after</label>
+          <select id="invMaxAge">
+            <option value="1800">30 minutes</option>
+            <option value="3600">1 hour</option>
+            <option value="21600">6 hours</option>
+            <option value="86400" selected>24 hours</option>
+            <option value="604800">7 days</option>
+            <option value="0">Never</option>
+          </select>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;color:var(--muted);align-self:flex-end;padding-bottom:6px;">
+          <input type="checkbox" id="invTemporary"/> Temporary membership
+        </label>
+        <button class="btn" onclick="createInvite()" style="align-self:flex-end;"><i class="fas fa-link"></i> Create</button>
+      </div>
+      <div id="newInviteResult" style="margin-top:12px;"></div>
+    </div>
+  </section>
+
+  <!-- ============ EVENTS ============ -->
+  <section class="section" data-section="events">
+    <div class="card">
+      <h2><i class="fas fa-calendar-star"></i> Scheduled Events</h2>
+      <div class="row" style="margin-bottom:12px;">
+        <button class="btn" onclick="loadEvents()"><i class="fas fa-rotate"></i> Refresh</button>
+      </div>
+      <div id="eventsList" style="color:var(--muted);">Select a server to view events.</div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-plus"></i> Create Event</h2>
+      <p class="help">Schedule a Discord community event. For voice channel events enter a Channel ID; for external events enter a location text instead.</p>
+      <div class="row">
+        <div class="grow"><label>Event Name</label><input id="evName" placeholder="Movie Night, AMA, etc."/></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div class="grow">
+          <label>Description (optional)</label>
+          <textarea id="evDesc" rows="2" placeholder="What's happening?" style="width:100%;resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <label>Start Time</label>
+          <input id="evStart" type="datetime-local"/>
+        </div>
+        <div>
+          <label>End Time (optional)</label>
+          <input id="evEnd" type="datetime-local"/>
+        </div>
+        <div>
+          <label>Voice Channel ID <em style="font-weight:400;color:var(--muted);">or</em> Location</label>
+          <input id="evChanOrLoc" placeholder="Channel ID or location text"/>
+        </div>
+        <button class="btn" onclick="createEvent()" style="align-self:flex-end;"><i class="fas fa-calendar-plus"></i> Create Event</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SERVER RULES ============ -->
+  <section class="section" data-section="rules">
+    <div class="card">
+      <h2><i class="fas fa-scroll"></i> Server Rules</h2>
+      <p class="help">Write and save your server rules here. When ready, post them as a formatted embed to any channel — the bot must be online to post.</p>
+      <div class="row" style="margin-bottom:10px;">
+        <div>
+          <label>Rules Channel ID</label>
+          <input id="rulesChannelId" placeholder="e.g. 1234567890123456789" style="width:240px;"/>
+          <div class="help-text">The channel where rules will be posted.</div>
+        </div>
+      </div>
+      <label>Rules Text</label>
+      <textarea id="rulesText" rows="14" placeholder="1. Be respectful to all members.&#10;2. No spamming or self-promotion.&#10;3. Follow Discord's Terms of Service.&#10;4. Keep content in the appropriate channels.&#10;5. No harassment, hate speech, or NSFW content." style="width:100%;resize:vertical;font-family:inherit;line-height:1.6;"></textarea>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn" onclick="saveRules()"><i class="fas fa-save"></i> Save Rules</button>
+        <button class="btn btn-ghost" onclick="loadRules()"><i class="fas fa-rotate"></i> Reload</button>
+        <button class="btn" onclick="postRules()" style="background:linear-gradient(135deg,#5b8cff,#8a6cff);"><i class="fas fa-paper-plane"></i> Post to Channel</button>
+      </div>
+      <div class="help-text" style="margin-top:10px;"><i class="fas fa-circle-info"></i> Posting sends a clean embed to the channel ID above. Bot must be online with send message permissions.</div>
+    </div>
+    <div class="card" id="rulesLastPosted" style="display:none;">
+      <div id="rulesLastPostedText" class="help" style="font-size:.88rem;"></div>
+    </div>
+  </section>
+
 </main>
 
 <div class="toast" id="toast"></div>
@@ -1089,6 +1263,11 @@ document.querySelectorAll('.sb-item').forEach(b=>{
     if (target === 'backups') loadBackups();
     if (target === 'setup') loadSetupHistory();
     if (target === 'members'){ loadGuildConfig(); loadAvatarPanel(); }
+    if (target === 'roles') loadRoles();
+    if (target === 'channels') loadChannels();
+    if (target === 'invites') loadInvites();
+    if (target === 'events') loadEvents();
+    if (target === 'rules') loadRules();
     document.getElementById('sidebar').classList.remove('open');
   });
 });
@@ -1830,6 +2009,282 @@ async function blPingHealth(){
   } catch(e){ toast('Health check failed', 'err'); }
 }
 {% endif %}
+
+/* ============ ROLES ============ */
+async function loadRoles(){
+  if(!currentGuildId) return;
+  const el = document.getElementById('rolesList');
+  el.innerHTML = '<span style="color:var(--muted);">Loading…</span>';
+  const r = await api('GET', `/server-official/api/roles?guild_id=${encodeURIComponent(currentGuildId)}`);
+  if(!r || !r.ok){
+    el.innerHTML = `<span style="color:#ff7a90;"><i class="fas fa-circle-exclamation"></i> ${escapeHtml(r?.error || 'Bot must be online to view roles.')}</span>`;
+    return;
+  }
+  const roles = r.data || [];
+  if(!roles.length){ el.innerHTML = '<span style="color:var(--muted);">No roles found.</span>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Name</th><th>Color</th><th>Members</th><th>Hoist</th><th>Mentionable</th><th>ID</th><th></th></tr></thead><tbody>${
+    roles.map(ro=>`<tr>
+      <td><span style="color:${ro.color==='#000000'?'var(--text)':ro.color};font-weight:600;">${escapeHtml(ro.name)}</span></td>
+      <td style="white-space:nowrap;">
+        <span style="display:inline-flex;align-items:center;gap:6px;">
+          <span style="width:14px;height:14px;border-radius:50%;background:${ro.color==='#000000'?'rgba(255,255,255,.15)':ro.color};display:inline-block;flex-shrink:0;"></span>
+          ${escapeHtml(ro.color)}
+        </span>
+      </td>
+      <td>${ro.member_count}</td>
+      <td>${ro.hoist?'<i class="fas fa-check" style="color:#7CFC9C;"></i>':'—'}</td>
+      <td>${ro.mentionable?'<i class="fas fa-check" style="color:#7CFC9C;"></i>':'—'}</td>
+      <td style="font-family:monospace;font-size:.78rem;color:var(--muted);">${ro.id}</td>
+      <td>${ro.managed
+        ? '<span style="color:var(--muted);font-size:.78rem;">managed</span>'
+        : `<button class="btn btn-ghost" style="padding:4px 10px;font-size:.78rem;" onclick="deleteRole('${ro.id}',${JSON.stringify(ro.name)})"><i class="fas fa-trash"></i></button>`
+      }</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function createRole(){
+  if(!currentGuildId) return toast('Select a server first','err');
+  const name = document.getElementById('roleNameInput').value.trim();
+  if(!name) return toast('Enter a role name','err');
+  const color = document.getElementById('roleColorInput').value.trim() || '';
+  const hoist = document.getElementById('roleHoist').checked;
+  const mentionable = document.getElementById('roleMentionable').checked;
+  const r = await api('POST','/server-official/api/roles',{guild_id:currentGuildId,name,color,hoist,mentionable},'Role created');
+  if(r?.ok){
+    document.getElementById('roleNameInput').value='';
+    document.getElementById('roleColorInput').value='';
+    loadRoles();
+  }
+}
+
+async function deleteRole(id, name){
+  if(!confirm(`Delete role "${name}"? This cannot be undone.`)) return;
+  const r = await api('DELETE',`/server-official/api/roles/${id}?guild_id=${encodeURIComponent(currentGuildId)}`);
+  if(r?.ok){ toast('Role deleted'); loadRoles(); }
+}
+
+async function assignRole(action){
+  if(!currentGuildId) return toast('Select a server first','err');
+  const user_id = document.getElementById('assignUserId').value.trim();
+  const role_id = document.getElementById('assignRoleId').value.trim();
+  if(!user_id || !role_id) return toast('Enter both User ID and Role ID','err');
+  const label = action==='add' ? 'Role added' : 'Role removed';
+  const r = await api('POST','/server-official/api/roles/assign',{guild_id:currentGuildId,user_id,role_id,action}, label);
+  if(r?.ok){
+    document.getElementById('assignUserId').value='';
+    document.getElementById('assignRoleId').value='';
+  }
+}
+
+/* ============ CHANNELS ============ */
+async function loadChannels(){
+  if(!currentGuildId) return;
+  const el = document.getElementById('channelsList');
+  el.innerHTML = '<span style="color:var(--muted);">Loading…</span>';
+  const r = await api('GET', `/server-official/api/channels?guild_id=${encodeURIComponent(currentGuildId)}`);
+  if(!r || !r.ok){
+    el.innerHTML = `<span style="color:#ff7a90;"><i class="fas fa-circle-exclamation"></i> ${escapeHtml(r?.error || 'Bot must be online to view channels.')}</span>`;
+    return;
+  }
+  const channels = r.data || [];
+  if(!channels.length){ el.innerHTML = '<span style="color:var(--muted);">No channels found.</span>'; return; }
+  const icons = {text:'fa-hashtag',voice:'fa-volume-up',category:'fa-folder',other:'fa-circle'};
+  el.innerHTML = `<table><thead><tr><th>Name</th><th>Type</th><th>Category</th><th>Slowmode</th><th>Topic</th><th></th></tr></thead><tbody>${
+    channels.map(ch=>`<tr>
+      <td style="white-space:nowrap;"><i class="fas ${icons[ch.type]||'fa-hashtag'}" style="color:var(--muted);margin-right:6px;width:12px;"></i>${escapeHtml(ch.name)}</td>
+      <td>${ch.type}</td>
+      <td>${escapeHtml(ch.category||'—')}</td>
+      <td>${ch.slowmode!=null?(ch.slowmode===0?'<span style="color:var(--muted);">off</span>':`${ch.slowmode}s`):'—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);">${escapeHtml((ch.topic||'').slice(0,60))}</td>
+      <td>${ch.type==='text'
+        ? `<button class="btn btn-ghost" style="padding:4px 10px;font-size:.78rem;" onclick="openChannelEdit('${ch.id}',${JSON.stringify(ch.name)},${ch.slowmode||0},${JSON.stringify(ch.topic||'')})"><i class="fas fa-pen"></i> Edit</button>`
+        : ''
+      }</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+function openChannelEdit(id, name, slowmode, topic){
+  document.getElementById('channelEditId').value = id;
+  document.getElementById('channelEditName').textContent = name;
+  document.getElementById('channelSlowmode').value = slowmode;
+  document.getElementById('channelTopic').value = topic;
+  const card = document.getElementById('channelEditCard');
+  card.style.display = '';
+  card.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+async function setSlowmode(){
+  const cid = document.getElementById('channelEditId').value;
+  const delay = parseInt(document.getElementById('channelSlowmode').value)||0;
+  if(!cid||!currentGuildId) return toast('Select a channel first','err');
+  const r = await api('POST','/server-official/api/channels/slowmode',{guild_id:currentGuildId,channel_id:cid,delay},'Slowmode updated');
+  if(r?.ok) loadChannels();
+}
+
+async function setTopic(){
+  const cid = document.getElementById('channelEditId').value;
+  const topic = document.getElementById('channelTopic').value.trim();
+  if(!cid||!currentGuildId) return toast('Select a channel first','err');
+  const r = await api('POST','/server-official/api/channels/topic',{guild_id:currentGuildId,channel_id:cid,topic},'Topic updated');
+  if(r?.ok) loadChannels();
+}
+
+/* ============ INVITES ============ */
+async function loadInvites(){
+  if(!currentGuildId) return;
+  const el = document.getElementById('invitesList');
+  el.innerHTML = '<span style="color:var(--muted);">Loading…</span>';
+  const r = await api('GET', `/server-official/api/invites?guild_id=${encodeURIComponent(currentGuildId)}`);
+  if(!r || !r.ok){
+    el.innerHTML = `<span style="color:#ff7a90;"><i class="fas fa-circle-exclamation"></i> ${escapeHtml(r?.error || 'Bot must be online to view invites.')}</span>`;
+    return;
+  }
+  const invites = r.data || [];
+  if(!invites.length){ el.innerHTML = '<span style="color:var(--muted);">No active invites.</span>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Code</th><th>Channel</th><th>Created by</th><th>Uses</th><th>Max Uses</th><th>Max Age</th><th></th></tr></thead><tbody>${
+    invites.map(inv=>`<tr>
+      <td><a href="${escapeHtml(inv.url)}" target="_blank" style="color:var(--accent);font-family:monospace;">${escapeHtml(inv.code)}</a></td>
+      <td>#${escapeHtml(inv.channel)}</td>
+      <td>${escapeHtml(inv.inviter)}</td>
+      <td>${inv.uses}</td>
+      <td>${inv.max_uses===0?'∞':inv.max_uses}</td>
+      <td>${inv.max_age===0?'Never':(inv.max_age<3600?`${inv.max_age/60}m`:inv.max_age<86400?`${inv.max_age/3600}h`:`${inv.max_age/86400}d`)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:.78rem;margin-right:4px;" onclick="navigator.clipboard.writeText('${escapeHtml(inv.url)}').then(()=>toast('Copied'))"><i class="fas fa-copy"></i></button>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:.78rem;" onclick="deleteInvite('${escapeHtml(inv.code)}')"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function createInvite(){
+  if(!currentGuildId) return toast('Select a server first','err');
+  const channel_id = document.getElementById('invChanId').value.trim();
+  if(!channel_id) return toast('Enter a Channel ID','err');
+  const max_uses = parseInt(document.getElementById('invMaxUses').value)||0;
+  const max_age = parseInt(document.getElementById('invMaxAge').value)||86400;
+  const temporary = document.getElementById('invTemporary').checked;
+  const r = await api('POST','/server-official/api/invites',{guild_id:currentGuildId,channel_id,max_uses,max_age,temporary});
+  if(r?.ok && r.data){
+    const res = document.getElementById('newInviteResult');
+    res.innerHTML = `<div style="background:rgba(91,140,255,.1);border:1px solid rgba(91,140,255,.25);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <i class="fas fa-link" style="color:var(--accent);"></i>
+      <a href="${escapeHtml(r.data.url)}" target="_blank" style="color:var(--accent);font-weight:700;">${escapeHtml(r.data.url)}</a>
+      <button class="btn btn-ghost" style="padding:4px 12px;font-size:.82rem;margin-left:auto;" onclick="navigator.clipboard.writeText('${escapeHtml(r.data.url)}').then(()=>toast('Copied'))"><i class="fas fa-copy"></i> Copy</button>
+    </div>`;
+    toast('Invite created');
+    loadInvites();
+  }
+}
+
+async function deleteInvite(code){
+  if(!confirm(`Revoke invite ${code}?`)) return;
+  const r = await api('DELETE',`/server-official/api/invites/${encodeURIComponent(code)}?guild_id=${encodeURIComponent(currentGuildId)}`);
+  if(r?.ok){ toast('Invite revoked'); loadInvites(); }
+}
+
+/* ============ EVENTS ============ */
+async function loadEvents(){
+  if(!currentGuildId) return;
+  const el = document.getElementById('eventsList');
+  el.innerHTML = '<span style="color:var(--muted);">Loading…</span>';
+  const r = await api('GET', `/server-official/api/events?guild_id=${encodeURIComponent(currentGuildId)}`);
+  if(!r || !r.ok){
+    el.innerHTML = `<span style="color:#ff7a90;"><i class="fas fa-circle-exclamation"></i> ${escapeHtml(r?.error || 'Bot must be online to view events.')}</span>`;
+    return;
+  }
+  const events = r.data || [];
+  if(!events.length){ el.innerHTML = '<span style="color:var(--muted);">No scheduled events.</span>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Event</th><th>Status</th><th>Starts</th><th>Where</th><th>Subscribers</th><th></th></tr></thead><tbody>${
+    events.map(ev=>`<tr>
+      <td>
+        <strong>${escapeHtml(ev.name)}</strong>
+        ${ev.description?`<div style="color:var(--muted);font-size:.78rem;margin-top:2px;">${escapeHtml(ev.description.slice(0,70))}${ev.description.length>70?'…':''}</div>`:''}
+      </td>
+      <td><span style="background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.28);border-radius:6px;padding:2px 8px;font-size:.76rem;white-space:nowrap;">${escapeHtml(ev.status)}</span></td>
+      <td style="white-space:nowrap;">${ev.start_time?new Date(ev.start_time).toLocaleString():'—'}</td>
+      <td>${escapeHtml(ev.location||ev.channel||'—')}</td>
+      <td>${ev.subscriber_count}</td>
+      <td><button class="btn btn-ghost" style="padding:4px 10px;font-size:.78rem;" onclick="deleteEvent('${ev.id}',${JSON.stringify(ev.name)})"><i class="fas fa-trash"></i></button></td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+
+async function createEvent(){
+  if(!currentGuildId) return toast('Select a server first','err');
+  const name = document.getElementById('evName').value.trim();
+  if(!name) return toast('Event name required','err');
+  const startLocal = document.getElementById('evStart').value;
+  if(!startLocal) return toast('Start time required','err');
+  const endLocal = document.getElementById('evEnd').value;
+  const chanOrLoc = document.getElementById('evChanOrLoc').value.trim();
+  const isNumeric = /^\d{10,}$/.test(chanOrLoc);
+  const payload = {
+    guild_id: currentGuildId,
+    name,
+    description: document.getElementById('evDesc').value.trim(),
+    start_time: new Date(startLocal).toISOString(),
+    end_time: endLocal ? new Date(endLocal).toISOString() : null,
+  };
+  if(isNumeric) payload.channel_id = chanOrLoc;
+  else payload.location = chanOrLoc || 'TBD';
+  const r = await api('POST','/server-official/api/events',payload,'Event created');
+  if(r?.ok){
+    document.getElementById('evName').value='';
+    document.getElementById('evDesc').value='';
+    document.getElementById('evStart').value='';
+    document.getElementById('evEnd').value='';
+    document.getElementById('evChanOrLoc').value='';
+    loadEvents();
+  }
+}
+
+async function deleteEvent(id, name){
+  if(!confirm(`Delete event "${name}"?`)) return;
+  const r = await api('DELETE',`/server-official/api/events/${id}?guild_id=${encodeURIComponent(currentGuildId)}`);
+  if(r?.ok){ toast('Event deleted'); loadEvents(); }
+}
+
+/* ============ SERVER RULES ============ */
+async function loadRules(){
+  if(!currentGuildId) return;
+  const r = await api('GET', `/server-official/api/rules?guild_id=${encodeURIComponent(currentGuildId)}`);
+  if(!r || !r.ok) return;
+  const d = r.data || {};
+  document.getElementById('rulesText').value = d.text || '';
+  document.getElementById('rulesChannelId').value = d.channel_id || '';
+  const lp = document.getElementById('rulesLastPosted');
+  const lt = document.getElementById('rulesLastPostedText');
+  if(d.last_posted_at){
+    lp.style.display = '';
+    lt.innerHTML = `<i class="fas fa-clock-rotate-left"></i> Last posted: ${new Date(d.last_posted_at).toLocaleString()}`;
+  } else {
+    lp.style.display = 'none';
+  }
+}
+
+async function saveRules(){
+  if(!currentGuildId) return toast('Select a server first','err');
+  const text = document.getElementById('rulesText').value.trim();
+  const channel_id = document.getElementById('rulesChannelId').value.trim();
+  await api('POST','/server-official/api/rules',{guild_id:currentGuildId,text,channel_id},'Rules saved');
+}
+
+async function postRules(){
+  if(!currentGuildId) return toast('Select a server first','err');
+  const text = document.getElementById('rulesText').value.trim();
+  const channel_id = document.getElementById('rulesChannelId').value.trim();
+  if(!channel_id) return toast('Enter a channel ID first','err');
+  if(!text) return toast('Write some rules first','err');
+  const r = await api('POST','/server-official/api/rules/post',{guild_id:currentGuildId,text,channel_id},'Rules posted to channel');
+  if(r?.ok){
+    const lt = document.getElementById('rulesLastPostedText');
+    lt.innerHTML = `<i class="fas fa-clock-rotate-left"></i> Last posted: ${new Date().toLocaleString()}`;
+    document.getElementById('rulesLastPosted').style.display = '';
+  }
+}
 
 /* ============ EMBED EDITOR ============ */
 const SO_EMB_API = '/server-official/api/embeds';

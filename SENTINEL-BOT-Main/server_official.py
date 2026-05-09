@@ -183,6 +183,9 @@ DEFAULT_STATE: Dict[str, Any] = {
 
     # --- backups ---
     "config_backups": [],   # [{id, ts, label, snapshot}]
+
+    # --- management ---
+    "server_rules": {},     # guild_id -> { text, channel_id, last_posted_at }
 }
 
 
