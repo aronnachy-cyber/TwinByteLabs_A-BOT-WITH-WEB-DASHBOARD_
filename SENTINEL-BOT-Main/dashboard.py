@@ -1581,6 +1581,14 @@ def so_api_delete_template(tid):
     return jsonify({"ok": so.delete_template(tid)})
 
 
+# --- Giveaways ---
+@app.route('/server-official/api/giveaways', methods=['GET'])
+def so_api_giveaways():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_giveaways()})
+
+
 # --- Polls ---
 @app.route('/server-official/api/polls', methods=['GET'])
 def so_api_polls():
