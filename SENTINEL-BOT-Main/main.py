@@ -1427,6 +1427,8 @@ async def on_ready():
         print(f"Slash command sync error: {e}")
     sync_bot_settings.start()
     daily_report_task.start()
+    if not _reminder_tick.is_running():
+        _reminder_tick.start()
     # Re-schedule any giveaways that were active when the bot was last restarted.
     # Without this, giveaway timers are lost on every restart and "active" giveaways
     # never roll over into "completed".
@@ -1856,6 +1858,20 @@ async def warn(ctx, member: discord.Member, *, reason="Violation"):
         f"> 🛡️ **By:** {ctx.author.mention}\n"
         f"> 📝 **Reason:** {reason}"
     )
+    try:
+        dm_embed = discord.Embed(
+            title=f"⚠️ Warning Received — {ctx.guild.name}",
+            description=f"You have been warned by a moderator.",
+            color=0xf59e0b,
+            timestamp=datetime.utcnow(),
+        )
+        dm_embed.add_field(name="📝 Reason", value=reason, inline=False)
+        dm_embed.add_field(name="🔢 Total Warnings", value=str(count), inline=True)
+        dm_embed.add_field(name="🛡️ Moderator", value=str(ctx.author), inline=True)
+        dm_embed.set_footer(text="If you believe this is a mistake, contact a server admin.")
+        await member.send(embed=dm_embed)
+    except (discord.Forbidden, discord.HTTPException):
+        pass
     await logs.log_template(bot, config, "sp4rk.warn",
                             user=member, moderator=ctx.author,
                             reason=reason, warn_count=count)
@@ -2962,17 +2978,25 @@ async def slash_delete_template(interaction: discord.Interaction):
 # ---------------- SECURITY COMMANDS ----------------
 @bot.command()
 async def lockdown(ctx):
-    if ctx.author.guild_permissions.administrator:
-        config["temp_lockdown"] = "ON"
-        await security.toggle_lockdown(ctx.guild, config, enable=True, log_callback=dlog)
-        await ctx.send("🚨 Server is now under lockdown! Use `!unlockdown` to lift it.")
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.send("❌ **Permission Denied** — Administrator permission required.")
+        return
+    gcfg = get_config_for_guild(str(ctx.guild.id))
+    gcfg["temp_lockdown"] = "ON"
+    await security.toggle_lockdown(ctx.guild, gcfg, enable=True, log_callback=dlog)
+    await ctx.send("🚨 **Server Lockdown Active** — all channels locked. Use `!unlockdown` to lift it.")
+    dlog("🚨 LOCKDOWN", f"Lockdown enabled in {ctx.guild.name} by {ctx.author}")
 
 @bot.command()
 async def unlockdown(ctx):
-    if ctx.author.guild_permissions.administrator:
-        config["temp_lockdown"] = "OFF"
-        await security.toggle_lockdown(ctx.guild, config, enable=False, log_callback=dlog)
-        await ctx.send("✅ Lockdown lifted! Server is back to normal.")
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.send("❌ **Permission Denied** — Administrator permission required.")
+        return
+    gcfg = get_config_for_guild(str(ctx.guild.id))
+    gcfg["temp_lockdown"] = "OFF"
+    await security.toggle_lockdown(ctx.guild, gcfg, enable=False, log_callback=dlog)
+    await ctx.send("✅ **Lockdown Lifted** — Server is back to normal.")
+    dlog("✅ UNLOCKDOWN", f"Lockdown lifted in {ctx.guild.name} by {ctx.author}")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -3567,6 +3591,223 @@ async def slash_leaderboard(interaction: discord.Interaction):
     )
     embed.set_footer(text="SP4RK Leveling  •  /rank to see your full card")
     await interaction.response.send_message(embed=embed)
+
+
+# ============================================================
+# 🎲 FUN & UTILITY COMMANDS
+# ============================================================
+import random as _random
+
+_8BALL_RESPONSES = [
+    "🎱 It is certain.", "🎱 It is decidedly so.", "🎱 Without a doubt.",
+    "🎱 Yes, definitely.", "🎱 You may rely on it.", "🎱 As I see it, yes.",
+    "🎱 Most likely.", "🎱 Outlook good.", "🎱 Yes.", "🎱 Signs point to yes.",
+    "🎱 Reply hazy, try again.", "🎱 Ask again later.", "🎱 Better not tell you now.",
+    "🎱 Cannot predict now.", "🎱 Concentrate and ask again.",
+    "🎱 Don't count on it.", "🎱 My reply is no.", "🎱 My sources say no.",
+    "🎱 Outlook not so good.", "🎱 Very doubtful.",
+]
+
+@bot.tree.command(name="8ball", description="Ask the magic 8-ball a question")
+@app_commands.describe(question="Your yes/no question")
+async def slash_8ball(interaction: discord.Interaction, question: str):
+    answer = _random.choice(_8BALL_RESPONSES)
+    embed = discord.Embed(
+        title="🎱 Magic 8-Ball",
+        color=0x1a1a2e,
+        timestamp=datetime.utcnow(),
+    )
+    embed.add_field(name="❓ Question", value=question[:512], inline=False)
+    embed.add_field(name="🔮 Answer", value=answer, inline=False)
+    embed.set_footer(text=f"Asked by {interaction.user}  •  SP4RK")
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="coinflip", description="Flip a coin — Heads or Tails?")
+async def slash_coinflip(interaction: discord.Interaction):
+    result = _random.choice(["🪙 **Heads!**", "🪙 **Tails!**"])
+    embed = discord.Embed(
+        title="🪙 Coin Flip",
+        description=result,
+        color=0xf59e0b,
+        timestamp=datetime.utcnow(),
+    )
+    embed.set_footer(text=f"Flipped by {interaction.user}  •  SP4RK")
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="dice", description="Roll one or more dice (e.g. /dice sides:20 count:2)")
+@app_commands.describe(sides="Number of sides (default 6, max 100)", count="How many dice to roll (default 1, max 10)")
+async def slash_dice(interaction: discord.Interaction, sides: int = 6, count: int = 1):
+    sides = max(2, min(100, sides))
+    count = max(1, min(10, count))
+    rolls = [_random.randint(1, sides) for _ in range(count)]
+    total = sum(rolls)
+    roll_str = "  +  ".join(f"**{r}**" for r in rolls)
+    embed = discord.Embed(
+        title=f"🎲 Dice Roll — {count}d{sides}",
+        color=0x10b981,
+        timestamp=datetime.utcnow(),
+    )
+    embed.add_field(name="🎲 Rolls", value=roll_str, inline=False)
+    if count > 1:
+        embed.add_field(name="➕ Total", value=f"**{total}**", inline=True)
+        embed.add_field(name="📊 Average", value=f"**{total/count:.1f}**", inline=True)
+    embed.set_footer(text=f"Rolled by {interaction.user}  •  SP4RK")
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="botinfo", description="Show SP4RK bot statistics and information")
+async def slash_botinfo(interaction: discord.Interaction):
+    guild_count = len(bot.guilds)
+    user_count = sum(g.member_count or 0 for g in bot.guilds)
+    latency_ms = round(bot.latency * 1000)
+    embed = discord.Embed(
+        title="🤖 SP4RK — Bot Info",
+        description=(
+            "SP4RK is a feature-rich moderation and community bot built for Discord servers "
+            "with AI-powered automod, leveling, giveaways, tickets, and more."
+        ),
+        color=0x5b8cff,
+        timestamp=datetime.utcnow(),
+    )
+    embed.add_field(name="🏠 Servers", value=f"**{guild_count:,}**", inline=True)
+    embed.add_field(name="👥 Users", value=f"**{user_count:,}**", inline=True)
+    embed.add_field(name="🏓 Latency", value=f"**{latency_ms} ms**", inline=True)
+    embed.add_field(name="📦 Version", value="**V2.5.0**", inline=True)
+    embed.add_field(name="⚙️ Library", value="**discord.py 2.x**", inline=True)
+    embed.add_field(name="🐍 Python", value="**3.11**", inline=True)
+    embed.add_field(
+        name="🔗 Links",
+        value="[Dashboard](/dashboard)  •  [Invite](https://discord.com/oauth2/authorize)  •  [Support](https://discord.gg/)",
+        inline=False,
+    )
+    if bot.user and bot.user.display_avatar:
+        embed.set_thumbnail(url=bot.user.display_avatar.url)
+    embed.set_footer(text="SP4RK  •  Byte Labs")
+    await interaction.response.send_message(embed=embed)
+
+
+# ---- Persistent reminders for SP4RK ----
+import pathlib as _pathlib
+
+_REMIND_FILE = _pathlib.Path(__file__).parent / "sp4rk_reminders.json"
+
+def _load_reminders() -> list:
+    try:
+        if _REMIND_FILE.exists():
+            import json as _json
+            return _json.loads(_REMIND_FILE.read_text()) or []
+    except Exception:
+        pass
+    return []
+
+def _save_reminders(items: list) -> None:
+    try:
+        import json as _json
+        _REMIND_FILE.write_text(_json.dumps(items))
+    except Exception:
+        pass
+
+@tasks.loop(seconds=20)
+async def _reminder_tick():
+    if not bot.is_ready():
+        return
+    try:
+        items = _load_reminders()
+        now = datetime.utcnow()
+        changed = False
+        for r in items:
+            if r.get("sent"):
+                continue
+            try:
+                due = datetime.fromisoformat(r["due_at"])
+                if due.tzinfo is not None:
+                    due = due.replace(tzinfo=None)
+            except Exception:
+                continue
+            if due <= now:
+                r["sent"] = True
+                changed = True
+                try:
+                    ch = bot.get_channel(int(r["channel_id"]))
+                    if ch:
+                        await ch.send(f"⏰ <@{r['user_id']}> **Reminder:** {r['text']}")
+                except Exception:
+                    pass
+        if changed:
+            _save_reminders(items)
+    except Exception as e:
+        print(f"[reminder_tick] error: {e}")
+
+
+@bot.tree.command(name="remind", description="Set a personal reminder")
+@app_commands.describe(when="Duration like 10m, 1h, 2d", reminder="What to remind you about")
+async def slash_remind(interaction: discord.Interaction, when: str, reminder: str):
+    if not await _slash_guard_guild(interaction):
+        return
+    seconds = parse_duration(when)
+    if not seconds or seconds < 5:
+        return await interaction.response.send_message(
+            "❌ **Invalid Duration** — Use formats like `10m`, `1h`, `2d`.", ephemeral=True
+        )
+    due = datetime.utcnow() + timedelta(seconds=seconds)
+    items = _load_reminders()
+    items.append({
+        "user_id": str(interaction.user.id),
+        "channel_id": str(interaction.channel.id),
+        "text": reminder[:500],
+        "due_at": due.isoformat(),
+        "sent": False,
+    })
+    _save_reminders(items)
+    await interaction.response.send_message(
+        f"⏰ **Reminder set!** I'll remind you <t:{int(due.timestamp())}:R>.",
+        ephemeral=True,
+    )
+
+
+# ---- Setprefix ----
+@bot.tree.command(name="setprefix", description="Change the bot's command prefix for this server")
+@app_commands.describe(prefix="New prefix (e.g. !, ?, $, .)")
+async def slash_setprefix(interaction: discord.Interaction, prefix: str):
+    if not await _slash_guard_guild(interaction):
+        return
+    if not interaction.user.guild_permissions.administrator:
+        return await interaction.response.send_message(
+            "❌ **Permission Denied** — Administrator permission required.", ephemeral=True
+        )
+    prefix = prefix.strip()[:5]
+    if not prefix:
+        return await interaction.response.send_message("❌ Prefix cannot be empty.", ephemeral=True)
+    try:
+        from dashboard import save_guild_config, get_guild_config as _ggc
+        gcfg = _ggc(str(interaction.guild.id))
+        gcfg["prefix"] = prefix
+        save_guild_config(str(interaction.guild.id), gcfg)
+    except Exception as e:
+        return await interaction.response.send_message(f"❌ Failed to save prefix: `{e}`", ephemeral=True)
+    await interaction.response.send_message(
+        f"✅ **Prefix updated!** New prefix: `{prefix}`\nExample: `{prefix}ban @user`",
+        ephemeral=True,
+    )
+
+@bot.command(name="setprefix")
+@commands.has_permissions(administrator=True)
+async def cmd_setprefix(ctx, prefix: str):
+    prefix = prefix.strip()[:5]
+    if not prefix:
+        await ctx.send("❌ Prefix cannot be empty.")
+        return
+    try:
+        from dashboard import save_guild_config, get_guild_config as _ggc
+        gcfg = _ggc(str(ctx.guild.id))
+        gcfg["prefix"] = prefix
+        save_guild_config(str(ctx.guild.id), gcfg)
+    except Exception as e:
+        await ctx.send(f"❌ Failed to save prefix: `{e}`")
+        return
+    await ctx.send(f"✅ **Prefix updated!** New prefix: `{prefix}`\nExample: `{prefix}ban @user`")
 
 
 # ---------------- DYNO/CARL-BOT EXTRAS ----------------

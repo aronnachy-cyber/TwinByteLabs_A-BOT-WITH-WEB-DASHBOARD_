@@ -1418,6 +1418,22 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
                 return
 
 
+@bot.event
+async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
+    if not payload.guild_id:
+        return
+    state = load_state()
+    for poll in state["polls"]:
+        if poll.get("ended") or str(poll["message_id"]) != str(payload.message_id):
+            continue
+        for opt in poll["options"]:
+            if str(payload.emoji) == opt.get("emoji"):
+                current = int(opt.get("votes", 0))
+                opt["votes"] = max(0, current - 1)
+                save_state(state)
+                return
+
+
 # ============================================================
 # SLASH COMMANDS — SETUP
 # ============================================================
@@ -2229,12 +2245,17 @@ async def slash_help(interaction: discord.Interaction):
     )
     embed.add_field(
         name="🎉 Engagement",
-        value="`/goal` `/giveaway` `/list_giveaways` `/end_giveaway`",
+        value="`/goal` `/giveaway` `/list_giveaways` `/end_giveaway` `/reroll`",
         inline=False,
     )
     embed.add_field(
         name="🛠️ Utilities",
-        value="`/poll` `/remind` `/sticky` `/note` `/invites` `/stats`",
+        value="`/poll` `/poll_results` `/remind` `/sticky` `/note` `/invites` `/stats`",
+        inline=False,
+    )
+    embed.add_field(
+        name="📋 Server Rules",
+        value="`/set_rules` — Set server rules text\n`/rules` — Display them to everyone",
         inline=False,
     )
     embed.add_field(
@@ -2275,6 +2296,123 @@ async def slash_help(interaction: discord.Interaction):
         inline=False,
     )
     await interaction.response.send_message(embed=embed)
+
+
+# ============================================================
+# SLASH COMMANDS — POLLS, GIVEAWAY REROLL, RULES
+# ============================================================
+@bot.tree.command(name="poll_results", description="Show current vote counts for an active poll.")
+@discord.app_commands.describe(poll_id="Poll ID shown when the poll was created (optional — shows latest)")
+async def slash_poll_results(interaction: discord.Interaction, poll_id: Optional[str] = None):
+    state = load_state()
+    guild_polls = [p for p in state["polls"] if p.get("guild_id") == str(interaction.guild_id)]
+    if not guild_polls:
+        return await interaction.response.send_message("No polls found for this server.", ephemeral=True)
+    if poll_id:
+        poll = next((p for p in guild_polls if p["id"] == poll_id), None)
+        if not poll:
+            return await interaction.response.send_message(f"❌ No poll found with ID `{poll_id}`.", ephemeral=True)
+    else:
+        active = [p for p in guild_polls if not p.get("ended")]
+        poll = active[-1] if active else guild_polls[-1]
+    total_votes = sum(int(o.get("votes", 0)) for o in poll["options"])
+    lines = []
+    for opt in poll["options"]:
+        votes = int(opt.get("votes", 0))
+        pct = (votes / total_votes * 100) if total_votes > 0 else 0
+        filled = int(pct / 10)
+        bar = "█" * filled + "░" * (10 - filled)
+        lines.append(f"{opt['emoji']} **{opt['label']}**\n`{bar}` {votes} vote(s) — {pct:.1f}%")
+    status = "✅ Ended" if poll.get("ended") else "🔴 Live"
+    e = _embed(
+        f"📊 Poll Results — {poll['question']}",
+        "\n\n".join(lines) or "_No votes yet_",
+        color=0x8b5cf6,
+    )
+    e.add_field(name="Total Votes", value=str(total_votes), inline=True)
+    e.add_field(name="Status", value=status, inline=True)
+    e.set_footer(text=f"Poll ID: {poll['id']}")
+    await interaction.response.send_message(embed=e)
+
+
+@bot.tree.command(name="reroll", description="Reroll a ended giveaway and pick new winners.")
+@discord.app_commands.describe(giveaway_id="ID of the ended giveaway to reroll")
+async def slash_reroll(interaction: discord.Interaction, giveaway_id: str):
+    if not _need_manage_guild(interaction):
+        return await interaction.response.send_message("❌ Manage Server required.", ephemeral=True)
+    state = load_state()
+    target = next(
+        (g for g in state["giveaways"]
+         if g["id"] == giveaway_id and g.get("ended") and g.get("guild_id") == str(interaction.guild_id)),
+        None,
+    )
+    if not target:
+        return await interaction.response.send_message(
+            f"❌ No ended giveaway found with ID `{giveaway_id}` in this server.", ephemeral=True
+        )
+    await interaction.response.defer(ephemeral=True)
+    chan = bot.get_channel(int(target["channel_id"]))
+    if chan is None:
+        try:
+            chan = await bot.fetch_channel(int(target["channel_id"]))
+        except Exception:
+            return await interaction.followup.send("❌ Could not find the giveaway channel.", ephemeral=True)
+    try:
+        msg = await chan.fetch_message(int(target["message_id"]))
+    except Exception:
+        return await interaction.followup.send("❌ Could not find the original giveaway message.", ephemeral=True)
+    entrants: List[discord.User] = []
+    for reaction in msg.reactions:
+        if str(reaction.emoji) == "🎉":
+            async for u in reaction.users():
+                if not u.bot and u not in entrants:
+                    entrants.append(u)
+            break
+    winners_n = max(1, int(target.get("winners", 1)))
+    if not entrants:
+        return await interaction.followup.send("😞 No valid entries — couldn't pick a new winner.", ephemeral=True)
+    chosen = random.sample(entrants, k=min(winners_n, len(entrants)))
+    winner_text = ", ".join(u.mention for u in chosen)
+    result_embed = _embed(
+        "🎉 Giveaway Rerolled!",
+        f"**New Winner(s):** {winner_text}\n**Prize:** {target['prize']}",
+        color=0xf59e0b,
+    )
+    try:
+        await chan.send(embed=result_embed)
+    except discord.Forbidden:
+        pass
+    add_bot_action("giveaway_reroll", f"Rerolled giveaway '{target['prize']}'", str(interaction.user))
+    await interaction.followup.send(f"✅ Rerolled! New winner(s): {winner_text}", ephemeral=True)
+
+
+@bot.tree.command(name="set_rules", description="Set the server rules text (shown with /rules).")
+@discord.app_commands.describe(rules="The server rules text (supports newlines with \\n)")
+async def slash_set_rules(interaction: discord.Interaction, rules: str):
+    if not _need_manage_guild(interaction):
+        return await interaction.response.send_message("❌ Manage Server required.", ephemeral=True)
+    rules_text = rules.replace("\\n", "\n")[:3900]
+    update_guild_config(str(interaction.guild_id), {"rules_text": rules_text})
+    add_bot_action("set_rules", "Server rules updated", str(interaction.user))
+    await interaction.response.send_message("✅ Server rules updated. Use `/rules` to display them.", ephemeral=True)
+
+
+@bot.tree.command(name="rules", description="Display the server rules.")
+async def slash_rules(interaction: discord.Interaction):
+    g = interaction.guild
+    if not g:
+        return await interaction.response.send_message("❌ Use this in a server.", ephemeral=True)
+    cfg = get_guild_config(str(g.id))
+    rules_text = cfg.get("rules_text", "").strip()
+    if not rules_text:
+        return await interaction.response.send_message(
+            "📋 No rules have been set yet. Admins can set them with `/set_rules`.", ephemeral=True
+        )
+    e = _embed(f"📋 {g.name} — Server Rules", rules_text, color=0x3b82f6)
+    if g.icon:
+        e.set_thumbnail(url=g.icon.url)
+    e.set_footer(text=f"{g.name}  •  Server Official")
+    await interaction.response.send_message(embed=e)
 
 
 # ============================================================
