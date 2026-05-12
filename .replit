@@ -1,4 +1,4 @@
-modules = ["web", "python-3.11", "nix"]
+modules = ["python-3.11", "web", "nix"]
 [agent]
 expertMode = true
 stack = "FLASK_VANILLA_JS"
@@ -28,7 +28,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = ".pythonlibs/lib/python3.11/site-packages/bin/gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app"
+args = ".pythonlibs/bin/gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app"
 waitForPort = 5000
 
 [[ports]]

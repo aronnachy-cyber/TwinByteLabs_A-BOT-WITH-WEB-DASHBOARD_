@@ -42,6 +42,25 @@ app.config.update(
 def _make_session_permanent():
     session.permanent = True
 
+
+@app.after_request
+def _add_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+    # Hide gunicorn version
+    response.headers["Server"] = "ByteLabs"
+    return response
+
+
+@app.errorhandler(404)
+def handle_not_found(error):
+    if request.path.startswith("/api/") or request.path.startswith("/server-official/api/"):
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    return render_template("404.html"), 404
+
 DEFAULT_CONFIG = {
     "prefix": "!",
     "bot_status": "online",
