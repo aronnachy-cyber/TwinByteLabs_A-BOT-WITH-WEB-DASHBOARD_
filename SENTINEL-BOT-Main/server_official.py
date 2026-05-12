@@ -2107,6 +2107,97 @@ async def slash_serverbanner(interaction: discord.Interaction):
 
 
 # ============================================================
+# SLASH COMMANDS — PER-SERVER BOT AVATAR
+# ============================================================
+@bot.tree.command(name="setavatar", description="Set Server Official's avatar in THIS server only (per-server profile).")
+@discord.app_commands.describe(image="PNG, JPG, GIF or WEBP — max 8 MB")
+async def slash_setavatar(interaction: discord.Interaction, image: discord.Attachment):
+    if not _need_manage_guild(interaction):
+        return await interaction.response.send_message(
+            "❌ You need **Manage Server** permission to change the bot avatar.", ephemeral=True
+        )
+    g = interaction.guild
+    if not g:
+        return await interaction.response.send_message("❌ Use this inside a server.", ephemeral=True)
+
+    # Validate content type
+    ct = (image.content_type or "").lower()
+    if not any(ct.startswith(f"image/{t}") for t in ("png", "jpeg", "gif", "webp")):
+        return await interaction.response.send_message(
+            "❌ Unsupported file type. Upload a **PNG, JPG, GIF or WEBP** image.", ephemeral=True
+        )
+    if image.size > 8 * 1024 * 1024:
+        return await interaction.response.send_message(
+            "❌ File too large — maximum is **8 MB**.", ephemeral=True
+        )
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    try:
+        image_bytes = await image.read()
+    except Exception as e:
+        return await interaction.followup.send(f"❌ Could not download the image: {e}", ephemeral=True)
+
+    ext = ct.split("/")[-1].replace("jpeg", "jpg")
+
+    # Try to apply directly on Discord first
+    discord_status = "Not applied"
+    try:
+        await g.me.edit(avatar=image_bytes)
+        discord_status = "✅ Applied on Discord for this server"
+    except discord.HTTPException as e:
+        discord_status = f"⚠️ Discord rejected it: {e.text or e}"
+    except Exception as e:
+        discord_status = f"⚠️ Could not apply on Discord: {e}"
+
+    # Also save locally so the dashboard shows the preview
+    save_guild_avatar(str(g.id), image_bytes, ext)
+    add_bot_action("setavatar", f"Per-server avatar changed by {interaction.user}", str(interaction.user))
+
+    embed = _embed(
+        "🖼️ Per-Server Avatar Updated",
+        f"{discord_status}\n\nThis avatar only applies in **{g.name}**. "
+        f"Every other server keeps its own avatar.\n\nUse `/resetavatar` to go back to the global default.",
+        color=0x22d3ee,
+    )
+    embed.set_thumbnail(url=image.url)
+    await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+@bot.tree.command(name="resetavatar", description="Clear Server Official's per-server avatar and restore the global default.")
+async def slash_resetavatar(interaction: discord.Interaction):
+    if not _need_manage_guild(interaction):
+        return await interaction.response.send_message(
+            "❌ You need **Manage Server** permission to reset the bot avatar.", ephemeral=True
+        )
+    g = interaction.guild
+    if not g:
+        return await interaction.response.send_message("❌ Use this inside a server.", ephemeral=True)
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    discord_status = "Not reset"
+    try:
+        await g.me.edit(avatar=None)
+        discord_status = "✅ Per-server avatar cleared — global default restored"
+    except discord.HTTPException as e:
+        discord_status = f"⚠️ Discord rejected it: {e.text or e}"
+    except Exception as e:
+        discord_status = f"⚠️ Could not reset on Discord: {e}"
+
+    # Remove local copy too
+    delete_guild_avatar(str(g.id))
+    add_bot_action("resetavatar", f"Per-server avatar reset by {interaction.user}", str(interaction.user))
+
+    embed = _embed(
+        "🖼️ Per-Server Avatar Reset",
+        f"{discord_status}",
+        color=0x5b8cff,
+    )
+    await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+# ============================================================
 # SLASH COMMANDS — SERVER MANAGEMENT (added)
 # ============================================================
 @bot.tree.command(name="say", description="Make the bot post a plain message in a channel.")
@@ -2262,6 +2353,12 @@ async def slash_help(interaction: discord.Interaction):
         name="ℹ️ Info",
         value="`/ping` `/uptime` `/membercount` `/roleinfo` "
               "`/channelinfo` `/avatar` `/serverbanner`",
+        inline=False,
+    )
+    embed.add_field(
+        name="🖼️ Per-Server Avatar",
+        value="`/setavatar <image>` — upload an image to set the bot's avatar in this server only\n"
+              "`/resetavatar` — clear it and restore the global default",
         inline=False,
     )
     embed.add_field(
