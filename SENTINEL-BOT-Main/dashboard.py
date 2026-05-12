@@ -7,6 +7,8 @@ import traceback
 from html import escape as html_escape
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
+import threading as _threading
+import time as _time_module
 from supabase import create_client, Client as SupabaseClient
 from werkzeug.middleware.proxy_fix import ProxyFix
 import license_manager as _lm
@@ -60,6 +62,32 @@ def handle_not_found(error):
     if request.path.startswith("/api/") or request.path.startswith("/server-official/api/"):
         return jsonify({"ok": False, "error": "Not found"}), 404
     return render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+def handle_server_error(error):
+    if request.path.startswith("/api/") or request.path.startswith("/server-official/api/"):
+        return jsonify({"ok": False, "error": "Internal server error"}), 500
+    return render_template("500.html"), 500
+
+
+# ---- IN-MEMORY RATE LIMITER ----
+_rl_lock = _threading.Lock()
+_rl_store: dict = {}
+
+
+def _rate_limit(ip: str, max_calls: int = 10, window_secs: int = 3600) -> bool:
+    """Return True (allowed) or False (rate-limited). Thread-safe."""
+    now = _time_module.monotonic()
+    with _rl_lock:
+        ts = [t for t in _rl_store.get(ip, []) if now - t < window_secs]
+        if len(ts) >= max_calls:
+            _rl_store[ip] = ts
+            return False
+        ts.append(now)
+        _rl_store[ip] = ts
+        return True
+
 
 DEFAULT_CONFIG = {
     "prefix": "!",
@@ -2669,6 +2697,8 @@ def dev_site_settings_reset():
 @app.route('/api/public_feedback', methods=['POST'])
 def api_public_feedback_submit():
     """Public landing-page feedback. Anyone can submit."""
+    if not _rate_limit(request.remote_addr, max_calls=10, window_secs=3600):
+        return jsonify({"ok": False, "error": "Too many submissions. Please wait before trying again."}), 429
     data = request.get_json(silent=True) or {}
     try:
         rating = int(data.get('rating', 0))
@@ -2714,6 +2744,8 @@ def api_public_feedback_list():
 @app.route('/api/bot_request', methods=['POST'])
 def api_bot_request_submit():
     """Public submission of a custom-bot request from the landing page."""
+    if not _rate_limit(request.remote_addr, max_calls=5, window_secs=3600):
+        return jsonify({"ok": False, "error": "Too many submissions. Please wait before trying again."}), 429
     data = request.get_json(silent=True) or {}
 
     def _s(key, max_len=500):
@@ -4646,6 +4678,59 @@ def so_api_sql_run():
         return jsonify(result)
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ---- LEGAL PAGES ----
+@app.route('/terms')
+def legal_terms():
+    return render_template('terms.html')
+
+
+@app.route('/privacy')
+def legal_privacy():
+    return render_template('privacy.html')
+
+
+# ---- SEO: robots.txt & sitemap.xml ----
+@app.route('/robots.txt')
+def robots_txt():
+    host = request.host_url.rstrip('/')
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /api/\n"
+        "Disallow: /server-official/api/\n"
+        "Disallow: /dashboard\n"
+        "Disallow: /server-official/dashboard\n"
+        "Disallow: /dev/\n"
+        f"Sitemap: {host}/sitemap.xml\n"
+    )
+    return body, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    host = request.host_url.rstrip('/')
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    pages = [
+        ('/',        '1.0', 'weekly'),
+        ('/bots',    '0.9', 'weekly'),
+        ('/sp4rk',   '0.8', 'monthly'),
+        ('/terms',   '0.5', 'yearly'),
+        ('/privacy', '0.5', 'yearly'),
+    ]
+    items = ''.join(
+        f"  <url><loc>{host}{path}</loc><lastmod>{today}</lastmod>"
+        f"<changefreq>{freq}</changefreq><priority>{pri}</priority></url>\n"
+        for path, pri, freq in pages
+    )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f'{items}'
+        '</urlset>'
+    )
+    return xml, 200, {'Content-Type': 'application/xml; charset=utf-8'}
 
 
 # ---- HEALTH CHECK ----

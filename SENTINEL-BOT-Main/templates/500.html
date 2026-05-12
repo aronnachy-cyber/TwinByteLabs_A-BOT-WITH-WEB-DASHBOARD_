@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>500 — Server Error · Byte Labs</title>
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#050b18;
+  --bg2:#0a1428;
+  --accent:#5b8cff;
+  --accent2:#8b5cf6;
+  --accent3:#22d3ee;
+  --text:#e8efff;
+  --muted:#8a9bbf;
+  --border:rgba(91,140,255,0.18);
+}
+html,body{height:100%;overflow:hidden;}
+body{
+  font-family:'Inter','Segoe UI',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100vh;
+  position:relative;
+}
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.45;}
+.orb.o1{width:500px;height:500px;background:#8b5cf6;top:-150px;left:-120px;animation:floatA 18s ease-in-out infinite;}
+.orb.o2{width:420px;height:420px;background:#ef4444;bottom:-100px;right:-100px;animation:floatB 22s ease-in-out infinite;}
+@keyframes floatA{0%,100%{transform:translate(0,0);}50%{transform:translate(60px,50px);}}
+@keyframes floatB{0%,100%{transform:translate(0,0);}50%{transform:translate(-50px,60px);}}
+.bg-grid{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(91,140,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(91,140,255,0.04) 1px,transparent 1px);
+  background-size:60px 60px;
+  mask-image:radial-gradient(ellipse at center,black 30%,transparent 75%);
+  -webkit-mask-image:radial-gradient(ellipse at center,black 30%,transparent 75%);
+}
+.container{
+  position:relative;z-index:1;
+  text-align:center;
+  padding:48px 32px;
+  max-width:520px;
+}
+.code{
+  font-size:clamp(100px,20vw,160px);
+  font-weight:900;
+  line-height:1;
+  background:linear-gradient(135deg,#ef4444,#8b5cf6,#f97316);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  letter-spacing:-4px;
+  margin-bottom:8px;
+}
+.icon{font-size:2rem;margin-bottom:20px;color:var(--muted);}
+h1{font-size:1.6rem;font-weight:800;margin-bottom:10px;}
+p{color:var(--muted);font-size:1rem;line-height:1.65;margin-bottom:36px;}
+.actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 24px;
+  border-radius:10px;
+  font-size:.95rem;font-weight:600;
+  text-decoration:none;
+  transition:transform .15s,box-shadow .15s,opacity .15s;
+}
+.btn:hover{transform:translateY(-2px);opacity:.9;}
+.btn-primary{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;
+  box-shadow:0 4px 20px rgba(91,140,255,.35);
+}
+.btn-secondary{
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--border);
+  color:var(--text);
+}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><div class="orb o1"></div><div class="orb o2"></div></div>
+<div class="bg-grid"></div>
+<div class="container">
+  <div class="code">500</div>
+  <div class="icon"><i class="fas fa-triangle-exclamation"></i></div>
+  <h1>Something went wrong</h1>
+  <p>Our servers hit an unexpected snag. The team has been notified and we're working to fix it. Please try again in a moment.</p>
+  <div class="actions">
+    <a href="/" class="btn btn-primary"><i class="fas fa-house"></i> Home</a>
+    <a href="javascript:history.back()" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Go Back</a>
+  </div>
+</div>
+</body>
+</html>
