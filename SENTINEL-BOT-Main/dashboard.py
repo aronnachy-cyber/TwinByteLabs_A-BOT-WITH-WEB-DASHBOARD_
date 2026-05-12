@@ -1329,10 +1329,16 @@ def server_official_dashboard():
         "external_hooks": 0, "incoming_webhooks": 0, "logs_count": 0,
         "bot_actions_count": 0,
     }
+    selected_guild_id = session.get('selected_guild_id', '')
+    # Prefer live guilds (bot online); fall back to user's Discord admin guilds
+    # from session so the server picker works even when the bot is offline.
+    guilds = live.get('guilds') or session.get('user_guilds', [])
     return render_template(
         'server_official_dashboard.html',
         bot_running=bool(so and so.is_running()),
         live=live,
+        guilds=guilds,
+        selected_guild_id=selected_guild_id,
         overview=overview,
         dev_unlocked=is_dev_session(),
     )

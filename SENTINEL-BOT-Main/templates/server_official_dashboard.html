@@ -379,7 +379,7 @@ html.bl-compact .main{padding:20px;}
         <select id="guildPick" onchange="onGuildChange()" style="min-width:190px;padding:7px 11px;font-size:.84rem;">
           <option value="">— All servers —</option>
           {% for g in guilds %}
-          <option value="{{ g.id }}">{{ g.name }}</option>
+          <option value="{{ g.id }}" {% if g.id == selected_guild_id %}selected{% endif %}>{{ g.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -1050,7 +1050,7 @@ html.bl-compact .main{padding:20px;}
 /* CORE UTILS                                                        */
 /* ================================================================ */
 const $ = s => document.querySelector(s);
-let currentGuildId = "";
+let currentGuildId = "{{ selected_guild_id | e }}";
 
 function escapeHtml(s){
   if (s == null) return '';
