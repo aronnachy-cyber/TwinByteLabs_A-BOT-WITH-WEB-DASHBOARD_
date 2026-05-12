@@ -491,27 +491,22 @@ async def handle_message(message, config, add_warning_fn=None):
         if any(_contains_word(normalized, w) for w in allowlist):
             return False  # message is exempt — bail out before any punishment
 
-    # Hierarchy guard — protect server owner, staff, bots and equal/higher-role members
-    # from being warned, muted, or punished by SP4RK. They're invisible to automod.
-    # IMPORTANT: We must NOT delete their messages — that would silently nuke
-    # everyone's chat whenever SP4RK's role is at the bottom of the hierarchy
-    # (which made the bot appear to delete every single message in the server).
+    # Hierarchy check — determines whether SP4RK can warn/punish this user.
+    # We calculate this upfront but do NOT bail out yet: the always-on content
+    # filters (blacklist + strict profanity) must still delete forbidden words
+    # even in servers where the bot's role sits below normal member roles.
     bot_member = message.guild.me if message.guild else None
     _allowed_root, _why_root = can_bot_action(author, bot_member)
-    if not _allowed_root:
-        # Bail out silently — leave the message alone, do NOT warn, do NOT escalate.
-        return False
 
     async def _punish(reason, log_title, log_desc, dm=True):
-        # Delete the offending message, record the warning for staff/mods,
-        # and post a short, auto-vanishing in-channel warning so the
-        # offender knows *why* their message disappeared.
-        #
-        # NOTE: This block only runs for "normal" members — the hierarchy
-        # guard above already returned early for the server owner, staff,
-        # bots, and anyone with a role equal to or higher than SP4RK's,
-        # so we never warn protected members here.
+        # Always delete the offending message.
+        # Only warn and escalate when the bot can actually action the member
+        # (i.e. the bot's role is above theirs in the server hierarchy).
         await safe_delete(message)
+        if not _allowed_root:
+            # Bot can delete but cannot warn/mute/punish a higher-ranked user.
+            # Silently remove the message and stop here.
+            return True
         count = None
         if add_warning_fn:
             count = await add_warning_fn(author, reason)
@@ -531,6 +526,39 @@ async def handle_message(message, config, add_warning_fn=None):
         if count and config.get("grad_punish") == "ON":
             await apply_graduated_punishment(message, config, count, add_warning_fn)
         return True
+
+    # -----------------------------------------------------------------------
+    # ALWAYS-ON CONTENT FILTERS — fire in every server regardless of the
+    # bot's position in the role hierarchy. The message is deleted even if
+    # SP4RK can't warn the sender; warnings are skipped for protected users.
+    # -----------------------------------------------------------------------
+
+    # 1. Custom blacklist + banned words
+    all_bad = (config.get("banned_words", "") or "") + "," + (config.get("auto_custom_blacklist", "") or "")
+    if all_bad.strip(","):
+        words = [w.strip().lower() for w in all_bad.split(",") if w.strip()]
+        if _message_contains_bad_word(content, words):
+            return await _punish(
+                "Blacklisted word",
+                "🚫 Blacklisted Word Detected",
+                f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Reason:** Banned/blacklisted word"
+            )
+
+    # 2. Always-on strict profanity filter
+    if _message_contains_strict_profanity(content):
+        return await _punish(
+            "Strict profanity",
+            "🤬 Strict Profanity Detected",
+            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Reason:** Bangla/English abusive profanity"
+        )
+
+    # -----------------------------------------------------------------------
+    # HIERARCHY-GATED CHECKS — all remaining checks require the bot to be
+    # able to action the user (warn, mute, etc.). If the user outranks the
+    # bot, bail out silently without touching anything.
+    # -----------------------------------------------------------------------
+    if not _allowed_root:
+        return False
 
     # 0a. Repeated-word spam in a single message (e.g. "fuck fuck fuck fuck fuck")
     #     → instant 30-min auto-mute, NO owner approval, no warning bookkeeping.
@@ -562,25 +590,6 @@ async def handle_message(message, config, add_warning_fn=None):
         )
         return await _instant_mute(
             message, f"Flood: {RATE_LIMIT_COUNT}+ msgs / {RATE_LIMIT_WINDOW}s", AUTOMUTE_MINUTES
-        )
-
-    # 1. Custom blacklist + banned words
-    all_bad = (config.get("banned_words", "") or "") + "," + (config.get("auto_custom_blacklist", "") or "")
-    if all_bad.strip(","):
-        words = [w.strip().lower() for w in all_bad.split(",") if w.strip()]
-        if _message_contains_bad_word(content, words):
-            return await _punish(
-                "Blacklisted word",
-                "🚫 Blacklisted Word Detected",
-                f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Reason:** Banned/blacklisted word"
-            )
-
-    # 2. Always-on strict profanity filter
-    if _message_contains_strict_profanity(content):
-        return await _punish(
-            "Strict profanity",
-            "🤬 Strict Profanity Detected",
-            f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Reason:** Bangla/English abusive profanity"
         )
 
     # 3. Profanity filter
