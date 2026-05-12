@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Select a Server — Server Official Dashboard</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#050d12;
+  --card:#0d1e26;
+  --card2:#122530;
+  --accent:#22d3ee;
+  --accent2:#0891b2;
+  --grad:linear-gradient(135deg,#22d3ee 0%,#0891b2 60%,#5b8cff 100%);
+  --text:#e0f7fa;
+  --muted:#5d8fa0;
+  --border:rgba(34,211,238,0.15);
+  --border-hover:rgba(34,211,238,0.4);
+  --radius:20px;
+}
+html,body{
+  min-height:100vh;
+  font-family:'Inter','Segoe UI',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:24px 16px;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%,rgba(34,211,238,.10),transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%,rgba(8,145,178,.08),transparent);
+  background-attachment:fixed;
+}
+
+/* ── PICKER CARD ── */
+.picker{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:36px 32px 32px;
+  width:100%;
+  max-width:580px;
+  box-shadow:0 24px 80px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.03);
+}
+
+.picker-header{
+  text-align:center;
+  margin-bottom:28px;
+}
+.bot-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(34,211,238,.1);
+  border:1px solid rgba(34,211,238,.25);
+  border-radius:999px;
+  padding:5px 14px 5px 8px;
+  font-size:.75rem;font-weight:700;color:var(--accent);
+  margin-bottom:16px;
+}
+.bot-badge i{font-size:.8rem;}
+.picker-logo{
+  width:48px;height:48px;border-radius:14px;
+  background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;font-weight:900;color:#fff;
+  margin:0 auto 12px;
+  box-shadow:0 6px 20px rgba(34,211,238,.3);
+}
+.picker-title{
+  font-size:1.05rem;font-weight:700;color:var(--text);
+  line-height:1.4;
+}
+.picker-title span{
+  background:var(--grad);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.picker-sub{
+  font-size:.8rem;color:var(--muted);margin-top:6px;
+}
+
+/* ── SERVER GRID ── */
+.server-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:14px 10px;
+}
+
+/* ── SERVER ITEM ── */
+.server-item{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  text-decoration:none;
+  border-radius:14px;
+  padding:10px 4px 8px;
+  transition:background .18s;
+}
+.server-item:hover{
+  background:rgba(34,211,238,.07);
+}
+
+.server-icon-wrap{
+  position:relative;
+  width:68px;height:68px;
+}
+.server-icon-wrap img,
+.server-icon-fallback{
+  width:68px;height:68px;border-radius:50%;
+  object-fit:cover;
+  border:2.5px solid var(--border);
+  transition:border-color .18s,transform .18s,box-shadow .18s;
+  display:block;
+}
+.server-icon-fallback{
+  background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;font-weight:900;color:#fff;
+  border:2.5px solid var(--border);
+}
+.server-item:hover .server-icon-wrap img,
+.server-item:hover .server-icon-fallback{
+  border-color:var(--accent);
+  transform:scale(1.06);
+  box-shadow:0 6px 22px rgba(34,211,238,.3);
+}
+
+.server-name{
+  font-size:.68rem;font-weight:600;color:var(--muted);
+  text-align:center;line-height:1.3;
+  word-break:break-word;
+  max-width:76px;
+  transition:color .18s;
+}
+.server-item:hover .server-name{color:var(--text);}
+
+/* ── SP4RK LINK ── */
+.sp4rk-link-bar{
+  text-align:center;
+  margin-top:22px;
+  padding-top:18px;
+  border-top:1px solid var(--border);
+}
+.sp4rk-link-bar p{font-size:.78rem;color:var(--muted);margin-bottom:10px;}
+.sp4rk-link{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 20px;border-radius:10px;
+  background:rgba(91,140,255,.08);border:1px solid rgba(91,140,255,.2);
+  color:#5b8cff;font-size:.8rem;font-weight:700;
+  text-decoration:none;transition:background .15s;
+}
+.sp4rk-link:hover{background:rgba(91,140,255,.15);}
+
+/* ── EMPTY ── */
+.empty{
+  text-align:center;padding:16px 0;color:var(--muted);
+}
+.empty i{font-size:2.4rem;opacity:.3;display:block;margin-bottom:14px;}
+.empty p{font-size:.88rem;line-height:1.6;max-width:320px;margin:0 auto 16px;}
+.btn-invite{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 20px;border-radius:10px;
+  background:rgba(34,211,238,.1);border:1px solid var(--border-hover);
+  color:var(--accent);font-size:.82rem;font-weight:700;
+  text-decoration:none;transition:background .15s;
+}
+.btn-invite:hover{background:rgba(34,211,238,.18);}
+
+/* ── FOOTER ROW ── */
+.picker-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-top:20px;padding-top:18px;
+  border-top:1px solid var(--border);
+}
+.user-chip{
+  display:flex;align-items:center;gap:8px;
+  font-size:.8rem;font-weight:600;color:var(--muted);
+}
+.user-chip img,.user-avatar-init{
+  width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;
+}
+.user-avatar-init{
+  background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;font-weight:900;color:#fff;
+}
+.btn-logout{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 14px;border-radius:8px;
+  background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.2);
+  color:#ff8a7a;font-size:.78rem;font-weight:700;
+  text-decoration:none;transition:background .15s;
+}
+.btn-logout:hover{background:rgba(231,76,60,.2);}
+
+/* ── RESPONSIVE ── */
+@media(max-width:480px){
+  .picker{padding:28px 20px 24px;}
+  .server-grid{grid-template-columns:repeat(3,1fr);gap:12px 8px;}
+  .server-icon-wrap img,.server-icon-fallback{width:60px;height:60px;}
+  .server-name{max-width:68px;}
+}
+@media(max-width:340px){
+  .server-grid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<div class="picker">
+
+  <div class="picker-header">
+    <div class="bot-badge"><i class="fas fa-server"></i> Server Official</div>
+    <div class="picker-logo"><i class="fas fa-server" style="font-size:.9rem;"></i></div>
+    <div class="picker-title">
+      Hey <span>{{ user_name }}</span>, pick a server
+    </div>
+    <div class="picker-sub">Select the server you want to manage with Server Official</div>
+  </div>
+
+  {% if user_guilds %}
+  <div class="server-grid">
+    {% for g in user_guilds %}
+    {% set g_initial = g.name[0]|upper if g.name else 'S' %}
+    <a class="server-item" href="{{ url_for('server_official_dashboard') }}?guild={{ g.id }}">
+      <div class="server-icon-wrap">
+        {% if g.icon_url %}
+        <img src="{{ g.icon_url }}" alt="{{ g.name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="server-icon-fallback" style="display:none;">{{ g_initial }}</div>
+        {% else %}
+        <div class="server-icon-fallback">{{ g_initial }}</div>
+        {% endif %}
+      </div>
+      <div class="server-name">{{ g.name }}</div>
+    </a>
+    {% endfor %}
+  </div>
+
+  <div class="sp4rk-link-bar">
+    <p>Want to manage <strong>SP4RK</strong> instead?</p>
+    <a href="{{ url_for('server_select') }}" class="sp4rk-link">
+      <i class="fas fa-bolt"></i> SP4RK Dashboard
+    </a>
+  </div>
+
+  {% else %}
+  <div class="empty">
+    <i class="fas fa-server"></i>
+    <p>No servers found where you have admin or owner permissions. Add Server Official to a server first.</p>
+    <a href="{{ url_for('landing') }}" class="btn-invite"><i class="fas fa-arrow-left"></i> Back to Byte Labs</a>
+  </div>
+  {% endif %}
+
+  <div class="picker-footer">
+    <div class="user-chip">
+      {% if user_avatar %}
+      <img src="{{ user_avatar }}" alt="{{ user_name }}" onerror="this.style.display='none'">
+      {% else %}
+      {% set u_init = user_name[0]|upper if user_name else 'U' %}
+      <div class="user-avatar-init">{{ u_init }}</div>
+      {% endif %}
+      <span>{{ user_name }}</span>
+    </div>
+    <a href="{{ url_for('logout') }}" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+  </div>
+
+</div>
+
+</body>
+</html>

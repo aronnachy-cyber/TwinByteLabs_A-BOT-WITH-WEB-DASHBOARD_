@@ -1339,13 +1339,14 @@ def server_official_dashboard():
         session['post_login_redirect'] = redirect_target
         return redirect(url_for('login'))
 
-    # Persist guild selection from URL; enforce server picker if none selected.
+    # A guild must be explicitly passed in the URL — always show the SO
+    # server picker first, never shortcut via session.
     so_guild_from_url = request.args.get('guild', '').strip()
     if so_guild_from_url:
         session['selected_guild_id'] = so_guild_from_url
         session.modified = True
-    elif not session.get('selected_guild_id'):
-        return redirect(url_for('server_select'))
+    else:
+        return redirect(url_for('so_server_select'))
 
     so = _so_module()
     # Scope the server picker to ONLY guilds the logged-in user can administer.
@@ -3113,6 +3114,11 @@ def auth_discord_callback():
         except Exception:
             pass
 
+    # Clear any stale guild selection so the server picker is always shown
+    # on a fresh login rather than jumping straight to the last dashboard.
+    session.pop('selected_guild_id', None)
+    session.modified = True
+
     # Honor a "return to" target set before login
     next_url = session.pop('post_login_redirect', None)
     if next_url:
@@ -3132,10 +3138,10 @@ def activate_license():
     return redirect(url_for('landing'))
 
 
-# ---- SERVER SELECTION ----
+# ---- SERVER SELECTION — SP4RK ----
 @app.route('/servers')
 def server_select():
-    """Post-login server picker — shows every admin server with its Discord icon."""
+    """Post-login server picker for SP4RK — each server links directly to the SP4RK dashboard."""
     if not session.get('logged_in'):
         session['post_login_redirect'] = url_for('server_select')
         return redirect(url_for('login'))
@@ -3147,6 +3153,28 @@ def server_select():
         user_avatar = (u or {}).get('avatar_url', '') or ''
     return render_template(
         'server_select.html',
+        user_guilds=user_guilds,
+        user_avatar=user_avatar,
+        user_name=session.get('user_name', 'User'),
+        discord_configured=bool(DISCORD_CLIENT_ID),
+    )
+
+
+# ---- SERVER SELECTION — SERVER OFFICIAL ----
+@app.route('/server-official/servers')
+def so_server_select():
+    """Server picker dedicated to Server Official — each server links directly to the SO dashboard."""
+    if not session.get('logged_in'):
+        session['post_login_redirect'] = url_for('so_server_select')
+        return redirect(url_for('login'))
+    user_guilds = session.get('user_guilds', [])
+    user_avatar = session.get('user_avatar', '') or ''
+    discord_id  = session.get('discord_id', '')
+    if not user_avatar and discord_id:
+        u = find_user_by_discord_id(discord_id)
+        user_avatar = (u or {}).get('avatar_url', '') or ''
+    return render_template(
+        'server_official_select.html',
         user_guilds=user_guilds,
         user_avatar=user_avatar,
         user_name=session.get('user_name', 'User'),
@@ -3173,14 +3201,13 @@ def index():
         session['post_login_redirect'] = redirect_target
         return redirect(url_for('login'))
 
-    # If a guild was passed in the URL, save it to the session so it persists
-    # across refreshes. If no guild is selected at all, send the user to the
-    # server picker first.
+    # A guild must be explicitly passed in the URL — the session shortcut is
+    # intentionally removed so the server picker is always shown first.
     guild_from_url = request.args.get('guild', '').strip()
     if guild_from_url:
         session['selected_guild_id'] = guild_from_url
         session.modified = True
-    elif not session.get('selected_guild_id'):
+    else:
         return redirect(url_for('server_select'))
 
     current_user = find_user_by_discord_id(discord_id)
