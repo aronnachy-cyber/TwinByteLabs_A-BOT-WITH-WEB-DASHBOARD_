@@ -27,6 +27,7 @@ import reaction_roles as rr_mod
 import server_template as template_mod
 import leveling as leveling_mod
 import starboard as starboard_mod
+import levelup_card as levelup_card_mod
 
 BOT_START_TIME = datetime.utcnow()
 
@@ -1768,19 +1769,41 @@ async def on_message(message):
             uid    = str(message.author.id)
             result = leveling_mod.try_add_xp(gid, uid)
             if result and result["level_up"]:
-                cfg = leveling_mod.get_config(gid)
-                lvl_ch_id = cfg.get("level_up_channel", "").strip()
-                lvl_msg   = cfg.get("level_up_message", "🎉 {user} levelled up to **Level {level}**!")
-                lvl_text  = lvl_msg.replace("{user}", message.author.mention).replace("{level}", str(result["new_level"]))
+                cfg        = leveling_mod.get_config(gid)
+                lvl_ch_id  = cfg.get("level_up_channel", "").strip()
+                old_lvl    = result.get("old_level", result["new_level"] - 1)
+                new_lvl    = result["new_level"]
+                # build level-up card image
+                try:
+                    avatar_url = str(message.author.display_avatar.replace(size=256).url)
+                except Exception:
+                    avatar_url = ""
+                try:
+                    card_buf = await levelup_card_mod.build_levelup_card(
+                        username   = message.author.display_name,
+                        avatar_url = avatar_url,
+                        old_level  = old_lvl,
+                        new_level  = new_lvl,
+                        guild_name = message.guild.name if message.guild else "",
+                    )
+                    card_file = discord.File(card_buf, filename="levelup.png")
+                except Exception as _ce:
+                    print(f"[LVL-CARD] build failed: {_ce}")
+                    card_file = None
+                send_kwargs = {}
+                if card_file:
+                    send_kwargs["file"] = card_file
+                else:
+                    send_kwargs["content"] = f"🎉 {message.author.mention} levelled up to **Level {new_lvl}**!"
                 if lvl_ch_id:
                     try:
                         ch = bot.get_channel(int(lvl_ch_id)) or await bot.fetch_channel(int(lvl_ch_id))
-                        await ch.send(lvl_text)
+                        await ch.send(**send_kwargs)
                     except Exception:
                         pass
                 else:
                     try:
-                        await message.channel.send(lvl_text, delete_after=10)
+                        await message.channel.send(**send_kwargs)
                     except Exception:
                         pass
                 role_rewards = cfg.get("role_rewards", {})
