@@ -854,11 +854,12 @@ def _trigger_bot_config_refresh():
 # ---- ACTION LOGS ----
 action_logs = []
 
-def add_dashboard_log(event_type, description):
+def add_dashboard_log(event_type, description, guild_id=None):
     action_logs.insert(0, {
         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "type": event_type,
-        "description": description
+        "description": description,
+        "guild_id": str(guild_id or ""),
     })
     if len(action_logs) > 300:
         action_logs.pop()
@@ -866,7 +867,7 @@ def add_dashboard_log(event_type, description):
     try:
         import db_spark as _ds
         if _ds.is_available():
-            _ds.add_action_log(event_type, description)
+            _ds.add_action_log(event_type, description, guild_id=str(guild_id or ""))
     except Exception:
         pass
 

@@ -495,16 +495,21 @@ def migrate_warnings_from_list(items: List[Dict]) -> int:
 # ---------------------------------------------------------------------------
 # Action logs
 # ---------------------------------------------------------------------------
-def add_action_log(event_type: str, description: str) -> bool:
+def add_action_log(event_type: str, description: str, guild_id: str = "") -> bool:
     if not is_available():
         return False
     try:
         with _conn() as conn:
             with conn.cursor() as cur:
+                # Add guild_id column if it doesn't exist (one-time migration)
                 cur.execute("""
-                    INSERT INTO spark_action_logs (id, event_type, description, ts)
-                    VALUES (%s, %s, %s, NOW())
-                """, (_gen_id(), str(event_type), str(description)))
+                    ALTER TABLE spark_action_logs
+                    ADD COLUMN IF NOT EXISTS guild_id TEXT DEFAULT ''
+                """)
+                cur.execute("""
+                    INSERT INTO spark_action_logs (id, event_type, description, guild_id, ts)
+                    VALUES (%s, %s, %s, %s, NOW())
+                """, (_gen_id(), str(event_type), str(description), str(guild_id or "")))
             conn.commit()
         return True
     except Exception as e:
@@ -512,18 +517,28 @@ def add_action_log(event_type: str, description: str) -> bool:
         return False
 
 
-def list_action_logs(limit: int = 300) -> List[Dict[str, Any]]:
+def list_action_logs(limit: int = 300, guild_id: str = "") -> List[Dict[str, Any]]:
     if not is_available():
         return []
     try:
         with _conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute(
-                    "SELECT event_type, description, ts FROM spark_action_logs ORDER BY ts DESC LIMIT %s",
-                    (int(limit),)
-                )
+                if guild_id:
+                    cur.execute(
+                        """SELECT event_type, description, guild_id, ts
+                           FROM spark_action_logs
+                           WHERE guild_id = %s OR guild_id = ''
+                           ORDER BY ts DESC LIMIT %s""",
+                        (str(guild_id), int(limit))
+                    )
+                else:
+                    cur.execute(
+                        "SELECT event_type, description, guild_id, ts FROM spark_action_logs ORDER BY ts DESC LIMIT %s",
+                        (int(limit),)
+                    )
                 rows = cur.fetchall()
         return [{"type": r["event_type"], "description": r["description"],
+                 "guild_id": r.get("guild_id", ""),
                  "time": r["ts"].strftime("%Y-%m-%d %H:%M:%S") if isinstance(r["ts"], datetime) else str(r["ts"])}
                 for r in rows]
     except Exception as e:
