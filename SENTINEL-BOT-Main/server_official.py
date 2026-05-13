@@ -1603,21 +1603,28 @@ async def setup_roles(interaction: discord.Interaction, prefix: Optional[str] = 
         return await interaction.response.send_message("Use this in a server.", ephemeral=True)
     await interaction.response.defer(ephemeral=True)
     targets = [
-        ("Member", 0x5b8cff),
-        ("VIP", 0xf59e0b),
-        ("Moderator", 0x10b981),
-        ("Bot", 0x6b7280),
+        ("Admin",     0xe74c3c, discord.Permissions(administrator=True)),
+        ("Moderator", 0x10b981, discord.Permissions(manage_messages=True, kick_members=True, ban_members=True, manage_channels=True)),
+        ("VIP",       0xf59e0b, discord.Permissions.none()),
+        ("Member",    0x5b8cff, discord.Permissions.none()),
+        ("Bot",       0x6b7280, discord.Permissions.none()),
     ]
     created = []
     skipped = []
-    for name, color in targets:
+    for name, color, perms in targets:
         full = f"{prefix or ''}{name}".strip()
         existing = discord.utils.get(g.roles, name=full)
         if existing:
             skipped.append(full)
             continue
         try:
-            r = await g.create_role(name=full, colour=discord.Colour(color), reason="Server Official: setup_roles")
+            r = await g.create_role(
+                name=full,
+                colour=discord.Colour(color),
+                permissions=perms,
+                hoist=(name in ("Admin", "Moderator")),
+                reason="Server Official: setup_roles",
+            )
             created.append(r.name)
         except discord.Forbidden:
             return await interaction.followup.send("❌ I lack the **Manage Roles** permission.", ephemeral=True)

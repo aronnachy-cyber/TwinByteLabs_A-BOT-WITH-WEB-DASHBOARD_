@@ -2058,10 +2058,21 @@ def so_api_roles_create():
     except Exception:
         color = _discord.Color.default()
     async def _do():
+        import discord as _d2
+        perm_preset = (p.get('permissions') or 'none').strip()
+        perm_map = {
+            'none':          _d2.Permissions.none(),
+            'administrator': _d2.Permissions(administrator=True),
+            'moderator':     _d2.Permissions(manage_messages=True, kick_members=True, ban_members=True, manage_channels=True),
+            'manage_messages': _d2.Permissions(manage_messages=True),
+            'manage_channels': _d2.Permissions(manage_channels=True),
+        }
+        perms = perm_map.get(perm_preset, _d2.Permissions.none())
         role = await guild.create_role(
             name=name, color=color,
             hoist=bool(p.get('hoist', False)),
             mentionable=bool(p.get('mentionable', False)),
+            permissions=perms,
             reason=f'Created via SO dashboard by {_current_actor()}')
         return {'id': str(role.id), 'name': role.name}
     try:

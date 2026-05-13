@@ -995,9 +995,19 @@ html.bl-compact .main{padding:20px;}
     <div class="grid grid-2">
       <div class="card">
         <h2><i class="fas fa-plus"></i> Create New Role</h2>
-        <div class="row" style="align-items:flex-end;">
-          <div class="field"><label>Name</label><input id="roleNameInput" placeholder="VIP"/></div>
-          <div class="field"><label>Color (hex)</label><input id="roleColorInput" placeholder="#5b8cff"/></div>
+        <div class="row" style="align-items:flex-end;flex-wrap:wrap;">
+          <div class="field"><label>Name</label><input id="roleNameInput" placeholder="Admin"/></div>
+          <div class="field"><label>Color (hex)</label><input id="roleColorInput" placeholder="#e74c3c"/></div>
+          <div class="field" style="min-width:160px;">
+            <label>Permissions preset</label>
+            <select id="rolePermissions" class="input-select" style="width:100%;padding:8px 10px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.85rem;">
+              <option value="none">No special permissions</option>
+              <option value="administrator">Administrator (full access)</option>
+              <option value="moderator">Moderator (kick/ban/manage msgs)</option>
+              <option value="manage_messages">Manage Messages only</option>
+              <option value="manage_channels">Manage Channels only</option>
+            </select>
+          </div>
           <div style="display:flex;gap:14px;align-items:center;padding-bottom:2px;flex:0;">
             <label style="display:flex;align-items:center;gap:5px;font-size:.85rem;color:var(--muted);text-transform:none;letter-spacing:0;"><input type="checkbox" id="roleHoist"/> Hoist</label>
             <label style="display:flex;align-items:center;gap:5px;font-size:.85rem;color:var(--muted);text-transform:none;letter-spacing:0;"><input type="checkbox" id="roleMentionable"/> Mention</label>
@@ -1926,8 +1936,9 @@ async function createRole(){
   if(!currentGuildId) return toast('Select a server','err');
   const name=document.getElementById('roleNameInput').value.trim();
   if(!name) return toast('Enter a role name','err');
-  const r=await api('POST','/server-official/api/roles',{guild_id:currentGuildId,name,color:document.getElementById('roleColorInput').value.trim(),hoist:document.getElementById('roleHoist').checked,mentionable:document.getElementById('roleMentionable').checked},'Role created');
-  if(r?.ok){ document.getElementById('roleNameInput').value=''; document.getElementById('roleColorInput').value=''; loadRoles(); }
+  const permissions=document.getElementById('rolePermissions').value;
+  const r=await api('POST','/server-official/api/roles',{guild_id:currentGuildId,name,color:document.getElementById('roleColorInput').value.trim(),hoist:document.getElementById('roleHoist').checked,mentionable:document.getElementById('roleMentionable').checked,permissions},'Role created');
+  if(r?.ok){ document.getElementById('roleNameInput').value=''; document.getElementById('roleColorInput').value=''; document.getElementById('rolePermissions').value='none'; loadRoles(); }
 }
 async function deleteRole(id,name){ if(!confirm(`Delete role "${name}"?`)) return; const r=await api('DELETE',`/server-official/api/roles/${id}?guild_id=${encodeURIComponent(currentGuildId)}`); if(r?.ok){ toast('Role deleted'); loadRoles(); } }
 async function assignRole(action){
