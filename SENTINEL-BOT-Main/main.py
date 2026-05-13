@@ -1053,18 +1053,6 @@ async def slash_serverinfo(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
-@bot.command(name="serverinfo", aliases=["si"])
-async def prefix_serverinfo(ctx):
-    """!serverinfo — detailed server snapshot."""
-    if not ctx.guild:
-        return await ctx.send("❌ **Server Only** — This command can only be used inside a server, not in DMs.")
-    await ctx.send(embed=_build_serverinfo_embed(ctx.guild, ctx.author))
-
-@bot.command(name="help", aliases=["commands", "cmds"])
-async def prefix_help(ctx):
-    refresh_config()
-    await ctx.send(embed=build_help_embed(get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0').get("prefix", "!")))
-
 @bot.tree.command(name="bot", description="Show SP4RK bot details and status")
 async def slash_bot(interaction: discord.Interaction):
     uptime = datetime.utcnow() - BOT_START_TIME
@@ -1842,176 +1830,6 @@ async def unmute(ctx, member: discord.Member):
     await moderation.unmute_member(ctx, member, get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0'))
     dlog("🔊 UNMUTE", f"{member} unmuted by {ctx.author}")
 
-@bot.command()
-@commands.has_permissions(manage_messages=True)
-async def warn(ctx, member: discord.Member, *, reason="Violation"):
-    block = _hierarchy_block(ctx, member, "warn")
-    if block:
-        await ctx.send(block)
-        return
-    await add_warning(member, reason)
-    entry = _get_member_entry(str(ctx.guild.id), str(member.id))
-    count = entry["count"]
-    await ctx.send(
-        f"⚠️ **Member Warned** — {member.mention}\n"
-        f"> 🔢 **Total Warnings:** {count}\n"
-        f"> 🛡️ **By:** {ctx.author.mention}\n"
-        f"> 📝 **Reason:** {reason}"
-    )
-    try:
-        dm_embed = discord.Embed(
-            title=f"⚠️ Warning Received — {ctx.guild.name}",
-            description=f"You have been warned by a moderator.",
-            color=0xf59e0b,
-            timestamp=datetime.utcnow(),
-        )
-        dm_embed.add_field(name="📝 Reason", value=reason, inline=False)
-        dm_embed.add_field(name="🔢 Total Warnings", value=str(count), inline=True)
-        dm_embed.add_field(name="🛡️ Moderator", value=str(ctx.author), inline=True)
-        dm_embed.set_footer(text="If you believe this is a mistake, contact a server admin.")
-        await member.send(embed=dm_embed)
-    except (discord.Forbidden, discord.HTTPException):
-        pass
-    await logs.log_template(bot, config, "sp4rk.warn",
-                            user=member, moderator=ctx.author,
-                            reason=reason, warn_count=count)
-
-@bot.command()
-@commands.has_permissions(manage_messages=True)
-async def warnings(ctx, member: discord.Member):
-    guild_id  = str(ctx.guild.id)
-    member_id = str(member.id)
-    entry = _get_member_entry(guild_id, member_id)
-    count   = entry["count"]
-    history = entry["history"]
-
-    _wlimit = int(get_config_for_guild(str(ctx.guild.id)).get('warning_limit', 30))
-    pct = min(1.0, count / max(1, _wlimit))
-    filled = int(10 * pct)
-    bar = "▰" * filled + "▱" * (10 - filled)
-    status_emoji = "🔴" if count >= _wlimit else ("🟠" if count >= _wlimit // 2 else "🟢")
-    status_label = "Limit Reached" if count >= _wlimit else ("Watch" if count >= _wlimit // 2 else "Clear")
-    embed = discord.Embed(
-        title=f"⚠️ Warning Record — {member.display_name}",
-        description=(
-            f"**{member}** · `{member.id}`\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"Severity: `{bar}` {status_emoji} **{status_label}**\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━"
-        ),
-        color=0xe74c3c if count >= _wlimit else (0xf39c12 if count > 0 else 0x2ecc71),
-        timestamp=datetime.utcnow(),
-    )
-    embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="⚠️ Warnings Issued", value=f"**{count}**", inline=True)
-    embed.add_field(name="🔔 Server Limit",     value=f"**{_wlimit}**", inline=True)
-    embed.add_field(name="📊 Status",           value=f"{status_emoji} **{status_label}**", inline=True)
-
-    if history:
-        last5 = history[-5:][::-1]
-        history_text = "\n".join(
-            f"`{i+1}.` {h['reason']} — *{h['time']}*"
-            for i, h in enumerate(last5)
-        )
-        embed.add_field(name=f"📋 Recent Warnings (last {len(last5)})", value=history_text, inline=False)
-    else:
-        embed.add_field(name="📋 History", value="*No warnings on record — clean slate!*", inline=False)
-
-    embed.set_footer(text=f"🆔 User ID: {member.id}  •  SP4RK Moderation")
-    await ctx.send(embed=embed)
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def clearwarnings(ctx, member: discord.Member):
-    guild_id  = str(ctx.guild.id)
-    member_id = str(member.id)
-    if guild_id in warnings_db and member_id in warnings_db[guild_id]:
-        warnings_db[guild_id][member_id] = {"count": 0, "history": []}
-        save_warnings()
-    supabase_clear_warnings(guild_id, member_id)
-    dlog("🧹 CLEAR-WARN", f"Warnings cleared for {member} by {ctx.author}")
-    await logs.log_event(bot, config, "🧹 Warnings Cleared", f"{member}'s warnings cleared by {ctx.author}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
-    await ctx.send(
-        f"✅ **Warnings Cleared** — All warning records for {member.mention} have been reset.\n"
-        f"> 🛡️ **Cleared by:** {ctx.author.mention}"
-    )
-
-@bot.command(name="timeout")
-@commands.has_permissions(moderate_members=True)
-async def timeout_member(ctx, member: discord.Member, duration: str, *, reason="No reason provided"):
-    """Timeout a member. Duration: 30s, 10m, 2h, 7d (max 28d)."""
-    block = _hierarchy_block(ctx, member, "timeout")
-    if block:
-        await ctx.send(block)
-        return
-    seconds = parse_duration(duration)
-    if not seconds:
-        await ctx.send("❌ **Invalid Duration** — Use formats like `30s`, `10m`, `2h`, `7d`. Max 28 days.")
-        return
-    if seconds > 2419200:
-        await ctx.send("❌ **Duration Too Long** — Discord's maximum timeout length is 28 days.")
-        return
-    label = duration_label(seconds)
-    try:
-        until = discord.utils.utcnow() + timedelta(seconds=seconds)
-        await member.timeout(until, reason=reason)
-        await ctx.send(
-            f"⏱️ **Member Timed Out** — {member.mention}\n"
-            f"> 🕐 **Duration:** {label}\n"
-            f"> 🛡️ **By:** {ctx.author.mention}\n"
-            f"> 📝 **Reason:** {reason}"
-        )
-        await logs.log_template(bot, config, "sp4rk.timeout",
-                                user=member, moderator=ctx.author,
-                                duration=label, reason=reason)
-        supabase_save_mod_log(ctx.guild.id, "timeout", str(member), str(ctx.author), f"{label} — {reason}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        dlog("⏱️ TIMEOUT", f"{member} timed out for {label} by {ctx.author}")
-    except discord.Forbidden:
-        await ctx.send(f"❌ **Permission Denied** — I can't time out {member.mention}.\n> Check role hierarchy and that I have the **Moderate Members** permission.")
-    except Exception as e:
-        await ctx.send(f"❌ **Timeout Failed** — `{e}`")
-
-@bot.command(name="untimeout")
-@commands.has_permissions(moderate_members=True)
-async def untimeout_member(ctx, member: discord.Member):
-    """Remove a timeout from a member."""
-    try:
-        await member.timeout(None, reason=f"Timeout removed by {ctx.author}")
-        await ctx.send(
-            f"✅ **Timeout Removed** — {member.mention} can now speak again.\n"
-            f"> 🛡️ **By:** {ctx.author.mention}"
-        )
-        await logs.log_event(bot, config, "✅ Timeout Removed", f"{member}'s timeout removed by {ctx.author}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
-        dlog("✅ UNTIMEOUT", f"Timeout removed for {member} by {ctx.author}")
-    except discord.Forbidden:
-        await ctx.send(f"❌ **Permission Denied** — I can't remove {member.mention}'s timeout.\n> Check role hierarchy and my permissions.")
-    except Exception as e:
-        await ctx.send(f"❌ **Untimeout Failed** — `{e}`")
-
-@bot.command(name="unban")
-@commands.has_permissions(ban_members=True)
-async def unban_member(ctx, user_id: int, *, reason="No reason provided"):
-    """Unban a user by their ID. Usage: !unban <user_id> [reason]"""
-    try:
-        user = await bot.fetch_user(user_id)
-        await ctx.guild.unban(user, reason=reason)
-        await ctx.send(
-            f"✅ **User Unbanned** — **{user}**\n"
-            f"> 🛡️ **By:** {ctx.author.mention}\n"
-            f"> 📝 **Reason:** {reason}"
-        )
-        await logs.log_template(bot, config, "sp4rk.unban",
-                                guild_id=ctx.guild.id if ctx.guild else None,
-                                user=user, moderator=ctx.author, reason=reason)
-        supabase_save_mod_log(ctx.guild.id, "unban", str(user), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        dlog("✅ UNBAN", f"{user} unbanned by {ctx.author}")
-    except discord.NotFound:
-        await ctx.send("❌ **Not Found** — That user ID doesn't exist or they are not currently banned.")
-    except discord.Forbidden:
-        await ctx.send("❌ **Permission Denied** — I don't have permission to unban users.")
-    except Exception as e:
-        await ctx.send(f"❌ **Unban Failed** — `{e}`")
-
 @bot.command(name="note")
 @commands.has_permissions(manage_messages=True)
 async def add_note(ctx, member: discord.Member, *, note: str):
@@ -2106,68 +1924,6 @@ async def modlogs(ctx, member: discord.Member):
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
-    block = _hierarchy_block(ctx, member, "kick")
-    if block:
-        await ctx.send(block)
-        return
-    if not ctx.guild.me.guild_permissions.kick_members:
-        await ctx.send("❌ **Missing Permission** — I need the **Kick Members** permission.\n> Add it to my role in Server Settings → Roles.")
-        return
-    allowed = await security.mass_action_prevent(ctx, "kick", config, log_callback=dlog)
-    if not allowed:
-        return
-    try:
-        await member.kick(reason=reason)
-        await ctx.send(
-            f"🚪 **Member Kicked** — {member.mention}\n"
-            f"> 🛡️ **By:** {ctx.author.mention}\n"
-            f"> 📝 **Reason:** {reason}"
-        )
-        await logs.log_template(bot, config, "sp4rk.kick",
-                                user=member, moderator=ctx.author, reason=reason)
-        await dm_owner("kick", str(member), reason, str(ctx.author))
-        supabase_save_mod_log(ctx.guild.id, "kick", str(member), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        _increment_report_action()
-        dlog("🚪 KICK", f"{member} kicked by {ctx.author} — {reason}")
-    except discord.Forbidden:
-        await ctx.send(f"❌ **Permission Denied** — I can't kick {member.mention}.\n> Check role hierarchy and my permissions.")
-    except Exception as e:
-        await ctx.send(f"❌ **Kick Failed** — `{e}`")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
-    block = _hierarchy_block(ctx, member, "ban")
-    if block:
-        await ctx.send(block)
-        return
-    if not ctx.guild.me.guild_permissions.ban_members:
-        await ctx.send("❌ **Missing Permission** — I need the **Ban Members** permission.\n> Add it to my role in Server Settings → Roles.")
-        return
-    allowed = await security.mass_action_prevent(ctx, "ban", config, log_callback=dlog)
-    if not allowed:
-        return
-    try:
-        await member.ban(reason=reason)
-        await ctx.send(
-            f"⛔ **Member Banned** — {member.mention}\n"
-            f"> 🛡️ **By:** {ctx.author.mention}\n"
-            f"> 📝 **Reason:** {reason}"
-        )
-        await logs.log_template(bot, config, "sp4rk.ban",
-                                user=member, moderator=ctx.author, reason=reason)
-        await dm_owner("ban", str(member), reason, str(ctx.author))
-        supabase_save_mod_log(ctx.guild.id, "ban", str(member), str(ctx.author), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        _increment_report_action()
-        dlog("⛔ BAN", f"{member} banned by {ctx.author} — {reason}")
-    except discord.Forbidden:
-        await ctx.send(f"❌ **Permission Denied** — I can't ban {member.mention}.\n> Check role hierarchy and my permissions.")
-    except Exception as e:
-        await ctx.send(f"❌ **Ban Failed** — `{e}`")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
 async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reason provided"):
     """Temp-ban a member. Duration: 30m, 2h, 1d, 7d, etc."""
     block = _hierarchy_block(ctx, member, "temp-ban")
@@ -2224,33 +1980,6 @@ async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reas
         await ctx.send(f"❌ **Permission Denied** — I can't ban {member.mention}.\n> Check role hierarchy and my permissions.")
     except Exception as e:
         await ctx.send(f"❌ **Temp-Ban Failed** — `{e}`")
-
-@bot.command()
-@commands.has_permissions(manage_messages=True)
-async def purge(ctx, amount: int = 10):
-    """Bulk delete messages. Usage: !purge 50"""
-    if amount < 1 or amount > 200:
-        await ctx.send("❌ **Invalid Amount** — Please provide a number between 1 and 200.", delete_after=5)
-        return
-    try:
-        deleted = await ctx.channel.purge(limit=amount + 1)
-        actual  = len(deleted) - 1
-        msg = await ctx.send(
-            f"🧹 **Channel Purged** — Deleted **{actual}** message(s) in {ctx.channel.mention}.\n"
-            f"> 🛡️ **By:** {ctx.author.mention}"
-        )
-        await asyncio.sleep(5)
-        await msg.delete()
-        await logs.log_event(
-            bot, config, "🧹 Purge",
-            f"{ctx.author} purged {actual} messages in #{ctx.channel.name}",
-            color=0x9b59b6
-        )
-        dlog("🧹 PURGE", f"{ctx.author} deleted {actual} messages in #{ctx.channel.name}")
-    except discord.Forbidden:
-        await ctx.send("❌ **Permission Denied** — I don't have permission to delete messages in this channel.")
-    except Exception as e:
-        await ctx.send(f"❌ **Purge Failed** — `{e}`")
 
 @bot.command(name="purgereaction")
 @commands.has_permissions(manage_messages=True)
@@ -2755,14 +2484,6 @@ def _build_userinfo_embed(member: discord.Member, requester: discord.abc.User) -
     except Exception:
         embed.set_footer(text=f"Requested by {requester} • SP4RK")
     return embed
-
-
-@bot.command(name="userinfo", aliases=["whois", "ui"])
-@commands.has_permissions(manage_messages=True)
-async def userinfo(ctx, member: discord.Member = None):
-    """!userinfo [@member] — detailed profile card for a member."""
-    member = member or ctx.author
-    await ctx.send(embed=_build_userinfo_embed(member, ctx.author))
 
 
 @bot.tree.command(name="userinfo", description="Show a detailed profile card for a member")
@@ -3792,22 +3513,369 @@ async def slash_setprefix(interaction: discord.Interaction, prefix: str):
         ephemeral=True,
     )
 
-@bot.command(name="setprefix")
-@commands.has_permissions(administrator=True)
-async def cmd_setprefix(ctx, prefix: str):
-    prefix = prefix.strip()[:5]
-    if not prefix:
-        await ctx.send("❌ Prefix cannot be empty.")
-        return
+# ============================================================
+# 🆕 NEW SLASH COMMANDS (replacing deleted prefix duplicates)
+# These cover commands that previously only existed as prefix
+# commands, giving them a proper Discord slash-command UI.
+# ============================================================
+
+@bot.tree.command(name="mute", description="Mute a member using a mute role. Optional duration (30m, 2h, 1d).")
+@app_commands.describe(member="Member to mute", duration="Optional duration: 30m, 2h, 1d (leave blank = indefinite)")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def slash_mute(interaction: discord.Interaction, member: discord.Member, duration: str = None):
+    if not await _slash_guard_guild(interaction): return
+    block = _hierarchy_block_slash(interaction, member, "mute")
+    if block: return await interaction.response.send_message(block, ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    ctx_like = _FakeCtx(interaction)
+    await moderation.mute_member(ctx_like, member, get_config_for_guild(str(interaction.guild.id)), duration)
+    _increment_report_action()
+    dlog("🔇 MUTE", f"{member} muted by {interaction.user}" + (f" for {duration}" if duration else ""))
+    await interaction.followup.send(f"🔇 **Muted** — {member.mention}" + (f" for **{duration}**" if duration else " indefinitely."), ephemeral=True)
+
+@bot.tree.command(name="unmute", description="Unmute a previously muted member.")
+@app_commands.describe(member="Member to unmute")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def slash_unmute(interaction: discord.Interaction, member: discord.Member):
+    if not await _slash_guard_guild(interaction): return
+    await interaction.response.defer(ephemeral=True)
+    ctx_like = _FakeCtx(interaction)
+    await moderation.unmute_member(ctx_like, member, get_config_for_guild(str(interaction.guild.id)))
+    dlog("🔊 UNMUTE", f"{member} unmuted by {interaction.user}")
+    await interaction.followup.send(f"🔊 **Unmuted** — {member.mention}", ephemeral=True)
+
+@bot.tree.command(name="tempban", description="Temporarily ban a member. Duration: 30m, 2h, 7d, etc.")
+@app_commands.describe(member="Member to temp-ban", duration="Ban duration (e.g. 1h, 3d, 1w)", reason="Reason for the ban")
+@app_commands.checks.has_permissions(ban_members=True)
+async def slash_tempban(interaction: discord.Interaction, member: discord.Member, duration: str, reason: str = "No reason provided"):
+    if not await _slash_guard_guild(interaction): return
+    block = _hierarchy_block_slash(interaction, member, "temp-ban")
+    if block: return await interaction.response.send_message(block, ephemeral=True)
+    seconds = parse_duration(duration)
+    if not seconds:
+        return await interaction.response.send_message("❌ Invalid duration — use formats like `30m`, `2h`, `7d`.", ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    label = duration_label(seconds)
     try:
-        from dashboard import save_guild_config, get_guild_config as _ggc
-        gcfg = _ggc(str(ctx.guild.id))
-        gcfg["prefix"] = prefix
-        save_guild_config(str(ctx.guild.id), gcfg)
-    except Exception as e:
-        await ctx.send(f"❌ Failed to save prefix: `{e}`")
-        return
-    await ctx.send(f"✅ **Prefix updated!** New prefix: `{prefix}`\nExample: `{prefix}ban @user`")
+        await member.ban(reason=f"[TEMP-BAN {label}] {reason}")
+        _increment_report_action()
+        dlog("⏱️ TEMP-BAN", f"{member} temp-banned for {label} by {interaction.user}")
+        asyncio.create_task(_auto_unban_task(interaction.guild, member, seconds, label))
+        await interaction.followup.send(
+            f"⏱️ **Temp-Banned** — {member.mention}\n> 🕐 **Duration:** {label}\n> 📝 **Reason:** {reason}", ephemeral=True
+        )
+    except discord.Forbidden:
+        await interaction.followup.send(f"❌ Cannot ban {member.mention} — check hierarchy and permissions.", ephemeral=True)
+
+@bot.tree.command(name="lock", description="Lock a channel — @everyone can no longer send messages.")
+@app_commands.describe(channel="Channel to lock (defaults to current channel)")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slash_lock(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    if not await _slash_guard_guild(interaction): return
+    target = channel or interaction.channel
+    try:
+        ow = target.overwrites_for(interaction.guild.default_role)
+        ow.send_messages = False
+        await target.set_permissions(interaction.guild.default_role, overwrite=ow, reason=f"Locked by {interaction.user}")
+        dlog("🔒 LOCK", f"#{target.name} locked by {interaction.user}")
+        await interaction.response.send_message(f"🔒 **Locked** — {target.mention}", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to edit that channel.", ephemeral=True)
+
+@bot.tree.command(name="unlock", description="Unlock a channel — restore @everyone send permissions.")
+@app_commands.describe(channel="Channel to unlock (defaults to current channel)")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slash_unlock(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    if not await _slash_guard_guild(interaction): return
+    target = channel or interaction.channel
+    try:
+        ow = target.overwrites_for(interaction.guild.default_role)
+        ow.send_messages = None
+        await target.set_permissions(interaction.guild.default_role, overwrite=ow, reason=f"Unlocked by {interaction.user}")
+        dlog("🔓 UNLOCK", f"#{target.name} unlocked by {interaction.user}")
+        await interaction.response.send_message(f"🔓 **Unlocked** — {target.mention}", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to edit that channel.", ephemeral=True)
+
+@bot.tree.command(name="role-add", description="Add a role to a member.")
+@app_commands.describe(member="Target member", role="Role to assign")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def slash_role_add(interaction: discord.Interaction, member: discord.Member, role: discord.Role):
+    if not await _slash_guard_guild(interaction): return
+    if role >= interaction.guild.me.top_role:
+        return await interaction.response.send_message(f"❌ I can't manage **{role.name}** — it's above my top role.", ephemeral=True)
+    if interaction.user.id != interaction.guild.owner_id and role >= interaction.user.top_role:
+        return await interaction.response.send_message(f"❌ You can't assign **{role.name}** — it's equal to or above your top role.", ephemeral=True)
+    if role in member.roles:
+        return await interaction.response.send_message(f"ℹ️ {member.mention} already has **{role.name}**.", ephemeral=True)
+    try:
+        await member.add_roles(role, reason=f"Added by {interaction.user}")
+        dlog("➕ ROLE-ADD", f"{interaction.user} gave @{role.name} to {member}")
+        await interaction.response.send_message(f"✅ **Role Added** — {member.mention} now has {role.mention}.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ Permission denied — check role hierarchy.", ephemeral=True)
+
+@bot.tree.command(name="role-remove", description="Remove a role from a member.")
+@app_commands.describe(member="Target member", role="Role to remove")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def slash_role_remove(interaction: discord.Interaction, member: discord.Member, role: discord.Role):
+    if not await _slash_guard_guild(interaction): return
+    if role >= interaction.guild.me.top_role:
+        return await interaction.response.send_message(f"❌ I can't manage **{role.name}** — it's above my top role.", ephemeral=True)
+    if role not in member.roles:
+        return await interaction.response.send_message(f"ℹ️ {member.mention} doesn't have **{role.name}**.", ephemeral=True)
+    try:
+        await member.remove_roles(role, reason=f"Removed by {interaction.user}")
+        dlog("➖ ROLE-REMOVE", f"{interaction.user} removed @{role.name} from {member}")
+        await interaction.response.send_message(f"✅ **Role Removed** — {member.mention} no longer has {role.mention}.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ Permission denied — check role hierarchy.", ephemeral=True)
+
+@bot.tree.command(name="nick", description="Change or reset a member's nickname.")
+@app_commands.describe(member="Target member", name="New nickname (leave blank to reset)")
+@app_commands.checks.has_permissions(manage_nicknames=True)
+async def slash_nick(interaction: discord.Interaction, member: discord.Member, name: str = None):
+    if not await _slash_guard_guild(interaction): return
+    block = _hierarchy_block_slash(interaction, member, "rename")
+    if block: return await interaction.response.send_message(block, ephemeral=True)
+    try:
+        await member.edit(nick=name, reason=f"Renamed by {interaction.user}")
+        msg = f"✅ **Nickname set** to `{name}` for {member.mention}." if name else f"✅ **Nickname reset** for {member.mention}."
+        dlog("📝 NICK", f"{interaction.user} renamed {member} to {name or '(reset)'}")
+        await interaction.response.send_message(msg, ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message(f"❌ Can't rename {member.mention} — check hierarchy.", ephemeral=True)
+
+@bot.tree.command(name="voicekick", description="Disconnect a member from their voice channel.")
+@app_commands.describe(member="Member to disconnect from voice")
+@app_commands.checks.has_permissions(move_members=True)
+async def slash_voicekick(interaction: discord.Interaction, member: discord.Member):
+    if not await _slash_guard_guild(interaction): return
+    if not member.voice or not member.voice.channel:
+        return await interaction.response.send_message(f"ℹ️ {member.mention} is not in any voice channel.", ephemeral=True)
+    block = _hierarchy_block_slash(interaction, member, "voice-kick")
+    if block: return await interaction.response.send_message(block, ephemeral=True)
+    try:
+        ch = member.voice.channel.name
+        await member.move_to(None, reason=f"Voice kick by {interaction.user}")
+        dlog("🔌 VKICK", f"{interaction.user} disconnected {member} from {ch}")
+        await interaction.response.send_message(f"🔌 **Voice Kicked** — {member.mention} disconnected from **{ch}**.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to move that member.", ephemeral=True)
+
+@bot.tree.command(name="snipe", description="Show the last deleted message in this channel.")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_snipe(interaction: discord.Interaction):
+    if not await _slash_guard_guild(interaction): return
+    snipe = _snipe_cache.get(interaction.channel.id)
+    if not snipe:
+        return await interaction.response.send_message("ℹ️ No recently deleted messages found in this channel.", ephemeral=True)
+    embed = discord.Embed(
+        title="🔍 Sniped Message",
+        description=f"━━━━━━━━━━━━━━━━━━━━━━\n{snipe['content'][:1900]}\n━━━━━━━━━━━━━━━━━━━━━━",
+        color=0x95a5a6, timestamp=snipe["ts"],
+    )
+    embed.set_author(name=f"{snipe['author']} said:")
+    embed.set_footer(text=f"🗑️ Deleted in #{interaction.channel.name}  •  SP4RK Snipe")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="slowmode", description="Set slowmode delay on this channel. Use 0 to disable.")
+@app_commands.describe(seconds="Delay in seconds (0 = off, max 21600)", channel="Channel to apply (defaults to current)")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slash_slowmode_cmd(interaction: discord.Interaction, seconds: int, channel: discord.TextChannel = None):
+    if not await _slash_guard_guild(interaction): return
+    if seconds < 0 or seconds > 21600:
+        return await interaction.response.send_message("❌ Seconds must be between 0 and 21600.", ephemeral=True)
+    target = channel or interaction.channel
+    try:
+        await target.edit(slowmode_delay=seconds)
+        label = duration_label(seconds) if seconds else "disabled"
+        dlog("⏱️ SLOWMODE", f"Slowmode set to {seconds}s in #{target.name} by {interaction.user}")
+        await interaction.response.send_message(
+            f"{'🐌 **Slowmode set** to ' + label if seconds else '✅ **Slowmode disabled**'} in {target.mention}.", ephemeral=True
+        )
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to edit that channel.", ephemeral=True)
+
+@bot.tree.command(name="purge-reactions", description="Remove all reactions from the last N messages in this channel.")
+@app_commands.describe(amount="Number of messages to clear reactions from (max 100)")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_purge_reactions(interaction: discord.Interaction, amount: int = 10):
+    if not await _slash_guard_guild(interaction): return
+    if amount < 1 or amount > 100:
+        return await interaction.response.send_message("❌ Amount must be between 1 and 100.", ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    cleared = 0
+    async for message in interaction.channel.history(limit=amount):
+        if message.reactions:
+            await message.clear_reactions()
+            cleared += 1
+    dlog("🧹 PURGEREACTION", f"{interaction.user} cleared reactions in #{interaction.channel.name}")
+    await interaction.followup.send(f"🧹 Cleared reactions from **{cleared}** message(s) in {interaction.channel.mention}.", ephemeral=True)
+
+@bot.tree.command(name="purge-user", description="Delete up to N recent messages from a specific user in this channel.")
+@app_commands.describe(member="User whose messages to delete", amount="Max messages to delete (max 500)")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_purge_user(interaction: discord.Interaction, member: discord.Member, amount: int = 50):
+    if not await _slash_guard_guild(interaction): return
+    if amount < 1 or amount > 500:
+        return await interaction.response.send_message("❌ Amount must be between 1 and 500.", ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    deleted = await interaction.channel.purge(limit=amount, check=lambda m: m.author.id == member.id)
+    dlog("🧹 PURGEUSER", f"{interaction.user} purged {len(deleted)} from {member} in #{interaction.channel.name}")
+    await interaction.followup.send(f"🧹 Deleted **{len(deleted)}** message(s) from {member.mention}.", ephemeral=True)
+
+@bot.tree.command(name="massban", description="Ban multiple users by ID (raid response). Max 50 IDs, space-separated.")
+@app_commands.describe(user_ids="Space-separated list of user IDs to ban", reason="Reason for the mass ban")
+@app_commands.checks.has_permissions(ban_members=True)
+async def slash_massban(interaction: discord.Interaction, user_ids: str, reason: str = "Mass-ban"):
+    if not await _slash_guard_guild(interaction): return
+    ids = [i.strip() for i in user_ids.split() if i.strip().isdigit()]
+    if not ids:
+        return await interaction.response.send_message("❌ No valid user IDs provided.", ephemeral=True)
+    if len(ids) > 50:
+        return await interaction.response.send_message("❌ Maximum is 50 IDs per command.", ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    success, fail = 0, 0
+    for uid in ids:
+        try:
+            await interaction.guild.ban(discord.Object(id=int(uid)), reason=f"Mass-ban by {interaction.user}: {reason}")
+            success += 1
+        except Exception:
+            fail += 1
+    dlog("⛔ MASSBAN", f"{interaction.user} mass-banned {success}/{len(ids)}")
+    await interaction.followup.send(
+        f"⛔ **Mass Ban Complete** — {len(ids)} target(s).\n> ✅ Banned: {success}  |  ❌ Failed: {fail}", ephemeral=True
+    )
+
+@bot.tree.command(name="lockdown", description="Lock all channels in the server immediately (emergency use).")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_lockdown(interaction: discord.Interaction):
+    if not await _slash_guard_guild(interaction): return
+    gcfg = get_config_for_guild(str(interaction.guild.id))
+    gcfg["temp_lockdown"] = "ON"
+    await interaction.response.defer(ephemeral=True)
+    await security.toggle_lockdown(interaction.guild, gcfg, enable=True, log_callback=dlog)
+    dlog("🚨 LOCKDOWN", f"Lockdown enabled in {interaction.guild.name} by {interaction.user}")
+    await interaction.followup.send("🚨 **Server Lockdown Active** — all channels locked. Use `/unlockdown` to lift it.", ephemeral=True)
+
+@bot.tree.command(name="unlockdown", description="Lift the server lockdown and restore normal channel permissions.")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_unlockdown(interaction: discord.Interaction):
+    if not await _slash_guard_guild(interaction): return
+    gcfg = get_config_for_guild(str(interaction.guild.id))
+    gcfg["temp_lockdown"] = "OFF"
+    await interaction.response.defer(ephemeral=True)
+    await security.toggle_lockdown(interaction.guild, gcfg, enable=False, log_callback=dlog)
+    dlog("✅ UNLOCKDOWN", f"Lockdown lifted in {interaction.guild.name} by {interaction.user}")
+    await interaction.followup.send("✅ **Lockdown Lifted** — server is back to normal.", ephemeral=True)
+
+@bot.tree.command(name="note", description="Add a private moderator note to a user.")
+@app_commands.describe(member="Member to annotate", note="The note text (private to staff)")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_note(interaction: discord.Interaction, member: discord.Member, note: str):
+    if not await _slash_guard_guild(interaction): return
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    supabase_save_note(interaction.guild.id, member.id, str(member), note, str(interaction.user), ts)
+    dlog("📝 NOTE", f"Note added for {member} by {interaction.user}: {note}")
+    await interaction.response.send_message(
+        f"📝 **Note Added** — {member.mention}\n> 🛡️ **By:** {interaction.user.mention}\n> 💬 **Note:** {note}",
+        ephemeral=True,
+    )
+
+@bot.tree.command(name="notes", description="View all moderator notes for a user.")
+@app_commands.describe(member="Member whose notes to view")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_notes(interaction: discord.Interaction, member: discord.Member):
+    if not await _slash_guard_guild(interaction): return
+    notes = supabase_get_notes(interaction.guild.id, member.id)
+    embed = discord.Embed(
+        title=f"📝 Moderator Notes — {member.display_name}",
+        description=f"**{member}** · `{member.id}`\n━━━━━━━━━━━━━━━━━━━━━━\nTotal notes: **{len(notes)}**",
+        color=0x3a8fff, timestamp=datetime.utcnow(),
+    )
+    embed.set_thumbnail(url=member.display_avatar.url)
+    if not notes:
+        embed.add_field(name="📭 No Notes", value="*No moderator notes recorded.*", inline=False)
+    else:
+        for n in notes[-10:]:
+            embed.add_field(
+                name=f"🕐 {n.get('timestamp','?')}  •  by {n.get('moderator','?')}",
+                value=f"> {n.get('note','—')}", inline=False,
+            )
+    embed.set_footer(text=f"🆔 {member.id}  •  SP4RK")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="modlogs", description="View full mod history (warnings + notes) for a member.")
+@app_commands.describe(member="Member to inspect")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def slash_modlogs(interaction: discord.Interaction, member: discord.Member):
+    if not await _slash_guard_guild(interaction): return
+    guild_id  = str(interaction.guild.id)
+    member_id = str(member.id)
+    entry   = _get_member_entry(guild_id, member_id)
+    count   = entry["count"]
+    history = entry["history"]
+    notes   = supabase_get_notes(interaction.guild.id, member.id)
+    _wlimit = int(get_config_for_guild(guild_id).get('warning_limit', 30))
+    pct = min(1.0, count / max(1, _wlimit))
+    bar = "▰" * int(10 * pct) + "▱" * (10 - int(10 * pct))
+    severity = "🔴 High Risk" if count >= _wlimit else ("🟠 Moderate" if count >= _wlimit // 2 else "🟢 Low Risk")
+    embed = discord.Embed(
+        title=f"📋 Mod Logs — {member.display_name}",
+        description=f"**{member}** · `{member.id}`\n━━━━━━━━━━━━━━━━━━━━━━\nRisk: `{bar}` — **{severity}**",
+        color=0xe74c3c if count >= _wlimit else (0xf39c12 if count >= 2 else 0x2ecc71),
+        timestamp=datetime.utcnow(),
+    )
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="⚠️ Warnings", value=f"**{count}** / {_wlimit}", inline=True)
+    embed.add_field(name="📝 Notes",     value=f"**{len(notes)}**",        inline=True)
+    embed.add_field(name="📊 Risk",      value=severity,                   inline=True)
+    if history:
+        warn_text = "\n".join(f"`{i+1}.` {h['reason']} — *{h['time']}*" for i, h in enumerate(history[-5:][::-1]))
+        embed.add_field(name="📋 Recent Warnings", value=warn_text, inline=False)
+    if notes:
+        note_text = "\n".join(f"> *{n.get('note')}*\n> — {n.get('moderator')} · {n.get('timestamp')}" for n in notes[-3:])
+        embed.add_field(name="📝 Recent Notes", value=note_text, inline=False)
+    embed.set_footer(text=f"Requested by {interaction.user}  •  SP4RK")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+# ─── helpers for new slash commands ───────────────────────────────────────────
+def _hierarchy_block_slash(interaction: discord.Interaction, member: discord.Member, action_word: str):
+    """Same as _hierarchy_block but takes an Interaction instead of Context."""
+    if member.id == interaction.guild.me.id:
+        return f"❌ I can't {action_word} myself."
+    if member.id == interaction.guild.owner_id:
+        return f"❌ I can't {action_word} the server owner."
+    if member.top_role >= interaction.guild.me.top_role:
+        return f"❌ Cannot {action_word} {member.mention} — their role is above mine."
+    if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
+        return f"❌ Cannot {action_word} {member.mention} — their role is equal to or higher than yours."
+    return None
+
+class _FakeCtx:
+    """Minimal ctx-like object so old moderation helpers work from slash commands."""
+    def __init__(self, interaction: discord.Interaction):
+        self.guild  = interaction.guild
+        self.author = interaction.user
+        self.channel = interaction.channel
+        self._interaction = interaction
+    async def send(self, content=None, **kwargs):
+        try:
+            if not self._interaction.response.is_done():
+                await self._interaction.response.send_message(content or "", **{k:v for k,v in kwargs.items() if k not in ('delete_after',)})
+            else:
+                await self._interaction.followup.send(content or "", ephemeral=True)
+        except Exception:
+            pass
+
+async def _auto_unban_task(guild: discord.Guild, member: discord.Member, seconds: int, label: str):
+    await asyncio.sleep(seconds)
+    try:
+        await guild.unban(member, reason=f"Temp-ban expired ({label})")
+    except Exception:
+        pass
 
 
 # ---------------- DYNO/CARL-BOT EXTRAS ----------------
