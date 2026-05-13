@@ -3140,6 +3140,7 @@ def auth_discord_callback():
     session['logged_in'] = True
     session['discord_id'] = discord_id
     session['user_name'] = discord_global
+    session['discord_access_token'] = access_token
     # Cache the user's admin/owner guild ids on the session so per-user
     # dashboards (Server Official, etc.) can scope correctly without an extra
     # Discord API call on every request.
@@ -3454,6 +3455,61 @@ def api_bot_config_guild(guild_id):
     return jsonify({key: cfg.get(key) for key in PUBLIC_BOT_CONFIG_KEYS})
 
 # ---- API: LOGS ----
+@app.route('/api/refresh_guilds', methods=['POST'])
+def api_refresh_guilds():
+    """Re-fetch the user's Discord guild list and update the session in-place.
+    Called when the user joins or leaves a server and wants the server picker
+    to reflect the change without having to log out and back in.
+    """
+    if not session.get('logged_in'):
+        return jsonify({'ok': False, 'error': 'Not logged in'}), 401
+    access_token = session.get('discord_access_token')
+    if not access_token:
+        return jsonify({'ok': False, 'error': 'no_token',
+                        'message': 'Session token expired — please re-login to refresh your server list.'}), 200
+    try:
+        guilds_res = http_requests.get(
+            f"{DISCORD_API_BASE}/users/@me/guilds",
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10
+        )
+        if guilds_res.status_code == 401:
+            return jsonify({'ok': False, 'error': 'token_expired',
+                            'message': 'Discord token expired — please re-login.'}), 200
+        guilds_payload = guilds_res.json() if guilds_res.status_code == 200 else []
+        if not isinstance(guilds_payload, list):
+            return jsonify({'ok': False, 'error': 'Discord API error'}), 500
+        MANAGE_GUILD = 0x20
+        ADMINISTRATOR = 0x8
+        user_admin_guild_ids = []
+        user_admin_guilds = []
+        for g in guilds_payload:
+            try:
+                perms = int(g.get('permissions', 0))
+            except (TypeError, ValueError):
+                perms = 0
+            if g.get('owner') or (perms & (MANAGE_GUILD | ADMINISTRATOR)):
+                gid = str(g.get('id', '')).strip()
+                if gid:
+                    user_admin_guild_ids.append(gid)
+                    icon_hash = g.get('icon') or ''
+                    icon_url = (
+                        f"https://cdn.discordapp.com/icons/{gid}/{icon_hash}.png?size=128"
+                        if icon_hash else None
+                    )
+                    user_admin_guilds.append({
+                        'id':       gid,
+                        'name':     g.get('name', 'Unknown Server'),
+                        'icon_url': icon_url,
+                    })
+        session['user_admin_guild_ids'] = user_admin_guild_ids
+        session['user_guilds']          = user_admin_guilds
+        session.modified = True
+        return jsonify({'ok': True, 'guilds': user_admin_guilds, 'count': len(user_admin_guilds)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @app.route('/api/logs')
 def api_logs():
     if not session.get('logged_in'):

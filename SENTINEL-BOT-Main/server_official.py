@@ -298,20 +298,26 @@ def save_state(state: Dict[str, Any]) -> None:
                 globals()["_dirty_state"] = json.loads(json.dumps(state, default=str))
         except Exception as e:
             logger.warning(f"[server_official] mark-dirty failed: {e}")
-    # Queue for Postgres flush (non-blocking, keeps only latest snapshot).
+    # Synchronous Postgres write — ensures the new value survives a redeploy
+    # even if the background flusher thread hasn't had time to run yet.
     if _db_so is not None and _db_so.is_available():
         try:
             snapshot = json.loads(json.dumps(state, default=str))
+            _db_so.save_full_state(snapshot)
+        except Exception as _pe:
+            logger.warning(f"[server_official] pg sync write failed, queuing: {_pe}")
+            # Fall back to background queue on direct-write failure
             try:
-                _pg_dirty_queue.put_nowait(snapshot)
-            except queue.Full:
                 try:
-                    _pg_dirty_queue.get_nowait()
-                except Exception:
-                    pass
-                _pg_dirty_queue.put_nowait(snapshot)
-        except Exception as _qe:
-            logger.warning(f"[server_official] pg queue failed: {_qe}")
+                    _pg_dirty_queue.put_nowait(snapshot)
+                except queue.Full:
+                    try:
+                        _pg_dirty_queue.get_nowait()
+                    except Exception:
+                        pass
+                    _pg_dirty_queue.put_nowait(snapshot)
+            except Exception as _qe:
+                logger.warning(f"[server_official] pg queue fallback failed: {_qe}")
 
 
 def _gen_id() -> str:
@@ -2373,23 +2379,72 @@ async def slash_say(interaction: discord.Interaction, message: str, channel: Opt
         await interaction.response.send_message(f"❌ I can't post in {target.mention}.", ephemeral=True)
 
 
-@bot.tree.command(name="dm", description="Send a direct message to a member as the bot.")
-@discord.app_commands.describe(member="Recipient", message="Message body")
-async def slash_dm(interaction: discord.Interaction, member: discord.Member, message: str):
+@bot.tree.command(name="dm", description="Send a DM to a specific member OR to every member in a role.")
+@discord.app_commands.describe(
+    message="Message body to send",
+    member="A single member to DM (leave blank if using role)",
+    role="DM every non-bot member with this role (leave blank if using member)",
+)
+async def slash_dm(
+    interaction: discord.Interaction,
+    message: str,
+    member: Optional[discord.Member] = None,
+    role: Optional[discord.Role] = None,
+):
     if not _need_manage_guild(interaction):
         return await interaction.response.send_message("❌ Manage Server required.", ephemeral=True)
-    if member.bot:
-        return await interaction.response.send_message("❌ Can't DM other bots.", ephemeral=True)
-    try:
-        embed = _embed(f"📬 Message from {interaction.guild.name}", message[:1900], color=0x5b8cff)
-        embed.set_footer(text=f"Sent via Server Official by {interaction.user}")
-        await member.send(embed=embed)
-        add_bot_action("dm", f"DM sent to {member} ({member.id})", str(interaction.user))
-        await interaction.response.send_message(f"✅ DM sent to {member.mention}", ephemeral=True)
-    except discord.Forbidden:
-        await interaction.response.send_message(
-            f"❌ Could not DM {member.mention} — they may have DMs disabled.", ephemeral=True
+    if not member and not role:
+        return await interaction.response.send_message(
+            "❌ Provide either a **member** or a **role** to DM.", ephemeral=True
         )
+    if member and role:
+        return await interaction.response.send_message(
+            "❌ Provide either a member **or** a role — not both.", ephemeral=True
+        )
+
+    embed = _embed(f"📬 Message from {interaction.guild.name}", message[:1900], color=0x5b8cff)
+    embed.set_footer(text=f"Sent via Server Official by {interaction.user}")
+
+    if member:
+        if member.bot:
+            return await interaction.response.send_message("❌ Can't DM other bots.", ephemeral=True)
+        try:
+            await member.send(embed=embed)
+            add_bot_action("dm", f"DM sent to {member} ({member.id})", str(interaction.user))
+            await interaction.response.send_message(f"✅ DM sent to {member.mention}", ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                f"❌ Could not DM {member.mention} — they may have DMs disabled.", ephemeral=True
+            )
+    else:
+        targets = [m for m in role.members if not m.bot]
+        if not targets:
+            return await interaction.response.send_message(
+                f"❌ No non-bot members have the {role.mention} role.", ephemeral=True
+            )
+        await interaction.response.defer(ephemeral=True)
+        sent, failed, failed_names = 0, 0, []
+        for m in targets:
+            try:
+                await m.send(embed=embed)
+                sent += 1
+            except discord.Forbidden:
+                failed += 1
+                failed_names.append(str(m))
+            except Exception:
+                failed += 1
+        add_bot_action(
+            "dm",
+            f"Role DM to @{role.name}: {sent} sent, {failed} failed",
+            str(interaction.user),
+        )
+        summary = f"✅ DM sent to **{sent}** member(s) with {role.mention}."
+        if failed:
+            names_preview = ", ".join(failed_names[:5])
+            if len(failed_names) > 5:
+                names_preview += f" +{len(failed_names)-5} more"
+            summary += f"\n⚠️ Could not reach **{failed}** member(s) (DMs disabled): {names_preview}"
+        await interaction.followup.send(summary, ephemeral=True)
 
 
 @bot.tree.command(name="slowmode", description="Set slowmode (in seconds) on a channel. Use 0 to disable.")

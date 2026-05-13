@@ -404,6 +404,9 @@ html.bl-compact .main{padding:20px;}
           {% endfor %}
         </select>
       </div>
+      <button class="btn btn-ghost" id="refreshGuildsBtn" onclick="refreshGuilds()" title="Refresh server list (use after joining or leaving a server)" style="padding:6px 11px;font-size:.8rem;">
+        <i class="fas fa-rotate" id="refreshGuildsIcon"></i>
+      </button>
       <span class="bot-status {% if bot_running %}on{% else %}off{% endif %}">
         <span class="dot"></span>
         {{ 'ONLINE' if bot_running else 'OFFLINE' }}
@@ -1241,6 +1244,38 @@ async function api(method, url, body=null, okMsg=null){
 function openSidebar(){ $('#sidebar').classList.add('open'); $('#sidebarBackdrop').classList.add('open'); document.body.style.overflow='hidden'; }
 function closeSidebar(){ $('#sidebar').classList.remove('open'); $('#sidebarBackdrop').classList.remove('open'); document.body.style.overflow=''; }
 function toggleSidebar(){ $('#sidebar').classList.contains('open') ? closeSidebar() : openSidebar(); }
+
+async function refreshGuilds(){
+  const btn  = document.getElementById('refreshGuildsBtn');
+  const icon = document.getElementById('refreshGuildsIcon');
+  if(btn) btn.disabled = true;
+  if(icon){ icon.style.transition='transform .6s'; icon.style.transform='rotate(360deg)'; }
+  try{
+    const r = await fetch('/api/refresh_guilds', {method:'POST', headers:{'Content-Type':'application/json'}});
+    const j = await r.json();
+    if(!j.ok){
+      toast(j.message || 'Could not refresh — please re-login', 'err');
+    } else {
+      const sel = document.getElementById('guildPick');
+      if(sel){
+        const prev = sel.value;
+        // Rebuild dropdown options (keep "All servers" first)
+        while(sel.options.length > 1) sel.remove(1);
+        (j.guilds||[]).forEach(g => {
+          const o = document.createElement('option');
+          o.value = g.id; o.textContent = g.name;
+          if(g.id === prev) o.selected = true;
+          sel.appendChild(o);
+        });
+      }
+      toast(`Server list updated — ${j.count} server(s)`);
+    }
+  } catch(e){ toast('Refresh failed','err'); }
+  finally{
+    setTimeout(()=>{ if(icon){ icon.style.transform=''; } }, 700);
+    if(btn) btn.disabled = false;
+  }
+}
 window.addEventListener('resize', ()=>{ if(window.innerWidth>960) closeSidebar(); });
 window.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSidebar(); });
 
