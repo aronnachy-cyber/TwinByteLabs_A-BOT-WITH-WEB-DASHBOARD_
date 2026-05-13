@@ -156,23 +156,42 @@ warnings_file = "warnings.json"
 
 def load_warnings():
     """
-    Load warnings from Supabase first (source of truth across restarts /
-    Render deploys). Fall back to the local JSON cache only when Supabase
-    is unavailable, so a wiped container disk never loses warning history.
+    Load warnings — priority order:
+      1. Postgres spark_warning_history (full history, survives Render redeploys)
+      2. Supabase sentinel_warnings (full history, if configured)
+      3. Local JSON file (last-resort fallback)
+    Whichever wins, refresh the JSON cache so the next fast read is instant.
     """
+    # 1) Postgres (primary durable store)
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            pg_data = _ds.get_all_warning_history()
+            if pg_data:
+                try:
+                    with open(warnings_file, "w") as f:
+                        json.dump(pg_data, f, indent=4)
+                except Exception:
+                    pass
+                return pg_data
+    except Exception as e:
+        print(f"[WARN] Postgres warning load failed: {e}")
+
+    # 2) Supabase (mirror)
     try:
         sb_data = supabase_load_all_warnings()
     except Exception as e:
         print(f"[WARN] Supabase warning load failed: {e}")
         sb_data = {}
     if sb_data:
-        # Refresh the JSON cache so the next quick read is fast.
         try:
             with open(warnings_file, "w") as f:
                 json.dump(sb_data, f, indent=4)
         except Exception:
             pass
         return sb_data
+
+    # 3) Local JSON cache
     if os.path.exists(warnings_file):
         with open(warnings_file, "r") as f:
             try:

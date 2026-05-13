@@ -108,6 +108,34 @@ CREATE TABLE IF NOT EXISTS spark_notes (
     ts          TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS spark_notes_member ON spark_notes (guild_id, member_id, ts DESC);
+
+CREATE TABLE IF NOT EXISTS spark_warning_history (
+    id          TEXT PRIMARY KEY,
+    guild_id    TEXT NOT NULL,
+    member_id   TEXT NOT NULL,
+    username    TEXT,
+    reason      TEXT DEFAULT '',
+    ts          TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS spark_wh_guild_member ON spark_warning_history (guild_id, member_id, ts ASC);
+
+CREATE TABLE IF NOT EXISTS spark_xp (
+    guild_id    TEXT NOT NULL,
+    user_id     TEXT NOT NULL,
+    username    TEXT,
+    xp          INT DEFAULT 0,
+    level       INT DEFAULT 0,
+    messages    INT DEFAULT 0,
+    updated_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (guild_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS spark_xp_lb ON spark_xp (guild_id, xp DESC);
+
+CREATE TABLE IF NOT EXISTS spark_leveling_config (
+    guild_id    TEXT PRIMARY KEY,
+    data        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 
@@ -603,6 +631,192 @@ def get_notes(guild_id: str, member_id: str) -> List[Dict[str, Any]]:
     except Exception as e:
         print(f"[db_spark] get_notes: {e}")
         return []
+
+
+# ---------------------------------------------------------------------------
+# Warning history (individual events with reason + timestamp)
+# ---------------------------------------------------------------------------
+def add_warning_event(guild_id: str, member_id: str, username: str, reason: str) -> bool:
+    if not is_available():
+        return False
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO spark_warning_history (id, guild_id, member_id, username, reason, ts)
+                    VALUES (%s, %s, %s, %s, %s, NOW())
+                """, (_gen_id(), str(guild_id), str(member_id), str(username), str(reason)))
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[db_spark] add_warning_event: {e}")
+        return False
+
+
+def clear_warning_history(guild_id: str, member_id: str) -> bool:
+    if not is_available():
+        return False
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM spark_warning_history WHERE guild_id=%s AND member_id=%s",
+                    (str(guild_id), str(member_id))
+                )
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[db_spark] clear_warning_history: {e}")
+        return False
+
+
+def get_all_warning_history() -> Dict[str, Any]:
+    """
+    Load all warning history rows and return them grouped as:
+        { guild_id: { member_id: { "count": int, "history": [ {reason, time} ] } } }
+    Returns {} if unavailable.
+    """
+    if not is_available():
+        return {}
+    try:
+        with _conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT guild_id, member_id, reason, ts FROM spark_warning_history ORDER BY ts ASC"
+                )
+                rows = cur.fetchall()
+    except Exception as e:
+        print(f"[db_spark] get_all_warning_history: {e}")
+        return {}
+    out: Dict[str, Any] = {}
+    for r in rows:
+        gid = str(r["guild_id"] or "")
+        mid = str(r["member_id"] or "")
+        if not gid or not mid:
+            continue
+        guild = out.setdefault(gid, {})
+        entry = guild.setdefault(mid, {"count": 0, "history": []})
+        ts_val = r["ts"]
+        ts_str = ts_val.strftime("%Y-%m-%d %H:%M:%S") if isinstance(ts_val, datetime) else str(ts_val)
+        entry["history"].append({"reason": r.get("reason") or "", "time": ts_str})
+    for guild in out.values():
+        for entry in guild.values():
+            entry["count"] = len(entry["history"])
+    return out
+
+
+# ---------------------------------------------------------------------------
+# XP / Leveling
+# ---------------------------------------------------------------------------
+def upsert_xp(guild_id: str, user_id: str, xp: int, level: int, messages: int,
+              username: str = "") -> bool:
+    if not is_available():
+        return False
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO spark_xp (guild_id, user_id, username, xp, level, messages, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (guild_id, user_id) DO UPDATE
+                        SET xp = EXCLUDED.xp,
+                            level = EXCLUDED.level,
+                            messages = EXCLUDED.messages,
+                            username = COALESCE(NULLIF(EXCLUDED.username,''), spark_xp.username),
+                            updated_at = NOW()
+                """, (str(guild_id), str(user_id), str(username), int(xp), int(level), int(messages)))
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[db_spark] upsert_xp: {e}")
+        return False
+
+
+def get_xp(guild_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+    if not is_available():
+        return None
+    try:
+        with _conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT xp, level, messages FROM spark_xp WHERE guild_id=%s AND user_id=%s",
+                    (str(guild_id), str(user_id))
+                )
+                row = cur.fetchone()
+        if row:
+            return {"xp": row["xp"], "level": row["level"], "messages": row["messages"]}
+        return None
+    except Exception as e:
+        print(f"[db_spark] get_xp: {e}")
+        return None
+
+
+def get_xp_leaderboard(guild_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+    if not is_available():
+        return []
+    try:
+        with _conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT user_id, username, xp, level, messages FROM spark_xp "
+                    "WHERE guild_id=%s ORDER BY xp DESC LIMIT %s",
+                    (str(guild_id), int(limit))
+                )
+                rows = cur.fetchall()
+        result = []
+        for i, r in enumerate(rows):
+            result.append({
+                "user_id": r["user_id"],
+                "username": r.get("username") or "",
+                "xp": r["xp"],
+                "level": r["level"],
+                "messages": r["messages"],
+                "rank": i + 1,
+            })
+        return result
+    except Exception as e:
+        print(f"[db_spark] get_xp_leaderboard: {e}")
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Leveling config
+# ---------------------------------------------------------------------------
+def upsert_leveling_config(guild_id: str, cfg: Dict[str, Any]) -> bool:
+    if not is_available():
+        return False
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO spark_leveling_config (guild_id, data, updated_at)
+                    VALUES (%s, %s::jsonb, NOW())
+                    ON CONFLICT (guild_id) DO UPDATE
+                        SET data = spark_leveling_config.data || EXCLUDED.data,
+                            updated_at = NOW()
+                """, (str(guild_id), json.dumps(cfg, default=str)))
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[db_spark] upsert_leveling_config: {e}")
+        return False
+
+
+def get_leveling_config(guild_id: str) -> Optional[Dict[str, Any]]:
+    if not is_available():
+        return None
+    try:
+        with _conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT data FROM spark_leveling_config WHERE guild_id=%s",
+                    (str(guild_id),)
+                )
+                row = cur.fetchone()
+        return _parse_jsonb(row["data"]) if row else None
+    except Exception as e:
+        print(f"[db_spark] get_leveling_config: {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------

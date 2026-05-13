@@ -411,6 +411,7 @@ def supabase_save_warning(guild_id, member_id, username, count, reason, timestam
         import db_spark as _ds
         if _ds.is_available():
             _ds.upsert_warning(str(member_id), str(username), int(count), str(guild_id))
+            _ds.add_warning_event(str(guild_id), str(member_id), str(username), str(reason or ""))
     except Exception as _e:
         print(f"⚠️ db_spark save_warning error: {_e}")
     # 2) Supabase mirror
@@ -434,6 +435,7 @@ def supabase_clear_warnings(guild_id, member_id):
         import db_spark as _ds
         if _ds.is_available():
             _ds.delete_warning(str(member_id), str(guild_id))
+            _ds.clear_warning_history(str(guild_id), str(member_id))
     except Exception as _e:
         print(f"⚠️ db_spark clear_warnings error: {_e}")
     # 2) Supabase mirror
