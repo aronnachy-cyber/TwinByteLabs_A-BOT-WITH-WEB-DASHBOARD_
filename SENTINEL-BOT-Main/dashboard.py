@@ -276,25 +276,57 @@ def save_guild_config(guild_id: str, updates: dict) -> None:
             print(f"[dashboard] SO log_channel sync skipped: {_e}")
 
 def _sp4rk_live_state(user_guild_ids=None) -> dict:
-    """Return SP4RK bot guild list filtered to the user's admin guilds."""
+    """Return SP4RK bot guild list filtered to the user's admin guilds.
+
+    Primary source: live Discord bot (accurate member counts, real-time).
+    Fallback: session-cached guild list from OAuth login, so the server
+    picker is always visible even when the bot is offline/reconnecting.
+    """
     out = {"guilds": [], "guilds_count": 0}
+    filter_ids = None
+    if user_guild_ids is not None:
+        filter_ids = {str(x) for x in user_guild_ids if x}
+
     try:
         import main as _main_mod
         b = getattr(_main_mod, "bot", None)
         if b and b.is_ready():
-            filter_ids = None
-            if user_guild_ids is not None:
-                filter_ids = {str(x) for x in user_guild_ids if x}
             guilds = []
             for g in b.guilds:
                 gid_str = str(g.id)
                 if filter_ids is not None and gid_str not in filter_ids:
                     continue
                 guilds.append({"id": gid_str, "name": g.name, "member_count": g.member_count or 0})
-            out["guilds"] = sorted(guilds, key=lambda x: x["member_count"], reverse=True)
+            if guilds:
+                out["guilds"] = sorted(guilds, key=lambda x: x["member_count"], reverse=True)
+                out["guilds_count"] = len(guilds)
+                return out
+    except Exception as e:
+        app.logger.warning(f"[sp4rk_live_state] bot not ready: {e}")
+
+    # Fallback: use the guild list cached in the session at login time so the
+    # server picker stays visible even when the bot is offline or reconnecting.
+    try:
+        from flask import session as _sess
+        cached = _sess.get("user_guilds") or []
+        if cached:
+            guilds = []
+            for g in cached:
+                gid_str = str(g.get("id", ""))
+                if not gid_str:
+                    continue
+                if filter_ids is not None and gid_str not in filter_ids:
+                    continue
+                guilds.append({
+                    "id":           gid_str,
+                    "name":         g.get("name", "Unknown"),
+                    "member_count": g.get("member_count", 0),
+                })
+            out["guilds"] = guilds
             out["guilds_count"] = len(guilds)
     except Exception as e:
-        app.logger.warning(f"[sp4rk_live_state] {e}")
+        app.logger.warning(f"[sp4rk_live_state] session fallback failed: {e}")
+
     return out
 
 def _bot_live_guilds(module_name: str, user_guild_ids=None) -> list:

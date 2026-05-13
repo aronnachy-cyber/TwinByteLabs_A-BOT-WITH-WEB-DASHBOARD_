@@ -2805,7 +2805,10 @@ async function loadGuildConfig() {
 }
 
 function applyConfig(cfg) {
-  const setText  = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
+  // Always set the value — use empty string when the field isn't in the config
+  // so switching from server A to server B properly clears any IDs/values
+  // that server B hasn't configured yet.
+  const setText  = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val !== undefined && val !== null) ? val : ''; };
   const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = (val === 'ON' || val === true); };
   setText('prefix', cfg.prefix); setText('bot_status', cfg.bot_status);
   setText('theme_color', cfg.theme_color); setText('bot_avatar', cfg.bot_avatar);
