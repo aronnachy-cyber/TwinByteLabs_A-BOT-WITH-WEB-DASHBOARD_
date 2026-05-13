@@ -1006,6 +1006,158 @@ def _name_top_entries(entries, guild_id: Optional[str]):
     return out
 
 
+def get_server_growth(guild_id: Optional[str] = None, days: int = 30) -> Dict[str, Any]:
+    """Compute a full server growth analysis for the given guild (or all guilds).
+
+    Returns growth %, retention rate, health score, cumulative trend data,
+    period comparison, and a plain-English summary — ready for the dashboard.
+    """
+    from datetime import date as _date, timedelta as _td
+    state = load_state()
+    today = _date.today()
+
+    def _collect(gids: list) -> tuple:
+        j: Dict[str, int] = {}
+        l: Dict[str, int] = {}
+        m: Dict[str, int] = {}
+        for gid in gids:
+            gs = state["activity_stats"].get(str(gid), {})
+            for d, n in (gs.get("joins_per_day") or {}).items():
+                j[d] = j.get(d, 0) + n
+            for d, n in (gs.get("leaves_per_day") or {}).items():
+                l[d] = l.get(d, 0) + n
+            for d, n in (gs.get("messages_per_day") or {}).items():
+                m[d] = m.get(d, 0) + n
+        return j, l, m
+
+    guild_ids = [str(guild_id)] if guild_id else list(state["activity_stats"].keys())
+    joins, leaves, msgs = _collect(guild_ids)
+
+    # Build date arrays: current period and previous period (for comparison)
+    cur_days  = [(today - _td(days=i)).isoformat() for i in range(days - 1, -1, -1)]
+    prev_days = [(today - _td(days=days + i)).isoformat() for i in range(days - 1, -1, -1)]
+
+    cur_joins  = sum(joins.get(d, 0) for d in cur_days)
+    cur_leaves = sum(leaves.get(d, 0) for d in cur_days)
+    prev_joins = sum(joins.get(d, 0) for d in prev_days)
+    prev_leaves= sum(leaves.get(d, 0) for d in prev_days)
+    net_growth = cur_joins - cur_leaves
+    prev_net   = prev_joins - prev_leaves
+
+    # Live member count from the running bot
+    current_members = 0
+    try:
+        if bot and bot.is_ready():
+            if guild_id:
+                g = bot.get_guild(int(guild_id))
+                current_members = (g.member_count or 0) if g else 0
+            else:
+                current_members = sum((g.member_count or 0) for g in bot.guilds)
+    except Exception:
+        pass
+
+    # Growth %: net change relative to where the server started this period
+    starting_members = max(current_members - net_growth, 1)
+    growth_pct = round((net_growth / starting_members) * 100, 2)
+
+    # Retention = fraction of joiners who didn't leave this same period
+    retention_rate = round((1 - cur_leaves / max(cur_joins, 1)) * 100, 1) if cur_joins > 0 else 100.0
+
+    # Peak join day in the current period
+    peak_day   = max(cur_days, key=lambda d: joins.get(d, 0)) if cur_days else None
+    peak_joins = joins.get(peak_day, 0) if peak_day else 0
+
+    # Trend vs previous period
+    prev_growth_pct = round((prev_net / max(current_members - net_growth - prev_net, 1)) * 100, 2)
+    if growth_pct > prev_growth_pct + 0.5:
+        trend = "up"
+    elif growth_pct < prev_growth_pct - 0.5:
+        trend = "down"
+    else:
+        trend = "flat"
+
+    # Cumulative net-member change day-by-day (for the trend chart)
+    cumulative, running = [], 0
+    for d in cur_days:
+        running += joins.get(d, 0) - leaves.get(d, 0)
+        cumulative.append(running)
+
+    daily_joins  = [joins.get(d, 0) for d in cur_days]
+    daily_leaves = [leaves.get(d, 0) for d in cur_days]
+
+    # Health score 0-100
+    # growth component  (0-40 pts): 8 %+ growth = full 40
+    # retention component (0-35 pts): linear
+    # activity component  (0-25 pts): 10+ msg/day = full 25
+    avg_msg_per_day = sum(msgs.get(d, 0) for d in cur_days) / max(days, 1)
+    growth_score    = min(max(growth_pct * 5, 0), 40)
+    retention_score = (retention_rate / 100.0) * 35
+    activity_score  = min(avg_msg_per_day / 10.0, 1.0) * 25
+    health_score    = min(round(growth_score + retention_score + activity_score), 100)
+
+    if health_score >= 75:
+        health_label, health_color = "Thriving", "ok"
+    elif health_score >= 50:
+        health_label, health_color = "Growing", "warn"
+    elif health_score >= 25:
+        health_label, health_color = "Stable", "muted"
+    else:
+        health_label, health_color = "Needs Attention", "bad"
+
+    # Plain-English summary
+    if net_growth > 0:
+        summary = f"Your server gained {net_growth:+,} members in the last {days} days (+{growth_pct}%). "
+    elif net_growth < 0:
+        summary = f"Your server lost {abs(net_growth):,} members in the last {days} days ({growth_pct}%). "
+    else:
+        summary = f"Member count stayed stable over the last {days} days (0 net change). "
+
+    if cur_joins == 0:
+        summary += "No join events were recorded — make sure the Server Official bot is running. "
+    elif retention_rate >= 80:
+        summary += f"Retention is strong at {retention_rate}%. "
+    elif retention_rate >= 50:
+        summary += f"Retention is moderate at {retention_rate}% — consider running engagement events to reduce leave rate. "
+    else:
+        summary += f"Retention is low at {retention_rate}% — members are leaving faster than they join. Focus on community engagement. "
+
+    if peak_day and peak_joins > 0:
+        summary += f"Peak activity was {peak_day} with {peak_joins} join(s). "
+
+    if trend == "up":
+        summary += f"Growth is accelerating vs the previous {days}-day window ({prev_net:+} then)."
+    elif trend == "down":
+        summary += f"Growth slowed vs the previous {days}-day window ({prev_net:+} then). Consider promotion or events."
+    else:
+        summary += f"Growth is consistent with the previous {days}-day window."
+
+    return {
+        "days":              days,
+        "guild_id":          str(guild_id) if guild_id else None,
+        "current_members":   current_members,
+        "net_growth":        net_growth,
+        "growth_pct":        growth_pct,
+        "total_joins":       cur_joins,
+        "total_leaves":      cur_leaves,
+        "avg_joins_per_day": round(cur_joins / max(days, 1), 1),
+        "avg_leaves_per_day":round(cur_leaves / max(days, 1), 1),
+        "retention_rate":    retention_rate,
+        "peak_day":          peak_day,
+        "peak_joins":        peak_joins,
+        "trend":             trend,
+        "prev_net_growth":   prev_net,
+        "prev_growth_pct":   prev_growth_pct,
+        "health_score":      health_score,
+        "health_label":      health_label,
+        "health_color":      health_color,
+        "summary":           summary,
+        "period_days":       cur_days,
+        "cumulative_growth": cumulative,
+        "daily_joins":       daily_joins,
+        "daily_leaves":      daily_leaves,
+    }
+
+
 def get_analytics(guild_id: Optional[str] = None) -> Dict[str, Any]:
     state = load_state()
     if guild_id:

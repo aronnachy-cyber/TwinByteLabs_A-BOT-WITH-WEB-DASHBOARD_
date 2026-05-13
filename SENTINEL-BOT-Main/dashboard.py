@@ -1537,6 +1537,19 @@ def so_api_analytics():
     return jsonify({"ok": True, "data": so.get_analytics(guild_id)})
 
 
+@app.route('/server-official/api/growth', methods=['GET'])
+def so_api_growth():
+    """Server growth analysis: growth %, retention, health score, trend chart data."""
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = request.args.get('guild_id') or None
+    try:
+        days = max(7, min(int(request.args.get('days', 30)), 60))
+    except (TypeError, ValueError):
+        days = 30
+    return jsonify({"ok": True, "data": so.get_server_growth(guild_id, days)})
+
+
 @app.route('/server-official/api/overview', methods=['GET'])
 def so_api_overview():
     so, err = _so_require_login()
