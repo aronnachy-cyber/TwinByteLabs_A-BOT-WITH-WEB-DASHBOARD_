@@ -136,6 +136,14 @@ CREATE TABLE IF NOT EXISTS spark_leveling_config (
     data        JSONB NOT NULL DEFAULT '{}'::jsonb,
     updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS spark_json_store (
+    scope       TEXT NOT NULL,
+    key         TEXT NOT NULL DEFAULT 'global',
+    data        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (scope, key)
+);
 """
 
 
@@ -817,6 +825,50 @@ def get_leveling_config(guild_id: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         print(f"[db_spark] get_leveling_config: {e}")
         return None
+
+
+# ---------------------------------------------------------------------------
+# Generic JSON blob store  (spark_json_store)
+# ---------------------------------------------------------------------------
+def get_blob(scope: str, key: str = "global") -> Optional[Any]:
+    """Return the stored value for (scope, key), or None if not found."""
+    if not is_available():
+        return None
+    try:
+        with _conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT data FROM spark_json_store WHERE scope=%s AND key=%s",
+                    (scope, key),
+                )
+                row = cur.fetchone()
+        return _parse_jsonb(row["data"]) if row else None
+    except Exception as e:
+        print(f"[db_spark] get_blob({scope},{key}): {e}")
+        return None
+
+
+def set_blob(scope: str, data: Any, key: str = "global") -> bool:
+    """Upsert a value into spark_json_store."""
+    if not is_available():
+        return False
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO spark_json_store (scope, key, data, updated_at)
+                    VALUES (%s, %s, %s::jsonb, NOW())
+                    ON CONFLICT (scope, key) DO UPDATE
+                        SET data = EXCLUDED.data, updated_at = NOW()
+                    """,
+                    (scope, key, json.dumps(data, default=str)),
+                )
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[db_spark] set_blob({scope},{key}): {e}")
+        return False
 
 
 # ---------------------------------------------------------------------------

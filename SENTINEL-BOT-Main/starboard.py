@@ -12,7 +12,19 @@ DEFAULT_CFG = {
     "self_star": False
 }
 
+_SB_SCOPE = {"starboard_config.json": "starboard_config", "starboard_tracked.json": "starboard_tracked"}
+
 def _load(path, default=None):
+    scope = _SB_SCOPE.get(os.path.basename(path))
+    if scope:
+        try:
+            import db_spark as _ds
+            if _ds.is_available():
+                val = _ds.get_blob(scope)
+                if val is not None:
+                    return val
+        except Exception:
+            pass
     if os.path.exists(path):
         try:
             return json.load(open(path, encoding="utf-8"))
@@ -21,6 +33,14 @@ def _load(path, default=None):
     return (default or {}).copy()
 
 def _save(path, data):
+    scope = _SB_SCOPE.get(os.path.basename(path))
+    if scope:
+        try:
+            import db_spark as _ds
+            if _ds.is_available():
+                _ds.set_blob(scope, data)
+        except Exception:
+            pass
     tmp = path + ".tmp"
     try:
         with open(tmp, "w", encoding="utf-8") as f:

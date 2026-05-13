@@ -3458,6 +3458,14 @@ _REMIND_FILE = _pathlib.Path(__file__).parent / "sp4rk_reminders.json"
 
 def _load_reminders() -> list:
     try:
+        import db_spark as _ds
+        if _ds.is_available():
+            val = _ds.get_blob("reminders")
+            if val is not None:
+                return val if isinstance(val, list) else val.get("items", [])
+    except Exception:
+        pass
+    try:
         if _REMIND_FILE.exists():
             import json as _json
             return _json.loads(_REMIND_FILE.read_text()) or []
@@ -3466,6 +3474,12 @@ def _load_reminders() -> list:
     return []
 
 def _save_reminders(items: list) -> None:
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.set_blob("reminders", items)
+    except Exception:
+        pass
     try:
         import json as _json
         _REMIND_FILE.write_text(_json.dumps(items))

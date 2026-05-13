@@ -5,6 +5,14 @@ from datetime import datetime, timezone
 _FILE = "afk_data.json"
 
 def _load():
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            val = _ds.get_blob("afk")
+            if val is not None:
+                return val
+    except Exception:
+        pass
     if os.path.exists(_FILE):
         try:
             return json.load(open(_FILE, encoding="utf-8"))
@@ -13,6 +21,12 @@ def _load():
     return {}
 
 def _save(data):
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.set_blob("afk", data)
+    except Exception:
+        pass
     tmp = _FILE + ".tmp"
     try:
         with open(tmp, "w", encoding="utf-8") as f:

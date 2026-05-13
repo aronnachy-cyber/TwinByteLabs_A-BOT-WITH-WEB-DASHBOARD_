@@ -20,23 +20,40 @@ def _get_supabase():
         return None
 
 
-# ── Local JSON fallback ──────────────────────────────────────────────────────
+# ── Postgres + Local JSON fallback ──────────────────────────────────────────
 
 def _local_load():
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            val = _ds.get_blob("giveaways")
+            if val is not None:
+                return val
+    except Exception:
+        pass
     if os.path.exists(GIVEAWAY_FILE):
         try:
             with open(GIVEAWAY_FILE, "r") as f:
                 return json.load(f)
         except Exception:
-            return {"giveaways": []}
+            pass
     return {"giveaways": []}
 
 
 def _local_save(data):
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.set_blob("giveaways", data)
+    except Exception:
+        pass
     tmp = GIVEAWAY_FILE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=4)
-    os.replace(tmp, GIVEAWAY_FILE)
+    try:
+        with open(tmp, "w") as f:
+            json.dump(data, f, indent=4)
+        os.replace(tmp, GIVEAWAY_FILE)
+    except Exception:
+        pass
 
 
 def _row_to_dict(row):

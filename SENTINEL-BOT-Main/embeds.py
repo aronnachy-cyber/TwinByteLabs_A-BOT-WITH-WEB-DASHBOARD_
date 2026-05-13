@@ -428,6 +428,16 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _load() -> dict:
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            val = _ds.get_blob("embed_templates")
+            if val is not None:
+                val.setdefault("global", {})
+                val.setdefault("guilds", {})
+                return val
+    except Exception:
+        pass
     if not os.path.exists(_FILE):
         return {"global": {}, "guilds": {}}
     try:
@@ -442,10 +452,19 @@ def _load() -> dict:
 
 
 def _save(data: dict) -> None:
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.set_blob("embed_templates", data)
+    except Exception:
+        pass
     tmp = _FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    os.replace(tmp, _FILE)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, _FILE)
+    except Exception:
+        pass
 
 
 # ─────────────────────────────────────────────────────────────────────────────

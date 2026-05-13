@@ -11,9 +11,17 @@ def _get_supabase():
     except Exception:
         return None
 
-# ── Local JSON fallback (used only if Supabase is unavailable) ──────────────
+# ── Postgres + Local JSON fallback ──────────────────────────────────────────
 
 def _local_load():
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            val = _ds.get_blob("reaction_roles")
+            if val is not None:
+                return val
+    except Exception:
+        pass
     if os.path.exists(_LOCAL_FILE):
         try:
             return json.load(open(_LOCAL_FILE))
@@ -22,7 +30,12 @@ def _local_load():
     return {"rules": []}
 
 def _local_save(data):
-    """Atomic write — temp file + os.replace so a crash mid-write can't truncate the JSON."""
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.set_blob("reaction_roles", data)
+    except Exception:
+        pass
     tmp = _LOCAL_FILE + ".tmp"
     try:
         with open(tmp, "w", encoding="utf-8") as f:

@@ -60,6 +60,14 @@ def _path(bot: str) -> str:
 
 
 def _load(bot: str) -> dict:
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            val = _ds.get_blob("custom_commands", bot)
+            if val is not None:
+                return val
+    except Exception:
+        pass
     p = _path(bot)
     if not os.path.exists(p):
         return {}
@@ -71,11 +79,20 @@ def _load(bot: str) -> dict:
 
 
 def _save(bot: str, data: dict) -> None:
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.set_blob("custom_commands", data, key=bot)
+    except Exception:
+        pass
     p = _path(bot)
     tmp = p + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=2)
-    os.replace(tmp, p)
+    try:
+        with open(tmp, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, p)
+    except Exception:
+        pass
 
 
 def _normalise_trigger(t: str) -> str:

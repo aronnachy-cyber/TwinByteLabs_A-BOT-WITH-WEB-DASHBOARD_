@@ -11,6 +11,14 @@ def _get_supabase():
         return None
 
 def _local_load():
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            val = _ds.get_blob("mention_reactions")
+            if val is not None:
+                return val
+    except Exception:
+        pass
     if os.path.exists(_LOCAL_FILE):
         try:
             return json.load(open(_LOCAL_FILE, encoding="utf-8"))
@@ -19,6 +27,12 @@ def _local_load():
     return {"rules": []}
 
 def _local_save(data):
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.set_blob("mention_reactions", data)
+    except Exception:
+        pass
     tmp = _LOCAL_FILE + ".tmp"
     try:
         with open(tmp, "w", encoding="utf-8") as f:

@@ -25,23 +25,40 @@ def _get_supabase():
         return None
 
 
-# ── Local JSON fallback ──────────────────────────────────────────────────────
+# ── Postgres + Local JSON fallback ──────────────────────────────────────────
 
 def _local_load():
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            val = _ds.get_blob("autoresponder")
+            if val is not None:
+                return val
+    except Exception:
+        pass
     if os.path.exists(AUTORESPONDER_FILE):
         try:
             with open(AUTORESPONDER_FILE, "r") as f:
                 return json.load(f)
         except Exception:
-            return {"responses": []}
+            pass
     return {"responses": []}
 
 
 def _local_save(data):
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.set_blob("autoresponder", data)
+    except Exception:
+        pass
     tmp = AUTORESPONDER_FILE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=4)
-    os.replace(tmp, AUTORESPONDER_FILE)
+    try:
+        with open(tmp, "w") as f:
+            json.dump(data, f, indent=4)
+        os.replace(tmp, AUTORESPONDER_FILE)
+    except Exception:
+        pass
 
 
 def _row_to_dict(row):

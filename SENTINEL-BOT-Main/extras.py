@@ -40,7 +40,22 @@ from discord.ext import commands
 # 🗃️  ATOMIC JSON HELPERS
 # ============================================================================
 
+_EXTRAS_SCOPES = {
+    "tags.json":       "tags",
+    "afk.json":        "extras_afk",
+    "highlights.json": "highlights",
+}
+
+
 def _atomic_write(path: str, data) -> None:
+    scope = _EXTRAS_SCOPES.get(os.path.basename(path))
+    if scope:
+        try:
+            import db_spark as _ds
+            if _ds.is_available():
+                _ds.set_blob(scope, data)
+        except Exception:
+            pass
     tmp = path + ".tmp"
     try:
         with open(tmp, "w", encoding="utf-8") as f:
@@ -56,6 +71,16 @@ def _atomic_write(path: str, data) -> None:
 
 
 def _load_json(path: str) -> Dict:
+    scope = _EXTRAS_SCOPES.get(os.path.basename(path))
+    if scope:
+        try:
+            import db_spark as _ds
+            if _ds.is_available():
+                val = _ds.get_blob(scope)
+                if val is not None:
+                    return val
+        except Exception:
+            pass
     if not os.path.exists(path):
         return {}
     try:
