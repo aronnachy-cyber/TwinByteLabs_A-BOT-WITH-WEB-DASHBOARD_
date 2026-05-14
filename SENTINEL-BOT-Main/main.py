@@ -1444,6 +1444,13 @@ async def on_ready():
         await giveaway_mod.resume_pending(bot)
     except Exception as e:
         print(f"[GIVEAWAY] resume_pending error: {e}")
+    # Check security_2fa setting for all connected guilds on startup.
+    for guild in bot.guilds:
+        gcfg = get_config_for_guild(str(guild.id))
+        try:
+            await security.check_security_2fa(bot, guild, gcfg, log_callback=dlog)
+        except Exception as _e:
+            print(f"[2FA] startup check error: {_e}")
     dlog("✅ BOT-START", f"SP4RK online as {bot.user}")
     print(f"✅ SP4RK Online! Logged in as {bot.user}")
 
@@ -1463,6 +1470,11 @@ async def on_member_update(before, after):
     refresh_config()
     gcfg = get_config_for_guild(str(after.guild.id))
     await security.role_monitor_log(bot, gcfg, after, before, after, log_callback=dlog)
+    # Re-check 2FA enforcement whenever a member's roles change (e.g. new admin added).
+    try:
+        await security.check_security_2fa(bot, after.guild, gcfg, log_callback=dlog)
+    except Exception as _e:
+        print(f"[2FA] member_update check error: {_e}")
 
 @bot.event
 async def on_member_ban(guild, user):

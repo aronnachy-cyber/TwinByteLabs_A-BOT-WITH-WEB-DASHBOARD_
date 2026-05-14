@@ -249,11 +249,19 @@ async def _instant_mute(message, reason, minutes=AUTOMUTE_MINUTES):
 
 
 
-async def auto_dm_warning_user(member, reason, guild_name):
-    """Disabled — SP4RK no longer DMs offending users.
-    Warnings are sent only to staff via the log channel/webhook.
-    Manual `/warn` by a member or staff is the only way to notify a user directly."""
-    return
+async def auto_dm_warning_user(member, reason, guild_name, count=None):
+    """DM the offending user their warning when auto_dm_warning is ON in the dashboard."""
+    try:
+        text = (
+            f"⚠️ **Warning"
+            + (f" #{count}" if count else "")
+            + f"** — Your message in **{guild_name}** was removed.\n"
+            f"> **Reason:** {reason}\n"
+            f"Please follow the server rules to avoid further action."
+        )
+        await member.send(text)
+    except Exception:
+        pass  # DMs may be closed — in-channel warning is the fallback.
 
 async def apply_graduated_punishment(message, config, count, add_warning_fn):
     """Apply escalating punishments based on warning count.
@@ -523,6 +531,12 @@ async def handle_message(message, config, add_warning_fn=None):
                 await channel.send(warn_text, delete_after=15)
             except Exception as e:
                 print(f"[automod] in-channel notify failed: {e}")
+            if count and config.get("auto_dm_warning") == "ON":
+                await auto_dm_warning_user(
+                    author, reason,
+                    message.guild.name if message.guild else "the server",
+                    count=count,
+                )
             await send_webhook_log(config, log_title, log_desc)
             return True
 
@@ -539,16 +553,13 @@ async def handle_message(message, config, add_warning_fn=None):
         except Exception as e:
             print(f"[automod] in-channel warn failed: {e}")
 
-        # Also DM the user so they cannot miss the warning.
-        if count:
-            try:
-                await author.send(
-                    f"⚠️ **Warning #{count}** — Your message in **{message.guild.name}** was removed.\n"
-                    f"> **Reason:** {reason}\n"
-                    f"Please follow the server rules to avoid further action."
-                )
-            except Exception:
-                pass  # DMs may be closed; in-channel message is the fallback.
+        # DM the user if the auto_dm_warning toggle is ON in the dashboard.
+        if count and config.get("auto_dm_warning") == "ON":
+            await auto_dm_warning_user(
+                author, reason,
+                message.guild.name if message.guild else "the server",
+                count=count,
+            )
 
         if count and (config.get("automod_on") == "ON" or config.get("grad_punish") == "ON"):
             await apply_graduated_punishment(message, config, count, add_warning_fn)

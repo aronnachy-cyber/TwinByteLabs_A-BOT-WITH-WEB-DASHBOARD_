@@ -117,6 +117,37 @@ async def role_monitor_log(bot, config, member, before, after, log_callback=None
     if log_callback:
         log_callback("🔔 ROLE-UPDATE", f"{member} — roles changed")
 
+async def check_security_2fa(bot, guild, config, log_callback=None):
+    """When security_2fa is ON, verify the server requires 2FA for moderation actions.
+    Logs a warning to the log channel and DMs the owner if 2FA is not enforced."""
+    if config.get("security_2fa") != "ON":
+        return
+
+    # guild.mfa_level == 1 means 2FA is required for admin/mod actions.
+    if getattr(guild, "mfa_level", 0) != 1:
+        msg = (
+            f"⚠️ **Security Alert — 2FA Not Enforced**\n"
+            f"Your server **{guild.name}** has **Security 2FA** enabled in SP4RK, "
+            f"but Discord's server-level 2FA requirement is currently **OFF**.\n"
+            f"Enable it at: **Server Settings → Safety Setup → Require 2FA for moderator actions**."
+        )
+        log_channel_id = config.get("log_channel", "").strip()
+        if log_channel_id:
+            try:
+                channel = bot.get_channel(int(log_channel_id))
+                if channel:
+                    await channel.send(msg)
+            except Exception as e:
+                print(f"[2FA] log send error: {e}")
+        try:
+            owner = guild.owner or await guild.fetch_member(guild.owner_id)
+            if owner:
+                await owner.send(msg)
+        except Exception:
+            pass
+        if log_callback:
+            log_callback("🔐 2FA-CHECK", f"{guild.name} — 2FA not enforced")
+
 async def toggle_lockdown(guild, config, enable=True, log_callback=None):
     if config.get("temp_lockdown") != "ON" and enable:
         return
