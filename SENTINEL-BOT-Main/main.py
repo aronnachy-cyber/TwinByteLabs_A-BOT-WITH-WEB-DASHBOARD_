@@ -33,16 +33,15 @@ BOT_START_TIME = datetime.utcnow()
 
 # ---------------- CONFIG LOADER ----------------
 def load_config():
-    dashboard_url = os.environ.get("DASHBOARD_URL", "").strip().rstrip("/")
-    if dashboard_url:
-        try:
-            res = requests.get(f"{dashboard_url}/api/bot_config", timeout=5)
-            if res.ok:
-                data = res.json()
-                if isinstance(data, dict):
-                    return data
-        except Exception as e:
-            print(f"Dashboard config fetch error: {e}")
+    # The bot and dashboard run in the same process — read config from the
+    # shared in-memory dict directly instead of making an HTTP self-request
+    # that would queue up against the single Flask worker and block dashboards.
+    try:
+        import dashboard as _dash
+        if isinstance(_dash.config, dict) and _dash.config:
+            return dict(_dash.config)
+    except Exception:
+        pass
     if not os.path.exists('settings.json'):
         return {}
     with open('settings.json', 'r') as f:
@@ -52,17 +51,13 @@ def load_config():
             return {}
 
 def refresh_config():
-    """Reload config from Supabase (via dashboard module) so bot always has the latest settings."""
+    """Reload config from the dashboard's in-memory dict (same process, no HTTP)."""
     global config
     try:
         import dashboard as _dash
-        if _dash.supabase:
-            _dash.load_config_from_supabase()
-            config = {**DEFAULT_CONFIG, **_dash.config}
-        else:
-            config = {**DEFAULT_CONFIG, **load_config()}
+        config = {**DEFAULT_CONFIG, **_dash.config}
     except Exception as e:
-        print(f"refresh_config Supabase error, falling back to settings.json: {e}")
+        print(f"refresh_config error, falling back to settings.json: {e}")
         config = {**DEFAULT_CONFIG, **load_config()}
 
 DEFAULT_CONFIG = {

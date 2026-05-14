@@ -84,7 +84,11 @@ def _refresh_discord_profile():
 
     Called on every page load (non-API, non-static) but rate-limited by
     _DISCORD_REFRESH_INTERVAL so it only calls Discord once every 5 minutes.
-    Updates session in-place so all templates immediately see the fresh data.
+
+    Both Discord API calls run in parallel (ThreadPoolExecutor) so the total
+    wall-clock wait is max(t_profile, t_guilds) instead of their sum.
+    Timeouts are kept tight (3 s each) so a slow Discord response never
+    blocks the Flask worker for more than ~3 seconds.
     """
     if not session.get('logged_in'):
         return
@@ -97,54 +101,66 @@ def _refresh_discord_profile():
     if now - last < _DISCORD_REFRESH_INTERVAL:
         return  # still fresh — skip
 
-    try:
-        # ── 1. Fetch user profile ──────────────────────────────────────────
-        user_res = http_requests.get(
-            f"{DISCORD_API_BASE}/users/@me",
-            headers={'Authorization': f'Bearer {access_token}'},
-            timeout=5,
-        )
-        if user_res.status_code == 401:
-            # Token expired/revoked — clear it so the user sees a re-login prompt
-            session.pop('discord_access_token', None)
-            session.pop('_discord_refresh_ts', None)
-            session.modified = True
-            return
-        if user_res.status_code == 200:
-            discord_user = user_res.json()
-            discord_id       = str(discord_user.get('id', '') or '')
-            discord_username = discord_user.get('username', '') or ''
-            discord_global   = discord_user.get('global_name') or discord_username
-            discord_avatar   = discord_user.get('avatar') or ''
-            avatar_url = (
-                f"https://cdn.discordapp.com/avatars/{discord_id}/{discord_avatar}.png"
-                if discord_avatar and discord_id else ''
-            )
-            if discord_global:
-                session['user_name']   = discord_global
-            if avatar_url:
-                session['user_avatar'] = avatar_url
-            # Keep the persisted user record up-to-date too.
-            if discord_id:
-                try:
-                    u = find_user_by_discord_id(discord_id)
-                    if u:
-                        if discord_global:
-                            u['name'] = discord_global
-                            u['discord_username'] = discord_username
-                        if avatar_url:
-                            u['avatar_url'] = avatar_url
-                        save_single_user(u)
-                except Exception:
-                    pass
+    headers = {'Authorization': f'Bearer {access_token}'}
 
-        # ── 2. Fetch admin/owner guild list ───────────────────────────────
-        guilds_res = http_requests.get(
-            f"{DISCORD_API_BASE}/users/@me/guilds",
-            headers={'Authorization': f'Bearer {access_token}'},
-            timeout=5,
-        )
-        if guilds_res.status_code == 200:
+    def _fetch_profile():
+        return http_requests.get(
+            f"{DISCORD_API_BASE}/users/@me", headers=headers, timeout=3)
+
+    def _fetch_guilds():
+        return http_requests.get(
+            f"{DISCORD_API_BASE}/users/@me/guilds", headers=headers, timeout=3)
+
+    try:
+        import concurrent.futures as _cf
+        with _cf.ThreadPoolExecutor(max_workers=2) as _pool:
+            _f_profile = _pool.submit(_fetch_profile)
+            _f_guilds  = _pool.submit(_fetch_guilds)
+            try:
+                user_res = _f_profile.result(timeout=4)
+            except Exception:
+                user_res = None
+            try:
+                guilds_res = _f_guilds.result(timeout=4)
+            except Exception:
+                guilds_res = None
+
+        # ── 1. Process user profile ────────────────────────────────────────
+        if user_res is not None:
+            if user_res.status_code == 401:
+                session.pop('discord_access_token', None)
+                session.pop('_discord_refresh_ts', None)
+                session.modified = True
+                return
+            if user_res.status_code == 200:
+                discord_user     = user_res.json()
+                discord_id       = str(discord_user.get('id', '') or '')
+                discord_username = discord_user.get('username', '') or ''
+                discord_global   = discord_user.get('global_name') or discord_username
+                discord_avatar   = discord_user.get('avatar') or ''
+                avatar_url = (
+                    f"https://cdn.discordapp.com/avatars/{discord_id}/{discord_avatar}.png"
+                    if discord_avatar and discord_id else ''
+                )
+                if discord_global:
+                    session['user_name'] = discord_global
+                if avatar_url:
+                    session['user_avatar'] = avatar_url
+                if discord_id:
+                    try:
+                        u = find_user_by_discord_id(discord_id)
+                        if u:
+                            if discord_global:
+                                u['name'] = discord_global
+                                u['discord_username'] = discord_username
+                            if avatar_url:
+                                u['avatar_url'] = avatar_url
+                            save_single_user(u)
+                    except Exception:
+                        pass
+
+        # ── 2. Process guild list ──────────────────────────────────────────
+        if guilds_res is not None and guilds_res.status_code == 200:
             MANAGE_GUILD = 0x20
             ADMINISTRATOR = 0x8
             user_admin_guild_ids = []
@@ -2069,7 +2085,7 @@ def so_api_setup_template():
         return True
 
     fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
-    ok = fut.result(timeout=60)
+    ok = fut.result(timeout=25)
     if not ok:
         return jsonify({"ok": False, "error": "Bot lacks permissions to apply template"}), 403
     so.add_setup_history(gid, f"template:{template}", summary)
