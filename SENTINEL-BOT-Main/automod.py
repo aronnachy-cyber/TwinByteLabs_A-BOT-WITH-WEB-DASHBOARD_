@@ -303,9 +303,19 @@ async def apply_graduated_punishment(message, config, count, add_warning_fn):
         return
 
     # ---- NEW Automod chart (takes precedence) ----
+    # Thresholds and durations are read from config so they can be updated
+    # from the dashboard without restarting the bot.
     if automod_on:
         try:
-            if count >= 30:
+            mute1_warns   = int(config.get("automod_mute1_warns",   5))
+            mute1_mins    = int(config.get("automod_mute1_mins",    5))
+            mute2_warns   = int(config.get("automod_mute2_warns",  10))
+            mute2_mins    = int(config.get("automod_mute2_mins",   10))
+            tempban_warns = int(config.get("automod_tempban_warns", 20))
+            tempban_mins  = int(config.get("automod_tempban_mins",  30))
+            kick_warns    = int(config.get("automod_kick_warns",    30))
+
+            if count >= kick_warns:
                 await member.kick(reason=f"SP4RK Automod: Auto-kick ({count} warnings)")
                 await message.channel.send(
                     f"👢 {member.mention} has been **kicked** after {count} warnings.",
@@ -315,56 +325,55 @@ async def apply_graduated_punishment(message, config, count, add_warning_fn):
                     config, "👢 Automod Auto-Kick",
                     f"**User:** {member} ({member.id})\n**Warnings:** {count}",
                 )
-            elif count >= 20:
-                # 30-minute tempban: real ban + scheduled unban via background task.
+            elif count >= tempban_warns:
                 await member.ban(
-                    reason=f"SP4RK Automod: 30-min tempban ({count} warnings)",
+                    reason=f"SP4RK Automod: {tempban_mins}-min tempban ({count} warnings)",
                     delete_message_days=0,
                 )
                 await message.channel.send(
-                    f"⛔ {member.mention} has been **temp-banned for 30 minutes** ({count} warnings).",
+                    f"⛔ {member.mention} has been **temp-banned for {tempban_mins} minutes** ({count} warnings).",
                     delete_after=10,
                 )
                 await send_webhook_log(
-                    config, "⛔ Automod Tempban (30 min)",
+                    config, f"⛔ Automod Tempban ({tempban_mins} min)",
                     f"**User:** {member} ({member.id})\n**Warnings:** {count}",
                 )
 
-                async def _unban_later(g, m_id, mention):
+                async def _unban_later(g, m_id, mins=tempban_mins):
                     try:
-                        await asyncio.sleep(30 * 60)
+                        await asyncio.sleep(mins * 60)
                         await g.unban(
                             discord.Object(id=m_id),
-                            reason="SP4RK Automod: 30-min tempban expired",
+                            reason=f"SP4RK Automod: {mins}-min tempban expired",
                         )
                         await send_webhook_log(
                             config, "✅ Automod Tempban Expired",
-                            f"**User ID:** {m_id} — auto-unbanned after 30 minutes.",
+                            f"**User ID:** {m_id} — auto-unbanned after {mins} minutes.",
                         )
                     except Exception as e:
                         print(f"[automod] tempban auto-unban failed: {e}")
 
-                asyncio.create_task(_unban_later(guild, member.id, member.mention))
-            elif count >= 10:
-                duration = discord.utils.utcnow() + timedelta(minutes=10)
-                await member.timeout(duration, reason=f"SP4RK Automod: 10-min mute ({count} warnings)")
+                asyncio.create_task(_unban_later(guild, member.id))
+            elif count >= mute2_warns:
+                duration = discord.utils.utcnow() + timedelta(minutes=mute2_mins)
+                await member.timeout(duration, reason=f"SP4RK Automod: {mute2_mins}-min mute ({count} warnings)")
                 await message.channel.send(
-                    f"⏱️ {member.mention} has been **muted for 10 minutes** ({count} warnings).",
+                    f"⏱️ {member.mention} has been **muted for {mute2_mins} minutes** ({count} warnings).",
                     delete_after=10,
                 )
                 await send_webhook_log(
-                    config, "⏱️ Automod Mute (10 min)",
+                    config, f"⏱️ Automod Mute ({mute2_mins} min)",
                     f"**User:** {member} ({member.id})\n**Warnings:** {count}",
                 )
-            elif count >= 5:
-                duration = discord.utils.utcnow() + timedelta(minutes=5)
-                await member.timeout(duration, reason=f"SP4RK Automod: 5-min mute ({count} warnings)")
+            elif count >= mute1_warns:
+                duration = discord.utils.utcnow() + timedelta(minutes=mute1_mins)
+                await member.timeout(duration, reason=f"SP4RK Automod: {mute1_mins}-min mute ({count} warnings)")
                 await message.channel.send(
-                    f"⏱️ {member.mention} has been **muted for 5 minutes** ({count} warnings).",
+                    f"⏱️ {member.mention} has been **muted for {mute1_mins} minutes** ({count} warnings).",
                     delete_after=10,
                 )
                 await send_webhook_log(
-                    config, "⏱️ Automod Mute (5 min)",
+                    config, f"⏱️ Automod Mute ({mute1_mins} min)",
                     f"**User:** {member} ({member.id})\n**Warnings:** {count}",
                 )
         except discord.Forbidden:

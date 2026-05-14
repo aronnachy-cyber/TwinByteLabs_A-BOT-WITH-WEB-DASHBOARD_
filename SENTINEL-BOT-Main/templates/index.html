@@ -1209,19 +1209,69 @@ html.bl-compact .page-header { margin-bottom: 18px; }
         <label class="toggle"><input type="checkbox" id="automod_on" {% if config.get('automod_on')=='ON' %}checked{% endif %}><span class="slider"></span></label>
       </div>
       <div style="margin-top:14px;background:rgba(192,132,252,0.08);border:1px solid rgba(192,132,252,0.25);border-radius:10px;padding:12px 14px;">
-        <div style="font-weight:600;color:#c084fc;margin-bottom:8px;font-size:.88rem;">
-          <i class="fas fa-list-ol"></i> Escalation chart
+        <div style="font-weight:600;color:#c084fc;margin-bottom:10px;font-size:.88rem;">
+          <i class="fas fa-list-ol"></i> Escalation chart — edit any threshold or duration
         </div>
-        <table style="width:100%;font-size:.85rem;border-collapse:collapse;">
-          <tr><td style="padding:4px 0;color:var(--muted);">5 warnings</td>
-              <td style="padding:4px 0;text-align:right;">⏱️ 5-minute mute</td></tr>
-          <tr><td style="padding:4px 0;color:var(--muted);">10 warnings</td>
-              <td style="padding:4px 0;text-align:right;">⏱️ 10-minute mute</td></tr>
-          <tr><td style="padding:4px 0;color:var(--muted);">20 warnings</td>
-              <td style="padding:4px 0;text-align:right;">⛔ 30-minute tempban</td></tr>
-          <tr><td style="padding:4px 0;color:var(--muted);">30 warnings</td>
-              <td style="padding:4px 0;text-align:right;">👢 kick</td></tr>
+        <table style="width:100%;font-size:.84rem;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="padding:4px 6px;color:var(--muted);font-weight:600;text-align:left;">At warnings</th>
+              <th style="padding:4px 6px;color:var(--muted);font-weight:600;text-align:center;">Action</th>
+              <th style="padding:4px 6px;color:var(--muted);font-weight:600;text-align:right;">Duration (min)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:6px 4px;">
+                <input type="number" id="automod_mute1_warns" min="1" max="999"
+                  value="{{ config.get('automod_mute1_warns', 5) }}"
+                  style="width:64px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:.84rem;">
+              </td>
+              <td style="padding:6px 4px;text-align:center;">⏱️ Mute</td>
+              <td style="padding:6px 4px;text-align:right;">
+                <input type="number" id="automod_mute1_mins" min="1" max="10080"
+                  value="{{ config.get('automod_mute1_mins', 5) }}"
+                  style="width:64px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:.84rem;">
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 4px;">
+                <input type="number" id="automod_mute2_warns" min="1" max="999"
+                  value="{{ config.get('automod_mute2_warns', 10) }}"
+                  style="width:64px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:.84rem;">
+              </td>
+              <td style="padding:6px 4px;text-align:center;">⏱️ Mute</td>
+              <td style="padding:6px 4px;text-align:right;">
+                <input type="number" id="automod_mute2_mins" min="1" max="10080"
+                  value="{{ config.get('automod_mute2_mins', 10) }}"
+                  style="width:64px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:.84rem;">
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 4px;">
+                <input type="number" id="automod_tempban_warns" min="1" max="999"
+                  value="{{ config.get('automod_tempban_warns', 20) }}"
+                  style="width:64px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:.84rem;">
+              </td>
+              <td style="padding:6px 4px;text-align:center;">⛔ Tempban</td>
+              <td style="padding:6px 4px;text-align:right;">
+                <input type="number" id="automod_tempban_mins" min="1" max="10080"
+                  value="{{ config.get('automod_tempban_mins', 30) }}"
+                  style="width:64px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:.84rem;">
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 4px;">
+                <input type="number" id="automod_kick_warns" min="1" max="999"
+                  value="{{ config.get('automod_kick_warns', 30) }}"
+                  style="width:64px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:.84rem;">
+              </td>
+              <td style="padding:6px 4px;text-align:center;">👢 Kick</td>
+              <td style="padding:6px 4px;text-align:right;color:var(--muted);font-size:.78rem;">—</td>
+            </tr>
+          </tbody>
         </table>
+        <p style="margin-top:8px;color:var(--muted);font-size:.76rem;">Changes take effect after clicking Save Settings.</p>
       </div>
     </div>
 
@@ -2598,6 +2648,13 @@ function collectData() {
     auto_custom_blacklist: getText('auto_custom_blacklist'), auto_allowlist: getText('auto_allowlist'), webhook_log: getText('webhook_log'),
     warning_limit: parseInt(getText('warning_limit')) || 30, owner_approval: getCheck('owner_approval'),
     automod_on: getCheck('automod_on'),
+    automod_mute1_warns:   parseInt(getText('automod_mute1_warns'))   || 5,
+    automod_mute1_mins:    parseInt(getText('automod_mute1_mins'))    || 5,
+    automod_mute2_warns:   parseInt(getText('automod_mute2_warns'))   || 10,
+    automod_mute2_mins:    parseInt(getText('automod_mute2_mins'))    || 10,
+    automod_tempban_warns: parseInt(getText('automod_tempban_warns')) || 20,
+    automod_tempban_mins:  parseInt(getText('automod_tempban_mins'))  || 30,
+    automod_kick_warns:    parseInt(getText('automod_kick_warns'))    || 30,
     anti_raid: getCheck('anti_raid'), security_2fa: getCheck('security_2fa'),
     role_monitor: getCheck('role_monitor'), mass_ban_prevent: getCheck('mass_ban_prevent'),
     temp_lockdown: getCheck('temp_lockdown'), banned_words: getText('banned_words'),
@@ -2849,6 +2906,13 @@ function applyConfig(cfg) {
   setText('webhook_log', cfg.webhook_log);
   setText('warning_limit', cfg.warning_limit);
   setCheck('owner_approval', cfg.owner_approval); setCheck('automod_on', cfg.automod_on);
+  setText('automod_mute1_warns',   cfg.automod_mute1_warns   ?? 5);
+  setText('automod_mute1_mins',    cfg.automod_mute1_mins    ?? 5);
+  setText('automod_mute2_warns',   cfg.automod_mute2_warns   ?? 10);
+  setText('automod_mute2_mins',    cfg.automod_mute2_mins    ?? 10);
+  setText('automod_tempban_warns', cfg.automod_tempban_warns ?? 20);
+  setText('automod_tempban_mins',  cfg.automod_tempban_mins  ?? 30);
+  setText('automod_kick_warns',    cfg.automod_kick_warns    ?? 30);
   setCheck('anti_raid', cfg.anti_raid); setCheck('security_2fa', cfg.security_2fa);
   setCheck('role_monitor', cfg.role_monitor); setCheck('mass_ban_prevent', cfg.mass_ban_prevent);
   setCheck('temp_lockdown', cfg.temp_lockdown); setText('banned_words', cfg.banned_words);

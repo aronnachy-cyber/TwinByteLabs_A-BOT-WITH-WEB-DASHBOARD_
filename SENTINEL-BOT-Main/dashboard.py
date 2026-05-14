@@ -316,11 +316,17 @@ DEFAULT_CONFIG = {
     "wall_length": 1000,
     "anti_zalgo": "OFF",
     "grad_punish": "OFF",
-    # --- Master "Automod" auto-action toggle ---
-    # When ON, SP4RK auto-mutes / tempbans / kicks based on warning count
-    # using the chart below (5 → 5min mute, 10 → 10min mute,
-    # 20 → 30min tempban, 30 → kick). When OFF, behaviour is unchanged.
+    # --- Master "Automod" auto-action toggle + configurable thresholds ---
+    # When ON, SP4RK auto-mutes / tempbans / kicks based on warning count.
+    # All thresholds and durations are editable from the dashboard.
     "automod_on": "OFF",
+    "automod_mute1_warns":   5,   # warn count → first mute
+    "automod_mute1_mins":    5,   # duration (minutes) of first mute
+    "automod_mute2_warns":  10,   # warn count → second mute
+    "automod_mute2_mins":   10,   # duration (minutes) of second mute
+    "automod_tempban_warns": 20,  # warn count → tempban
+    "automod_tempban_mins":  30,  # duration (minutes) of tempban
+    "automod_kick_warns":    30,  # warn count → kick
     # --- SP4RK Server Knowledge (used when the bot is @mentioned) ---
     "server_description": "",
     "server_rules": "",
@@ -1104,6 +1110,10 @@ TEXT_KEYS = [
     "spam_threshold", "spam_window", "caps_percent",
     "emoji_limit", "wall_newlines", "wall_length",
     "server_description", "server_rules",
+    "automod_mute1_warns", "automod_mute1_mins",
+    "automod_mute2_warns", "automod_mute2_mins",
+    "automod_tempban_warns", "automod_tempban_mins",
+    "automod_kick_warns",
 ]
 
 PUBLIC_BOT_CONFIG_KEYS = set(TOGGLE_KEYS + TEXT_KEYS + ["warning_limit"])
