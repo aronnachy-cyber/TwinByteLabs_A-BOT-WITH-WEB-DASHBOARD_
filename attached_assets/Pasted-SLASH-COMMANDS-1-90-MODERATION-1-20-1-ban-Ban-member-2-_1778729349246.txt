@@ -1,0 +1,103 @@
+SLASH COMMANDS (1–90)
+
+MODERATION (1–20)
+1. /ban — Ban member
+2. /kick — Kick member
+3. /mute — Mute user
+4. /unmute — Unmute user
+5. /timeout — Timeout user
+6. /untimeout — Remove timeout
+7. /warn — Warn user
+8. /warnings — View warnings
+9. /clear — Delete messages
+10. /purge — Bulk delete messages
+11. /purge user — Delete user messages
+12. /purge bots — Delete bot messages
+13. /purge links — Delete link messages
+14. /purge images — Delete image messages
+15. /purge embeds — Delete embed messages
+16. /softban — Ban + delete messages
+17. /unban — Unban user
+18. /nickname — Change nickname
+19. /role — Manage roles
+20. /voicekick — Kick from voice
+
+SECURITY / AUTOMOD (21–40)
+21. /automod setup — Setup automod
+22. /antilink — Toggle link filter
+23. /antispam — Toggle spam filter
+24. /antimention — Block mass mentions
+25. /antiinvite — Block invites
+26. /blacklist add — Add word
+27. /blacklist remove — Remove word
+28. /whitelist add — Whitelist user
+29. /lock — Lock channel
+30. /unlock — Unlock channel
+31. /lockdown — Lock all channels
+32. /antinuke enable — Enable anti-nuke
+33. /antinuke disable — Disable anti-nuke
+34. /antialt enable — Enable alt protection
+35. /antialt disable — Disable alt protection
+36. /antibot — Block bots
+37. /security scan — Scan server
+38. /security status — Security status
+39. /joinguard set — Join restrictions
+40. /captcha setup — Verification captcha
+
+LOGGING (41–55)
+41. /logs setup — Setup logs
+42. /logs mod — Mod logs
+43. /logs message — Message logs
+44. /logs join — Join logs
+45. /logs voice — Voice logs
+46. /snipe — Deleted message
+47. /editsnipe — Edited message
+48. /modhistory — User history
+49. /case view — View case
+50. /case search — Search cases
+51. /audit logs — Audit logs
+52. /audit search — Search audit logs
+53. /message logs — Message tracking
+54. /member logs — Member tracking
+55. /voice logs — Voice tracking
+
+REACTION / ROLES (56–65)
+56. /reactionrole create — Create reaction roles
+57. /reactionrole edit — Edit reaction roles
+58. /reactionrole delete — Delete reaction roles
+59. /buttonrole create — Button roles
+60. /selectrole create — Dropdown roles
+61. /selfrole panel — Self role menu
+62. /role add — Add role
+63. /role remove — Remove role
+64. /roleinfo — Role info
+65. /autorole set — Auto role setup
+
+TICKETS (66–75)
+66. /ticket panel — Create ticket panel
+67. /ticket create — Open ticket
+68. /ticket close — Close ticket
+69. /ticket add — Add user
+70. /ticket remove — Remove user
+71. /ticket rename — Rename ticket
+72. /ticket claim — Claim ticket
+73. /ticket unclaim — Unclaim ticket
+74. /ticket reopen — Reopen ticket
+75. /ticket stats — Ticket stats
+
+UTILITY (76–90)
+76. /serverinfo — Server info
+77. /serverstats — Server stats
+78. /userinfo — User info
+79. /avatar — Avatar
+80. /banner — Banner
+81. /membercount — Member count
+82. /channelinfo — Channel info
+83. /slowmode — Set slowmode
+84. /announce — Send announcement
+85. /embed create — Create embed
+86. /embed edit — Edit embed
+87. /embed delete — Delete embed
+88. /suggest — Send suggestion
+89. /afk — AFK system
+90. /uptime — Bot uptime
