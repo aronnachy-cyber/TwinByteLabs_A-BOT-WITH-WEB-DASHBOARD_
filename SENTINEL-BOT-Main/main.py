@@ -145,9 +145,9 @@ bot = commands.Bot(
     help_command=None
 )
 
-def dlog(event_type, description):
+def dlog(event_type, description, guild_id=None):
     try:
-        add_dashboard_log(event_type, description)
+        add_dashboard_log(event_type, description, guild_id=guild_id)
     except Exception:
         pass
 
@@ -317,7 +317,7 @@ async def notify_owners_warning(member, count):
         f"Any owner can confirm — first reply wins."
     )
     await dm_all_owners(msg)
-    dlog("⚠️ APPROVAL", f"Approval request sent for {member} ({count} warnings)")
+    dlog("⚠️ APPROVAL", f"Approval request sent for {member} ({count} warnings)", guild_id=member.guild.id)
 
 async def check_warning_limit(member, count):
     refresh_config()
@@ -351,7 +351,7 @@ async def add_warning(member, reason="Violation"):
     save_warnings()
     supabase_save_warning(guild_id, member_id, str(member), count, reason, ts)
     _increment_report_action()
-    dlog("⚠️ WARNING", f"{member} now has {count} warning(s) — {reason}")
+    dlog("⚠️ WARNING", f"{member} now has {count} warning(s) — {reason}", guild_id=member.guild.id)
     print(f"⚠️ Warning added to {member}: {count} total | Reason: {reason}")
     await check_warning_limit(member, count)
     return count
@@ -415,7 +415,7 @@ async def handle_ai_moderation(message):
                 f"⚠️ {message.author.mention}, your message was removed by AI moderation.\n> **Reason:** {reason}",
                 delete_after=8
             )
-            dlog("🤖 GEMINI-MOD", f"{message.author} flagged — {reason}")
+            dlog("🤖 GEMINI-MOD", f"{message.author} flagged — {reason}", guild_id=message.guild.id if message.guild else None)
     except Exception as e:
         print(f"Gemini moderation error (ignored): {e}")
 
@@ -571,7 +571,7 @@ async def handle_ai_mention(message):
                 return
 
             await message.reply(reply[:1900], mention_author=False)
-            dlog("💬 AI-MENTION", f"{message.author} → {text[:80]}")
+            dlog("💬 AI-MENTION", f"{message.author} → {text[:80]}", guild_id=message.guild.id if message.guild else None)
 
     except discord.Forbidden:
         print(f"[SP4RK] Missing Send Messages permission in #{message.channel}")
@@ -1174,7 +1174,7 @@ async def slash_giveaway(interaction: discord.Interaction, duration: str, prize:
         return
     await interaction.response.send_message(f"🎉 **Giveaway Starting** — Setting up a giveaway for **{prize}**!", ephemeral=True)
     await giveaway_mod.start_giveaway(bot, interaction.channel, seconds, prize, interaction.user, winners)
-    dlog("🎉 GIVEAWAY", f"{interaction.user} started giveaway: {prize} ({duration})")
+    dlog("🎉 GIVEAWAY", f"{interaction.user} started giveaway: {prize} ({duration})", guild_id=interaction.guild_id)
 
 @bot.tree.command(name="giveaway-end", description="Manually end a giveaway by message ID")
 @app_commands.describe(message_id="The giveaway message ID")
@@ -1233,7 +1233,7 @@ async def slash_poll(interaction: discord.Interaction, question: str, option1: s
     msg = await interaction.original_response()
     for i in range(len(options)):
         await msg.add_reaction(emojis[i])
-    dlog("📊 POLL", f"{interaction.user} created poll: {question}")
+    dlog("📊 POLL", f"{interaction.user} created poll: {question}", guild_id=interaction.guild_id)
 
 @bot.tree.command(name="ticket", description="Open a support ticket")
 @app_commands.describe(reason="Why are you opening this ticket?")
@@ -1247,7 +1247,7 @@ async def slash_ticket(interaction: discord.Interaction, reason: str = "General 
                 f"✅ **Ticket Created** — Your support ticket is ready.\n> 📬 **Channel:** {channel.mention}\n> 📝 **Reason:** {reason}",
                 ephemeral=True
             )
-            dlog("🎫 TICKET", f"{interaction.user} opened ticket #{ticket['id']}: {reason}")
+            dlog("🎫 TICKET", f"{interaction.user} opened ticket #{ticket['id']}: {reason}", guild_id=interaction.guild_id)
         else:
             await interaction.followup.send(
                 "❌ **Ticket Failed** — Could not create your ticket.\n> Ensure I have the **Manage Channels** permission and a valid ticket category is set in the dashboard.",
@@ -1268,7 +1268,7 @@ async def slash_ticket_close(interaction: discord.Interaction):
         return
     await interaction.response.send_message("🔒 **Closing Ticket** — Please wait while this ticket is being closed...")
     await tickets_mod.close_ticket(interaction.channel, interaction.user)
-    dlog("🔒 TICKET-CLOSE", f"{interaction.user} closed ticket #{ticket_data.get('id', '?')}")
+    dlog("🔒 TICKET-CLOSE", f"{interaction.user} closed ticket #{ticket_data.get('id', '?')}", guild_id=interaction.guild_id)
 
 @bot.tree.command(name="setup-reaction-role", description="Link an emoji on a message to a role — users get the role when they react")
 @app_commands.describe(message_id="ID of the message to watch", emoji="The emoji to react with", role="Role to assign on reaction")
@@ -1311,7 +1311,7 @@ async def slash_setup_rr(interaction: discord.Interaction, message_id: str, emoj
     )
     embed.set_footer(text=f"SP4RK Reaction Roles  •  Action: {action}")
     await interaction.response.send_message(embed=embed, ephemeral=True)
-    dlog("🎭 REACTION-ROLE", f"{interaction.user} {action} {emoji} → {role.name} on msg {message_id}")
+    dlog("🎭 REACTION-ROLE", f"{interaction.user} {action} {emoji} → {role.name} on msg {message_id}", guild_id=interaction.guild_id)
 
 @bot.tree.command(name="remove-reaction-role", description="Remove a reaction-role link from a message")
 @app_commands.describe(message_id="Message ID the rule is on", emoji="The emoji to unlink")
@@ -1324,7 +1324,7 @@ async def slash_remove_rr(interaction: discord.Interaction, message_id: str, emo
         await interaction.response.send_message(
             f"✅ **Reaction Role Removed** — {emoji} unlinked from message `{message_id}`.", ephemeral=True
         )
-        dlog("🎭 REACTION-ROLE REMOVE", f"{interaction.user} removed {emoji} on msg {message_id}")
+        dlog("🎭 REACTION-ROLE REMOVE", f"{interaction.user} removed {emoji} on msg {message_id}", guild_id=interaction.guild_id)
     else:
         await interaction.response.send_message(
             f"❌ **Rule Not Found** — No reaction role for {emoji} exists on message `{message_id}`.", ephemeral=True
@@ -1379,7 +1379,7 @@ async def ar_add(interaction: discord.Interaction, trigger: str, response: str, 
         f"✅ **Auto-Responder {action}** — `{trigger}` → `{response}`\n> 🔍 **Match type:** {match}",
         ephemeral=True
     )
-    dlog("🤖 AUTO-RESPOND", f"{interaction.user} {action.lower()} trigger: {trigger}")
+    dlog("🤖 AUTO-RESPOND", f"{interaction.user} {action.lower()} trigger: {trigger}", guild_id=interaction.guild_id)
 
 @autorespond_group.command(name="remove", description="Remove an auto-responder rule")
 @app_commands.describe(trigger="The trigger keyword to remove")
@@ -1463,7 +1463,7 @@ async def on_member_join(member):
     await security.anti_raid_check(member, gcfg, dm_callback=dm_all_owners, log_callback=dlog)
     await social.send_welcome_message(bot, member, gcfg)
     await logs.log_template(bot, config, "sp4rk.welcome", user=member, server=member.guild)
-    dlog("👋 JOIN", f"{member} joined {member.guild.name}")
+    dlog("👋 JOIN", f"{member} joined {member.guild.name}", guild_id=member.guild.id)
 
 @bot.event
 async def on_member_update(before, after):
@@ -1481,13 +1481,13 @@ async def on_member_ban(guild, user):
     refresh_config()
     await logs.log_template(bot, config, "sp4rk.member_banned", user=user, server=guild)
     _increment_report_action()
-    dlog("⛔ BAN", f"{user} banned from {guild.name}")
+    dlog("⛔ BAN", f"{user} banned from {guild.name}", guild_id=guild.id)
 
 @bot.event
 async def on_member_remove(member):
     refresh_config()
     await logs.log_template(bot, config, "sp4rk.leave", user=member, server=member.guild)
-    dlog("🚪 LEAVE", f"{member} left {member.guild.name}")
+    dlog("🚪 LEAVE", f"{member} left {member.guild.name}", guild_id=member.guild.id)
 
 @bot.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
@@ -1521,7 +1521,7 @@ async def on_message_edit(before, after):
         after=(after.content[:1000] or "*empty*"),
         jump_url=after.jump_url,
     )
-    dlog("✏️ MSG-EDIT", f"{before.author} edited a message in #{before.channel.name}")
+    dlog("✏️ MSG-EDIT", f"{before.author} edited a message in #{before.channel.name}", guild_id=before.guild.id if before.guild else None)
 
 # Per-channel snipe cache: { channel_id: {"author": str, "content": str, "ts": datetime} }
 _snipe_cache = {}
@@ -1550,7 +1550,7 @@ async def on_message_delete(message):
         user=message.author, channel=message.channel,
         content=(message.content[:1000] or "*empty / attachment*"),
     )
-    dlog("🗑️ MSG-DELETE", f"{message.author} deleted a message in #{message.channel.name}")
+    dlog("🗑️ MSG-DELETE", f"{message.author} deleted a message in #{message.channel.name}", guild_id=message.guild.id if message.guild else None)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
@@ -1567,17 +1567,17 @@ async def on_voice_state_update(member, before, after):
         if before.channel is None:
             await logs.log_template(bot, config, "sp4rk.voice_join",
                                     user=member, channel=after.channel)
-            dlog("🔊 VC-JOIN", f"{member} joined VC: {after.channel.name}")
+            dlog("🔊 VC-JOIN", f"{member} joined VC: {after.channel.name}", guild_id=member.guild.id)
         elif after.channel is None:
             await logs.log_template(bot, config, "sp4rk.voice_leave",
                                     user=member, channel=before.channel)
-            dlog("🔇 VC-LEAVE", f"{member} left VC: {before.channel.name}")
+            dlog("🔇 VC-LEAVE", f"{member} left VC: {before.channel.name}", guild_id=member.guild.id)
         else:
             # Moved VC — reuse leave template with combined channel string
             move_chan = f"**{before.channel.name}** → **{after.channel.name}**"
             await logs.log_template(bot, config, "sp4rk.voice_leave",
                                     user=member, channel=move_chan)
-            dlog("🔀 VC-MOVE", f"{member} moved: {before.channel.name} → {after.channel.name}")
+            dlog("🔀 VC-MOVE", f"{member} moved: {before.channel.name} → {after.channel.name}", guild_id=member.guild.id)
     except Exception as e:
         print(f"Voice log error: {e}")
 
@@ -1631,7 +1631,7 @@ async def on_message(message):
                                     await o.send(f"ℹ️ Alert dismissed by {message.author} for `{matched_data['username']}`.")
                             except Exception:
                                 pass
-                    dlog("🚫 DISMISS", f"{message.author} dismissed alert for {matched_data['username']}")
+                    dlog("🚫 DISMISS", f"{message.author} dismissed alert for {matched_data['username']}", guild_id=message.guild.id if message.guild else None)
                     return
 
                 if action in ("ban", "kick"):
@@ -1670,7 +1670,7 @@ async def on_message(message):
                             f"`{matched_data['username']}` was {action}ned — approved by {message.author}.",
                             color=0xe74c3c if action == "ban" else 0xe67e22
                         )
-                        dlog(f"{'⛔' if action=='ban' else '🚪'} {action.upper()}", f"{matched_data['username']} {action}ned — approved by {message.author}")
+                        dlog(f"{'⛔' if action=='ban' else '🚪'} {action.upper()}", f"{matched_data['username']} {action}ned — approved by {message.author}", guild_id=guild.id)
                         notify_msg = (
                             f"{'⛔' if action=='ban' else '🚪'} **{action.upper()} confirmed** by {message.author}\n"
                             f"Target: `{matched_data['username']}` | Reason: {reason}"
@@ -1881,14 +1881,14 @@ async def mute(ctx, member: discord.Member, duration: str = None):
         return
     await moderation.mute_member(ctx, member, get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0'), duration)
     _increment_report_action()
-    dlog("🔇 MUTE", f"{member} muted by {ctx.author}" + (f" for {duration}" if duration else ""))
+    dlog("🔇 MUTE", f"{member} muted by {ctx.author}" + (f" for {duration}" if duration else ""), guild_id=ctx.guild.id if ctx.guild else None)
 
 @bot.command()
 @commands.has_permissions(manage_roles=True)
 async def unmute(ctx, member: discord.Member):
     """Unmute a member. Example: !unmute @user"""
     await moderation.unmute_member(ctx, member, get_config_for_guild(str(ctx.guild.id) if ctx.guild else '0'))
-    dlog("🔊 UNMUTE", f"{member} unmuted by {ctx.author}")
+    dlog("🔊 UNMUTE", f"{member} unmuted by {ctx.author}", guild_id=ctx.guild.id if ctx.guild else None)
 
 @bot.command(name="note")
 @commands.has_permissions(manage_messages=True)
@@ -1902,7 +1902,7 @@ async def add_note(ctx, member: discord.Member, *, note: str):
         f"> 💬 **Note:** {note}",
         delete_after=10
     )
-    dlog("📝 NOTE", f"Note added for {member} by {ctx.author}: {note}")
+    dlog("📝 NOTE", f"Note added for {member} by {ctx.author}: {note}", guild_id=ctx.guild.id if ctx.guild else None)
 
 @bot.command(name="notes")
 @commands.has_permissions(manage_messages=True)
@@ -2018,7 +2018,7 @@ async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reas
         )
         await dm_owner("temp-ban", str(member), f"{label} — {reason}", str(ctx.author))
         _increment_report_action()
-        dlog("⏱️ TEMP-BAN", f"{member} temp-banned for {label} by {ctx.author}")
+        dlog("⏱️ TEMP-BAN", f"{member} temp-banned for {label} by {ctx.author}", guild_id=ctx.guild.id if ctx.guild else None)
 
         # Schedule auto-unban
         async def auto_unban():
@@ -2030,7 +2030,7 @@ async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reas
                     f"{member} was automatically unbanned after {label}.",
                     color=0x2ecc71
                 )
-                dlog("✅ UNBAN", f"Temp-ban expired for {member} after {label}")
+                dlog("✅ UNBAN", f"Temp-ban expired for {member} after {label}", guild_id=ctx.guild.id if ctx.guild else None)
             except Exception as e:
                 print(f"Auto-unban error for {member}: {e}")
 
@@ -2066,7 +2066,7 @@ async def purge_reaction(ctx, amount: int = 10):
             f"{ctx.author} cleared reactions from {cleared} messages in #{ctx.channel.name}",
             color=0x9b59b6, guild_id=ctx.guild.id if ctx.guild else None
         )
-        dlog("🧹 PURGEREACTION", f"{ctx.author} cleared reactions in #{ctx.channel.name}")
+        dlog("🧹 PURGEREACTION", f"{ctx.author} cleared reactions in #{ctx.channel.name}", guild_id=ctx.guild.id if ctx.guild else None)
     except discord.Forbidden:
         await ctx.send("❌ **Permission Denied** — I need **Manage Messages** permission to clear reactions.")
     except Exception as e:
@@ -2091,7 +2091,7 @@ async def purge_user(ctx, member: discord.Member, amount: int = 50):
         await logs.log_event(bot, config, "🧹 Purge User",
             f"{ctx.author} purged {len(deleted)} messages from {member} in #{ctx.channel.name}",
             color=0x9b59b6, guild_id=ctx.guild.id if ctx.guild else None)
-        dlog("🧹 PURGEUSER", f"{ctx.author} purged {len(deleted)} from {member} in #{ctx.channel.name}")
+        dlog("🧹 PURGEUSER", f"{ctx.author} purged {len(deleted)} from {member} in #{ctx.channel.name}", guild_id=ctx.guild.id if ctx.guild else None)
     except discord.Forbidden:
         await ctx.send("❌ **Permission Denied** — I don't have permission to delete messages in this channel.")
     except Exception as e:
@@ -2113,7 +2113,7 @@ async def lock(ctx, channel: discord.TextChannel = None):
         )
         await logs.log_event(bot, config, "🔒 Channel Locked",
             f"#{channel.name} locked by {ctx.author}", color=0xe67e22, guild_id=ctx.guild.id if ctx.guild else None)
-        dlog("🔒 LOCK", f"#{channel.name} locked by {ctx.author}")
+        dlog("🔒 LOCK", f"#{channel.name} locked by {ctx.author}", guild_id=ctx.guild.id if ctx.guild else None)
     except discord.Forbidden:
         await ctx.send("❌ **Permission Denied** — I don't have permission to edit that channel.")
     except Exception as e:
@@ -2135,7 +2135,7 @@ async def unlock(ctx, channel: discord.TextChannel = None):
         )
         await logs.log_event(bot, config, "🔓 Channel Unlocked",
             f"#{channel.name} unlocked by {ctx.author}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
-        dlog("🔓 UNLOCK", f"#{channel.name} unlocked by {ctx.author}")
+        dlog("🔓 UNLOCK", f"#{channel.name} unlocked by {ctx.author}", guild_id=ctx.guild.id if ctx.guild else None)
     except discord.Forbidden:
         await ctx.send("❌ **Permission Denied** — I don't have permission to edit that channel.")
     except Exception as e:
@@ -2169,7 +2169,7 @@ async def role_add(ctx, member: discord.Member, role: discord.Role):
         )
         await logs.log_event(bot, config, "➕ Role Added",
             f"{ctx.author} gave @{role.name} to {member}", color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None)
-        dlog("➕ ROLE-ADD", f"{ctx.author} gave @{role.name} to {member}")
+        dlog("➕ ROLE-ADD", f"{ctx.author} gave @{role.name} to {member}", guild_id=ctx.guild.id if ctx.guild else None)
     except discord.Forbidden:
         await ctx.send("❌ **Permission Denied** — I don't have permission to assign that role.")
     except Exception as e:
@@ -2196,7 +2196,7 @@ async def role_remove(ctx, member: discord.Member, role: discord.Role):
         )
         await logs.log_event(bot, config, "➖ Role Removed",
             f"{ctx.author} removed @{role.name} from {member}", color=0xe67e22, guild_id=ctx.guild.id if ctx.guild else None)
-        dlog("➖ ROLE-REM", f"{ctx.author} removed @{role.name} from {member}")
+        dlog("➖ ROLE-REM", f"{ctx.author} removed @{role.name} from {member}", guild_id=ctx.guild.id if ctx.guild else None)
     except discord.Forbidden:
         await ctx.send("❌ **Permission Denied** — I don't have permission to remove that role.")
     except Exception as e:
@@ -2223,7 +2223,7 @@ async def nick_cmd(ctx, member: discord.Member, *, name: str = None):
                 f"✅ **Nickname Reset** — {member.mention}'s nickname has been cleared.\n"
                 f"> 🛡️ **By:** {ctx.author.mention}"
             )
-        dlog("📝 NICK", f"{ctx.author} renamed {member} to {name or '(reset)'}")
+        dlog("📝 NICK", f"{ctx.author} renamed {member} to {name or '(reset)'}", guild_id=ctx.guild.id if ctx.guild else None)
     except discord.Forbidden:
         await ctx.send(f"❌ **Permission Denied** — I can't rename {member.mention}.\n> Check role hierarchy and my permissions.")
     except Exception as e:
@@ -2250,7 +2250,7 @@ async def voicekick(ctx, member: discord.Member):
         )
         await logs.log_event(bot, config, "🔌 Voice Kick",
             f"{ctx.author} disconnected {member} from #{ch_name}", color=0xf39c12, guild_id=ctx.guild.id if ctx.guild else None)
-        dlog("🔌 VKICK", f"{ctx.author} disconnected {member} from {ch_name}")
+        dlog("🔌 VKICK", f"{ctx.author} disconnected {member} from {ch_name}", guild_id=ctx.guild.id if ctx.guild else None)
     except discord.Forbidden:
         await ctx.send("❌ **Permission Denied** — I don't have permission to move that member.")
     except Exception as e:
@@ -2320,7 +2320,7 @@ async def massban(ctx, *user_ids: int):
     )
     await logs.log_event(bot, config, "⛔ Mass Ban",
         f"{ctx.author} mass-banned {success} users ({fail} failed)", color=0xe74c3c, guild_id=ctx.guild.id if ctx.guild else None)
-    dlog("⛔ MASSBAN", f"{ctx.author} mass-banned {success}/{len(user_ids)}")
+    dlog("⛔ MASSBAN", f"{ctx.author} mass-banned {success}/{len(user_ids)}", guild_id=ctx.guild.id if ctx.guild else None)
 
 @bot.command()
 @commands.has_permissions(manage_channels=True)
@@ -2336,7 +2336,7 @@ async def slowmode(ctx, seconds: int = 0):
                 f"✅ **Slowmode Disabled** — {ctx.channel.mention} is back to normal speed.\n"
                 f"> 🛡️ **By:** {ctx.author.mention}"
             )
-            dlog("⏱️ SLOWMODE", f"Slowmode disabled in #{ctx.channel.name} by {ctx.author}")
+            dlog("⏱️ SLOWMODE", f"Slowmode disabled in #{ctx.channel.name} by {ctx.author}", guild_id=ctx.guild.id if ctx.guild else None)
         else:
             label = duration_label(seconds)
             await ctx.send(
@@ -2344,7 +2344,7 @@ async def slowmode(ctx, seconds: int = 0):
                 f"> 🕐 **Delay:** {label} between messages\n"
                 f"> 🛡️ **By:** {ctx.author.mention}"
             )
-            dlog("⏱️ SLOWMODE", f"Slowmode set to {label} in #{ctx.channel.name} by {ctx.author}")
+            dlog("⏱️ SLOWMODE", f"Slowmode set to {label} in #{ctx.channel.name} by {ctx.author}", guild_id=ctx.guild.id if ctx.guild else None)
         await logs.log_event(
             bot, config, "⏱️ Slowmode",
             f"#{ctx.channel.name} slowmode set to {seconds}s by {ctx.author}",
@@ -2589,7 +2589,7 @@ async def slash_copy(interaction: discord.Interaction):
         embed.add_field(name="🔊 Voice Channels",  value=f"**{info['voice_channels']}**", inline=True)
         embed.set_footer(text="SP4RK — Server Template  •  Template stored globally")
         await interaction.edit_original_response(content=None, embed=embed)
-        dlog("📸 COPY", f"{interaction.user} copied server template from {interaction.guild.name}")
+        dlog("📸 COPY", f"{interaction.user} copied server template from {interaction.guild.name}", guild_id=interaction.guild_id)
     except Exception as e:
         print(f"/copy error: {e}")
         await interaction.edit_original_response(content=f"❌ **Copy Failed** — Could not capture the server structure.\n> `{e}`")
@@ -2640,7 +2640,7 @@ class DeleteTemplateConfirmView(discord.ui.View):
                                 value=f"**{summary['failed']}**", inline=True)
             embed.set_footer(text="SP4RK — Server Template  •  Paste log cleared")
             await interaction.edit_original_response(content=None, embed=embed, view=None)
-            dlog("🗑️ DELETE-TEMPLATE", f"{interaction.user} deleted pasted template from {self.guild.name}")
+            dlog("🗑️ DELETE-TEMPLATE", f"{interaction.user} deleted pasted template from {self.guild.name}", guild_id=self.guild.id)
         except FileNotFoundError:
             await interaction.edit_original_response(
                 content="❌ No paste log found — either `/paste` was never run here, or it was already deleted.",
@@ -2708,7 +2708,7 @@ async def slash_paste(interaction: discord.Interaction):
         embed.add_field(name="⏭️ Skipped",                value=f"**{summary['skipped']}**",       inline=True)
         embed.set_footer(text="SP4RK — Server Template  •  Existing channels/roles were not duplicated")
         await interaction.edit_original_response(content=None, embed=embed)
-        dlog("📋 PASTE", f"{interaction.user} pasted server template into {interaction.guild.name}")
+        dlog("📋 PASTE", f"{interaction.user} pasted server template into {interaction.guild.name}", guild_id=interaction.guild_id)
     except FileNotFoundError:
         await interaction.edit_original_response(
             content="❌ **No Template Found** — Run `/copy` in a server first to capture its structure."
@@ -2766,7 +2766,7 @@ async def lockdown(ctx):
     gcfg["temp_lockdown"] = "ON"
     await security.toggle_lockdown(ctx.guild, gcfg, enable=True, log_callback=dlog)
     await ctx.send("🚨 **Server Lockdown Active** — all channels locked. Use `!unlockdown` to lift it.")
-    dlog("🚨 LOCKDOWN", f"Lockdown enabled in {ctx.guild.name} by {ctx.author}")
+    dlog("🚨 LOCKDOWN", f"Lockdown enabled in {ctx.guild.name} by {ctx.author}", guild_id=ctx.guild.id)
 
 @bot.command()
 async def unlockdown(ctx):
@@ -2777,7 +2777,7 @@ async def unlockdown(ctx):
     gcfg["temp_lockdown"] = "OFF"
     await security.toggle_lockdown(ctx.guild, gcfg, enable=False, log_callback=dlog)
     await ctx.send("✅ **Lockdown Lifted** — Server is back to normal.")
-    dlog("✅ UNLOCKDOWN", f"Lockdown lifted in {ctx.guild.name} by {ctx.author}")
+    dlog("✅ UNLOCKDOWN", f"Lockdown lifted in {ctx.guild.name} by {ctx.author}", guild_id=ctx.guild.id)
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -2950,7 +2950,7 @@ async def slash_clearwarnings(interaction: discord.Interaction, member: discord.
         warnings_db[guild_id][member_id] = {"count": 0, "history": []}
         save_warnings()
     supabase_clear_warnings(guild_id, member_id)
-    dlog("🧹 CLEAR-WARN", f"Warnings cleared for {member} by {interaction.user}")
+    dlog("🧹 CLEAR-WARN", f"Warnings cleared for {member} by {interaction.user}", guild_id=interaction.guild_id)
     await logs.log_event(
         bot, config, "🧹 Warnings Cleared",
         f"{member}'s warnings cleared by {interaction.user}", color=0x2ecc71,
@@ -2997,7 +2997,7 @@ async def slash_kick(interaction: discord.Interaction,
         supabase_save_mod_log(interaction.guild.id, "kick", str(member),
             str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         _increment_report_action()
-        dlog("🚪 KICK", f"{member} kicked by {interaction.user} — {reason}")
+        dlog("🚪 KICK", f"{member} kicked by {interaction.user} — {reason}", guild_id=interaction.guild_id)
     except discord.Forbidden:
         await interaction.followup.send(
             f"❌ **Permission Denied** — I can't kick {member.mention}.\n> Check role hierarchy and my permissions.", ephemeral=True
@@ -3042,7 +3042,7 @@ async def slash_ban(interaction: discord.Interaction,
         supabase_save_mod_log(interaction.guild.id, "ban", str(member),
             str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         _increment_report_action()
-        dlog("⛔ BAN", f"{member} banned by {interaction.user} — {reason}")
+        dlog("⛔ BAN", f"{member} banned by {interaction.user} — {reason}", guild_id=interaction.guild_id)
     except discord.Forbidden:
         await interaction.followup.send(
             f"❌ **Permission Denied** — I can't ban {member.mention}.\n> Check role hierarchy and my permissions.", ephemeral=True
@@ -3077,7 +3077,7 @@ async def slash_unban(interaction: discord.Interaction,
             f"{user} unbanned by {interaction.user} | Reason: {reason}", color=0x2ecc71, guild_id=interaction.guild.id if interaction.guild else None)
         supabase_save_mod_log(interaction.guild.id, "unban", str(user),
             str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        dlog("✅ UNBAN", f"{user} unbanned by {interaction.user}")
+        dlog("✅ UNBAN", f"{user} unbanned by {interaction.user}", guild_id=interaction.guild_id)
     except discord.NotFound:
         await interaction.followup.send("❌ **Not Found** — That user ID doesn't exist or they are not currently banned.", ephemeral=True)
     except discord.Forbidden:
@@ -3134,7 +3134,7 @@ async def slash_timeout(interaction: discord.Interaction,
             str(interaction.user), f"{label} — {reason}",
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         _increment_report_action()
-        dlog("⏱️ TIMEOUT", f"{member} timed out for {label} by {interaction.user}")
+        dlog("⏱️ TIMEOUT", f"{member} timed out for {label} by {interaction.user}", guild_id=interaction.guild_id)
     except discord.Forbidden:
         await interaction.followup.send(
             f"❌ **Permission Denied** — I can't time out {member.mention}.\n> Check role hierarchy and the **Moderate Members** permission.", ephemeral=True
@@ -3159,7 +3159,7 @@ async def slash_untimeout(interaction: discord.Interaction, member: discord.Memb
         )
         await logs.log_event(bot, config, "✅ Timeout Removed",
             f"{member}'s timeout removed by {interaction.user}", color=0x2ecc71, guild_id=interaction.guild.id if interaction.guild else None)
-        dlog("✅ UNTIMEOUT", f"Timeout removed for {member} by {interaction.user}")
+        dlog("✅ UNTIMEOUT", f"Timeout removed for {member} by {interaction.user}", guild_id=interaction.guild_id)
     except discord.Forbidden:
         await interaction.followup.send(
             f"❌ **Permission Denied** — I can't remove {member.mention}'s timeout.\n> Check role hierarchy and my permissions.", ephemeral=True
@@ -3191,7 +3191,7 @@ async def slash_purge(interaction: discord.Interaction, amount: int = 10):
             f"{interaction.user} purged {len(deleted)} messages in #{interaction.channel.name}",
             color=0x9b59b6, guild_id=interaction.guild.id if interaction.guild else None)
         dlog("🧹 PURGE",
-            f"{interaction.user} deleted {len(deleted)} messages in #{interaction.channel.name}")
+            f"{interaction.user} deleted {len(deleted)} messages in #{interaction.channel.name}", guild_id=interaction.guild_id)
     except discord.Forbidden:
         await interaction.followup.send(
             "❌ **Permission Denied** — I don't have permission to delete messages in this channel.", ephemeral=True
@@ -3604,7 +3604,7 @@ async def slash_mute(interaction: discord.Interaction, member: discord.Member, d
     ctx_like = _FakeCtx(interaction)
     await moderation.mute_member(ctx_like, member, get_config_for_guild(str(interaction.guild.id)), duration)
     _increment_report_action()
-    dlog("🔇 MUTE", f"{member} muted by {interaction.user}" + (f" for {duration}" if duration else ""))
+    dlog("🔇 MUTE", f"{member} muted by {interaction.user}" + (f" for {duration}" if duration else ""), guild_id=interaction.guild_id)
     await interaction.followup.send(f"🔇 **Muted** — {member.mention}" + (f" for **{duration}**" if duration else " indefinitely."), ephemeral=True)
 
 @bot.tree.command(name="unmute", description="Unmute a previously muted member.")
@@ -3615,7 +3615,7 @@ async def slash_unmute(interaction: discord.Interaction, member: discord.Member)
     await interaction.response.defer(ephemeral=True)
     ctx_like = _FakeCtx(interaction)
     await moderation.unmute_member(ctx_like, member, get_config_for_guild(str(interaction.guild.id)))
-    dlog("🔊 UNMUTE", f"{member} unmuted by {interaction.user}")
+    dlog("🔊 UNMUTE", f"{member} unmuted by {interaction.user}", guild_id=interaction.guild_id)
     await interaction.followup.send(f"🔊 **Unmuted** — {member.mention}", ephemeral=True)
 
 @bot.tree.command(name="tempban", description="Temporarily ban a member. Duration: 30m, 2h, 7d, etc.")
@@ -3633,7 +3633,7 @@ async def slash_tempban(interaction: discord.Interaction, member: discord.Member
     try:
         await member.ban(reason=f"[TEMP-BAN {label}] {reason}")
         _increment_report_action()
-        dlog("⏱️ TEMP-BAN", f"{member} temp-banned for {label} by {interaction.user}")
+        dlog("⏱️ TEMP-BAN", f"{member} temp-banned for {label} by {interaction.user}", guild_id=interaction.guild_id)
         asyncio.create_task(_auto_unban_task(interaction.guild, member, seconds, label))
         await interaction.followup.send(
             f"⏱️ **Temp-Banned** — {member.mention}\n> 🕐 **Duration:** {label}\n> 📝 **Reason:** {reason}", ephemeral=True
@@ -3651,7 +3651,7 @@ async def slash_lock(interaction: discord.Interaction, channel: discord.TextChan
         ow = target.overwrites_for(interaction.guild.default_role)
         ow.send_messages = False
         await target.set_permissions(interaction.guild.default_role, overwrite=ow, reason=f"Locked by {interaction.user}")
-        dlog("🔒 LOCK", f"#{target.name} locked by {interaction.user}")
+        dlog("🔒 LOCK", f"#{target.name} locked by {interaction.user}", guild_id=interaction.guild_id)
         await interaction.response.send_message(f"🔒 **Locked** — {target.mention}", ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message("❌ I don't have permission to edit that channel.", ephemeral=True)
@@ -3666,7 +3666,7 @@ async def slash_unlock(interaction: discord.Interaction, channel: discord.TextCh
         ow = target.overwrites_for(interaction.guild.default_role)
         ow.send_messages = None
         await target.set_permissions(interaction.guild.default_role, overwrite=ow, reason=f"Unlocked by {interaction.user}")
-        dlog("🔓 UNLOCK", f"#{target.name} unlocked by {interaction.user}")
+        dlog("🔓 UNLOCK", f"#{target.name} unlocked by {interaction.user}", guild_id=interaction.guild_id)
         await interaction.response.send_message(f"🔓 **Unlocked** — {target.mention}", ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message("❌ I don't have permission to edit that channel.", ephemeral=True)
@@ -3684,7 +3684,7 @@ async def slash_role_add(interaction: discord.Interaction, member: discord.Membe
         return await interaction.response.send_message(f"ℹ️ {member.mention} already has **{role.name}**.", ephemeral=True)
     try:
         await member.add_roles(role, reason=f"Added by {interaction.user}")
-        dlog("➕ ROLE-ADD", f"{interaction.user} gave @{role.name} to {member}")
+        dlog("➕ ROLE-ADD", f"{interaction.user} gave @{role.name} to {member}", guild_id=interaction.guild_id)
         await interaction.response.send_message(f"✅ **Role Added** — {member.mention} now has {role.mention}.", ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message("❌ Permission denied — check role hierarchy.", ephemeral=True)
@@ -3700,7 +3700,7 @@ async def slash_role_remove(interaction: discord.Interaction, member: discord.Me
         return await interaction.response.send_message(f"ℹ️ {member.mention} doesn't have **{role.name}**.", ephemeral=True)
     try:
         await member.remove_roles(role, reason=f"Removed by {interaction.user}")
-        dlog("➖ ROLE-REMOVE", f"{interaction.user} removed @{role.name} from {member}")
+        dlog("➖ ROLE-REMOVE", f"{interaction.user} removed @{role.name} from {member}", guild_id=interaction.guild_id)
         await interaction.response.send_message(f"✅ **Role Removed** — {member.mention} no longer has {role.mention}.", ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message("❌ Permission denied — check role hierarchy.", ephemeral=True)
@@ -3715,7 +3715,7 @@ async def slash_nick(interaction: discord.Interaction, member: discord.Member, n
     try:
         await member.edit(nick=name, reason=f"Renamed by {interaction.user}")
         msg = f"✅ **Nickname set** to `{name}` for {member.mention}." if name else f"✅ **Nickname reset** for {member.mention}."
-        dlog("📝 NICK", f"{interaction.user} renamed {member} to {name or '(reset)'}")
+        dlog("📝 NICK", f"{interaction.user} renamed {member} to {name or '(reset)'}", guild_id=interaction.guild_id)
         await interaction.response.send_message(msg, ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message(f"❌ Can't rename {member.mention} — check hierarchy.", ephemeral=True)
@@ -3732,7 +3732,7 @@ async def slash_voicekick(interaction: discord.Interaction, member: discord.Memb
     try:
         ch = member.voice.channel.name
         await member.move_to(None, reason=f"Voice kick by {interaction.user}")
-        dlog("🔌 VKICK", f"{interaction.user} disconnected {member} from {ch}")
+        dlog("🔌 VKICK", f"{interaction.user} disconnected {member} from {ch}", guild_id=interaction.guild_id)
         await interaction.response.send_message(f"🔌 **Voice Kicked** — {member.mention} disconnected from **{ch}**.", ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message("❌ I don't have permission to move that member.", ephemeral=True)
@@ -3764,7 +3764,7 @@ async def slash_slowmode_cmd(interaction: discord.Interaction, seconds: int, cha
     try:
         await target.edit(slowmode_delay=seconds)
         label = duration_label(seconds) if seconds else "disabled"
-        dlog("⏱️ SLOWMODE", f"Slowmode set to {seconds}s in #{target.name} by {interaction.user}")
+        dlog("⏱️ SLOWMODE", f"Slowmode set to {seconds}s in #{target.name} by {interaction.user}", guild_id=interaction.guild_id)
         await interaction.response.send_message(
             f"{'🐌 **Slowmode set** to ' + label if seconds else '✅ **Slowmode disabled**'} in {target.mention}.", ephemeral=True
         )
@@ -3784,7 +3784,7 @@ async def slash_purge_reactions(interaction: discord.Interaction, amount: int = 
         if message.reactions:
             await message.clear_reactions()
             cleared += 1
-    dlog("🧹 PURGEREACTION", f"{interaction.user} cleared reactions in #{interaction.channel.name}")
+    dlog("🧹 PURGEREACTION", f"{interaction.user} cleared reactions in #{interaction.channel.name}", guild_id=interaction.guild_id)
     await interaction.followup.send(f"🧹 Cleared reactions from **{cleared}** message(s) in {interaction.channel.mention}.", ephemeral=True)
 
 @bot.tree.command(name="purge-user", description="Delete up to N recent messages from a specific user in this channel.")
@@ -3796,7 +3796,7 @@ async def slash_purge_user(interaction: discord.Interaction, member: discord.Mem
         return await interaction.response.send_message("❌ Amount must be between 1 and 500.", ephemeral=True)
     await interaction.response.defer(ephemeral=True)
     deleted = await interaction.channel.purge(limit=amount, check=lambda m: m.author.id == member.id)
-    dlog("🧹 PURGEUSER", f"{interaction.user} purged {len(deleted)} from {member} in #{interaction.channel.name}")
+    dlog("🧹 PURGEUSER", f"{interaction.user} purged {len(deleted)} from {member} in #{interaction.channel.name}", guild_id=interaction.guild_id)
     await interaction.followup.send(f"🧹 Deleted **{len(deleted)}** message(s) from {member.mention}.", ephemeral=True)
 
 @bot.tree.command(name="massban", description="Ban multiple users by ID (raid response). Max 50 IDs, space-separated.")
@@ -3817,7 +3817,7 @@ async def slash_massban(interaction: discord.Interaction, user_ids: str, reason:
             success += 1
         except Exception:
             fail += 1
-    dlog("⛔ MASSBAN", f"{interaction.user} mass-banned {success}/{len(ids)}")
+    dlog("⛔ MASSBAN", f"{interaction.user} mass-banned {success}/{len(ids)}", guild_id=interaction.guild_id)
     await interaction.followup.send(
         f"⛔ **Mass Ban Complete** — {len(ids)} target(s).\n> ✅ Banned: {success}  |  ❌ Failed: {fail}", ephemeral=True
     )
@@ -3830,7 +3830,7 @@ async def slash_lockdown(interaction: discord.Interaction):
     gcfg["temp_lockdown"] = "ON"
     await interaction.response.defer(ephemeral=True)
     await security.toggle_lockdown(interaction.guild, gcfg, enable=True, log_callback=dlog)
-    dlog("🚨 LOCKDOWN", f"Lockdown enabled in {interaction.guild.name} by {interaction.user}")
+    dlog("🚨 LOCKDOWN", f"Lockdown enabled in {interaction.guild.name} by {interaction.user}", guild_id=interaction.guild_id)
     await interaction.followup.send("🚨 **Server Lockdown Active** — all channels locked. Use `/unlockdown` to lift it.", ephemeral=True)
 
 @bot.tree.command(name="unlockdown", description="Lift the server lockdown and restore normal channel permissions.")
@@ -3841,7 +3841,7 @@ async def slash_unlockdown(interaction: discord.Interaction):
     gcfg["temp_lockdown"] = "OFF"
     await interaction.response.defer(ephemeral=True)
     await security.toggle_lockdown(interaction.guild, gcfg, enable=False, log_callback=dlog)
-    dlog("✅ UNLOCKDOWN", f"Lockdown lifted in {interaction.guild.name} by {interaction.user}")
+    dlog("✅ UNLOCKDOWN", f"Lockdown lifted in {interaction.guild.name} by {interaction.user}", guild_id=interaction.guild_id)
     await interaction.followup.send("✅ **Lockdown Lifted** — server is back to normal.", ephemeral=True)
 
 @bot.tree.command(name="note", description="Add a private moderator note to a user.")
@@ -3851,7 +3851,7 @@ async def slash_note(interaction: discord.Interaction, member: discord.Member, n
     if not await _slash_guard_guild(interaction): return
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     supabase_save_note(interaction.guild.id, member.id, str(member), note, str(interaction.user), ts)
-    dlog("📝 NOTE", f"Note added for {member} by {interaction.user}: {note}")
+    dlog("📝 NOTE", f"Note added for {member} by {interaction.user}: {note}", guild_id=interaction.guild_id)
     await interaction.response.send_message(
         f"📝 **Note Added** — {member.mention}\n> 🛡️ **By:** {interaction.user.mention}\n> 💬 **Note:** {note}",
         ephemeral=True,

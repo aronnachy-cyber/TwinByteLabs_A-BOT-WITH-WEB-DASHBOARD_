@@ -2972,7 +2972,8 @@ let logsVisible = true;
 
 async function loadLogs() {
   try {
-    const res = await fetch('/api/logs?limit=200');
+    const guildParam = currentGuildId ? '&guild_id=' + encodeURIComponent(currentGuildId) : '';
+    const res = await fetch('/api/logs?limit=200' + guildParam);
     allLogs = await res.json();
     renderLogs(allLogs);
     document.getElementById('log-refresh-indicator').textContent = 'Last refresh: ' + new Date().toLocaleTimeString();

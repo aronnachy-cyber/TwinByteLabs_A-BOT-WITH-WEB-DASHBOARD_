@@ -3580,7 +3580,7 @@ def api_guild_config_save():
             pass
     if guild_id:
         save_guild_config(guild_id, updates)
-        add_dashboard_log("⚙️ GUILD-SETTINGS", f"Config updated for guild {guild_id}")
+        add_dashboard_log("⚙️ GUILD-SETTINGS", f"Config updated for guild {guild_id}", guild_id=guild_id)
     else:
         global config
         config.update(updates)
@@ -3655,8 +3655,13 @@ def api_refresh_guilds():
 def api_logs():
     if not session.get('logged_in'):
         return jsonify({"error": "Unauthorized"}), 401
-    limit = int(request.args.get('limit', 100))
-    return jsonify(action_logs[:limit])
+    limit    = int(request.args.get('limit', 100))
+    guild_id = (request.args.get('guild_id') or '').strip()
+    if guild_id:
+        filtered = [l for l in action_logs if l.get('guild_id', '') == guild_id]
+    else:
+        filtered = action_logs
+    return jsonify(filtered[:limit])
 
 @app.route('/api/add_log', methods=['POST'])
 def api_add_log():
