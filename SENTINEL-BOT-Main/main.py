@@ -1067,7 +1067,9 @@ def _build_manual_pages() -> list:
         [
             ("Support Tickets", (
                 "`/ticket [reason]` — Open a support ticket\n"
-                "`/ticket-close` — Close the current ticket channel\n\n"
+                "`/ticket-close` — Close the current ticket channel\n"
+                "`/ticket-panel #channel [title] [description] [button_label] [color] [footer] [thumbnail] [image]`\n"
+                "  → Post a fully custom ticket panel embed with a clickable **Open Ticket** button\n\n"
                 "Set up a ticket category in the dashboard. The bot will create a private channel per ticket."
             ), False),
             ("Reaction Roles", (
@@ -1692,6 +1694,86 @@ async def slash_ticket_close(interaction: discord.Interaction):
     await tickets_mod.close_ticket(interaction.channel, interaction.user)
     dlog("🔒 TICKET-CLOSE", f"{interaction.user} closed ticket #{ticket_data.get('id', '?')}", guild_id=interaction.guild_id)
 
+
+# ============================================================
+# 🎫 /ticket-panel  — post a custom ticket panel with a button
+# ============================================================
+
+@bot.tree.command(name="ticket-panel", description="Post a custom ticket panel with an Open Ticket button")
+@app_commands.describe(
+    channel="Channel where the panel will be posted",
+    title="Panel embed title",
+    description="Panel embed description (supports \\n for new lines)",
+    button_label="Label on the Open Ticket button",
+    color="Embed color as a hex value without # (e.g. 5b8cff)",
+    footer="Footer text shown at the bottom of the embed",
+    thumbnail="URL of an image shown as a small thumbnail (top-right)",
+    image="URL of a large image shown at the bottom of the embed",
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def slash_ticket_panel(
+    interaction: discord.Interaction,
+    channel: discord.TextChannel,
+    title: str = "🎫 Support Tickets",
+    description: str = "Need help? Click the button below to open a support ticket and our staff will assist you shortly.",
+    button_label: str = "Open Ticket",
+    color: str = "5b8cff",
+    footer: str = "SP4RK Ticket System",
+    thumbnail: str = "",
+    image: str = "",
+):
+    if not interaction.guild:
+        await interaction.response.send_message("❌ This command can only be used in a server.", ephemeral=True)
+        return
+
+    # Parse color
+    try:
+        embed_color = int(color.lstrip("#"), 16)
+    except (ValueError, AttributeError):
+        embed_color = 0x5b8cff
+
+    # Build embed
+    embed = discord.Embed(
+        title=title,
+        description=description.replace("\\n", "\n"),
+        color=embed_color,
+    )
+    embed.set_footer(text=footer)
+    if thumbnail.startswith("http"):
+        embed.set_thumbnail(url=thumbnail)
+    if image.startswith("http"):
+        embed.set_image(url=image)
+
+    # Build the persistent panel view with the custom button label
+    view = tickets_mod.TicketPanelView(button_label=button_label)
+
+    try:
+        await channel.send(embed=embed, view=view)
+        await interaction.response.send_message(
+            f"✅ **Ticket panel posted** in {channel.mention}!\n"
+            f"Members can click **{button_label}** to open a ticket.",
+            ephemeral=True,
+        )
+        dlog("🎫 TICKET-PANEL", f"{interaction.user} posted a ticket panel in #{channel.name}", guild_id=interaction.guild_id)
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            f"❌ I don't have permission to send messages in {channel.mention}.", ephemeral=True
+        )
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Failed to post panel: {e}", ephemeral=True)
+
+
+@slash_ticket_panel.error
+async def ticket_panel_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "❌ **Missing Permission** — You need the **Manage Server** permission to post a ticket panel.",
+            ephemeral=True,
+        )
+    else:
+        await interaction.response.send_message(f"❌ Error: {error}", ephemeral=True)
+
+
 @bot.tree.command(name="setup-reaction-role", description="Link an emoji on a message to a role — users get the role when they react")
 @app_commands.describe(message_id="ID of the message to watch", emoji="The emoji to react with", role="Role to assign on reaction")
 async def slash_setup_rr(interaction: discord.Interaction, message_id: str, emoji: str, role: discord.Role):
@@ -1846,6 +1928,9 @@ async def on_ready():
     refresh_config()
     # Register persistent views so buttons survive bot restarts
     bot.add_view(tickets_mod.TicketCloseView())
+    bot.add_view(tickets_mod.TicketPanelView())
+    # Give TicketPanelView access to guild config without a circular import
+    tickets_mod.set_config_callback(get_config_for_guild)
     # Wire up instant config refresh: dashboard save → refresh_config() immediately
     set_bot_config_refresh_callback(refresh_config)
     s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}

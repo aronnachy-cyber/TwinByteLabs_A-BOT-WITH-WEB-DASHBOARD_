@@ -7,6 +7,15 @@ from datetime import datetime
 TICKETS_FILE = "tickets.json"
 _TABLE = "sentinel_tickets"
 
+# Callback set by main.py on startup so TicketPanelView can fetch guild config
+# without creating a circular import.
+_get_config_callback = None
+
+
+def set_config_callback(fn):
+    global _get_config_callback
+    _get_config_callback = fn
+
 
 def _get_supabase():
     try:
@@ -264,6 +273,54 @@ async def close_ticket(channel, closer, transcript=True):
     except Exception as e:
         print(f"Ticket delete error: {e}")
     return True
+
+
+class TicketPanelView(discord.ui.View):
+    """Persistent view posted by /ticket-panel. Survives bot restarts."""
+
+    def __init__(self, button_label: str = "Open Ticket"):
+        super().__init__(timeout=None)
+        # Update the button label dynamically when re-creating from on_ready
+        self.btn_open.label = button_label
+
+    @discord.ui.button(label="Open Ticket", style=discord.ButtonStyle.success,
+                       emoji="🎫", custom_id="ticket_panel_open")
+    async def btn_open(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
+        member = interaction.user
+
+        config = {}
+        if _get_config_callback:
+            try:
+                config = _get_config_callback(str(guild.id))
+            except Exception:
+                config = {}
+
+        # Prevent duplicate open tickets from the same user
+        existing = next(
+            (t for t in get_all_tickets()
+             if t.get("status") == "open" and t.get("user_id") == member.id
+             and t.get("guild_id") == guild.id),
+            None,
+        )
+        if existing:
+            ch = guild.get_channel(int(existing["channel_id"])) if existing.get("channel_id") else None
+            mention = ch.mention if ch else f"ticket #{existing.get('id', '?')}"
+            await interaction.followup.send(
+                f"⚠️ You already have an open ticket: {mention}", ephemeral=True
+            )
+            return
+
+        try:
+            channel, ticket = await create_ticket(guild, member, config, "General Support")
+            await interaction.followup.send(
+                f"✅ Your ticket has been created: {channel.mention}", ephemeral=True
+            )
+        except Exception as e:
+            await interaction.followup.send(
+                f"❌ Could not create your ticket: {e}", ephemeral=True
+            )
 
 
 class TicketCloseView(discord.ui.View):
