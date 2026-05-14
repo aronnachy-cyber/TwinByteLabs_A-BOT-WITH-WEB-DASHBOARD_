@@ -3556,8 +3556,11 @@ def api_guild_config_get():
     guild_id = request.args.get('guild_id', '').strip()
     if not guild_id:
         return jsonify(config)
-    cfg = get_guild_config(guild_id)
-    return jsonify(cfg)
+    # Return only the guild-specific overrides (NOT merged with global defaults).
+    # Merging would cause every field to appear populated when switching servers,
+    # because global defaults fill in any key the guild hasn't set yet.
+    data = _load_guild_configs()
+    return jsonify(data.get(guild_id, {}))
 
 # ---- API: PER-GUILD CONFIG (POST / SAVE) ----
 @app.route('/api/guild_config', methods=['POST'])

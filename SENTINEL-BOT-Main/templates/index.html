@@ -2829,9 +2829,15 @@ function applyConfig(cfg) {
   setText('welcome_footer_msg',    cfg.welcome_footer_msg);
   setText('welcome_staff_msg',     cfg.welcome_staff_msg);
   setText('welcome_staff_emoji',   cfg.welcome_staff_emoji);
-  if (cfg.welcome_image) {
-    const prev = document.getElementById('welcome_img_preview');
-    if (prev) { prev.src = cfg.welcome_image; prev.style.display = 'block'; }
+  const _imgPrev = document.getElementById('welcome_img_preview');
+  if (_imgPrev) {
+    if (cfg.welcome_image) {
+      _imgPrev.src = cfg.welcome_image;
+      _imgPrev.style.display = 'block';
+    } else {
+      _imgPrev.src = '';
+      _imgPrev.style.display = 'none';
+    }
   }
   setText('log_channel', cfg.log_channel); setText('log_channel_g', cfg.log_channel);
   setText('owner_dm_id', cfg.owner_dm_id);
