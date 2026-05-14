@@ -1790,11 +1790,17 @@ async def on_message(message):
                 except Exception as _ce:
                     print(f"[LVL-CARD] build failed: {_ce}")
                     card_file = None
-                send_kwargs = {}
+                # Build the level-up message text from config template (always sent).
+                lv_msg_tpl = cfg.get("level_up_message", "🎉 {user} levelled up to **Level {level}**!")
+                lv_msg = (
+                    lv_msg_tpl
+                    .replace("{user}", message.author.mention)
+                    .replace("{level}", str(new_lvl))
+                    .replace("{old_level}", str(old_lvl))
+                )
+                send_kwargs = {"content": lv_msg}
                 if card_file:
                     send_kwargs["file"] = card_file
-                else:
-                    send_kwargs["content"] = f"🎉 {message.author.mention} levelled up to **Level {new_lvl}**!"
                 if lvl_ch_id:
                     try:
                         ch = bot.get_channel(int(lvl_ch_id)) or await bot.fetch_channel(int(lvl_ch_id))

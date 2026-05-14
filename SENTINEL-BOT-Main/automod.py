@@ -500,13 +500,22 @@ async def handle_message(message, config, add_warning_fn=None):
 
     async def _punish(reason, log_title, log_desc, dm=True):
         # Always delete the offending message.
-        # Only warn and escalate when the bot can actually action the member
-        # (i.e. the bot's role is above theirs in the server hierarchy).
         await safe_delete(message)
+
+        # Always send an in-channel notification so the user and channel know
+        # why the message was removed — even if the bot can't formally warn them.
         if not _allowed_root:
-            # Bot can delete but cannot warn/mute/punish a higher-ranked user.
-            # Silently remove the message and stop here.
+            # Bot cannot warn/mute/punish a higher-ranked user, but we still
+            # notify the channel that the message was removed.
+            try:
+                await channel.send(
+                    f"⚠️ {author.mention} your message was removed — **{reason}**.",
+                    delete_after=8,
+                )
+            except Exception as e:
+                print(f"[automod] in-channel notify failed: {e}")
             return True
+
         count = None
         if add_warning_fn:
             count = await add_warning_fn(author, reason)
@@ -523,7 +532,7 @@ async def handle_message(message, config, add_warning_fn=None):
         except Exception as e:
             print(f"[automod] in-channel warn failed: {e}")
 
-        if count and config.get("grad_punish") == "ON":
+        if count and (config.get("automod_on") == "ON" or config.get("grad_punish") == "ON"):
             await apply_graduated_punishment(message, config, count, add_warning_fn)
         return True
 
