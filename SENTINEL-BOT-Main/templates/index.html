@@ -1816,6 +1816,47 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     </p>
   </div>
 
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><i class="fas fa-award"></i> Role Rewards</div>
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:14px;">
+      Automatically give a role when a member reaches a specific level. Enter the level number and the Discord Role ID, then click <strong>+ Add</strong>.
+      Changes are saved when you click <strong>Save Settings</strong> above.
+    </p>
+
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+      <div>
+        <label style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:5px;">Level reached</label>
+        <input id="lv-rr-level" type="number" min="1" max="9999" placeholder="e.g. 5"
+          style="width:100px;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-size:.88rem;outline:none;">
+      </div>
+      <div style="flex:1;min-width:200px;">
+        <label style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:5px;">Role ID to give</label>
+        <input id="lv-rr-role" type="text" placeholder="e.g. 1234567890123456789"
+          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-size:.88rem;outline:none;">
+      </div>
+      <button onclick="addRoleReward()"
+        style="background:linear-gradient(135deg,#3a8fff,#5b8cff);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.88rem;white-space:nowrap;">
+        <i class="fas fa-plus"></i> Add
+      </button>
+    </div>
+
+    <table class="warnings-table" id="lv-rr-table">
+      <thead>
+        <tr>
+          <th style="width:130px;">Level</th>
+          <th>Role ID</th>
+          <th style="width:80px;">Remove</th>
+        </tr>
+      </thead>
+      <tbody id="lv-rr-body">
+        <tr><td colspan="3" class="empty-state">No role rewards configured. Add one above.</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:8px;color:var(--muted);font-size:.76rem;">
+      <i class="fas fa-circle-info"></i> Right-click a role in Discord → Copy Role ID. Make sure SP4RK's bot role is <strong>above</strong> the reward role in the server's role list.
+    </p>
+  </div>
+
   <div class="card">
     <div class="card-title"><i class="fas fa-trophy"></i> XP Leaderboard <span id="lv-guild-label" style="color:var(--muted);font-size:.8rem;margin-left:8px;"></span></div>
     <table class="warnings-table">
@@ -3622,6 +3663,8 @@ async function loadLeveling() {
       document.getElementById('lv-cooldown').value  = cfg.cooldown ?? 60;
       document.getElementById('lv-channel').value   = cfg.level_up_channel || '';
       document.getElementById('lv-msg').value       = cfg.level_up_message || '';
+      _lvRoleRewards = (cfg.role_rewards && typeof cfg.role_rewards === 'object') ? {...cfg.role_rewards} : {};
+      _renderRoleRewards();
     }
     const tbody = document.getElementById('lv-table-body');
     if (!Array.isArray(lb) || !lb.length) {
@@ -3644,6 +3687,47 @@ async function loadLeveling() {
   }
 }
 
+// ---- Role Rewards helpers ----
+let _lvRoleRewards = {};
+
+function _renderRoleRewards() {
+  const tbody = document.getElementById('lv-rr-body');
+  const levels = Object.keys(_lvRoleRewards).map(Number).sort((a,b)=>a-b);
+  if (!levels.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No role rewards configured. Add one above.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = levels.map(lvl => `
+    <tr>
+      <td><span style="background:rgba(91,140,255,.15);color:#8bb8ff;padding:3px 12px;border-radius:10px;font-weight:700;">Level ${lvl}</span></td>
+      <td><code style="background:var(--bg);padding:2px 8px;border-radius:5px;font-size:.82rem;">${_lvRoleRewards[String(lvl)]}</code></td>
+      <td>
+        <button onclick="removeRoleReward(${lvl})"
+          style="background:rgba(231,76,60,.12);color:#e74c3c;border:1px solid rgba(231,76,60,.25);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:.75rem;">
+          Remove
+        </button>
+      </td>
+    </tr>`).join('');
+}
+
+function addRoleReward() {
+  const lvl  = parseInt(document.getElementById('lv-rr-level').value);
+  const role = document.getElementById('lv-rr-role').value.trim();
+  if (!lvl || lvl < 1) { showToast('❌ Enter a valid level number.', true); return; }
+  if (!role || !/^\d+$/.test(role)) { showToast('❌ Enter a valid Role ID (numbers only).', true); return; }
+  _lvRoleRewards[String(lvl)] = role;
+  document.getElementById('lv-rr-level').value = '';
+  document.getElementById('lv-rr-role').value  = '';
+  _renderRoleRewards();
+  showToast('✅ Role reward added — click Save Settings to apply.');
+}
+
+function removeRoleReward(lvl) {
+  delete _lvRoleRewards[String(lvl)];
+  _renderRoleRewards();
+  showToast('Removed — click Save Settings to apply.');
+}
+
 async function saveLevelingConfig() {
   const gid = document.getElementById('lv-guild-id').value.trim();
   if (!gid) { showToast('❌ Enter a Guild ID first.', true); return; }
@@ -3653,7 +3737,8 @@ async function saveLevelingConfig() {
     xp_max: parseInt(document.getElementById('lv-xp-max').value) || 25,
     cooldown: parseInt(document.getElementById('lv-cooldown').value) || 60,
     level_up_channel: document.getElementById('lv-channel').value.trim(),
-    level_up_message: document.getElementById('lv-msg').value.trim() || '🎉 {user} levelled up to **Level {level}**!'
+    level_up_message: document.getElementById('lv-msg').value.trim() || '🎉 {user} levelled up to **Level {level}**!',
+    role_rewards: _lvRoleRewards,
   };
   try {
     const res  = await fetch('/api/leveling/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
