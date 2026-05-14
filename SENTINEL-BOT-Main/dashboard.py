@@ -28,7 +28,38 @@ else:
     print("⚠️  Supabase not configured — falling back to local JSON files")
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SESSION_SECRET") or os.urandom(24).hex()
+
+def _get_or_create_secret_key() -> str:
+    """Return a stable secret key that survives process restarts.
+
+    Priority:
+      1. FLASK_SECRET_KEY env var (set by the operator / Replit secrets)
+      2. SESSION_SECRET env var (legacy name)
+      3. A key persisted in .flask_secret_key beside this file — generated
+         once and reused on every subsequent restart so sessions stay valid.
+    """
+    key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SESSION_SECRET")
+    if key:
+        return key
+    key_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".flask_secret_key")
+    if os.path.exists(key_file):
+        try:
+            with open(key_file, "r") as fh:
+                stored = fh.read().strip()
+            if stored:
+                return stored
+        except Exception:
+            pass
+    import secrets as _secrets_mod
+    key = _secrets_mod.token_hex(32)
+    try:
+        with open(key_file, "w") as fh:
+            fh.write(key)
+    except Exception as e:
+        print(f"[dashboard] Warning: could not persist secret key to {key_file}: {e}")
+    return key
+
+app.secret_key = _get_or_create_secret_key()
 # Trust the reverse proxy (Render/Replit) so request.scheme/host_url reflect HTTPS
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 # Persistent, cross-redirect-safe session cookies for the Discord OAuth round-trip
