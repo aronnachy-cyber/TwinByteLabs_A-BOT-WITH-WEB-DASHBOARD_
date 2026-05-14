@@ -3943,6 +3943,17 @@ try:
 except Exception as _e:
     print(f"⚠️  Failed to load extras module: {_e}")
 
+# ---------------- MISSING COMMANDS ----------------
+# All remaining slash + prefix commands from the v2.5 command list.
+try:
+    import commands_missing as _cmds_missing
+    _cmds_missing.setup(bot, dlog=dlog)
+    print("✅ commands_missing loaded successfully.")
+except Exception as _e:
+    import traceback
+    print(f"⚠️  Failed to load commands_missing: {_e}")
+    traceback.print_exc()
+
 
 # ---------------- RUN ----------------
 _bot_thread = None
