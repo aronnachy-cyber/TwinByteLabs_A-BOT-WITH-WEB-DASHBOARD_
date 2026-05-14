@@ -40,9 +40,124 @@ app.config.update(
 )
 
 
+import time as _time_mod
+
+# How many seconds between live Discord profile refreshes.
+# The session stores the last refresh timestamp so we don't hit Discord on
+# every single request — only when the cached data is getting stale.
+_DISCORD_REFRESH_INTERVAL = 300  # 5 minutes
+
+
+def _refresh_discord_profile():
+    """Re-fetch the logged-in user's real Discord profile and guild list.
+
+    Called on every page load (non-API, non-static) but rate-limited by
+    _DISCORD_REFRESH_INTERVAL so it only calls Discord once every 5 minutes.
+    Updates session in-place so all templates immediately see the fresh data.
+    """
+    if not session.get('logged_in'):
+        return
+    access_token = session.get('discord_access_token', '')
+    if not access_token:
+        return
+
+    now = _time_mod.time()
+    last = session.get('_discord_refresh_ts', 0)
+    if now - last < _DISCORD_REFRESH_INTERVAL:
+        return  # still fresh — skip
+
+    try:
+        # ── 1. Fetch user profile ──────────────────────────────────────────
+        user_res = http_requests.get(
+            f"{DISCORD_API_BASE}/users/@me",
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=5,
+        )
+        if user_res.status_code == 401:
+            # Token expired/revoked — clear it so the user sees a re-login prompt
+            session.pop('discord_access_token', None)
+            session.pop('_discord_refresh_ts', None)
+            session.modified = True
+            return
+        if user_res.status_code == 200:
+            discord_user = user_res.json()
+            discord_id       = str(discord_user.get('id', '') or '')
+            discord_username = discord_user.get('username', '') or ''
+            discord_global   = discord_user.get('global_name') or discord_username
+            discord_avatar   = discord_user.get('avatar') or ''
+            avatar_url = (
+                f"https://cdn.discordapp.com/avatars/{discord_id}/{discord_avatar}.png"
+                if discord_avatar and discord_id else ''
+            )
+            if discord_global:
+                session['user_name']   = discord_global
+            if avatar_url:
+                session['user_avatar'] = avatar_url
+            # Keep the persisted user record up-to-date too.
+            if discord_id:
+                try:
+                    u = find_user_by_discord_id(discord_id)
+                    if u:
+                        if discord_global:
+                            u['name'] = discord_global
+                            u['discord_username'] = discord_username
+                        if avatar_url:
+                            u['avatar_url'] = avatar_url
+                        save_single_user(u)
+                except Exception:
+                    pass
+
+        # ── 2. Fetch admin/owner guild list ───────────────────────────────
+        guilds_res = http_requests.get(
+            f"{DISCORD_API_BASE}/users/@me/guilds",
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=5,
+        )
+        if guilds_res.status_code == 200:
+            MANAGE_GUILD = 0x20
+            ADMINISTRATOR = 0x8
+            user_admin_guild_ids = []
+            user_admin_guilds    = []
+            for g in (guilds_res.json() or []):
+                try:
+                    perms = int(g.get('permissions', 0))
+                except (TypeError, ValueError):
+                    perms = 0
+                if g.get('owner') or (perms & (MANAGE_GUILD | ADMINISTRATOR)):
+                    gid = str(g.get('id', '')).strip()
+                    if gid:
+                        user_admin_guild_ids.append(gid)
+                        icon_hash = g.get('icon') or ''
+                        icon_url = (
+                            f"https://cdn.discordapp.com/icons/{gid}/{icon_hash}.png?size=128"
+                            if icon_hash else None
+                        )
+                        user_admin_guilds.append({
+                            'id':       gid,
+                            'name':     g.get('name', 'Unknown Server'),
+                            'icon_url': icon_url,
+                        })
+            session['user_admin_guild_ids'] = user_admin_guild_ids
+            session['user_guilds']          = user_admin_guilds
+
+        session['_discord_refresh_ts'] = now
+        session.modified = True
+
+    except Exception as _e:
+        # Network hiccup — don't crash the page, just keep the cached data.
+        print(f"[discord-refresh] {_e}")
+
+
 @app.before_request
 def _make_session_permanent():
     session.permanent = True
+    # Refresh real Discord profile data on every non-API, non-static page load.
+    if not request.path.startswith('/api/') \
+            and not request.path.startswith('/server-official/api/') \
+            and not request.path.startswith('/static/') \
+            and not request.path.startswith('/health') \
+            and request.method == 'GET':
+        _refresh_discord_profile()
 
 
 @app.after_request
