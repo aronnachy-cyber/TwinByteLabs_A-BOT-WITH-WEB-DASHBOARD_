@@ -909,10 +909,511 @@ def _build_manual_pages() -> list:
         e = discord.Embed(title=title, description=description, color=C)
         for name, value, inline in fields:
             e.add_field(name=name, value=value, inline=inline)
-        e.set_footer(text="SP4RK Manual  •  Use ‹ › to navigate pages")
         return e
 
     pages = []
+
+    # ── Page 1: Overview ──────────────────────────────────────────────────
+    pages.append(page(
+        "📖 SP4RK Manual — Overview",
+        (
+            "Welcome to the **SP4RK** bot manual!\n"
+            "Use **‹** and **›** to navigate pages.\n\n"
+            "> **Syntax:** `<required>` · `[optional]`"
+        ),
+        [
+            ("📋 Pages (1–8)", (
+                "**1.** Overview\n"
+                "**2.** ⚠️ Warnings\n"
+                "**3.** 🔨 Bans & Kicks\n"
+                "**4.** 🔇 Timeouts & Mutes\n"
+                "**5.** 📋 Mod Notes & History\n"
+                "**6.** 🗑️ Purge & Slowmode\n"
+                "**7.** 🔒 Lock & Mass Actions\n"
+                "**8.** 👥 Member Tools"
+            ), True),
+            ("📋 Pages (9–15)", (
+                "**9.** ℹ️ Info & Profiles\n"
+                "**10.** 🏆 Leveling, Fun & Reminders\n"
+                "**11.** 🎉 Giveaways & Polls\n"
+                "**12.** 🎫 Tickets\n"
+                "**13.** 🎭 Reaction Roles & Auto-Responder\n"
+                "**14.** 🏗️ Server Templates\n"
+                "**15.** ⌨️ Prefix Commands"
+            ), True),
+            ("🔤 Command types", (
+                "**Slash** — type `/` in any channel to browse all commands\n"
+                "**Prefix** — default `!` · change server prefix with `/setprefix`\n"
+                "**Dashboard** — run `/dashboard` to manage settings visually"
+            ), False),
+        ]
+    ))
+
+    # ── Page 2: Warnings ──────────────────────────────────────────────────
+    pages.append(page(
+        "⚠️ Warnings",
+        "Track member infractions. Warnings stack and can trigger graduated punishments.",
+        [
+            ("/warn", (
+                "`/warn <member> [reason]`\n"
+                "Add a warning to a member's record. Staff are notified in the log channel "
+                "and the member can be auto-DM'd if that toggle is enabled in the dashboard.\n"
+                "*(Requires: Moderate Members)*"
+            ), False),
+            ("/warnings", (
+                "`/warnings <member>`\n"
+                "Show the full warning history for a member: date, moderator, and reason for each.\n"
+                "*(Requires: Moderate Members)*"
+            ), False),
+            ("/clearwarnings", (
+                "`/clearwarnings <member>`\n"
+                "Wipe all warnings from a member's record completely.\n"
+                "*(Requires: Administrator)*"
+            ), False),
+        ]
+    ))
+
+    # ── Page 3: Bans & Kicks ──────────────────────────────────────────────
+    pages.append(page(
+        "🔨 Bans & Kicks",
+        "Remove members from the server temporarily or permanently.",
+        [
+            ("/kick", (
+                "`/kick <member> [reason]`\n"
+                "Kick a member — they leave the server but can rejoin with a new invite.\n"
+                "*(Requires: Kick Members)*"
+            ), False),
+            ("/ban", (
+                "`/ban <member> [reason]`\n"
+                "Permanently ban a member. They cannot rejoin unless unbanned.\n"
+                "*(Requires: Ban Members)*"
+            ), False),
+            ("/unban", (
+                "`/unban <user_id> [reason]`\n"
+                "Unban a user by their Discord ID (right-click their name → Copy ID).\n"
+                "*(Requires: Ban Members)*"
+            ), False),
+            ("/tempban", (
+                "`/tempban <member> <duration> [reason]`\n"
+                "Ban a member for a set period then automatically unban them.\n"
+                "Duration examples: `30m` · `2h` · `1d` · `1w`\n"
+                "*(Requires: Ban Members)*"
+            ), False),
+        ]
+    ))
+
+    # ── Page 4: Timeouts & Mutes ──────────────────────────────────────────
+    pages.append(page(
+        "🔇 Timeouts & Mutes",
+        "Silence members via Discord's native timeout or a mute role.",
+        [
+            ("/timeout", (
+                "`/timeout <member> <duration> [reason]`\n"
+                "Discord native timeout — the member cannot type, react, or join voice.\n"
+                "Max duration: **28 days**. Format: `30s` · `10m` · `2h` · `7d`\n"
+                "*(Requires: Moderate Members)*"
+            ), False),
+            ("/untimeout", (
+                "`/untimeout <member>`\n"
+                "Remove an active timeout from a member immediately.\n"
+                "*(Requires: Moderate Members)*"
+            ), False),
+            ("/mute", (
+                "`/mute <member> [duration]`\n"
+                "Assign the server's configured mute role. Leave duration blank for indefinite.\n"
+                "Duration examples: `30m` · `2h` · `1d`\n"
+                "*(Requires: Manage Roles)*"
+            ), False),
+            ("/unmute", (
+                "`/unmute <member>`\n"
+                "Remove the mute role from a member.\n"
+                "*(Requires: Manage Roles)*"
+            ), False),
+        ]
+    ))
+
+    # ── Page 5: Mod Notes & History ───────────────────────────────────────
+    pages.append(page(
+        "📋 Mod Notes & History",
+        "Private staff notes and complete per-member moderation logs.",
+        [
+            ("/note", (
+                "`/note <member> <note>`\n"
+                "Add a private moderator note to a member's record. The member cannot see notes.\n"
+                "*(Requires: Moderate Members)*"
+            ), False),
+            ("/notes", (
+                "`/notes <member>`\n"
+                "View all private staff notes for a member, with timestamps and note authors.\n"
+                "*(Requires: Moderate Members)*"
+            ), False),
+            ("/modlogs", (
+                "`/modlogs <member>`\n"
+                "Show a member's complete moderation history — all warnings, notes, bans, and kicks in one embed.\n"
+                "*(Requires: Moderate Members)*"
+            ), False),
+        ]
+    ))
+
+    # ── Page 6: Purge & Slowmode ──────────────────────────────────────────
+    pages.append(page(
+        "🗑️ Purge & Slowmode",
+        "Bulk-delete messages and control message rate in channels.",
+        [
+            ("/purge", (
+                "`/purge <amount>`\n"
+                "Delete the last N messages in this channel (max **200**).\n"
+                "Note: Discord cannot bulk-delete messages older than 14 days.\n"
+                "*(Requires: Manage Messages)*"
+            ), False),
+            ("/purge-reactions", (
+                "`/purge-reactions [amount]`\n"
+                "Strip every reaction from the last N messages (default 10).\n"
+                "*(Requires: Manage Messages)*"
+            ), False),
+            ("/purge-user", (
+                "`/purge-user <member> [amount]`\n"
+                "Delete a specific member's recent messages in this channel (max **500**).\n"
+                "*(Requires: Manage Messages)*"
+            ), False),
+            ("/slowmode", (
+                "`/slowmode <seconds> [#channel]`\n"
+                "Set a per-user cooldown between messages. `0` disables slowmode. Max: **21600** (6 h).\n"
+                "Defaults to the current channel if none is specified.\n"
+                "*(Requires: Manage Channels)*"
+            ), False),
+        ]
+    ))
+
+    # ── Page 7: Lock & Mass Actions ───────────────────────────────────────
+    pages.append(page(
+        "🔒 Lock & Mass Actions",
+        "Lock channels individually or server-wide, and neutralise raids.",
+        [
+            ("/lock", (
+                "`/lock [#channel]`\n"
+                "Deny @everyone the ability to send messages. Defaults to the current channel.\n"
+                "*(Requires: Manage Channels)*"
+            ), False),
+            ("/unlock", (
+                "`/unlock [#channel]`\n"
+                "Restore @everyone send permissions. Defaults to the current channel.\n"
+                "*(Requires: Manage Channels)*"
+            ), False),
+            ("/lockdown", (
+                "`/lockdown`\n"
+                "Lock **every** channel in the server instantly — emergency use only.\n"
+                "Lift with `/unlockdown`.\n"
+                "*(Requires: Administrator)*"
+            ), False),
+            ("/unlockdown", (
+                "`/unlockdown`\n"
+                "Lift the server lockdown and restore normal permissions in all channels.\n"
+                "*(Requires: Administrator)*"
+            ), False),
+            ("/massban", (
+                "`/massban <id1 id2 ...> [reason]`\n"
+                "Ban up to **50** users at once by Discord ID, space-separated.\n"
+                "Designed for fast raid response.\n"
+                "*(Requires: Ban Members)*"
+            ), False),
+        ]
+    ))
+
+    # ── Page 8: Member Tools ──────────────────────────────────────────────
+    pages.append(page(
+        "👥 Member Tools",
+        "Manage roles, nicknames, voice, and recover deleted messages.",
+        [
+            ("/role-add", (
+                "`/role-add <member> <role>`\n"
+                "Assign a role to a member. The role must be below your top role and below the bot's top role.\n"
+                "*(Requires: Manage Roles)*"
+            ), False),
+            ("/role-remove", (
+                "`/role-remove <member> <role>`\n"
+                "Remove a role from a member.\n"
+                "*(Requires: Manage Roles)*"
+            ), False),
+            ("/nick", (
+                "`/nick <member> [name]`\n"
+                "Set a member's server nickname. Leave `name` blank to reset it to their username.\n"
+                "*(Requires: Manage Nicknames)*"
+            ), False),
+            ("/voicekick", (
+                "`/voicekick <member>`\n"
+                "Disconnect a member from their current voice channel.\n"
+                "*(Requires: Mute Members)*"
+            ), False),
+            ("/snipe", (
+                "`/snipe`\n"
+                "Reveal the most recently deleted message in this channel, including author and content.\n"
+                "*(Requires: Manage Messages)*"
+            ), False),
+        ]
+    ))
+
+    # ── Page 9: Info & Profiles ───────────────────────────────────────────
+    pages.append(page(
+        "ℹ️ Info & Profiles",
+        "Look up detailed information about members, roles, and the server.",
+        [
+            ("/userinfo", (
+                "`/userinfo [member]`\n"
+                "Detailed member card: account age, server join date, roles, status, and avatar. Defaults to yourself."
+            ), False),
+            ("/serverinfo", (
+                "`/serverinfo`\n"
+                "Full server overview: member count, channel breakdown, boost tier, verification level, and active features."
+            ), False),
+            ("/avatar", (
+                "`/avatar [member]`\n"
+                "Display a member's full-size avatar with download links in PNG / JPG / WEBP / GIF. Defaults to yourself."
+            ), False),
+            ("/banner", (
+                "`/banner [member]`\n"
+                "Show a member's Discord profile banner (requires Nitro). Defaults to yourself."
+            ), False),
+            ("/roleinfo", (
+                "`/roleinfo <role>`\n"
+                "Role details: color, permissions, member count, hoisted status, position, and creation date."
+            ), False),
+            ("/botinfo", (
+                "`/botinfo`\n"
+                "SP4RK statistics: version, uptime, server count, command count, and memory usage."
+            ), False),
+            ("/bot", (
+                "`/bot`\n"
+                "Quick SP4RK status card showing current latency, prefix, and uptime."
+            ), False),
+            ("/dashboard", (
+                "`/dashboard`\n"
+                "Get your personal link to the SP4RK web dashboard for this server.\n"
+                "*(Requires: Administrator)*"
+            ), False),
+        ]
+    ))
+
+    # ── Page 10: Leveling, Fun & Reminders ───────────────────────────────
+    pages.append(page(
+        "🏆 Leveling, Fun & Reminders",
+        "XP ranking, fun commands, reminders, and bot utilities.",
+        [
+            ("/rank", (
+                "`/rank [member]`\n"
+                "Show an XP rank card with level, XP bar, and server leaderboard position. Defaults to yourself."
+            ), False),
+            ("/leaderboard", (
+                "`/leaderboard`\n"
+                "Display the top 10 XP earners in this server."
+            ), False),
+            ("/remind", (
+                "`/remind <when> <reminder>`\n"
+                "Set a personal reminder — the bot will DM you when the time is up.\n"
+                "Duration examples: `10m` · `2h` · `1d`"
+            ), False),
+            ("/8ball", (
+                "`/8ball <question>`\n"
+                "Ask the magic 8-ball a yes/no question for a mystical answer."
+            ), False),
+            ("/coinflip", (
+                "`/coinflip`\n"
+                "Flip a coin — Heads or Tails?"
+            ), False),
+            ("/dice", (
+                "`/dice [sides] [count]`\n"
+                "Roll dice. Defaults to 1× d6. Example: `/dice sides:20 count:2` rolls 2d20."
+            ), False),
+            ("/setprefix", (
+                "`/setprefix <prefix>`\n"
+                "Change the prefix for all prefix commands on this server (e.g. `!`, `?`, `.`).\n"
+                "*(Requires: Administrator)*"
+            ), False),
+            ("/commands", (
+                "`/commands`\n"
+                "Quick-reference command list embed."
+            ), False),
+            ("/manual", (
+                "`/manual`\n"
+                "Open this interactive paginated manual."
+            ), False),
+        ]
+    ))
+
+    # ── Page 11: Giveaways & Polls ────────────────────────────────────────
+    pages.append(page(
+        "🎉 Giveaways & Polls",
+        "Run timed giveaways and reaction-based polls.",
+        [
+            ("/giveaway", (
+                "`/giveaway <duration> <prize> [winners]`\n"
+                "Start a giveaway embed. Members react 🎉 to enter. The bot picks winner(s) when time is up.\n"
+                "Duration: `30m` · `2h` · `1d` · `1w` · Default winners: **1**\n"
+                "*(Requires: Manage Guild)*"
+            ), False),
+            ("/giveaway-end", (
+                "`/giveaway-end <message_id>`\n"
+                "End an active giveaway early and immediately roll winner(s).\n"
+                "*(Requires: Manage Guild)*"
+            ), False),
+            ("/giveaway-reroll", (
+                "`/giveaway-reroll <message_id>`\n"
+                "Pick a new winner from a giveaway that has already ended.\n"
+                "*(Requires: Manage Guild)*"
+            ), False),
+            ("/poll", (
+                "`/poll <question> <option1> <option2> [option3] [option4]`\n"
+                "Post a reaction poll with up to **4** options. Members vote by reacting with the matching emoji."
+            ), False),
+        ]
+    ))
+
+    # ── Page 12: Tickets ──────────────────────────────────────────────────
+    pages.append(page(
+        "🎫 Tickets",
+        "Support ticket system — creates a private channel per user. Set the ticket category in the dashboard.",
+        [
+            ("/ticket", (
+                "`/ticket [reason]`\n"
+                "Open a support ticket. A private channel is created where only you and staff can see it.\n"
+                "Channel name format: `ticket-0001-reason`"
+            ), False),
+            ("/ticket-close", (
+                "`/ticket-close`\n"
+                "Close and delete the current ticket channel after a short delay.\n"
+                "Only the ticket opener or staff can use this.\n"
+                "*(Requires: Manage Messages — for staff)*"
+            ), False),
+            ("/ticket-panel", (
+                "`/ticket-panel <#channel> [title] [description] [button_label] [color] [footer] [thumbnail] [image]`\n"
+                "Post a fully custom embed with a persistent **Open Ticket** button.\n"
+                "Members click the button to instantly create a ticket — no command needed.\n"
+                "All fields after `#channel` are optional. The button survives bot restarts.\n"
+                "Duplicate detection prevents a member from opening two tickets at once.\n"
+                "*(Requires: Manage Guild)*"
+            ), False),
+        ]
+    ))
+
+    # ── Page 13: Reaction Roles & Auto-Responder ──────────────────────────
+    pages.append(page(
+        "🎭 Reaction Roles & Auto-Responder",
+        "Assign roles via emoji reactions and auto-reply to keyword triggers.",
+        [
+            ("/setup-reaction-role", (
+                "`/setup-reaction-role <message_id> <emoji> <role>`\n"
+                "Watch a message for reactions. When a member reacts with the emoji they get the role; "
+                "removing the reaction removes the role.\n"
+                "*(Requires: Manage Roles)*"
+            ), False),
+            ("/remove-reaction-role", (
+                "`/remove-reaction-role <message_id> <emoji>`\n"
+                "Delete a reaction-role rule from a message.\n"
+                "*(Requires: Manage Roles)*"
+            ), False),
+            ("/list-reaction-roles", (
+                "`/list-reaction-roles`\n"
+                "Show all active reaction-role rules in this server."
+            ), False),
+            ("/autorespond add", (
+                "`/autorespond add <trigger> <response> [match]`\n"
+                "Auto-reply when a message matches the trigger.\n"
+                "`match` options: `contains` (default) · `exact` · `startswith`\n"
+                "Use `{user}` in the response to mention the sender.\n"
+                "*(Requires: Manage Guild)*"
+            ), False),
+            ("/autorespond remove", (
+                "`/autorespond remove <trigger>`\n"
+                "Delete an existing auto-responder rule.\n"
+                "*(Requires: Manage Guild)*"
+            ), False),
+            ("/autorespond list", (
+                "`/autorespond list`\n"
+                "Show all active auto-responder triggers and their configured responses."
+            ), False),
+        ]
+    ))
+
+    # ── Page 14: Server Templates ─────────────────────────────────────────
+    pages.append(page(
+        "🏗️ Server Templates",
+        "Clone a server's full channel and role structure and apply it elsewhere.",
+        [
+            ("/copy", (
+                "`/copy`\n"
+                "Capture the current server's full structure: categories, text channels, voice channels, "
+                "roles, and permission overwrites — saved as a reusable template.\n"
+                "*(Requires: Administrator)*"
+            ), False),
+            ("/paste", (
+                "`/paste`\n"
+                "Apply a previously copied template to the current server. "
+                "Items that already exist are skipped — nothing is duplicated.\n"
+                "⚠️ Creates many channels and roles — use with care.\n"
+                "*(Requires: Administrator)*"
+            ), False),
+            ("/delete-template", (
+                "`/delete-template`\n"
+                "Remove everything that `/paste` added to this server. "
+                "Original content is untouched — only SP4RK-pasted items are deleted.\n"
+                "Shows a confirmation prompt before proceeding.\n"
+                "*(Requires: Administrator)*"
+            ), False),
+            ("Workflow", (
+                "1️⃣ Go to **source** server → run `/copy`\n"
+                "2️⃣ Go to **target** server → run `/paste`\n"
+                "3️⃣ To undo → run `/delete-template` in the target"
+            ), False),
+        ]
+    ))
+
+    # ── Page 15: Prefix Commands ──────────────────────────────────────────
+    pages.append(page(
+        "⌨️ Prefix Commands",
+        "Classic `!prefix` style commands. Change your server prefix with `/setprefix`. Default: `!`",
+        [
+            ("Mutes & Bans", (
+                "`!mute <@member> [duration]` — Mute via mute role · Duration: `30m` `2h` `1d`\n"
+                "`!unmute <@member>` — Remove mute role\n"
+                "`!tempban <@member> <duration> [reason]` — Temp-ban then auto-unban\n"
+                "*(Requires: Manage Roles / Administrator)*"
+            ), False),
+            ("Mod Notes & History", (
+                "`!note <@member> <note>` — Add a private staff note\n"
+                "`!notes <@member>` — View all staff notes for a member\n"
+                "`!modlogs <@member>` — Full warning + note history\n"
+                "*(Requires: Moderate Members)*"
+            ), False),
+            ("Purge & Slowmode", (
+                "`!purgereaction [amount]` — Clear reactions from last N messages\n"
+                "`!purgeuser <@member> [amount]` — Delete member's recent messages\n"
+                "`!slowmode [seconds]` — Set slowmode (0 = off)\n"
+                "*(Requires: Manage Messages / Manage Channels)*"
+            ), False),
+            ("Lock & Lockdown", (
+                "`!lock [#channel]` — Lock channel (block @everyone from sending)\n"
+                "`!unlock [#channel]` — Restore send permissions\n"
+                "`!lockdown` — Emergency: lock every channel at once\n"
+                "`!unlockdown` — Lift the server lockdown\n"
+                "*(Requires: Manage Channels / Administrator)*"
+            ), False),
+            ("Member Management", (
+                "`!role add <@member> <@role>` — Assign a role\n"
+                "`!role remove <@member> <@role>` — Remove a role\n"
+                "`!nick <@member> [name]` — Set/reset nickname\n"
+                "`!voicekick <@member>` (aliases: `!vkick` `!vdc`) — Disconnect from voice\n"
+                "`!snipe` — Show last deleted message in this channel\n"
+                "`!massban <id1 id2 ...>` — Mass ban by Discord IDs\n"
+                "*(Requires: Manage Roles / Mute Members / Ban Members)*"
+            ), False),
+            ("Admin & Utility", (
+                "`!refresh` — Reload bot config for this server *(Administrator)*\n"
+                "`!sync` — Re-sync slash commands globally *(Bot Owner)*"
+            ), False),
+        ]
+    ))
+
+    # stamp each page with its number
 
     # ── Page 1: Overview ─────────────────────────────────────────────────
     pages.append(page(
