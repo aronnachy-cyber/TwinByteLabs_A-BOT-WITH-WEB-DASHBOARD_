@@ -20,4 +20,5 @@ dependencies = [
     "werkzeug>=3.0.0",
     "yt-dlp>=2024.1.0",
     "psycopg2-binary>=2.9.0",
+    "flask-login>=0.6.3",
 ]

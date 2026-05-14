@@ -499,46 +499,23 @@ async def handle_message(message, config, add_warning_fn=None):
         if any(_contains_word(normalized, w) for w in allowlist):
             return False  # message is exempt — bail out before any punishment
 
-    # Hierarchy check — determines whether SP4RK can warn/punish this user.
-    # We calculate this upfront but do NOT bail out yet: the always-on content
-    # filters (blacklist + strict profanity) must still delete forbidden words
-    # even in servers where the bot's role sits below normal member roles.
+    # Hierarchy check — bail out completely for owners, admins, and anyone
+    # whose top role is >= the bot's top role. SP4RK never touches their messages.
     bot_member = message.guild.me if message.guild else None
     _allowed_root, _why_root = can_bot_action(author, bot_member)
+    if not _allowed_root:
+        return False
 
     async def _punish(reason, log_title, log_desc, dm=True):
         # Always delete the offending message.
         await safe_delete(message)
 
-        # Always add a warning entry regardless of role hierarchy, so the
-        # count is tracked even for staff/higher-role members.
         count = None
         if add_warning_fn:
             try:
                 count = await add_warning_fn(author, reason)
             except Exception as e:
                 print(f"[automod] add_warning_fn failed: {e}")
-
-        # Always send an in-channel notification so the user and channel know
-        # why the message was removed — even if the bot can't formally punish them.
-        if not _allowed_root:
-            # Bot cannot mute/kick/ban a higher-ranked user, but we still
-            # notify the channel and log the warning.
-            try:
-                warn_text = f"⚠️ {author.mention} your message was removed — **{reason}**."
-                if count:
-                    warn_text += f" (Warning **#{count}**)"
-                await channel.send(warn_text, delete_after=15)
-            except Exception as e:
-                print(f"[automod] in-channel notify failed: {e}")
-            if count and config.get("auto_dm_warning") == "ON":
-                await auto_dm_warning_user(
-                    author, reason,
-                    message.guild.name if message.guild else "the server",
-                    count=count,
-                )
-            await send_webhook_log(config, log_title, log_desc)
-            return True
 
         await send_webhook_log(config, log_title, log_desc)
 
@@ -566,9 +543,7 @@ async def handle_message(message, config, add_warning_fn=None):
         return True
 
     # -----------------------------------------------------------------------
-    # ALWAYS-ON CONTENT FILTERS — fire in every server regardless of the
-    # bot's position in the role hierarchy. The message is deleted even if
-    # SP4RK can't warn the sender; warnings are skipped for protected users.
+    # CONTENT FILTERS
     # -----------------------------------------------------------------------
 
     # 1. Custom blacklist + banned words
@@ -589,14 +564,6 @@ async def handle_message(message, config, add_warning_fn=None):
             "🤬 Strict Profanity Detected",
             f"**User:** {author} ({author.id})\n**Channel:** {channel.mention}\n**Reason:** Bangla/English abusive profanity"
         )
-
-    # -----------------------------------------------------------------------
-    # HIERARCHY-GATED CHECKS — all remaining checks require the bot to be
-    # able to action the user (warn, mute, etc.). If the user outranks the
-    # bot, bail out silently without touching anything.
-    # -----------------------------------------------------------------------
-    if not _allowed_root:
-        return False
 
     # 0a. Repeated-word spam in a single message (e.g. "fuck fuck fuck fuck fuck")
     #     → instant 30-min auto-mute, NO owner approval, no warning bookkeeping.
