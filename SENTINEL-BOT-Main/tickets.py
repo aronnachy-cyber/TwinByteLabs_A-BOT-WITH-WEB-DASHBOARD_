@@ -194,8 +194,8 @@ async def create_ticket(guild, member, config, reason="General Support"):
         if isinstance(ch, discord.CategoryChannel):
             category = ch
 
-    safe_name = re.sub(r'[^a-z0-9]', '', member.name.lower())[:12] or "user"
-    channel_name = f"ticket-{ticket_num:04d}-{safe_name}"
+    reason_word = re.sub(r'[^a-z0-9]', '', (reason.split()[0] if reason else 'general').lower())[:16] or "general"
+    channel_name = f"ticket-{ticket_num:04d}-{reason_word}"
 
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=False),
