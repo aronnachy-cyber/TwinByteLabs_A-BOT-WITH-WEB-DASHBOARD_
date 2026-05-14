@@ -355,31 +355,73 @@ def load_config_from_supabase():
 
 load_config_from_supabase()
 
+def _preload_guild_config_cache():
+    """Warm up the in-memory guild config cache at startup so the first Discord
+    message never needs to hit Postgres."""
+    global _guild_config_cache
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            db_data = _ds.get_all_guild_configs()
+            if db_data is not None:
+                _guild_config_cache = dict(db_data)
+                print(f"📦 Guild config cache loaded ({len(_guild_config_cache)} guilds)")
+                return
+    except Exception as e:
+        print(f"[guild_cfg] preload from Postgres failed: {e}")
+    if os.path.exists(os.path.join(os.path.dirname(__file__), "sp4rk_guild_configs.json")):
+        try:
+            with open(os.path.join(os.path.dirname(__file__), "sp4rk_guild_configs.json"), "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    _guild_config_cache = loaded
+                    print(f"📦 Guild config cache loaded from JSON ({len(_guild_config_cache)} guilds)")
+        except Exception:
+            pass
+
 # ---- PER-GUILD CONFIG STORE ----
 import threading as _threading
 _GUILD_CONFIGS_FILE = os.path.join(os.path.dirname(__file__), "sp4rk_guild_configs.json")
 _guild_cfg_lock = _threading.RLock()
 
+# In-memory cache — populated on first load and updated on every save.
+# Eliminates a blocking Postgres query on every Discord message without
+# sacrificing correctness: writes always update the cache atomically.
+_guild_config_cache: dict | None = None  # None = not yet loaded
+
+
 def _load_guild_configs() -> dict:
-    # 1) Postgres
+    global _guild_config_cache
+    # 1) In-memory cache (hot path — always up-to-date after any save)
+    if _guild_config_cache is not None:
+        return dict(_guild_config_cache)
+    # 2) Postgres (cold start — populate the cache)
     try:
         import db_spark as _ds
         if _ds.is_available():
             db_data = _ds.get_all_guild_configs()
-            if db_data:
-                return db_data
+            if db_data is not None:  # {} is valid (no guilds yet), None means error
+                _guild_config_cache = dict(db_data)
+                return dict(_guild_config_cache)
     except Exception:
         pass
-    # 2) JSON fallback
+    # 3) JSON fallback
     if os.path.exists(_GUILD_CONFIGS_FILE):
         try:
             with open(_GUILD_CONFIGS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    _guild_config_cache = loaded
+                    return dict(_guild_config_cache)
         except Exception:
             pass
+    _guild_config_cache = {}
     return {}
 
 def _save_guild_configs(data: dict) -> None:
+    global _guild_config_cache
+    # Update the in-memory cache immediately so the bot sees changes instantly
+    _guild_config_cache = dict(data)
     # 1) Postgres
     try:
         import db_spark as _ds
@@ -393,6 +435,8 @@ def _save_guild_configs(data: dict) -> None:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         os.replace(tmp, _GUILD_CONFIGS_FILE)
+
+_preload_guild_config_cache()
 
 def get_guild_config(guild_id: str) -> dict:
     """Return the effective config for a guild: per-guild overrides merged over the global defaults."""

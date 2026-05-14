@@ -201,6 +201,11 @@ class _ConnCtx:
 
     def __exit__(self, exc_type, exc, tb):
         if self.conn is not None and _POOL is not None:
+            if exc_type is not None:
+                try:
+                    self.conn.rollback()
+                except Exception:
+                    pass
             try:
                 _POOL.putconn(self.conn)
             except Exception:
