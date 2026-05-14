@@ -502,23 +502,30 @@ async def handle_message(message, config, add_warning_fn=None):
         # Always delete the offending message.
         await safe_delete(message)
 
-        # Always send an in-channel notification so the user and channel know
-        # why the message was removed — even if the bot can't formally warn them.
-        if not _allowed_root:
-            # Bot cannot warn/mute/punish a higher-ranked user, but we still
-            # notify the channel that the message was removed.
-            try:
-                await channel.send(
-                    f"⚠️ {author.mention} your message was removed — **{reason}**.",
-                    delete_after=8,
-                )
-            except Exception as e:
-                print(f"[automod] in-channel notify failed: {e}")
-            return True
-
+        # Always add a warning entry regardless of role hierarchy, so the
+        # count is tracked even for staff/higher-role members.
         count = None
         if add_warning_fn:
-            count = await add_warning_fn(author, reason)
+            try:
+                count = await add_warning_fn(author, reason)
+            except Exception as e:
+                print(f"[automod] add_warning_fn failed: {e}")
+
+        # Always send an in-channel notification so the user and channel know
+        # why the message was removed — even if the bot can't formally punish them.
+        if not _allowed_root:
+            # Bot cannot mute/kick/ban a higher-ranked user, but we still
+            # notify the channel and log the warning.
+            try:
+                warn_text = f"⚠️ {author.mention} your message was removed — **{reason}**."
+                if count:
+                    warn_text += f" (Warning **#{count}**)"
+                await channel.send(warn_text, delete_after=15)
+            except Exception as e:
+                print(f"[automod] in-channel notify failed: {e}")
+            await send_webhook_log(config, log_title, log_desc)
+            return True
+
         await send_webhook_log(config, log_title, log_desc)
 
         # In-channel warning to the offending member.
@@ -528,9 +535,20 @@ async def handle_message(message, config, add_warning_fn=None):
             )
             if count:
                 warn_text += f" (Warning **#{count}**)"
-            await channel.send(warn_text, delete_after=8)
+            await channel.send(warn_text, delete_after=15)
         except Exception as e:
             print(f"[automod] in-channel warn failed: {e}")
+
+        # Also DM the user so they cannot miss the warning.
+        if count:
+            try:
+                await author.send(
+                    f"⚠️ **Warning #{count}** — Your message in **{message.guild.name}** was removed.\n"
+                    f"> **Reason:** {reason}\n"
+                    f"Please follow the server rules to avoid further action."
+                )
+            except Exception:
+                pass  # DMs may be closed; in-channel message is the fallback.
 
         if count and (config.get("automod_on") == "ON" or config.get("grad_punish") == "ON"):
             await apply_graduated_punishment(message, config, count, add_warning_fn)
@@ -622,7 +640,13 @@ async def handle_message(message, config, add_warning_fn=None):
 
     # 5. Block links
     if config.get("auto_block_links") == "ON" or config.get("mod_block_links") == "ON":
-        if re.search(r'https?://\S+', content):
+        _link_pattern = re.compile(
+            r'https?://\S+'                         # http:// or https:// URLs
+            r'|www\.\S+\.\S+'                       # www.example.com style
+            r'|(?<!\w)[a-zA-Z0-9\-]+\.[a-zA-Z]{2,}(?:/\S*)?(?<!\w)',  # bare domains like example.com/path
+            re.IGNORECASE,
+        )
+        if _link_pattern.search(content):
             return await _punish(
                 "Link blocked",
                 "🔗 Link Blocked",
