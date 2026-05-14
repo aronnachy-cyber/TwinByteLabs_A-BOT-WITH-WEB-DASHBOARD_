@@ -898,6 +898,428 @@ async def slash_commands(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # ============================================================
+# 📖 /manual  — Paginated bot manual
+# ============================================================
+
+def _build_manual_pages() -> list:
+    """Return a list of discord.Embed objects — one per manual page."""
+    C = 0x4f8ef7  # SP4RK brand blue
+
+    def page(title, description, fields):
+        e = discord.Embed(title=title, description=description, color=C)
+        for name, value, inline in fields:
+            e.add_field(name=name, value=value, inline=inline)
+        e.set_footer(text="SP4RK Manual  •  Use ‹ › to navigate pages")
+        return e
+
+    pages = []
+
+    # ── Page 1: Overview ─────────────────────────────────────────────────
+    pages.append(page(
+        "📖 SP4RK Bot Manual — Overview",
+        (
+            "Welcome to the **SP4RK** bot manual!\n"
+            "SP4RK is a full-featured Discord bot with moderation, security, "
+            "leveling, tickets, giveaways, auto-moderation, and a web dashboard.\n\n"
+            "Use **‹** and **›** to navigate between sections."
+        ),
+        [
+            ("🔤 Two command types", (
+                "**Slash commands** — type `/` to see all commands\n"
+                "**Prefix commands** — use your server prefix (default `!`)\n"
+                "Run `/setprefix` to change the prefix for your server."
+            ), False),
+            ("📋 Sections in this manual", (
+                "**1.** Overview ← you are here\n"
+                "**2.** Moderation\n"
+                "**3.** Channel & Server Control\n"
+                "**4.** Member Management\n"
+                "**5.** Events & Engagement\n"
+                "**6.** Tickets & Reaction Roles\n"
+                "**7.** Auto-Responder\n"
+                "**8.** Utility & Info\n"
+                "**9.** Server Templates\n"
+                "**10.** Prefix Commands\n"
+                "**11.** Auto-Moderation\n"
+                "**12.** Security Features"
+            ), False),
+            ("🌐 Dashboard", (
+                "Manage all settings visually at the SP4RK web dashboard.\n"
+                "Run `/dashboard` to get your dashboard link."
+            ), False),
+        ]
+    ))
+
+    # ── Page 2: Moderation ────────────────────────────────────────────────
+    pages.append(page(
+        "⚠️ Moderation Commands",
+        "All moderation slash commands. Most require **Moderate Members** or **Ban Members** permission.",
+        [
+            ("Warnings", (
+                "`/warn @member [reason]` — Add a warning\n"
+                "`/warnings @member` — View warning history\n"
+                "`/clearwarnings @member` — Clear all warnings *(Admin)*"
+            ), False),
+            ("Bans & Kicks", (
+                "`/kick @member [reason]` — Kick a member\n"
+                "`/ban @member [reason]` — Permanently ban\n"
+                "`/unban <user_id> [reason]` — Unban by ID\n"
+                "`/tempban @member <duration> [reason]` — Temp-ban (e.g. `1h`, `7d`)"
+            ), False),
+            ("Timeouts & Mutes", (
+                "`/timeout @member <duration> [reason]` — Discord native timeout (max 28d)\n"
+                "`/untimeout @member` — Remove a timeout\n"
+                "`/mute @member [duration]` — Mute via mute role\n"
+                "`/unmute @member` — Unmute"
+            ), False),
+            ("Mod Notes & History", (
+                "`/note @member <note>` — Add a private staff note\n"
+                "`/notes @member` — View all notes for a member\n"
+                "`/modlogs @member` — Full mod history (warnings + notes)"
+            ), False),
+        ]
+    ))
+
+    # ── Page 3: Channel & Server Control ─────────────────────────────────
+    pages.append(page(
+        "🔒 Channel & Server Control",
+        "Commands to manage channels and server-wide safety. Requires **Manage Channels** or **Administrator**.",
+        [
+            ("Channel Locking", (
+                "`/lock [#channel]` — Lock channel (stop @everyone from sending)\n"
+                "`/unlock [#channel]` — Restore send permissions\n"
+                "`/lockdown` — Lock **every** channel instantly (emergency)\n"
+                "`/unlockdown` — Lift the server lockdown"
+            ), False),
+            ("Message Cleanup", (
+                "`/purge <amount>` — Bulk delete last N messages (max 200)\n"
+                "`/purge-user @member [amount]` — Delete user's messages (max 500)\n"
+                "`/purge-reactions [amount]` — Remove all reactions from last N msgs"
+            ), False),
+            ("Slowmode & Mass Action", (
+                "`/slowmode <seconds> [#channel]` — Set slowmode (0 = disabled, max 21600)\n"
+                "`/massban <ids...> [reason]` — Ban up to 50 users by ID at once"
+            ), False),
+        ]
+    ))
+
+    # ── Page 4: Member Management ─────────────────────────────────────────
+    pages.append(page(
+        "👥 Member Management",
+        "Manage roles, nicknames, and voice for members.",
+        [
+            ("Roles", (
+                "`/role-add @member @role` — Give a role to a member\n"
+                "`/role-remove @member @role` — Remove a role from a member"
+            ), False),
+            ("Nicknames", (
+                "`/nick @member [name]` — Set nickname (leave blank to reset)"
+            ), False),
+            ("Voice", (
+                "`/voicekick @member` — Disconnect a member from voice"
+            ), False),
+            ("Snipe", (
+                "`/snipe` — Show the last deleted message in this channel\n"
+                "*(Requires Manage Messages)*"
+            ), False),
+            ("Prefix command equivalents", (
+                "`!role add @member @role`\n"
+                "`!role remove @member @role`\n"
+                "`!nick @member [name]`\n"
+                "`!voicekick @member`\n"
+                "`!snipe`"
+            ), False),
+        ]
+    ))
+
+    # ── Page 5: Events & Engagement ───────────────────────────────────────
+    pages.append(page(
+        "🎉 Events & Engagement",
+        "Run giveaways, polls, and level up your community.",
+        [
+            ("Giveaways", (
+                "`/giveaway <duration> <prize> [winners]` — Start a giveaway\n"
+                "  Duration formats: `30m`, `2h`, `1d`, `1w`\n"
+                "`/giveaway-end <message_id>` — End a giveaway early\n"
+                "`/giveaway-reroll <message_id>` — Reroll a giveaway winner"
+            ), False),
+            ("Polls", (
+                "`/poll <question> <opt1> <opt2> [opt3] [opt4]`\n"
+                "Creates a reaction-based poll with up to 4 options."
+            ), False),
+            ("Leveling / XP", (
+                "`/rank [@member]` — View your XP rank card\n"
+                "`/leaderboard` — Show the top 10 XP leaderboard\n\n"
+                "Members earn XP by chatting. Admins can configure XP rates and rewards in the dashboard."
+            ), False),
+            ("Fun", (
+                "`/8ball <question>` — Ask the magic 8-ball\n"
+                "`/coinflip` — Flip a coin\n"
+                "`/dice [sides] [count]` — Roll dice (e.g. `/dice sides:20 count:2`)"
+            ), False),
+        ]
+    ))
+
+    # ── Page 6: Tickets & Reaction Roles ──────────────────────────────────
+    pages.append(page(
+        "🎫 Tickets & Reaction Roles",
+        "Support tickets and role-assignment via reactions.",
+        [
+            ("Support Tickets", (
+                "`/ticket [reason]` — Open a support ticket\n"
+                "`/ticket-close` — Close the current ticket channel\n\n"
+                "Set up a ticket category in the dashboard. The bot will create a private channel per ticket."
+            ), False),
+            ("Reaction Roles", (
+                "`/setup-reaction-role <msg_id> <emoji> @role`\n"
+                "  → Members who react get the role automatically\n"
+                "`/remove-reaction-role <msg_id> <emoji>` — Remove a rule\n"
+                "`/list-reaction-roles` — Show all active rules in this server"
+            ), False),
+            ("How Reaction Roles Work", (
+                "1. Post a message in any channel\n"
+                "2. Copy its message ID (right-click → Copy ID)\n"
+                "3. Run `/setup-reaction-role` with the message ID, emoji, and role\n"
+                "4. SP4RK watches for reactions and assigns/removes roles automatically"
+            ), False),
+        ]
+    ))
+
+    # ── Page 7: Auto-Responder ────────────────────────────────────────────
+    pages.append(page(
+        "🤖 Auto-Responder",
+        "Automatically reply to messages that match a keyword or phrase.",
+        [
+            ("Commands", (
+                "`/autorespond add <trigger> <response> [match]`\n"
+                "  → `match` can be `contains` (default), `exact`, or `startswith`\n"
+                "  → Use `{user}` in response to mention the sender\n"
+                "`/autorespond remove <trigger>` — Delete a rule\n"
+                "`/autorespond list` — Show all active rules"
+            ), False),
+            ("Match Types", (
+                "`contains` — triggers if the message contains the keyword anywhere\n"
+                "`exact` — triggers only if the entire message matches\n"
+                "`startswith` — triggers if the message starts with the keyword"
+            ), False),
+            ("Example", (
+                "`/autorespond add hello Hello there, {user}! 👋 contains`\n"
+                "Now any message containing \"hello\" gets an automatic reply."
+            ), False),
+        ]
+    ))
+
+    # ── Page 8: Utility & Info ────────────────────────────────────────────
+    pages.append(page(
+        "🔧 Utility & Info Commands",
+        "Handy tools for information and server utilities.",
+        [
+            ("Member & Server Info", (
+                "`/userinfo [@member]` — Detailed member profile card\n"
+                "`/serverinfo` — Full server statistics\n"
+                "`/avatar [@member]` — Full-size avatar (PNG/JPG/WEBP/GIF)\n"
+                "`/banner [@member]` — Profile banner\n"
+                "`/roleinfo @role` — Role details, permissions, and member count\n"
+                "`/botinfo` — SP4RK version, uptime, and stats"
+            ), False),
+            ("Reminders", (
+                "`/remind <duration> <message>` — Set a personal DM reminder\n"
+                "  Duration: `10m`, `2h`, `1d`, etc."
+            ), False),
+            ("Other Utilities", (
+                "`/snipe` — Show the last deleted message in this channel\n"
+                "`/setprefix <prefix>` — Change the bot's prefix for this server\n"
+                "`/commands` — Quick command list\n"
+                "`/manual` — This manual"
+            ), False),
+        ]
+    ))
+
+    # ── Page 9: Server Templates ──────────────────────────────────────────
+    pages.append(page(
+        "🏗️ Server Templates",
+        "Clone a server's full structure (channels, categories, roles, permissions) and paste it elsewhere.",
+        [
+            ("`/copy`", (
+                "Captures the **current server's** full structure into a template.\n"
+                "Stores all categories, text channels, voice channels, roles, and permission overwrites."
+            ), False),
+            ("`/paste`", (
+                "Applies a previously copied template to the **current server**.\n"
+                "Skips items that already exist — nothing is duplicated.\n"
+                "⚠️ Requires **Administrator** — this creates many channels/roles."
+            ), False),
+            ("`/delete-template`", (
+                "Removes everything that `/paste` added.\n"
+                "Original server content is **not** touched — only SP4RK-pasted items are deleted.\n"
+                "Shows a confirmation prompt before proceeding."
+            ), False),
+            ("Typical Workflow", (
+                "1. Go to the **source** server → run `/copy`\n"
+                "2. Go to the **target** server → run `/paste`\n"
+                "3. If you want to undo → run `/delete-template` in the target"
+            ), False),
+        ]
+    ))
+
+    # ── Page 10: Prefix Commands ──────────────────────────────────────────
+    pages.append(page(
+        "⌨️ Prefix Commands",
+        "Classic `!prefix` style commands. Your server prefix is shown in `/bot` or run `/setprefix` to change it.",
+        [
+            ("Moderation", (
+                "`!mute @member [duration]` — Mute with mute role\n"
+                "`!unmute @member` — Unmute\n"
+                "`!note @member <note>` — Add a mod note\n"
+                "`!notes @member` — View notes\n"
+                "`!modlogs @member` — Full warning + note history\n"
+                "`!tempban @member <duration> [reason]` — Temporary ban"
+            ), False),
+            ("Channel Control", (
+                "`!lock [#channel]` — Lock channel\n"
+                "`!unlock [#channel]` — Unlock channel\n"
+                "`!lockdown` — Emergency server lockdown\n"
+                "`!unlockdown` — Lift lockdown\n"
+                "`!slowmode [seconds]` — Set slowmode (0 = off)\n"
+                "`!massban <id> [id...]` — Mass ban by user IDs\n"
+                "`!purgereaction [amount]` — Clear reactions\n"
+                "`!purgeuser @member [amount]` — Delete user's messages"
+            ), False),
+            ("Member & Roles", (
+                "`!role add @member @role`\n"
+                "`!role remove @member @role`\n"
+                "`!nick @member [name]` — Set/reset nickname\n"
+                "`!voicekick @member` — Disconnect from voice\n"
+                "`!snipe` — Snipe last deleted message"
+            ), False),
+            ("Admin / Utility", (
+                "`!refresh` — Reload bot config for this server\n"
+                "`!sync` — Re-sync slash commands (fixes duplicates)"
+            ), False),
+        ]
+    ))
+
+    # ── Page 11: Auto-Moderation ──────────────────────────────────────────
+    pages.append(page(
+        "🛡️ Auto-Moderation",
+        "SP4RK can automatically moderate messages. Configure everything in the **dashboard** under Auto-Mod.",
+        [
+            ("Content Filters", (
+                "**Block Links** — Remove messages containing URLs\n"
+                "**Block Invites** — Block Discord invite links\n"
+                "**Block Mentions** — Limit mass @mentions\n"
+                "**Spam Filter** — Detect rapid repeat messages\n"
+                "**Caps Filter** — Flag all-caps messages\n"
+                "**Emoji Filter** — Limit emoji spam\n"
+                "**Duplicate Filter** — Remove repeated identical messages\n"
+                "**Wall Filter** — Block giant text walls\n"
+                "**Anti-Zalgo** — Strip zalgo/glitchy text"
+            ), False),
+            ("Punishment System", (
+                "**Graduated Punishments** — Warnings → mute → kick → ban as warnings stack\n"
+                "**Warning Limit** — Set the threshold before owner approval is required\n"
+                "**Owner Approval** — Bot DMs server owners before executing major actions\n"
+                "**Auto DM Warning** — Privately DM users when they receive a warning"
+            ), False),
+            ("AI Moderation", (
+                "When enabled, SP4RK uses **Gemini AI** to analyse messages for context-aware violations. "
+                "This catches things rules-based filters miss (e.g. veiled threats, offensive phrasing)."
+            ), False),
+        ]
+    ))
+
+    # ── Page 12: Security Features ────────────────────────────────────────
+    pages.append(page(
+        "🔐 Security Features",
+        "Advanced server protection features. Configure in the **dashboard** under Security.",
+        [
+            ("Anti-Raid", (
+                "Detects sudden membership spikes (raid events).\n"
+                "When triggered — DMs all server owners and optionally auto-kicks new joins."
+            ), False),
+            ("2FA Enforcement", (
+                "Checks that all administrators and moderators have 2FA enabled on their Discord account.\n"
+                "Alerts owners when a privileged member is found without 2FA."
+            ), False),
+            ("Role Monitor", (
+                "Logs every role change in the server to the configured log channel.\n"
+                "Useful for catching privilege escalation or unauthorized role grants."
+            ), False),
+            ("Mass Action Prevention", (
+                "Blocks suspicious bursts of bans/kicks.\n"
+                "If a mod attempts to ban/kick many users in quick succession, SP4RK pauses and asks for owner confirmation."
+            ), False),
+            ("Temp Lockdown", (
+                "Run `/lockdown` or `!lockdown` to immediately deny @everyone send permissions in **every** channel.\n"
+                "Lift with `/unlockdown`. Also controllable from the dashboard."
+            ), False),
+            ("Log Channel", (
+                "Set a dedicated **log channel** in the dashboard.\n"
+                "All joins, leaves, bans, edits, deletes, voice moves, and mod actions are logged there in real time."
+            ), False),
+        ]
+    ))
+
+    # stamp each page with its number
+    total = len(pages)
+    for i, e in enumerate(pages):
+        e.set_footer(text=f"SP4RK Manual  •  Page {i+1}/{total}  •  Use ‹ › to navigate")
+
+    return pages
+
+
+class ManualView(discord.ui.View):
+    """Paginated view for /manual — persistent ‹ / › navigation."""
+
+    def __init__(self, pages: list, author_id: int):
+        super().__init__(timeout=300)
+        self.pages     = pages
+        self.index     = 0
+        self.author_id = author_id
+        self._sync_buttons()
+
+    def _sync_buttons(self):
+        self.btn_prev.disabled = self.index == 0
+        self.btn_next.disabled = self.index == len(self.pages) - 1
+        self.btn_page.label    = f"{self.index + 1} / {len(self.pages)}"
+
+    @discord.ui.button(label="‹", style=discord.ButtonStyle.secondary, custom_id="manual_prev")
+    async def btn_prev(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            return await interaction.response.send_message(
+                "❌ Only the person who ran `/manual` can navigate this.", ephemeral=True
+            )
+        self.index -= 1
+        self._sync_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.index], view=self)
+
+    @discord.ui.button(label="1 / 12", style=discord.ButtonStyle.primary, custom_id="manual_page", disabled=True)
+    async def btn_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        pass  # decorative page counter — never actually called
+
+    @discord.ui.button(label="›", style=discord.ButtonStyle.secondary, custom_id="manual_next")
+    async def btn_next(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            return await interaction.response.send_message(
+                "❌ Only the person who ran `/manual` can navigate this.", ephemeral=True
+            )
+        self.index += 1
+        self._sync_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.index], view=self)
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+
+
+@bot.tree.command(name="manual", description="Browse the full SP4RK bot manual with ‹ › page navigation")
+async def slash_manual(interaction: discord.Interaction):
+    pages = _build_manual_pages()
+    view  = ManualView(pages, author_id=interaction.user.id)
+    await interaction.response.send_message(embed=pages[0], view=view, ephemeral=True)
+
+
+# ============================================================
 # 📋 RICH /serverinfo  (big, informative embed)
 # ============================================================
 def _build_serverinfo_embed(guild: discord.Guild, requester: discord.abc.User) -> discord.Embed:
