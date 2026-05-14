@@ -386,6 +386,236 @@ nav.scrolled{
 }
 .btn-askbot:active{ transform:translateY(0); }
 
+/* ===== WHAT'S NEW BOX ===== */
+.wn-wrap{
+  position:relative;
+  z-index:5;
+  max-width:780px;
+  margin:-12px auto 0;
+  padding:0 48px 60px;
+  animation: heroIn .7s cubic-bezier(.22,1,.36,1) .42s both;
+}
+@media(max-width:768px){ .wn-wrap{ padding:0 22px 48px; } }
+
+.wn-box{
+  background:linear-gradient(135deg, rgba(91,140,255,.08), rgba(139,92,246,.06));
+  border:1px solid rgba(91,140,255,.28);
+  border-radius:16px;
+  padding:18px 22px 16px;
+  position:relative;
+  box-shadow:0 8px 32px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.wn-box::before{
+  content:'';
+  position:absolute;
+  inset:-1px;
+  border-radius:17px;
+  background:linear-gradient(135deg,rgba(91,140,255,.35),rgba(139,92,246,.22),rgba(34,211,238,.18));
+  z-index:-1;
+  opacity:.6;
+  pointer-events:none;
+}
+.wn-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:12px;
+  gap:10px;
+}
+.wn-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:.8rem;
+  font-weight:800;
+  letter-spacing:1.2px;
+  text-transform:uppercase;
+  background:linear-gradient(90deg,#5b8cff,#a78bfa);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.wn-title i{
+  -webkit-text-fill-color:#a78bfa;
+  font-size:.85rem;
+}
+.wn-close{
+  background:transparent;
+  border:none;
+  color:rgba(255,255,255,.3);
+  cursor:pointer;
+  font-size:.9rem;
+  padding:4px 8px;
+  border-radius:6px;
+  transition:color .15s, background .15s;
+  line-height:1;
+  flex-shrink:0;
+}
+.wn-close:hover{ color:rgba(255,255,255,.7); background:rgba(255,255,255,.06); }
+
+.wn-items{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.wn-item{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  font-size:.88rem;
+  color:rgba(220,235,255,.85);
+  line-height:1.5;
+}
+.wn-tag{
+  display:inline-flex;
+  align-items:center;
+  padding:2px 9px;
+  border-radius:99px;
+  font-size:.68rem;
+  font-weight:800;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  flex-shrink:0;
+  margin-top:1px;
+}
+.wn-tag-new     { background:rgba(34,197,94,.14);  color:#4ade80; border:1px solid rgba(34,197,94,.3); }
+.wn-tag-fix     { background:rgba(239,68,68,.12);  color:#f87171; border:1px solid rgba(239,68,68,.28); }
+.wn-tag-update  { background:rgba(91,140,255,.14); color:#7eb1ff; border:1px solid rgba(91,140,255,.3); }
+.wn-tag-feature { background:rgba(167,139,250,.13);color:#c4b5fd; border:1px solid rgba(167,139,250,.3); }
+.wn-tag-info    { background:rgba(34,211,238,.1);  color:#67e8f9; border:1px solid rgba(34,211,238,.25); }
+
+/* ===== WHAT'S NEW EDITOR MODAL (dev only) ===== */
+.wn-overlay{
+  position:fixed; inset:0;
+  background:rgba(3,8,20,.78);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9998;
+}
+.wn-overlay.open{ display:flex; }
+.wn-editor{
+  width:min(560px, 94vw);
+  max-height:88vh;
+  overflow-y:auto;
+  background:linear-gradient(180deg,#0f1d38,#0a1428);
+  border:1px solid rgba(91,140,255,.3);
+  border-radius:18px;
+  padding:26px 24px 22px;
+  box-shadow:0 30px 80px rgba(0,0,0,.65);
+  position:relative;
+  animation:askpop .22s cubic-bezier(.2,.9,.3,1.2);
+}
+.wn-editor-title{
+  font-size:1.05rem;
+  font-weight:800;
+  margin-bottom:18px;
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+.wn-editor-title i{ color:#a78bfa; }
+.wn-editor-close{
+  position:absolute; top:14px; right:16px;
+  background:transparent; border:none;
+  color:rgba(255,255,255,.4); cursor:pointer;
+  font-size:1.1rem; padding:5px 9px; border-radius:8px;
+  transition:color .15s, background .15s;
+}
+.wn-editor-close:hover{ color:#fff; background:rgba(255,255,255,.07); }
+
+.wn-ed-row{
+  display:grid;
+  grid-template-columns:110px 1fr auto;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+}
+.wn-ed-row select{
+  background:#060d1c; color:#e8f0ff;
+  border:1px solid rgba(91,140,255,.22); border-radius:8px;
+  padding:8px 10px; font-size:.83rem; font-family:inherit;
+  width:100%;
+}
+.wn-ed-row input[type=text]{
+  background:#060d1c; color:#e8f0ff;
+  border:1px solid rgba(91,140,255,.22); border-radius:8px;
+  padding:8px 12px; font-size:.86rem; font-family:inherit;
+  width:100%;
+}
+.wn-ed-row input[type=text]:focus,
+.wn-ed-row select:focus{
+  outline:none; border-color:#5b8cff;
+  box-shadow:0 0 0 3px rgba(91,140,255,.15);
+}
+.wn-ed-del{
+  background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.25);
+  color:#f87171; border-radius:8px;
+  padding:8px 10px; cursor:pointer; font-size:.85rem;
+  transition:background .14s;
+  flex-shrink:0;
+}
+.wn-ed-del:hover{ background:rgba(239,68,68,.2); }
+.wn-ed-add{
+  display:flex; align-items:center; gap:8px;
+  background:rgba(91,140,255,.08); border:1px dashed rgba(91,140,255,.3);
+  color:#7eb1ff; border-radius:9px; padding:9px 14px;
+  cursor:pointer; font-size:.86rem; font-weight:600;
+  width:100%; margin-top:4px; transition:background .14s;
+}
+.wn-ed-add:hover{ background:rgba(91,140,255,.16); }
+.wn-ed-footer{
+  display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; align-items:center;
+}
+.wn-ed-save{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 20px;
+  background:linear-gradient(135deg,#5b8cff,#8b5cf6);
+  color:#fff; border:none; border-radius:10px;
+  font-weight:700; font-size:.9rem; cursor:pointer;
+  box-shadow:0 6px 18px rgba(91,140,255,.35);
+  transition:transform .12s, box-shadow .15s;
+}
+.wn-ed-save:hover{ transform:translateY(-1px); box-shadow:0 10px 26px rgba(91,140,255,.48); }
+.wn-ed-save:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+.wn-ed-preview{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 16px;
+  background:rgba(255,255,255,.04); color:#cfd9ee;
+  border:1px solid rgba(255,255,255,.1); border-radius:10px;
+  font-weight:600; font-size:.88rem; cursor:pointer;
+  transition:background .14s;
+}
+.wn-ed-preview:hover{ background:rgba(255,255,255,.08); }
+.wn-ed-msg{ font-size:.82rem; color:#4ade80; margin-left:auto; }
+.wn-ed-toggle{
+  display:flex; align-items:center; gap:9px;
+  font-size:.86rem; color:rgba(220,235,255,.75);
+  margin-bottom:16px;
+}
+.wn-ed-toggle input[type=checkbox]{
+  width:36px; height:20px; appearance:none; -webkit-appearance:none;
+  background:rgba(255,255,255,.1); border-radius:20px;
+  position:relative; cursor:pointer; transition:background .2s;
+  border:1px solid rgba(255,255,255,.12);
+}
+.wn-ed-toggle input[type=checkbox]:checked{ background:linear-gradient(90deg,#5b8cff,#8b5cf6); border-color:transparent; }
+.wn-ed-toggle input[type=checkbox]::after{
+  content:''; position:absolute; width:14px; height:14px;
+  background:#fff; border-radius:50%; top:2px; left:2px;
+  transition:transform .2s; box-shadow:0 1px 4px rgba(0,0,0,.3);
+}
+.wn-ed-toggle input[type=checkbox]:checked::after{ transform:translateX(16px); }
+.wn-ed-section-label{
+  font-size:.72rem; color:#5b8cff; font-weight:700;
+  letter-spacing:1px; text-transform:uppercase;
+  margin-bottom:9px;
+}
+
 /* "Ask for a Bot" modal */
 .ask-overlay{
   position:fixed; inset:0;
@@ -1558,6 +1788,9 @@ footer{
       <button type="button" class="dev-item" role="menuitem" onclick="openSiteSettings('text'); closeDevMenu();">
         <i class="fas fa-pen-fancy"></i> Edit Hero &amp; Text
       </button>
+      <button type="button" class="dev-item" role="menuitem" onclick="openWhatsNewEditor(); closeDevMenu();">
+        <i class="fas fa-sparkles"></i> What's New Box
+      </button>
       <a class="dev-item" role="menuitem" href="{{ url_for('bots_showcase') }}">
         <i class="fas fa-pen-to-square"></i> Edit Server Official
       </a>
@@ -1661,6 +1894,64 @@ footer{
     </a>
   </div>
 </section>
+
+<!-- ===== WHAT'S NEW BOX ===== -->
+{% set wn = whats_new %}
+{% if wn and wn.enabled and wn.items %}
+<div class="wn-wrap" id="wnWrap">
+  <div class="wn-box" id="wnBox">
+    <div class="wn-header">
+      <div class="wn-title"><i class="fas fa-sparkles"></i> {{ wn.title or "What's New" }}</div>
+      <button class="wn-close" onclick="dismissWhatsNew()" title="Dismiss" aria-label="Close What's New"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="wn-items">
+      {% for item in wn.items %}
+      <div class="wn-item">
+        <span class="wn-tag wn-tag-{{ item.tag or 'info' }}">{{ item.tag or 'info' }}</span>
+        <span>{{ item.text | e }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- What's New editor modal (dev-only, always in DOM for JS) -->
+{% if dev_unlocked %}
+<div class="wn-overlay" id="wnOverlay" onclick="if(event.target===this)closeWhatsNewEditor()">
+  <div class="wn-editor">
+    <button class="wn-editor-close" onclick="closeWhatsNewEditor()"><i class="fas fa-xmark"></i></button>
+    <div class="wn-editor-title"><i class="fas fa-sparkles"></i> Edit "What's New" Box</div>
+
+    <label class="wn-ed-toggle">
+      <input type="checkbox" id="wnEnabled" {% if wn and wn.enabled %}checked{% endif %}>
+      Show the "What's New" box on the landing page
+    </label>
+
+    <div>
+      <div class="wn-ed-section-label">Box Title</div>
+      <input type="text" id="wnTitle" placeholder="What's New" value="{{ wn.title | e if wn and wn.title else "What's New" }}"
+        style="width:100%;background:#060d1c;color:#e8f0ff;border:1px solid rgba(91,140,255,.22);border-radius:9px;padding:9px 13px;font-size:.9rem;font-family:inherit;margin-bottom:16px;">
+    </div>
+
+    <div class="wn-ed-section-label">Items</div>
+    <div id="wnItemList"></div>
+    <button class="wn-ed-add" onclick="wnAddItem()">
+      <i class="fas fa-plus"></i> Add item
+    </button>
+
+    <div class="wn-ed-footer">
+      <button class="wn-ed-save" id="wnSaveBtn" onclick="wnSave()">
+        <i class="fas fa-cloud-arrow-up"></i> Save &amp; Publish
+      </button>
+      <button class="wn-ed-preview" onclick="wnPreview()">
+        <i class="fas fa-eye"></i> Preview
+      </button>
+      <span class="wn-ed-msg" id="wnMsg"></span>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <!-- ===== "Ask for a Bot" — full registration form ===== -->
 <div class="ask-overlay" id="askOverlay" role="dialog" aria-modal="true" aria-labelledby="askTitle"
@@ -2973,5 +3264,176 @@ footer{
 </script>
 
 {% include "_cookie_consent.html" %}
+
+{% if dev_unlocked %}
+<script>
+/* ===== WHAT'S NEW EDITOR ===== */
+const _WN_TAGS = ['new','feature','update','fix','info'];
+let _wnItems = {{ (whats_new.items | tojson) if whats_new and whats_new.items else '[]' }};
+
+function openWhatsNewEditor(){
+  _wnRenderItems();
+  document.getElementById('wnOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeWhatsNewEditor(){
+  document.getElementById('wnOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function _wnEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function _wnRenderItems(){
+  const list = document.getElementById('wnItemList');
+  if (!list) return;
+  if (!_wnItems.length){
+    list.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:.84rem;text-align:center;padding:12px 0 8px;">No items yet — click Add item below.</div>';
+    return;
+  }
+  list.innerHTML = _wnItems.map((item, i) => `
+    <div class="wn-ed-row" data-idx="${i}">
+      <select onchange="_wnItems[${i}].tag=this.value">
+        ${_WN_TAGS.map(t=>`<option value="${t}"${item.tag===t?' selected':''}>${t}</option>`).join('')}
+      </select>
+      <input type="text" value="${_wnEsc(item.text)}" placeholder="Describe what's new…"
+        oninput="_wnItems[${i}].text=this.value">
+      <button class="wn-ed-del" onclick="_wnItems.splice(${i},1);_wnRenderItems();" title="Remove">
+        <i class="fas fa-trash"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+function wnAddItem(){
+  _wnItems.push({ tag: 'new', text: '' });
+  _wnRenderItems();
+  /* focus the new input */
+  const rows = document.querySelectorAll('#wnItemList .wn-ed-row');
+  const last = rows[rows.length - 1];
+  if (last) { const inp = last.querySelector('input'); if (inp) inp.focus(); }
+}
+
+async function wnSave(){
+  const btn = document.getElementById('wnSaveBtn');
+  const msg = document.getElementById('wnMsg');
+  /* collect any un-committed text changes */
+  document.querySelectorAll('#wnItemList .wn-ed-row').forEach((row, i) => {
+    const inp = row.querySelector('input');
+    if (inp && _wnItems[i]) _wnItems[i].text = inp.value;
+    const sel = row.querySelector('select');
+    if (sel && _wnItems[i]) _wnItems[i].tag = sel.value;
+  });
+  const payload = {
+    whats_new: {
+      enabled: document.getElementById('wnEnabled').checked,
+      title:   (document.getElementById('wnTitle').value || "What's New").trim(),
+      items:   _wnItems.filter(it => it.text.trim()),
+    }
+  };
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+  msg.textContent = '';
+  try {
+    const r = await fetch('/dev/whats_new', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.ok){
+      msg.style.color = '#4ade80';
+      msg.textContent = '✓ Saved! Reloading…';
+      setTimeout(() => location.reload(), 900);
+    } else {
+      msg.style.color = '#f87171';
+      msg.textContent = j.error || 'Save failed.';
+    }
+  } catch(e){
+    msg.style.color = '#f87171';
+    msg.textContent = 'Network error.';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-cloud-arrow-up"></i> Save &amp; Publish';
+  }
+}
+
+function wnPreview(){
+  /* collect current state */
+  document.querySelectorAll('#wnItemList .wn-ed-row').forEach((row, i) => {
+    const inp = row.querySelector('input');
+    if (inp && _wnItems[i]) _wnItems[i].text = inp.value;
+    const sel = row.querySelector('select');
+    if (sel && _wnItems[i]) _wnItems[i].tag = sel.value;
+  });
+  const enabled = document.getElementById('wnEnabled').checked;
+  const title   = (document.getElementById('wnTitle').value || "What's New").trim();
+  const items   = _wnItems.filter(it => it.text.trim());
+  const wrap    = document.getElementById('wnWrap');
+  if (!enabled || !items.length){
+    if (wrap) wrap.style.display = 'none';
+    closeWhatsNewEditor();
+    return;
+  }
+  const TAG_HTML = { new:'wn-tag-new', fix:'wn-tag-fix', update:'wn-tag-update', feature:'wn-tag-feature', info:'wn-tag-info' };
+  const itemsHtml = items.map(it =>
+    `<div class="wn-item"><span class="wn-tag ${TAG_HTML[it.tag]||'wn-tag-info'}">${_wnEsc(it.tag)}</span><span>${_wnEsc(it.text)}</span></div>`
+  ).join('');
+  if (wrap){
+    wrap.style.display = '';
+    wrap.innerHTML = `
+      <div class="wn-box" id="wnBox">
+        <div class="wn-header">
+          <div class="wn-title"><i class="fas fa-sparkles"></i> ${_wnEsc(title)}</div>
+          <button class="wn-close" onclick="dismissWhatsNew()" title="Dismiss"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="wn-items">${itemsHtml}</div>
+      </div>`;
+  } else {
+    /* inject fresh wrapper before the ask overlay */
+    const newWrap = document.createElement('div');
+    newWrap.className = 'wn-wrap'; newWrap.id = 'wnWrap';
+    newWrap.innerHTML = `<div class="wn-box" id="wnBox">
+      <div class="wn-header">
+        <div class="wn-title"><i class="fas fa-sparkles"></i> ${_wnEsc(title)}</div>
+        <button class="wn-close" onclick="dismissWhatsNew()" title="Dismiss"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="wn-items">${itemsHtml}</div>
+    </div>`;
+    const ask = document.getElementById('askOverlay');
+    if (ask) ask.parentNode.insertBefore(newWrap, ask);
+  }
+  closeWhatsNewEditor();
+}
+
+/* Keyboard shortcut: Esc closes */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('wnOverlay').classList.contains('open'))
+    closeWhatsNewEditor();
+});
+</script>
+{% endif %}
+
+<script>
+/* ===== WHAT'S NEW DISMISS (runs for all visitors) ===== */
+(function(){
+  const wrap = document.getElementById('wnWrap');
+  if (!wrap) return;
+  /* Build a simple hash from the item count + title to detect content changes */
+  const box   = wrap.querySelector('.wn-items');
+  const items = box ? box.children.length : 0;
+  const title = (wrap.querySelector('.wn-title') || {}).textContent || '';
+  const key   = 'wn_dismissed_' + btoa(unescape(encodeURIComponent(items + title))).slice(0, 12);
+  if (localStorage.getItem(key)) {
+    wrap.style.display = 'none';
+  }
+  window.dismissWhatsNew = function(){
+    localStorage.setItem(key, '1');
+    wrap.style.transition = 'opacity .25s ease, transform .25s ease';
+    wrap.style.opacity    = '0';
+    wrap.style.transform  = 'translateY(-6px)';
+    setTimeout(() => { wrap.style.display = 'none'; }, 260);
+  };
+})();
+</script>
 </body>
 </html>

@@ -1172,6 +1172,7 @@ def landing():
         maintenance_on=is_maintenance_mode(),
         discord_configured=bool(DISCORD_CLIENT_ID),
         site=get_site_settings(),
+        whats_new=_load_dev_state().get('whats_new', {}),
         **_current_user_summary(),
     )
 
@@ -2741,6 +2742,28 @@ def dev_site_settings_set():
     saved = save_site_settings(updates)
     add_dashboard_log("SITE_SETTINGS", f"Updated {len(updates)} field(s)")
     return jsonify({"ok": True, "settings": saved})
+
+@app.route('/dev/whats_new', methods=['GET'])
+def dev_whats_new_get():
+    state = _load_dev_state()
+    return jsonify({"ok": True, "whats_new": state.get("whats_new", {})})
+
+@app.route('/dev/whats_new', methods=['POST'])
+def dev_whats_new_set():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    payload = request.json or {}
+    data = payload.get("whats_new")
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "Bad payload"}), 400
+    items = data.get("items", [])
+    if not isinstance(items, list) or len(items) > 20:
+        return jsonify({"ok": False, "error": "items must be a list of up to 20"}), 400
+    state = _load_dev_state()
+    state["whats_new"] = data
+    _save_dev_state(state)
+    add_dashboard_log("WHATS_NEW", f"Updated — {len(items)} item(s), enabled={data.get('enabled')}")
+    return jsonify({"ok": True, "whats_new": data})
 
 @app.route('/dev/site_settings/reset', methods=['POST'])
 def dev_site_settings_reset():
