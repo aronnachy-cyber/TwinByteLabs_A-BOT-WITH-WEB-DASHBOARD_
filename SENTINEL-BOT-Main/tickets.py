@@ -317,21 +317,6 @@ class TicketPanelView(discord.ui.View):
             except Exception:
                 config = {}
 
-        # Prevent duplicate open tickets from the same user
-        existing = next(
-            (t for t in get_all_tickets()
-             if t.get("status") == "open" and t.get("user_id") == member.id
-             and t.get("guild_id") == guild.id),
-            None,
-        )
-        if existing:
-            ch = guild.get_channel(int(existing["channel_id"])) if existing.get("channel_id") else None
-            mention = ch.mention if ch else f"ticket #{existing.get('id', '?')}"
-            await interaction.followup.send(
-                f"⚠️ You already have an open ticket: {mention}", ephemeral=True
-            )
-            return
-
         try:
             channel, ticket = await create_ticket(guild, member, config, "General Support")
             await interaction.followup.send(
