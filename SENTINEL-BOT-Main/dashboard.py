@@ -330,6 +330,9 @@ DEFAULT_CONFIG = {
     # --- SP4RK Server Knowledge (used when the bot is @mentioned) ---
     "server_description": "",
     "server_rules": "",
+    # --- Staff role overrides ---
+    "bot_admin_role": "",
+    "bot_mod_role":   "",
 }
 
 config = {**DEFAULT_CONFIG}
@@ -1114,6 +1117,7 @@ TEXT_KEYS = [
     "automod_mute2_warns", "automod_mute2_mins",
     "automod_tempban_warns", "automod_tempban_mins",
     "automod_kick_warns",
+    "bot_admin_role", "bot_mod_role",
 ]
 
 PUBLIC_BOT_CONFIG_KEYS = set(TOGGLE_KEYS + TEXT_KEYS + ["warning_limit"])

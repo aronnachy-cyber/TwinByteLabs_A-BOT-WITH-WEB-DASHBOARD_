@@ -116,6 +116,11 @@ DEFAULT_CONFIG = {
     # --- SP4RK Server Knowledge (used when the bot is @mentioned) ---
     "server_description": "",
     "server_rules": "",
+    # --- Staff role overrides ---
+    # Set these to a Discord role ID to let that role use admin/mod commands
+    # even if they don't have the matching Discord permission flag.
+    "bot_admin_role": "",   # role that can use admin-level commands
+    "bot_mod_role":   "",   # role that can use mod-level commands
 }
 
 # Bootstrap from the dashboard's Supabase-backed config (already loaded at import time)
@@ -127,6 +132,53 @@ def get_config_for_guild(guild_id: str) -> dict:
         return _get_guild_config(str(guild_id))
     except Exception:
         return config
+
+
+# ── Permission helpers ───────────────────────────────────────────────────────
+
+def _member_has_role_id(member: discord.Member, role_id_str: str) -> bool:
+    """True if the member has the role whose ID matches role_id_str."""
+    if not role_id_str or not str(role_id_str).strip().isdigit():
+        return False
+    rid = int(str(role_id_str).strip())
+    return any(r.id == rid for r in member.roles)
+
+
+def _is_bot_admin(interaction: discord.Interaction) -> bool:
+    """True if the user passes the admin permission bar for SP4RK commands.
+
+    Passes when the user has Discord's Administrator or Manage Server permission,
+    OR when they hold the role configured as `bot_admin_role` in the dashboard.
+    """
+    member = interaction.user
+    if not isinstance(member, discord.Member):
+        return False
+    gcfg = get_config_for_guild(str(interaction.guild_id or 0))
+    p = member.guild_permissions
+    return (
+        p.administrator
+        or p.manage_guild
+        or _member_has_role_id(member, gcfg.get("bot_admin_role", ""))
+    )
+
+
+def _is_bot_mod(interaction: discord.Interaction) -> bool:
+    """True if the user passes the mod permission bar for SP4RK commands.
+
+    Passes when the user has any standard moderation permission, OR holds the
+    `bot_admin_role` or `bot_mod_role` configured in the dashboard.
+    """
+    member = interaction.user
+    if not isinstance(member, discord.Member):
+        return False
+    gcfg = get_config_for_guild(str(interaction.guild_id or 0))
+    p = member.guild_permissions
+    return (
+        p.administrator or p.manage_guild or p.manage_messages
+        or p.kick_members or p.ban_members or p.moderate_members
+        or _member_has_role_id(member, gcfg.get("bot_admin_role", ""))
+        or _member_has_role_id(member, gcfg.get("bot_mod_role", ""))
+    )
 
 TOKEN         = os.environ.get("DISCORD_TOKEN", "")
 GEMINI_KEY    = os.environ.get("GEMINI_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
@@ -1330,8 +1382,8 @@ async def slash_bot(interaction: discord.Interaction):
 
 @bot.tree.command(name="dashboard", description="Mini admin dashboard (admin only)")
 async def slash_dashboard(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ **Access Denied** — This command is restricted to server administrators.", ephemeral=True)
+    if not _is_bot_admin(interaction):
+        await interaction.response.send_message("❌ **Access Denied** — You need the Admin role or Administrator permission.", ephemeral=True)
         return
     refresh_config()
     guild = interaction.guild
@@ -1378,7 +1430,7 @@ async def slash_dashboard(interaction: discord.Interaction):
 @bot.tree.command(name="giveaway", description="Start a giveaway (use duration like 30m, 2h, 1d)")
 @app_commands.describe(duration="Duration e.g. 30m, 2h, 1d", prize="What are you giving away?", winners="Number of winners (default 1)")
 async def slash_giveaway(interaction: discord.Interaction, duration: str, prize: str, winners: int = 1):
-    if not interaction.user.guild_permissions.manage_guild:
+    if not _is_bot_admin(interaction):
         await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Server** permission.", ephemeral=True)
         return
     seconds = parse_duration(duration)
@@ -1395,7 +1447,7 @@ async def slash_giveaway(interaction: discord.Interaction, duration: str, prize:
 @bot.tree.command(name="giveaway-end", description="Manually end a giveaway by message ID")
 @app_commands.describe(message_id="The giveaway message ID")
 async def slash_giveaway_end(interaction: discord.Interaction, message_id: str):
-    if not interaction.user.guild_permissions.manage_guild:
+    if not _is_bot_admin(interaction):
         await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Server** permission.", ephemeral=True)
         return
     try:
@@ -1413,7 +1465,7 @@ async def slash_giveaway_end(interaction: discord.Interaction, message_id: str):
 @bot.tree.command(name="giveaway-reroll", description="Reroll a giveaway winner")
 @app_commands.describe(message_id="The giveaway message ID")
 async def slash_giveaway_reroll(interaction: discord.Interaction, message_id: str):
-    if not interaction.user.guild_permissions.manage_guild:
+    if not _is_bot_admin(interaction):
         await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Server** permission.", ephemeral=True)
         return
     try:
@@ -1502,7 +1554,7 @@ async def slash_ticket_close(interaction: discord.Interaction):
     thumbnail="URL of an image shown as a small thumbnail (top-right)",
     image="URL of a large image shown at the bottom of the embed",
 )
-@app_commands.checks.has_permissions(manage_guild=True)
+@app_commands.check(_is_bot_admin)
 async def slash_ticket_panel(
     interaction: discord.Interaction,
     channel: discord.TextChannel,
@@ -2904,8 +2956,8 @@ async def slash_userinfo(interaction: discord.Interaction,
 # ---------------- SERVER TEMPLATE COMMANDS ----------------
 @bot.tree.command(name="copy", description="Copy this server's full structure (channels, roles, permissions) into a template")
 async def slash_copy(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ **Access Denied** — This command requires **Administrator** permission.", ephemeral=True)
+    if not _is_bot_admin(interaction):
+        await interaction.response.send_message("❌ **Access Denied** — You need the Admin role or Administrator permission.", ephemeral=True)
         return
     await interaction.response.defer(ephemeral=True)
     try:
@@ -2944,8 +2996,8 @@ class DeleteTemplateConfirmView(discord.ui.View):
 
     @discord.ui.button(label="Yes, delete everything", style=discord.ButtonStyle.danger, emoji="🗑️")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ **Access Denied** — This action requires **Administrator** permission.", ephemeral=True)
+        if not _is_bot_admin(interaction):
+            await interaction.response.send_message("❌ **Access Denied** — You need the Admin role or Administrator permission.", ephemeral=True)
             return
         for item in self.children:
             item.disabled = True
@@ -3000,8 +3052,8 @@ class DeleteTemplateConfirmView(discord.ui.View):
 
 @bot.tree.command(name="paste", description="Recreate a copied server template in this server (adds channels & roles)")
 async def slash_paste(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ **Access Denied** — This command requires **Administrator** permission.", ephemeral=True)
+    if not _is_bot_admin(interaction):
+        await interaction.response.send_message("❌ **Access Denied** — You need the Admin role or Administrator permission.", ephemeral=True)
         return
     info = template_mod.get_template_info()
     if not info:
@@ -3063,8 +3115,8 @@ async def slash_paste(interaction: discord.Interaction):
 
 @bot.tree.command(name="delete-template", description="Delete all channels, categories and roles that were added by /paste")
 async def slash_delete_template(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ **Access Denied** — This command requires **Administrator** permission.", ephemeral=True)
+    if not _is_bot_admin(interaction):
+        await interaction.response.send_message("❌ **Access Denied** — You need the Admin role or Administrator permission.", ephemeral=True)
         return
     log = template_mod.load_paste_log(interaction.guild.id)
     if not log:
@@ -3203,7 +3255,7 @@ async def on_app_command_error(interaction: discord.Interaction, error):
 # ---------------- /warn ----------------
 @bot.tree.command(name="warn", description="Warn a member with an optional reason")
 @app_commands.describe(member="Who to warn", reason="Why")
-@app_commands.checks.has_permissions(manage_messages=True)
+@app_commands.check(_is_bot_mod)
 async def slash_warn(interaction: discord.Interaction,
                      member: discord.Member, reason: str = "Violation"):
     if not await _slash_guard_guild(interaction):
@@ -3239,7 +3291,7 @@ async def slash_warn(interaction: discord.Interaction,
 # ---------------- /warnings ----------------
 @bot.tree.command(name="warnings", description="Show a member's warning history")
 @app_commands.describe(member="Whose warnings to view")
-@app_commands.checks.has_permissions(manage_messages=True)
+@app_commands.check(_is_bot_mod)
 async def slash_warnings(interaction: discord.Interaction, member: discord.Member):
     if not await _slash_guard_guild(interaction):
         return
@@ -3283,7 +3335,7 @@ async def slash_warnings(interaction: discord.Interaction, member: discord.Membe
 # ---------------- /clearwarnings ----------------
 @bot.tree.command(name="clearwarnings", description="Clear all warnings for a member")
 @app_commands.describe(member="Whose warnings to clear")
-@app_commands.checks.has_permissions(administrator=True)
+@app_commands.check(_is_bot_admin)
 async def slash_clearwarnings(interaction: discord.Interaction, member: discord.Member):
     if not await _slash_guard_guild(interaction):
         return
@@ -3306,7 +3358,7 @@ async def slash_clearwarnings(interaction: discord.Interaction, member: discord.
 # ---------------- /kick ----------------
 @bot.tree.command(name="kick", description="Kick a member from the server")
 @app_commands.describe(member="Who to kick", reason="Why")
-@app_commands.checks.has_permissions(kick_members=True)
+@app_commands.check(_is_bot_mod)
 async def slash_kick(interaction: discord.Interaction,
                      member: discord.Member, reason: str = "No reason provided"):
     if not await _slash_guard_guild(interaction):
@@ -3351,7 +3403,7 @@ async def slash_kick(interaction: discord.Interaction,
 # ---------------- /ban ----------------
 @bot.tree.command(name="ban", description="Permanently ban a member from the server")
 @app_commands.describe(member="Who to ban", reason="Why")
-@app_commands.checks.has_permissions(ban_members=True)
+@app_commands.check(_is_bot_mod)
 async def slash_ban(interaction: discord.Interaction,
                     member: discord.Member, reason: str = "No reason provided"):
     if not await _slash_guard_guild(interaction):
@@ -3396,7 +3448,7 @@ async def slash_ban(interaction: discord.Interaction,
 # ---------------- /unban ----------------
 @bot.tree.command(name="unban", description="Unban a user by their ID")
 @app_commands.describe(user_id="The user's Discord ID", reason="Why")
-@app_commands.checks.has_permissions(ban_members=True)
+@app_commands.check(_is_bot_mod)
 async def slash_unban(interaction: discord.Interaction,
                       user_id: str, reason: str = "No reason provided"):
     if not await _slash_guard_guild(interaction):
@@ -3433,7 +3485,7 @@ async def slash_unban(interaction: discord.Interaction,
 # ---------------- /timeout ----------------
 @bot.tree.command(name="timeout", description="Temporarily mute a member with Discord's built-in timeout")
 @app_commands.describe(member="Who to time out", duration="e.g. 30s, 10m, 2h, 7d (max 28d)", reason="Why")
-@app_commands.checks.has_permissions(moderate_members=True)
+@app_commands.check(_is_bot_mod)
 async def slash_timeout(interaction: discord.Interaction,
                         member: discord.Member, duration: str,
                         reason: str = "No reason provided"):
@@ -3488,7 +3540,7 @@ async def slash_timeout(interaction: discord.Interaction,
 # ---------------- /untimeout ----------------
 @bot.tree.command(name="untimeout", description="Remove a member's timeout")
 @app_commands.describe(member="Who to untimeout")
-@app_commands.checks.has_permissions(moderate_members=True)
+@app_commands.check(_is_bot_mod)
 async def slash_untimeout(interaction: discord.Interaction, member: discord.Member):
     if not await _slash_guard_guild(interaction):
         return
@@ -3513,7 +3565,7 @@ async def slash_untimeout(interaction: discord.Interaction, member: discord.Memb
 # ---------------- /purge ----------------
 @bot.tree.command(name="purge", description="Bulk delete the most recent messages in this channel")
 @app_commands.describe(amount="How many to delete (1-200)")
-@app_commands.checks.has_permissions(manage_messages=True)
+@app_commands.check(_is_bot_mod)
 async def slash_purge(interaction: discord.Interaction, amount: int = 10):
     if not await _slash_guard_guild(interaction):
         return
@@ -3910,9 +3962,9 @@ async def slash_remind(interaction: discord.Interaction, when: str, reminder: st
 async def slash_setprefix(interaction: discord.Interaction, prefix: str):
     if not await _slash_guard_guild(interaction):
         return
-    if not interaction.user.guild_permissions.administrator:
+    if not _is_bot_admin(interaction):
         return await interaction.response.send_message(
-            "❌ **Permission Denied** — Administrator permission required.", ephemeral=True
+            "❌ **Access Denied** — You need the Admin role or Administrator permission.", ephemeral=True
         )
     prefix = prefix.strip()[:5]
     if not prefix:

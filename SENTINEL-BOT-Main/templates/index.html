@@ -635,6 +635,18 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       <div class="input-wrap-full" style="margin-bottom:4px;">
         <input type="text" id="ticket_category" value="{{ config.get('ticket_category','') }}" placeholder="Discord category channel ID (optional)">
       </div>
+      <div class="row" style="margin-top:10px;">
+        <div class="row-label"><strong>Bot Admin Role ID</strong>Members with this role can use all admin commands (kick, ban, copy, etc.)</div>
+      </div>
+      <div class="input-wrap-full" style="margin-bottom:4px;">
+        <input type="text" id="bot_admin_role" value="{{ config.get('bot_admin_role','') }}" placeholder="Discord role ID — right-click role → Copy ID">
+      </div>
+      <div class="row">
+        <div class="row-label"><strong>Bot Mod Role ID</strong>Members with this role can use warn, purge, timeout and other mod commands</div>
+      </div>
+      <div class="input-wrap-full" style="margin-bottom:4px;">
+        <input type="text" id="bot_mod_role" value="{{ config.get('bot_mod_role','') }}" placeholder="Discord role ID — right-click role → Copy ID">
+      </div>
     </div>
 
     <div class="card">
