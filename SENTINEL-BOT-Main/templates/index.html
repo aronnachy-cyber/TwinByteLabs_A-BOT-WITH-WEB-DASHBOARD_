@@ -3282,7 +3282,7 @@ if (savedTheme && savedTheme.value) {
 // ---- GIVEAWAYS ----
 async function loadGiveaways() {
   try {
-    const res = await fetch('/api/giveaways');
+    const res = await fetch('/api/giveaways' + (currentGuildId ? '?guild_id=' + encodeURIComponent(currentGuildId) : ''));
     const data = await res.json();
     const list = Array.isArray(data) ? data : [];
     const active = list.filter(g => !g.ended);
@@ -3383,7 +3383,7 @@ async function submitManualWinner() {
 // ---- TICKETS ----
 async function loadTickets() {
   try {
-    const res = await fetch('/api/tickets');
+    const res = await fetch('/api/tickets' + (currentGuildId ? '?guild_id=' + encodeURIComponent(currentGuildId) : ''));
     const data = await res.json();
     const list = Array.isArray(data) ? data : [];
     const open = list.filter(t => t.status === 'open');

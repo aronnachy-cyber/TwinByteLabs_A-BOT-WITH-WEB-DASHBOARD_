@@ -100,6 +100,26 @@ def get_all_tickets():
     return load_tickets().get("tickets", [])
 
 
+def get_tickets_for_guild(guild_id):
+    """Return only tickets belonging to the given guild_id."""
+    gid = str(guild_id)
+    sb = _get_supabase()
+    if sb:
+        try:
+            res = (
+                sb.table(_TABLE)
+                .select("*")
+                .eq("guild_id", gid)
+                .order("created_at", desc=False)
+                .execute()
+            )
+            return [_row_to_dict(r) for r in (res.data or [])]
+        except Exception as e:
+            print(f"[TICKET] Supabase guild filter error: {e}")
+    # fallback: filter local JSON
+    return [t for t in _local_load().get("tickets", []) if str(t.get("guild_id")) == gid]
+
+
 def _next_counter(guild_id):
     """Return the next ticket number for a guild."""
     sb = _get_supabase()

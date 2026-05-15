@@ -3973,9 +3973,12 @@ def restart_bot():
 def api_giveaways():
     if not session.get('logged_in'):
         return jsonify({"error": "Unauthorized"}), 401
+    guild_id = (request.args.get('guild_id') or session.get('selected_guild_id') or '').strip()
+    if not guild_id:
+        return jsonify({"error": "No guild selected"}), 400
     try:
         import giveaway as giveaway_mod
-        return jsonify(giveaway_mod.get_all_giveaways())
+        return jsonify(giveaway_mod.get_giveaways_for_guild(guild_id))
     except Exception as e:
         return jsonify([])
 
@@ -4022,9 +4025,12 @@ def api_giveaway_set_winner():
 def api_tickets():
     if not session.get('logged_in'):
         return jsonify({"error": "Unauthorized"}), 401
+    guild_id = (request.args.get('guild_id') or session.get('selected_guild_id') or '').strip()
+    if not guild_id:
+        return jsonify({"error": "No guild selected"}), 400
     try:
         import tickets as tickets_mod
-        return jsonify(tickets_mod.get_all_tickets())
+        return jsonify(tickets_mod.get_tickets_for_guild(guild_id))
     except Exception as e:
         return jsonify([])
 

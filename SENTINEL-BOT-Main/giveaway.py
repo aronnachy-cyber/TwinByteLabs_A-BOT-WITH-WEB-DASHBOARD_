@@ -100,6 +100,26 @@ def get_all_giveaways():
     return load_giveaways().get("giveaways", [])
 
 
+def get_giveaways_for_guild(guild_id):
+    """Return only giveaways belonging to the given guild_id."""
+    gid = str(guild_id)
+    sb = _get_supabase()
+    if sb:
+        try:
+            res = (
+                sb.table(_TABLE)
+                .select("*")
+                .eq("guild_id", gid)
+                .order("created_at", desc=False)
+                .execute()
+            )
+            return [_row_to_dict(r) for r in (res.data or [])]
+        except Exception as e:
+            print(f"[GIVEAWAY] Supabase guild filter error: {e}")
+    # fallback: filter local JSON
+    return [g for g in _local_load().get("giveaways", []) if str(g.get("guild_id")) == gid]
+
+
 def _find_one(message_id):
     sb = _get_supabase()
     mid = str(message_id)
