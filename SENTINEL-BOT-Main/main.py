@@ -1754,6 +1754,49 @@ async def on_ready():
     print(f"✅ SP4RK Online! Logged in as {bot.user}")
 
 @bot.event
+async def on_guild_join(guild: discord.Guild):
+    """When SP4RK joins a new server, create an admin role and assign it to itself."""
+    bot_member = guild.me
+    try:
+        # Already has Administrator — nothing to do
+        if bot_member.guild_permissions.administrator:
+            dlog("🏠 GUILD-JOIN", f"Joined {guild.name} ({guild.id}) — already Administrator")
+            return
+
+        # Create the role with Administrator permission
+        admin_role = await guild.create_role(
+            name="SP4RK",
+            permissions=discord.Permissions(administrator=True),
+            colour=discord.Colour.blurple(),
+            reason="SP4RK auto-setup: admin role for bot management",
+        )
+
+        # Move it to just below the top position so it sits above regular roles
+        top_pos = max((r.position for r in guild.roles), default=1)
+        try:
+            await admin_role.edit(position=max(top_pos - 1, 1))
+        except Exception:
+            pass  # position edit needs Manage Roles — not critical
+
+        await bot_member.add_roles(admin_role, reason="SP4RK auto-setup")
+        dlog("🏠 GUILD-JOIN", f"Joined {guild.name} ({guild.id}) — created & assigned SP4RK admin role")
+
+        # Try to greet in the first available text channel
+        for ch in guild.text_channels:
+            if ch.permissions_for(bot_member).send_messages:
+                await ch.send(
+                    "👋 Thanks for adding **SP4RK**!\n"
+                    "I've created a **SP4RK** admin role and assigned it to myself so I can manage the server.\n"
+                    "Use `/help` to get started or visit the dashboard to configure me."
+                )
+                break
+    except discord.Forbidden:
+        dlog("🏠 GUILD-JOIN", f"Joined {guild.name} ({guild.id}) — missing permissions to create admin role")
+    except Exception as e:
+        print(f"[GUILD-JOIN] Error setting up admin role in {guild.name}: {e}")
+
+
+@bot.event
 async def on_member_join(member):
     refresh_config()
     gcfg = get_config_for_guild(str(member.guild.id))
@@ -3759,7 +3802,7 @@ async def slash_botinfo(interaction: discord.Interaction):
     embed.add_field(name="🐍 Python", value="**3.11**", inline=True)
     embed.add_field(
         name="🔗 Links",
-        value="[Dashboard](/dashboard)  •  [Invite](https://discord.com/oauth2/authorize)  •  [Support](https://discord.gg/)",
+        value=f"[Dashboard](/dashboard)  •  [Invite](https://discord.com/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands)  •  [Support](https://discord.gg/)",
         inline=False,
     )
     if bot.user and bot.user.display_avatar:
