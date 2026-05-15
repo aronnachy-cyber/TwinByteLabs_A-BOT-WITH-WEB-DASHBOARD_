@@ -2884,17 +2884,21 @@ function onGuildChange() {
 (function(){
   var preselectId = (typeof window._PRESELECT_GUILD !== 'undefined') ? window._PRESELECT_GUILD : '';
   if (!preselectId) return;
+  // Always set currentGuildId immediately so API calls use the right guild
+  // even if the guildPick dropdown hasn't rendered yet (e.g. bot offline).
+  currentGuildId = preselectId;
   document.addEventListener('DOMContentLoaded', function(){
     var pick = document.getElementById('guildPick');
-    if (!pick) return;
-    for (var i = 0; i < pick.options.length; i++) {
-      if (pick.options[i].value === preselectId) {
-        pick.selectedIndex = i;
-        currentGuildId = preselectId;
-        loadGuildConfig();
-        break;
+    if (pick) {
+      for (var i = 0; i < pick.options.length; i++) {
+        if (pick.options[i].value === preselectId) {
+          pick.selectedIndex = i;
+          break;
+        }
       }
     }
+    // Always load guild config regardless of whether the dropdown exists.
+    loadGuildConfig();
   });
 })();
 
@@ -3014,6 +3018,7 @@ async function loadWarnings() {
     const guildParam = currentGuildId ? '?guild_id=' + encodeURIComponent(currentGuildId) : '';
     const res = await fetch('/api/get_warnings' + guildParam);
     const data = await res.json();
+    if (!res.ok || !Array.isArray(data)) return;
     const tbody = document.getElementById('warnings-tbody');
     const badge = document.getElementById('warn-count-badge');
     if (!data || data.length === 0) {
