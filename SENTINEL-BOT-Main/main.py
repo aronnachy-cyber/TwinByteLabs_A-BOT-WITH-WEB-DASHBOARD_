@@ -1804,6 +1804,22 @@ async def on_ready():
             print(f"[2FA] startup check error: {_e}")
     dlog("✅ BOT-START", f"SP4RK online as {bot.user}")
     print(f"✅ SP4RK Online! Logged in as {bot.user}")
+    _persist_bot_guilds(bot)
+
+def _persist_bot_guilds(b):
+    """Write the bot's current guild list to bot_guilds.json so the web
+    dashboard can filter the server picker to only guilds the bot is in."""
+    try:
+        import json as _j, os as _os
+        data = [
+            {"id": str(g.id), "name": g.name, "member_count": g.member_count or 0}
+            for g in b.guilds
+        ]
+        path = _os.path.join(_os.path.dirname(__file__), "bot_guilds.json")
+        with open(path, "w") as _f:
+            _j.dump(data, _f)
+    except Exception as _e:
+        print(f"[bot_guilds] persist error: {_e}")
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
@@ -1846,7 +1862,13 @@ async def on_guild_join(guild: discord.Guild):
         dlog("🏠 GUILD-JOIN", f"Joined {guild.name} ({guild.id}) — missing permissions to create admin role")
     except Exception as e:
         print(f"[GUILD-JOIN] Error setting up admin role in {guild.name}: {e}")
+    _persist_bot_guilds(bot)
 
+@bot.event
+async def on_guild_remove(guild: discord.Guild):
+    """Keep bot_guilds.json up to date when SP4RK leaves a server."""
+    _persist_bot_guilds(bot)
+    dlog("🚪 GUILD-LEAVE", f"Left {guild.name} ({guild.id})")
 
 @bot.event
 async def on_member_join(member):

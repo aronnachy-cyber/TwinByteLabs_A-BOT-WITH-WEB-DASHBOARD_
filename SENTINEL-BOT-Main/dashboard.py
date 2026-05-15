@@ -520,8 +520,24 @@ def _sp4rk_live_state(user_guild_ids=None) -> dict:
     except Exception as e:
         app.logger.warning(f"[sp4rk_live_state] bot not ready: {e}")
 
-    # Fallback: use the guild list cached in the session at login time so the
-    # server picker stays visible even when the bot is offline or reconnecting.
+    # Fallback: intersect the session-cached admin guild list with the set of
+    # guilds the bot is known to be in (written to bot_guilds.json on startup).
+    # This ensures the server picker only shows servers where BOTH the user
+    # has admin rights AND the bot is present.
+    try:
+        import json as _j
+        _bot_guild_path = os.path.join(os.path.dirname(__file__), "bot_guilds.json")
+        bot_guild_map = {}   # {gid_str: {id, name, member_count}}
+        if os.path.exists(_bot_guild_path):
+            with open(_bot_guild_path) as _f:
+                for entry in _j.load(_f):
+                    gid = str(entry.get("id", ""))
+                    if gid:
+                        bot_guild_map[gid] = entry
+    except Exception as _be:
+        app.logger.warning(f"[sp4rk_live_state] bot_guilds.json read error: {_be}")
+        bot_guild_map = {}
+
     try:
         from flask import session as _sess
         cached = _sess.get("user_guilds") or []
@@ -531,12 +547,18 @@ def _sp4rk_live_state(user_guild_ids=None) -> dict:
                 gid_str = str(g.get("id", ""))
                 if not gid_str:
                     continue
+                # Must be in user's admin guilds
                 if filter_ids is not None and gid_str not in filter_ids:
                     continue
+                # Must also be a guild the bot is in (when registry is available)
+                if bot_guild_map and gid_str not in bot_guild_map:
+                    continue
+                # Prefer member_count from live bot data if available
+                mc = bot_guild_map.get(gid_str, {}).get("member_count") or g.get("member_count", 0)
                 guilds.append({
                     "id":           gid_str,
-                    "name":         g.get("name", "Unknown"),
-                    "member_count": g.get("member_count", 0),
+                    "name":         g.get("name", bot_guild_map.get(gid_str, {}).get("name", "Unknown")),
+                    "member_count": mc,
                 })
             out["guilds"] = guilds
             out["guilds_count"] = len(guilds)
