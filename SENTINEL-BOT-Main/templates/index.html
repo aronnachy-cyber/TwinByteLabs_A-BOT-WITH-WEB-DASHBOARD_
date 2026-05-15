@@ -3011,7 +3011,8 @@ const warnLimit = {{ config.get('warning_limit', 30) }};
 
 async function loadWarnings() {
   try {
-    const res = await fetch('/api/get_warnings');
+    const guildParam = currentGuildId ? '?guild_id=' + encodeURIComponent(currentGuildId) : '';
+    const res = await fetch('/api/get_warnings' + guildParam);
     const data = await res.json();
     const tbody = document.getElementById('warnings-tbody');
     const badge = document.getElementById('warn-count-badge');
@@ -3080,7 +3081,7 @@ async function clearWarning(memberId, username) {
     await fetch('/api/clear_warning', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({member_id: memberId})
+      body: JSON.stringify({member_id: memberId, guild_id: currentGuildId || ''})
     });
     showToast(`🧹 Warnings cleared for ${username}`);
     loadWarnings();
@@ -3145,7 +3146,8 @@ function clearLocalLogs() {
 
 // ---- EXPORT ----
 function exportReport() {
-  window.location.href = '/api/export/report';
+  const exportGuild = currentGuildId ? '?guild_id=' + encodeURIComponent(currentGuildId) : '';
+  window.location.href = '/api/export/report' + exportGuild;
 }
 
 // ---- USER MANAGEMENT ----

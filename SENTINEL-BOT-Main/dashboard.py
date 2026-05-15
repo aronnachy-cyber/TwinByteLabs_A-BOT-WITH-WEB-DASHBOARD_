@@ -283,6 +283,7 @@ DEFAULT_CONFIG = {
     "auto_block_invites": "OFF",
     "auto_block_mentions": "OFF",
     "auto_custom_blacklist": "",
+    "auto_allowlist": "",
     "auto_dm_warning": "OFF",
     "webhook_log": "",
     "warning_limit": 30,
@@ -3841,12 +3842,16 @@ def export_report():
             except Exception:
                 pass
 
+    guild_id = (request.args.get('guild_id') or '').strip()
+    filtered_logs = [l for l in action_logs if l.get('guild_id', '') == guild_id] if guild_id else action_logs
+    filtered_warnings = [w for w in warnings_db if str(w.get('guild_id', '')) == guild_id] if guild_id else warnings_db
     export_data = {
         "exported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "guild_id": guild_id or "all",
         "config_snapshot": {k: v for k, v in config.items() if k not in ("bot_avatar",)},
-        "live_warnings": warnings_db,
+        "live_warnings": filtered_warnings,
         "persistent_warnings": warnings_file_data,
-        "action_logs": action_logs
+        "action_logs": filtered_logs
     }
 
     response = make_response(json.dumps(export_data, indent=4))
@@ -3859,31 +3864,44 @@ def export_report():
 # ---- API: WARNINGS ----
 @app.route('/api/get_warnings')
 def get_warnings():
-    return jsonify(warnings_db)
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = (request.args.get('guild_id') or '').strip()
+    if guild_id:
+        filtered = [w for w in warnings_db if str(w.get('guild_id', '')) == guild_id]
+    else:
+        filtered = warnings_db
+    return jsonify(filtered)
 
 @app.route('/api/add_warning', methods=['POST'])
 def add_warning_api():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json() or {}
     member_id = data.get("member_id")
     username = data.get("username")
     count = data.get("warnings", 0)
+    guild_id = str(data.get("guild_id") or "global")
     for w in warnings_db:
-        if w["id"] == member_id:
+        if w["id"] == member_id and str(w.get("guild_id", "global")) == guild_id:
             w["warnings"] = count
             return jsonify({"status": "success"})
-    warnings_db.append({"id": member_id, "username": username, "warnings": count})
+    warnings_db.append({"id": member_id, "username": username, "warnings": count, "guild_id": guild_id})
     add_dashboard_log("⚠️ WARNING", f"{username} now has {count} warning(s)")
     return jsonify({"status": "success"})
 
 @app.route('/api/clear_warning', methods=['POST'])
 def clear_warning_api():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json() or {}
     member_id = data.get("member_id")
+    guild_id = str(data.get("guild_id") or "")
     global warnings_db
-    entry = next((w for w in warnings_db if w["id"] == member_id), None)
+    entry = next((w for w in warnings_db if w["id"] == member_id and (not guild_id or str(w.get("guild_id", "")) == guild_id)), None)
     if entry:
         add_dashboard_log("🧹 CLEAR", f"Warnings cleared for {entry['username']}")
-    warnings_db = [w for w in warnings_db if w["id"] != member_id]
+    warnings_db = [w for w in warnings_db if not (w["id"] == member_id and (not guild_id or str(w.get("guild_id", "")) == guild_id))]
     return jsonify({"status": "success"})
 
 # ---- API: CONFIRM ACTION ----
