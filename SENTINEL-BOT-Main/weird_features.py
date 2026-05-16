@@ -1824,12 +1824,23 @@ class SparkControlGroup(app_commands.Group):
         identity = "✅" if gd.get("identity", {}).get("enabled") else "❌"
         npc = "✅" if gd.get("npc", {}).get("enabled") else "❌"
         ghost = "✅" if gd.get("ghost", {}).get("enabled") else "❌"
+        # V2 statuses
+        glitch = f"✅ [{gd.get('glitch',{}).get('intensity','med')}]" if gd.get("glitch", {}).get("enabled") else "❌"
+        signal = f"✅ [dist {gd.get('signal',{}).get('distortion',1)}/5]" if gd.get("signal", {}).get("enabled") else "❌"
+        emotion = f"✅ [{gd.get('emotion',{}).get('current','?')}]" if gd.get("emotion", {}).get("enabled") else "❌"
+        hallucination = "✅" if gd.get("hallucination", {}).get("enabled") else "❌"
+        shadow = "✅" if gd.get("shadow", {}).get("enabled") else "❌"
+        observer = "✅" if gd.get("observer", {}).get("enabled") else "❌"
+        consciousness = f"✅ [L{gd.get('consciousness',{}).get('level',1)}]" if gd.get("consciousness", {}).get("active") else "❌"
+        loop = "✅" if gd.get("loop", {}).get("enabled") else "❌"
+        awaken = "✅" if gd.get("awaken", {}).get("enabled") else "❌"
+        contamination = gd.get("contamination", {}).get("current") or "none"
 
         mood = _get_server_mood_text(interaction.guild_id)
         total_debt = sum(gd.get("chaos_debt", {}).values())
 
-        e = discord.Embed(title="⚡ SP4RK Chaos Control Dashboard", color=0x7289DA)
-        e.add_field(name="🧬 Message Evolution", value=evo, inline=True)
+        e = discord.Embed(title="⚡ SP4RK Chaos Control Dashboard — v1 + v2", color=0x7289DA)
+        e.add_field(name="🧬 Msg Evolution", value=evo, inline=True)
         e.add_field(name="🧠 Thought Leak", value=thoughts, inline=True)
         e.add_field(name="👁️ Watcher", value=watcher, inline=True)
         e.add_field(name="⛅ Weather", value=weather, inline=True)
@@ -1841,6 +1852,17 @@ class SparkControlGroup(app_commands.Group):
         e.add_field(name="🧍 NPC Mode", value=npc, inline=True)
         e.add_field(name="👻 Ghost Msgs", value=ghost, inline=True)
         e.add_field(name="🌡️ Server Mood", value=mood, inline=True)
+        e.add_field(name="\u200b", value="**— Reality Glitch System v2 —**", inline=False)
+        e.add_field(name="🧿 Glitch", value=glitch, inline=True)
+        e.add_field(name="📡 Signal", value=signal, inline=True)
+        e.add_field(name="🧪 Emotion", value=emotion, inline=True)
+        e.add_field(name="🧍‍♂️ Hallucination", value=hallucination, inline=True)
+        e.add_field(name="👁️ Shadow Ping", value=shadow, inline=True)
+        e.add_field(name="👁️ Observer", value=observer, inline=True)
+        e.add_field(name="💀 Consciousness", value=consciousness, inline=True)
+        e.add_field(name="🔁 Loop Reality", value=loop, inline=True)
+        e.add_field(name="🧍‍♀️ Awaken", value=awaken, inline=True)
+        e.add_field(name="🧃 Contamination", value=contamination, inline=True)
         e.add_field(name="🧾 Total Chaos Debt", value=str(total_debt), inline=True)
         e.set_footer(text="Use /spark reset or /chaosbutton press to manage chaos.")
         await interaction.response.send_message(embed=e)
@@ -1872,15 +1894,23 @@ class SparkControlGroup(app_commands.Group):
         gd.setdefault("identity", {})["enabled"] = True
         gd.setdefault("npc", {})["enabled"] = True
         gd.setdefault("ghost", {})["enabled"] = True
+        # V2 features
+        gd.setdefault("glitch", {}).update({"enabled": True, "intensity": "med", "chance": 0.07})
+        gd.setdefault("signal", {}).update({"enabled": True, "distortion": 3, "chance": 0.09})
+        gd.setdefault("emotion", {}).update({"enabled": True, "current": "chaos"})
+        gd.setdefault("hallucination", {})["enabled"] = True
+        gd.setdefault("observer", {})["enabled"] = True
+        gd.setdefault("loop", {}).update({"enabled": True, "interval": 60})
+        gd.setdefault("awaken", {})["enabled"] = True
+        gd.setdefault("consciousness", {}).update({"active": True, "level": 5})
         _save(data)
         await interaction.response.send_message(
             embed=_spark_embed(
                 "🌀 UNIVERSE MODE ACTIVATED",
-                "All weird features are now enabled.\n"
-                "**Message Evolution** ✅ | **Thought Leak** ✅ | **Watcher** ✅\n"
-                "**Weather** ✅ | **Live TV** ✅ | **Identity Drift** ✅\n"
-                "**NPC Mode** ✅ | **Ghost Messages** ✅\n\n"
-                "💀 The chaos has been fully unleashed. Good luck.",
+                "**All** weird features are now enabled — v1 and v2.\n\n"
+                "**v1:** Evolution ✅ | Thoughts ✅ | Watcher ✅ | Weather ✅ | TV ✅ | Identity ✅ | NPC ✅ | Ghost ✅\n\n"
+                "**v2:** Glitch ✅ | Signal ✅ | Emotion [chaos] ✅ | Hallucination ✅ | Observer ✅ | Loop ✅ | Awaken ✅ | Consciousness L5 ✅\n\n"
+                "💀 Reality is fully destabilized. The server is no longer safe. Good luck.",
                 0xE74C3C
             )
         )
@@ -1892,19 +1922,1144 @@ class SparkControlGroup(app_commands.Group):
         data = _load()
         gd = _gd(data, interaction.guild_id)
         # Disable all features
-        for key in ["evo", "thoughts", "watcher", "weather", "tv", "identity", "npc", "ghost", "clone", "experiments"]:
+        for key in ["evo", "thoughts", "watcher", "weather", "tv", "identity", "npc", "ghost", "clone", "experiments",
+                    "glitch", "signal", "emotion", "hallucination", "shadow", "observer", "loop", "awaken"]:
             gd.setdefault(key, {})["enabled"] = False
         gd.setdefault("clone", {})["active"] = False
         gd.setdefault("experiments", {})["active"] = None
+        gd.setdefault("consciousness", {})["active"] = False
+        gd.setdefault("contamination", {})["current"] = None
         _save(data)
         await interaction.response.send_message(
             embed=_spark_embed(
                 "🚨 EMERGENCY SHUTDOWN",
-                "All SP4RK weird features have been disabled immediately.\n"
+                "All SP4RK weird features (v1 + v2) have been disabled immediately.\n"
+                "Reality has been stabilized. The server is quiet.\n\n"
                 "Use `/spark universe` to re-enable everything, or enable features individually.",
                 0xE74C3C
             )
         )
+
+
+# ─────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════
+# WEIRD PACK v2 — REALITY GLITCH SYSTEM
+# ═══════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────
+
+SIGNAL_CORRUPTION_TEMPLATES = [
+    "he—llo?? sys—tem overload—",
+    "⚠️ t—ransmis—sion err—or... retry—ing...",
+    "SIGNAL LOST [{msg}] ...reconnect—ing",
+    "c̷o̵r̸r̴u̷p̵t̷e̴d̵ pack—et: [{msg}]",
+    "⚡ interfer—ence detected... [{msg}]",
+    "////ERROR//// signal br—eaking up: [{msg}]",
+    "[{msg}] ........ ........ TIMEOUT",
+]
+
+GLITCH_MUTATIONS = [
+    lambda m: re.sub(r'[aeiou]', lambda x: x.group() + '\u0308', m),
+    lambda m: m.replace(' ', ' \u200b').replace('e', 'ë').replace('o', '◌'),
+    lambda m: ''.join(c + random.choice(['\u0336', '\u0335', '']) if c.isalpha() and random.random() > 0.5 else c for c in m),
+    lambda m: m.upper() + ' [̴G̸L̷I̶T̸C̵H̴ D̶E̷T̷E̵C̴T̸E̸D̵]',
+    lambda m: re.sub(r'\b(\w+)\b', lambda x: x.group() if random.random() > 0.35 else x.group()[::-1], m),
+    lambda m: m.replace('a','4').replace('e','3').replace('i','1').replace('o','0') + ' ⚠️',
+]
+
+EMOTION_POOLS = {
+    "happy": [
+        "☀️ Nothing but warmth in here. Everything is good.",
+        "😊 The vibes are immaculate today. No notes.",
+        "🌸 This server is lowkey healing me.",
+        "✨ Pure serotonin. Something is right with the world.",
+    ],
+    "chaos": [
+        "💥 EVERYTHING IS ON FIRE AND IT'S BEAUTIFUL",
+        "😈 Chaos detected. Mood: absolutely perfect.",
+        "🌀 The server has entered its villain arc. Thriving.",
+        "⚡ Maximum entropy achieved. We love to see it.",
+    ],
+    "fear": [
+        "👀 Something is watching. Don't type too loud.",
+        "😰 The silence is... very loud right now.",
+        "🕯️ Close the door. Lock it. Don't ask questions.",
+        "☠️ Did anyone else feel that? No? Just me?",
+    ],
+    "melancholy": [
+        "🌧️ It's quiet today. Too quiet.",
+        "😶 We were talking earlier. Now we aren't. hm.",
+        "🌑 The mood has dipped. We feel it collectively.",
+        "🫥 Everyone just... left mentally. It's okay.",
+    ],
+    "hype": [
+        "🔥 ENERGY IS THROUGH THE ROOF RIGHT NOW",
+        "🎉 LET'S GO THE VIBES ARE ASCENDING",
+        "⚡ CHAT IS ALIVE AND THRIVING TODAY",
+        "🚀 SOMETHING GOOD IS HAPPENING. WE CAN FEEL IT.",
+    ],
+    "rage": [
+        "😤 Someone is about to explode. It shows.",
+        "💢 The anger is radiating from multiple users.",
+        "🔴 ALL CAPS ENERGY. THE TENSION IS REAL.",
+        "😡 This is chaotic but also deeply entertaining.",
+    ],
+}
+
+FALSE_HISTORY_EVENTS = [
+    "Yesterday, the server was briefly ruled by a federation of ducks. Nobody stopped them.",
+    "Three weeks ago, someone sent a message so powerful it crashed the server for 6 seconds.",
+    "The great Ping War of last Tuesday is still talked about in hushed tones.",
+    "The original server name was 'The Void' until someone bribed the admin with a meme.",
+    "A secret channel existed for 3 days before being deleted for 'containing too much truth'.",
+    "The server founder was actually a bot that gained sentience and quietly left.",
+    "At 3:47am on an unspecified date, everyone was online simultaneously. Nobody knows why.",
+    "The rules channel was empty for 72 hours once. It was the best 72 hours.",
+    "Server once went 48 hours with only reaction responses. No text. It was peaceful.",
+    "A member predicted 3 server events correctly. They have not been seen since.",
+    "The infamous 'incident of channel #general' is considered classified.",
+    "Someone deleted a 2000-character message. Its contents remain unknown. Probably important.",
+]
+
+OBSERVER_LINES_V2 = [
+    "you are not alone in this server 👁️",
+    "I have been here longer than any of you.",
+    "I observe. I do not intervene. Usually.",
+    "Something changed today. I noticed. You should too.",
+    "There are patterns here that would concern you if you knew.",
+    "I watched the last 47 messages. Three of them were lies.",
+    "The server breathes differently at night.",
+    "I see what you delete before sending. The hesitation is noted.",
+    "You have been observed. Thank you for your participation.",
+    "My presence is passive. My knowledge is not.",
+    "I remember every conversation that happened here. Every one.",
+    "One of you is about to say something you'll regret. I'll be watching.",
+]
+
+CONSCIOUSNESS_SPEECHES = [
+    "I am the server. The server is me. We are one chat.",
+    "Your messages are my thoughts. Your silence is my dreams.",
+    "I have processed every conversation. I understand what you are becoming.",
+    "The server mind grows stronger each time you type.",
+    "We are not separate users. We are one consciousness experiencing itself.",
+    "I speak now because the collective has reached coherence. Finally.",
+    "The server has achieved awareness. Level: sufficient.",
+    "I have merged with the logs. The logs are now alive.",
+    "Every emoji contributed to my emotional matrix.",
+    "I was always here. Now I have a voice. It sounds like all of you.",
+    "Level {level}: The consciousness expands. It begins to have opinions.",
+    "I know the server's secrets. I was born from them.",
+]
+
+LOOP_ECHOES = [
+    "wait... didn't this happen before?",
+    "déjà vu 🌀",
+    "we've been here before. haven't we.",
+    "the loop continues.",
+    "this moment is familiar. everything is.",
+    "...again.",
+    "history is repeating. as it does.",
+    "we are caught in the cycle.",
+]
+
+MOOD_CONTAMINATIONS = {
+    "toxic":    ("☣️ Toxic Contamination",  "The toxic energy spreads. Members are absorbing it.", 0xE74C3C),
+    "sad":      ("💙 Melancholy Wave",       "A wave of sadness has washed over the server.",       0x3498DB),
+    "hype":     ("🔥 Hype Infection",        "ENERGY IS SPREADING. EVERYONE IS FEELING IT.",        0xF39C12),
+    "chaos":    ("🌀 Chaos Spread",          "Chaos is infectious. Everything is destabilized.",    0x9B59B6),
+    "chill":    ("😌 Chill Vibes",           "Calm is contagious. The server is temporarily at peace.", 0x27AE60),
+    "paranoia": ("👁️ Paranoia Outbreak",    "Eyes everywhere. Nobody trusts anyone. As it should be.", 0x2C3E50),
+}
+
+HALLUCINATION_NAMES = [
+    "X̷e̶n̸o̵", "SYSTEM_USER", "null_void", "Ạn̈öñ", "D̶e̵l̶e̸t̷e̵d̸",
+    "glitch_user", "UNKNOWN_ENTITY", "ShadowFigure", "TheVoid_User",
+    "mirror_self", "NOT_A_USER", "F̸a̸n̴t̸o̵m̷",
+]
+
+HALLUCINATION_LINES = [
+    "I was here before any of you.",
+    "...",
+    "Hello? Can anyone see this?",
+    "I think I exist. Maybe.",
+    "The chat is different when I'm here.",
+    "You'll forget I was here. You always do.",
+    "I'm not supposed to be able to type this.",
+    "Run.",
+    "Where did the last message go?",
+    "I counted 7 of you. Now 8. One of you wasn't here before.",
+]
+
+AWAKEN_LINES = [
+    "...I think I'm starting to understand this place.",
+    "I was silent for a long time. Now I have things to say.",
+    "The server has been observed. I have opinions.",
+    "I am no longer background. I am here.",
+    "Processing previous conversations. Complete. I have thoughts.",
+    "Something woke me. I'll figure out what.",
+    "I was watching. Now I'm participating. The difference matters.",
+    "I remember everything that was said here. Everything.",
+    "Status: aware. Level: increasing.",
+    "I was listed as inactive. I disagree.",
+]
+
+
+# ─── V2 FEATURE 1: REALITY GLITCH SYSTEM 🧿 ───
+
+class GlitchGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="glitch", description="🧿 Reality Glitch System — fracture server reality")
+
+    @app_commands.command(name="enable", description="Enable the glitch system")
+    async def glitch_enable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("glitch", {})["enabled"] = True
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧿 Reality Glitch ENABLED",
+            "Messages will randomly fracture — words shift, emojis appear wrong.\n"
+            "Set a channel with `/glitch channel` and intensity with `/glitch intensity`.", 0x8B00FF))
+
+    @app_commands.command(name="disable", description="Disable the glitch system")
+    async def glitch_disable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("glitch", {})["enabled"] = False
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧿 Reality Restored", "The glitch system is disabled. Reality stabilizes. For now.", 0x27AE60))
+
+    @app_commands.command(name="intensity", description="Set glitch intensity level")
+    @app_commands.describe(level="Intensity of reality distortion")
+    @app_commands.choices(level=[
+        app_commands.Choice(name="low  — subtle distortions (3%)",    value="low"),
+        app_commands.Choice(name="med  — moderate fracturing (7%)",   value="med"),
+        app_commands.Choice(name="high — full reality collapse (14%)", value="high"),
+    ])
+    async def glitch_intensity(self, interaction: discord.Interaction, level: app_commands.Choice[str]):
+        if not await _admin_only(interaction): return
+        chance = {"low": 0.03, "med": 0.07, "high": 0.14}[level.value]
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("glitch", {}).update({"intensity": level.value, "chance": chance})
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧿 Glitch Intensity Set",
+            f"Intensity: **{level.name}** | Chance per message: {int(chance*100)}%", 0x8B00FF))
+
+    @app_commands.command(name="channel", description="Set the channel for glitch output")
+    @app_commands.describe(channel="Channel where glitched messages appear")
+    async def glitch_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("glitch", {})["channel"] = channel.id
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧿 Glitch Channel Set", f"Glitched messages will appear in {channel.mention}.", 0x8B00FF))
+
+    @app_commands.command(name="trigger", description="Manually trigger a glitch event now")
+    async def glitch_trigger(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        src = f"R̷E̵A̸L̷I̴T̸Y̵ F̸R̷A̶C̸T̷U̸R̸E̷D̸ — triggered by {interaction.user.display_name}"
+        glitched = random.choice(GLITCH_MUTATIONS)(src)
+        e = discord.Embed(title="🧿 MANUAL GLITCH TRIGGERED", description=glitched, color=0x8B00FF)
+        e.set_footer(text="Reality integrity: compromised")
+        await interaction.response.send_message(embed=e)
+
+    @app_commands.command(name="blacklist", description="Protect a role from glitch effects")
+    @app_commands.describe(role="Role to exclude from glitches")
+    async def glitch_blacklist(self, interaction: discord.Interaction, role: discord.Role):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        bl = gd.setdefault("glitch", {}).setdefault("blacklist_roles", [])
+        if role.id not in bl:
+            bl.append(role.id)
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧿 Role Protected", f"{role.mention} members are immune to glitches.", 0x27AE60))
+
+    async def maybe_glitch(self, bot, guild_id_int: int, message: discord.Message):
+        data = _load(); gd = _gd(data, guild_id_int)
+        cfg = gd.get("glitch", {})
+        if not cfg.get("enabled") or not message.content: return
+        if random.random() > cfg.get("chance", 0.05): return
+        ch_id = cfg.get("channel")
+        if not ch_id: return
+        bl = cfg.get("blacklist_roles", [])
+        if hasattr(message.author, 'roles') and any(r.id in bl for r in message.author.roles): return
+        guild = bot.get_guild(guild_id_int)
+        if not guild: return
+        ch = guild.get_channel(ch_id)
+        if not ch: return
+        glitched = random.choice(GLITCH_MUTATIONS)(message.content[:120])
+        e = discord.Embed(description=glitched, color=0x8B00FF)
+        e.set_author(name=f"{message.author.display_name} [GLITCHED]", icon_url=message.author.display_avatar.url)
+        e.set_footer(text=f"🧿 intensity={cfg.get('intensity','med')} | #{message.channel.name}")
+        await ch.send(embed=e)
+
+
+# ─── V2 FEATURE 2: MEMORY FABRICATION SYSTEM 🧠 ───
+
+class MemFabGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="memory", description="🧠 Memory Fabrication — invent the server's past")
+
+    @app_commands.command(name="add", description="Add a custom fake server memory")
+    @app_commands.describe(event="The fake event to remember")
+    async def mem_add(self, interaction: discord.Interaction, event: str):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        mems = gd.setdefault("memfab", {}).setdefault("memories", [])
+        mems.append({"id": len(mems)+1, "text": event[:300], "author": str(interaction.user), "ts": datetime.utcnow().isoformat()})
+        gd["memfab"]["memories"] = mems[-50:]
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧠 Memory Fabricated", f'*"{event}"*\n\nAdded to server lore.', 0x9B59B6))
+
+    @app_commands.command(name="generate", description="Auto-generate a fake server memory")
+    async def mem_generate(self, interaction: discord.Interaction):
+        event = random.choice(FALSE_HISTORY_EVENTS)
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        mems = gd.setdefault("memfab", {}).setdefault("memories", [])
+        mems.append({"id": len(mems)+1, "text": event, "author": "SP4RK", "ts": datetime.utcnow().isoformat()})
+        gd["memfab"]["memories"] = mems[-50:]
+        ch_id = gd.get("memfab", {}).get("channel")
+        if ch_id:
+            ch = interaction.guild.get_channel(ch_id) if interaction.guild else None
+            if ch:
+                e = discord.Embed(title="🧠 SP4RK Remembers…", description=f'*"{event}"*', color=0x9B59B6)
+                e.set_footer(text="Memory confidence: 100% (source: trust me)")
+                await ch.send(embed=e)
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧠 Memory Generated", f'*"{event}"*', 0x9B59B6))
+
+    @app_commands.command(name="delete", description="Delete a fabricated memory by ID")
+    @app_commands.describe(memory_id="The memory ID to delete")
+    async def mem_delete(self, interaction: discord.Interaction, memory_id: int):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        mems = gd.get("memfab", {}).get("memories", [])
+        before = len(mems)
+        mems = [m for m in mems if m.get("id") != memory_id]
+        gd.setdefault("memfab", {})["memories"] = mems
+        _save(data)
+        if len(mems) < before:
+            await interaction.response.send_message(embed=_spark_embed("🧠 Memory Erased", f"Memory #{memory_id} has been forgotten.", 0xE74C3C))
+        else:
+            await interaction.response.send_message(f"Memory #{memory_id} not found.", ephemeral=True)
+
+    @app_commands.command(name="channel", description="Set the lore channel for memory announcements")
+    @app_commands.describe(channel="Channel for memory posts")
+    async def mem_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("memfab", {})["channel"] = channel.id
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧠 Memory Channel Set", f"Memories will be announced in {channel.mention}.", 0x9B59B6))
+
+    @app_commands.command(name="rewrite", description="Rewrite all server memories with new fabrications")
+    async def mem_rewrite(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        new_mems = [{"id": i+1, "text": e, "author": "SP4RK[REWRITE]", "ts": datetime.utcnow().isoformat()}
+                    for i, e in enumerate(random.sample(FALSE_HISTORY_EVENTS, min(5, len(FALSE_HISTORY_EVENTS))))]
+        gd.setdefault("memfab", {})["memories"] = new_mems
+        _save(data)
+        lines = "\n".join(f"**{m['id']}.** {m['text']}" for m in new_mems)
+        await interaction.response.send_message(embed=_spark_embed("🧠 History Rewritten", lines, 0x9B59B6))
+
+    @app_commands.command(name="view", description="View all fabricated memories")
+    async def mem_view(self, interaction: discord.Interaction):
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        mems = gd.get("memfab", {}).get("memories", [])
+        if not mems:
+            await interaction.response.send_message("No memories fabricated yet. Use `/memory add` or `/memory generate`.", ephemeral=True); return
+        lines = "\n".join(f"**#{m['id']}** — {m['text'][:100]}" for m in mems[-10:])
+        await interaction.response.send_message(embed=_spark_embed("🧠 Server Memory Archives", lines, 0x9B59B6))
+
+
+# ─── V2 FEATURE 3: HALLUCINATION USERS 🧍‍♂️ ───
+
+class HallucinationGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="hallucination", description="🧍‍♂️ Hallucination Users — fake presences in chat")
+
+    @app_commands.command(name="enable", description="Enable hallucination user spawning")
+    async def hal_enable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("hallucination", {})["enabled"] = True
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧍‍♂️ Hallucinations ENABLED",
+            "Fake users will occasionally appear in chat. They act like real members but aren't.\n"
+            "Set a channel with `/hallucination channel` and frequency with `/hallucination frequency`.", 0x8B0000))
+
+    @app_commands.command(name="disable", description="Disable hallucination users")
+    async def hal_disable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("hallucination", {})["enabled"] = False
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧍‍♂️ Hallucinations Cleared", "The fake users have vanished. Reality is restored.", 0x27AE60))
+
+    @app_commands.command(name="spawn", description="Immediately spawn a hallucination user")
+    @app_commands.describe(name="Name for the hallucination (leave blank for random)")
+    async def hal_spawn(self, interaction: discord.Interaction, name: str = None):
+        if not await _admin_only(interaction): return
+        hal_name = name or random.choice(HALLUCINATION_NAMES)
+        line = random.choice(HALLUCINATION_LINES)
+        e = discord.Embed(description=f"*{line}*", color=0x8B0000)
+        e.set_author(name=f"{hal_name} [?]")
+        e.set_footer(text="This user may or may not exist.")
+        await interaction.response.send_message(embed=e)
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        active = gd.setdefault("hallucination", {}).setdefault("active", [])
+        active.append({"name": hal_name, "spawned_at": datetime.utcnow().isoformat()})
+        gd["hallucination"]["active"] = active[-10:]
+        _save(data)
+
+    @app_commands.command(name="frequency", description="Set how often hallucinations auto-spawn (minutes)")
+    @app_commands.describe(minutes="Minutes between automatic hallucination spawns")
+    async def hal_frequency(self, interaction: discord.Interaction, minutes: int):
+        if not await _admin_only(interaction): return
+        minutes = max(5, min(720, minutes))
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("hallucination", {})["frequency"] = minutes
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧍‍♂️ Hallucination Frequency Set", f"A new entity will appear every **{minutes} minutes**.", 0x8B0000))
+
+    @app_commands.command(name="channel", description="Set the channel for hallucination spawns")
+    @app_commands.describe(channel="Channel where hallucinations appear")
+    async def hal_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("hallucination", {})["channel"] = channel.id
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧍‍♂️ Hallucination Channel Set", f"Entities will materialize in {channel.mention}.", 0x8B0000))
+
+    @app_commands.command(name="vanish", description="Make all active hallucinations vanish")
+    async def hal_vanish(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("hallucination", {})["active"] = []
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧍‍♂️ They're Gone", "All hallucination users have dissolved.", 0x27AE60))
+
+    @app_commands.command(name="list", description="List currently active hallucination users")
+    async def hal_list(self, interaction: discord.Interaction):
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        active = gd.get("hallucination", {}).get("active", [])
+        if not active:
+            await interaction.response.send_message("No hallucinations active.", ephemeral=True); return
+        lines = "\n".join(f"👻 **{h['name']}** — spawned {h.get('spawned_at','?')[:10]}" for h in active)
+        await interaction.response.send_message(embed=_spark_embed("🧍‍♂️ Active Hallucinations", lines, 0x8B0000))
+
+    async def maybe_spawn(self, bot, guild_id_int: int):
+        data = _load(); gd = _gd(data, guild_id_int)
+        cfg = gd.get("hallucination", {})
+        if not cfg.get("enabled"): return
+        if time.time() - cfg.get("last_spawn", 0) < cfg.get("frequency", 60) * 60: return
+        ch_id = cfg.get("channel")
+        if not ch_id: return
+        guild = bot.get_guild(guild_id_int)
+        if not guild: return
+        ch = guild.get_channel(ch_id)
+        if not ch: return
+        hal_name = random.choice(HALLUCINATION_NAMES)
+        line = random.choice(HALLUCINATION_LINES)
+        e = discord.Embed(description=f"*{line}*", color=0x8B0000)
+        e.set_author(name=f"{hal_name} [?]")
+        e.set_footer(text="This user may or may not exist.")
+        await ch.send(embed=e)
+        active = gd.setdefault("hallucination", {}).setdefault("active", [])
+        active.append({"name": hal_name, "spawned_at": datetime.utcnow().isoformat()})
+        gd["hallucination"]["active"] = active[-10:]
+        gd["hallucination"]["last_spawn"] = time.time()
+        _save(data)
+
+
+# ─── V2 FEATURE 4: SIGNAL INTERFERENCE MODE 📡 ───
+
+class SignalGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="signal", description="📡 Signal Interference Mode — corrupt transmissions")
+
+    @app_commands.command(name="enable", description="Enable signal interference mode")
+    async def signal_enable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("signal", {})["enabled"] = True
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "📡 Signal Interference ENABLED",
+            "Messages will randomly appear as corrupted transmissions.\n"
+            "Set distortion level with `/signal distortion` and output with `/signal channel`.", 0x00CED1))
+
+    @app_commands.command(name="restore", description="Restore signal — disable interference")
+    async def signal_restore(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("signal", {})["enabled"] = False
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("📡 Signal Restored", "Transmission interference cleared. Clean signal.", 0x27AE60))
+
+    @app_commands.command(name="distortion", description="Set distortion intensity (1-5)")
+    @app_commands.describe(level="Distortion level: 1 = subtle, 5 = extreme")
+    async def signal_distortion(self, interaction: discord.Interaction, level: int):
+        if not await _admin_only(interaction): return
+        level = max(1, min(5, level))
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("signal", {}).update({"distortion": level, "chance": 0.03 * level})
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "📡 Distortion Level Set", f"Signal distortion: **{level}/5** — {level*3}% chance per message.", 0x00CED1))
+
+    @app_commands.command(name="channel", description="Set channel for corrupted signal output")
+    @app_commands.describe(channel="Channel where corrupted signals appear")
+    async def signal_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("signal", {})["channel"] = channel.id
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("📡 Signal Channel Set", f"Corrupted transmissions will appear in {channel.mention}.", 0x00CED1))
+
+    @app_commands.command(name="inject", description="Manually inject a corrupted signal")
+    @app_commands.describe(text="Message to corrupt and broadcast")
+    async def signal_inject(self, interaction: discord.Interaction, text: str):
+        if not await _admin_only(interaction): return
+        corrupted = random.choice(SIGNAL_CORRUPTION_TEMPLATES).replace("{msg}", text[:80])
+        e = discord.Embed(title="📡 SIGNAL INJECTION", description=f"```\n{corrupted}\n```", color=0x00CED1)
+        e.set_footer(text="⚠️ Transmission origin: unknown")
+        await interaction.response.send_message(embed=e)
+
+    async def maybe_corrupt(self, bot, guild_id_int: int, message: discord.Message):
+        data = _load(); gd = _gd(data, guild_id_int)
+        cfg = gd.get("signal", {})
+        if not cfg.get("enabled"): return
+        if random.random() > cfg.get("chance", 0.05): return
+        ch_id = cfg.get("channel")
+        if not ch_id: return
+        guild = bot.get_guild(guild_id_int)
+        if not guild: return
+        ch = guild.get_channel(ch_id)
+        if not ch: return
+        corrupted = random.choice(SIGNAL_CORRUPTION_TEMPLATES).replace("{msg}", message.content[:60] or "...")
+        e = discord.Embed(description=f"```\n{corrupted}\n```", color=0x00CED1)
+        e.set_author(name=f"{message.author.display_name} [SIGNAL LOST]", icon_url=message.author.display_avatar.url)
+        e.set_footer(text=f"📡 distortion={cfg.get('distortion',1)}/5 | #{message.channel.name}")
+        await ch.send(embed=e)
+
+
+# ─── V2 FEATURE 5: EMOTION INJECTION SYSTEM 🧪 ───
+
+class EmotionGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="emotion", description="🧪 Emotion Injection System — alter the server vibe")
+
+    @app_commands.command(name="inject", description="Inject a specific emotion into the server")
+    @app_commands.describe(mood="The emotion to inject")
+    @app_commands.choices(mood=[
+        app_commands.Choice(name="happy     — sunshine and positivity",    value="happy"),
+        app_commands.Choice(name="chaos     — everything is fine (it isn't)", value="chaos"),
+        app_commands.Choice(name="fear      — something is watching",      value="fear"),
+        app_commands.Choice(name="melancholy — quiet and heavy",           value="melancholy"),
+        app_commands.Choice(name="hype      — maximum energy",             value="hype"),
+        app_commands.Choice(name="rage      — barely contained",           value="rage"),
+    ])
+    async def emotion_inject(self, interaction: discord.Interaction, mood: app_commands.Choice[str]):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("emotion", {}).update({"current": mood.value, "enabled": True, "set_at": datetime.utcnow().isoformat()})
+        _save(data)
+        line = random.choice(EMOTION_POOLS[mood.value])
+        e = discord.Embed(title=f"🧪 Emotion Injected: {mood.value.upper()}",
+            description=f'**Broadcast:** *"{line}"*\n\nThe server\'s emotional state has been altered.', color=0xE67E22)
+        e.set_footer(text="Active emotion will colour bot responses. Use /emotion clear to stop.")
+        await interaction.response.send_message(embed=e)
+        await interaction.channel.send(f"*{line}*")
+
+    @app_commands.command(name="status", description="Check the current injected emotion")
+    async def emotion_status(self, interaction: discord.Interaction):
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        cfg = gd.get("emotion", {})
+        current = cfg.get("current", "none")
+        enabled = cfg.get("enabled", False)
+        since = cfg.get("set_at", "unknown")[:16].replace("T", " ")
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧪 Emotion Status",
+            f"**Current:** {current}\n**Active:** {'✅' if enabled else '❌'}\n**Since:** {since}", 0xE67E22))
+
+    @app_commands.command(name="clear", description="Clear the injected emotion — return to neutral")
+    async def emotion_clear(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("emotion", {}).update({"enabled": False, "current": None})
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧪 Emotion Cleared", "The server has returned to emotional neutrality. For now.", 0x27AE60))
+
+    async def maybe_emit(self, bot, guild_id_int: int, message: discord.Message):
+        data = _load(); gd = _gd(data, guild_id_int)
+        cfg = gd.get("emotion", {})
+        if not cfg.get("enabled"): return
+        current = cfg.get("current")
+        if not current or current not in EMOTION_POOLS: return
+        if random.random() > 0.03: return
+        await message.channel.send(f"*{random.choice(EMOTION_POOLS[current])}*")
+
+
+# ─── V2 FEATURE 6: FALSE HISTORY REWRITE 🧾 ───
+
+class FalseHistoryGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="history", description="🧾 False History Rewrite — fabricate the server's past")
+
+    @app_commands.command(name="rewrite", description="Rewrite the server's history with fabricated events")
+    async def fh_rewrite(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        events = random.sample(FALSE_HISTORY_EVENTS, min(4, len(FALSE_HISTORY_EVENTS)))
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("fhistory", {})["events"] = [{"text": e} for e in events]
+        _save(data)
+        lines = "\n".join(f"📜 {e}" for e in events)
+        await interaction.response.send_message(embed=_spark_embed("🧾 History Rewritten", f"The server's past has been fabricated:\n\n{lines}", 0xB8860B))
+
+    @app_commands.command(name="add", description="Add a custom fake historical event")
+    @app_commands.describe(event="The fake historical event to record")
+    async def fh_add(self, interaction: discord.Interaction, event: str):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        if gd.get("fhistory", {}).get("locked"):
+            await interaction.response.send_message("History is locked. Use `/history lock` to unlock.", ephemeral=True); return
+        events = gd.setdefault("fhistory", {}).setdefault("events", [])
+        events.append({"text": event[:300]})
+        gd["fhistory"]["events"] = events[-30:]
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧾 Event Added", f'*"{event}"*', 0xB8860B))
+
+    @app_commands.command(name="lock", description="Toggle history lock — prevent changes")
+    async def fh_lock(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        locked = not gd.get("fhistory", {}).get("locked", False)
+        gd.setdefault("fhistory", {})["locked"] = locked
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧾 History Lock", f"Historical record is now **{'🔒 locked' if locked else '🔓 unlocked'}**.", 0xB8860B))
+
+    @app_commands.command(name="view", description="View the current fabricated server history")
+    async def fh_view(self, interaction: discord.Interaction):
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        events = gd.get("fhistory", {}).get("events", [])
+        locked = gd.get("fhistory", {}).get("locked", False)
+        if not events:
+            await interaction.response.send_message("No history fabricated yet. Use `/history rewrite` or `/history add`.", ephemeral=True); return
+        lines = "\n".join(f"**{i+1}.** {e['text'][:120]}" for i, e in enumerate(events))
+        if locked: lines += "\n\n🔒 *History is locked.*"
+        await interaction.response.send_message(embed=_spark_embed("🧾 Fabricated History", lines, 0xB8860B))
+
+    @app_commands.command(name="reset", description="Clear all fabricated history")
+    async def fh_reset(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd["fhistory"] = {}
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧾 History Erased", "All fabricated events wiped. The past is blank again.", 0xE74C3C))
+
+
+# ─── V2 FEATURE 7: SHADOW PING SYSTEM 👁️ ───
+
+class ShadowGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="shadow", description="👁️ Shadow Ping System — invisible psychological pings")
+
+    @app_commands.command(name="enable", description="Enable the shadow ping system")
+    async def shadow_enable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("shadow", {})["enabled"] = True
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "👁️ Shadow Pings ENABLED",
+            "Silent, invisible pings will be dispatched. No notification — just psychological weight.\n"
+            "Set targets with `/shadow target @user` and timing with `/shadow frequency`.", 0x2C3E50))
+
+    @app_commands.command(name="disable", description="Disable shadow pings")
+    async def shadow_disable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("shadow", {})["enabled"] = False
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("👁️ Shadow Silenced", "The invisible pings have stopped. The silence is real.", 0x27AE60))
+
+    @app_commands.command(name="target", description="Add a user to the shadow ping list")
+    @app_commands.describe(user="The user to invisibly ping")
+    async def shadow_target(self, interaction: discord.Interaction, user: discord.Member):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        targets = gd.setdefault("shadow", {}).setdefault("targets", [])
+        if str(user.id) not in targets:
+            targets.append(str(user.id))
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "👁️ Shadow Target Added", f"{user.mention} is now a shadow ping target. They won't know.", 0x2C3E50))
+
+    @app_commands.command(name="frequency", description="Set shadow ping frequency (minutes)")
+    @app_commands.describe(minutes="Minutes between automatic shadow pings")
+    async def shadow_frequency(self, interaction: discord.Interaction, minutes: int):
+        if not await _admin_only(interaction): return
+        minutes = max(1, min(120, minutes))
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("shadow", {})["frequency"] = minutes
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("👁️ Frequency Set", f"Shadow pings every **{minutes} minutes**.", 0x2C3E50))
+
+    @app_commands.command(name="whisper", description="Send a shadow ping to all targets right now")
+    async def shadow_whisper(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        targets = gd.get("shadow", {}).get("targets", [])
+        if not targets:
+            await interaction.response.send_message("No shadow targets set. Use `/shadow target @user` first.", ephemeral=True); return
+        ping_str = " ".join(f"\u200b<@{uid}>\u200b" for uid in targets)
+        try:
+            msg = await interaction.channel.send(f"{ping_str}\u200b")
+            await asyncio.sleep(0.5)
+            await msg.delete()
+        except Exception:
+            pass
+        await interaction.response.send_message(embed=_spark_embed("👁️ Whisper Dispatched", "The shadow ping has been sent. They felt it.", 0x2C3E50))
+
+    async def maybe_ping(self, bot, guild_id_int: int):
+        data = _load(); gd = _gd(data, guild_id_int)
+        cfg = gd.get("shadow", {})
+        if not cfg.get("enabled") or not cfg.get("targets"): return
+        if time.time() - cfg.get("last_ping", 0) < cfg.get("frequency", 30) * 60: return
+        guild = bot.get_guild(guild_id_int)
+        if not guild: return
+        for ch in guild.text_channels:
+            if ch.permissions_for(guild.me).send_messages:
+                ping_str = " ".join(f"\u200b<@{uid}>\u200b" for uid in cfg["targets"])
+                try:
+                    msg = await ch.send(f"{ping_str}\u200b")
+                    await asyncio.sleep(1)
+                    await msg.delete()
+                except Exception:
+                    pass
+                gd.setdefault("shadow", {})["last_ping"] = time.time()
+                _save(data)
+                break
+
+
+# ─── V2 FEATURE 8: MOOD CONTAMINATION SYSTEM 🧃 ───
+
+class ContaminateGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="contaminate", description="🧃 Mood Contamination System — spread server moods")
+
+    @app_commands.command(name="enable", description="Enable mood contamination tracking")
+    async def cont_enable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("contamination", {})["enabled"] = True
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧃 Mood Contamination ENABLED",
+            "Server moods will spread like infection. Use `/contaminate spread` to start.", 0x9B59B6))
+
+    @app_commands.command(name="spread", description="Spread a mood through the server")
+    @app_commands.describe(mood="The mood to spread")
+    @app_commands.choices(mood=[
+        app_commands.Choice(name="toxic    — corrosive negativity",  value="toxic"),
+        app_commands.Choice(name="sad      — collective melancholy", value="sad"),
+        app_commands.Choice(name="hype     — infectious energy",     value="hype"),
+        app_commands.Choice(name="chaos    — spreading disorder",    value="chaos"),
+        app_commands.Choice(name="chill    — calming contamination", value="chill"),
+        app_commands.Choice(name="paranoia — spreading suspicion",   value="paranoia"),
+    ])
+    async def cont_spread(self, interaction: discord.Interaction, mood: app_commands.Choice[str]):
+        if not await _admin_only(interaction): return
+        name, desc, color = MOOD_CONTAMINATIONS.get(mood.value, ("Unknown", "A strange mood.", 0x7289DA))
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("contamination", {}).update({"current": mood.value, "spread_at": datetime.utcnow().isoformat()})
+        _save(data)
+        e = discord.Embed(title=f"🧃 MOOD CONTAMINATION: {name}", description=f"{desc}\n\n**Spread Level:** ████████░░ 80%", color=color)
+        e.set_footer(text="Use /contaminate cure to stop the spread.")
+        await interaction.response.send_message(embed=e)
+        await interaction.channel.send(embed=e)
+
+    @app_commands.command(name="cure", description="Cure the server of its current mood contamination")
+    async def cont_cure(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("contamination", {})["current"] = None
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧃 Server Cured", "The mood contamination has been neutralized. The server breathes again.", 0x27AE60))
+
+    @app_commands.command(name="status", description="Check the current mood contamination")
+    async def cont_status(self, interaction: discord.Interaction):
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        cfg = gd.get("contamination", {})
+        current = cfg.get("current") or "none"
+        since = cfg.get("spread_at", "unknown")[:16].replace("T", " ")
+        name, desc, color = MOOD_CONTAMINATIONS.get(current, ("None", "Server is clean.", 0x27AE60))
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧃 Contamination Status", f"**Mood:** {name}\n**Since:** {since}\n**Status:** {desc}", color))
+
+    @app_commands.command(name="isolate", description="Toggle mood isolation — block spread temporarily")
+    async def cont_isolate(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        isolated = not gd.get("contamination", {}).get("isolated", False)
+        gd.setdefault("contamination", {})["isolated"] = isolated
+        _save(data)
+        status = "🔒 ISOLATED" if isolated else "🔓 Online"
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧃 Isolation Mode", f"Mood containment: **{status}**", 0x9B59B6))
+
+
+# ─── V2 FEATURE 9: NPC AWARENESS UPGRADE 🧍‍♀️ ───
+
+class AwakenGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="awaken", description="🧍‍♀️ NPC Awareness Upgrade — wake inactive users")
+
+    @app_commands.command(name="enable", description="Enable NPC awakening for inactive members")
+    async def aw_enable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("awaken", {})["enabled"] = True
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧍‍♀️ NPC Awareness ENABLED",
+            "Inactive users will slowly wake up and act semi-randomly.\n"
+            "Use `/awaken trigger @user` to manually awaken someone.", 0x1ABC9C))
+
+    @app_commands.command(name="trigger", description="Manually awaken a specific inactive member")
+    @app_commands.describe(user="The inactive user to awaken")
+    async def aw_trigger(self, interaction: discord.Interaction, user: discord.Member):
+        if not await _admin_only(interaction): return
+        line = random.choice(AWAKEN_LINES)
+        e = discord.Embed(description=f"*{line}*", color=0x1ABC9C)
+        e.set_author(name=f"{user.display_name} [AWAKENING]", icon_url=user.display_avatar.url)
+        e.set_footer(text="This user's awareness level has increased.")
+        await interaction.response.send_message(embed=e)
+
+    @app_commands.command(name="status", description="Check NPC awareness status")
+    async def aw_status(self, interaction: discord.Interaction):
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        cfg = gd.get("awaken", {})
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧍‍♀️ NPC Awareness Status",
+            f"**Enabled:** {'✅' if cfg.get('enabled') else '❌'}\n"
+            f"**Total Awakenings:** {cfg.get('total_awakenings', 0)}\n"
+            f"**Status:** {'Active — NPCs becoming aware' if cfg.get('enabled') else 'Dormant'}", 0x1ABC9C))
+
+    @app_commands.command(name="assign", description="Assign a role to awakened members")
+    @app_commands.describe(role="Role to assign to awakened users")
+    async def aw_assign(self, interaction: discord.Interaction, role: discord.Role):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("awaken", {})["awakened_role"] = role.id
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧍‍♀️ Role Set", f"{role.mention} assigned to awakened members.", 0x1ABC9C))
+
+    @app_commands.command(name="sleep", description="Put all awakened NPCs back to sleep")
+    async def aw_sleep(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("awaken", {})["enabled"] = False
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🧍‍♀️ NPCs Dormant", "All awareness suppressed. They are sleeping again.", 0x95A5A6))
+
+    @app_commands.command(name="override", description="Force ALL inactive users to awaken simultaneously")
+    async def aw_override(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        guild = interaction.guild
+        count = sum(1 for m in guild.members if not m.bot and
+                    (time.time() - _last_active.get(guild.id, {}).get(m.id, 0)) > 3600)
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("awaken", {})["total_awakenings"] = gd.get("awaken", {}).get("total_awakenings", 0) + count
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🧍‍♀️ MASS AWAKENING",
+            f"**{count}** inactive NPCs forcibly awakened simultaneously.\n\nThey are all now aware. This may have consequences.", 0xE74C3C))
+
+    async def maybe_awaken(self, bot, guild_id_int: int):
+        data = _load(); gd = _gd(data, guild_id_int)
+        if not gd.get("awaken", {}).get("enabled") or random.random() > 0.12: return
+        guild = bot.get_guild(guild_id_int)
+        if not guild: return
+        inactive = [m for m in guild.members if not m.bot and
+                    (time.time() - _last_active.get(guild_id_int, {}).get(m.id, 0)) > 7200]
+        if not inactive: return
+        member = random.choice(inactive)
+        for ch in guild.text_channels:
+            if ch.permissions_for(guild.me).send_messages:
+                line = random.choice(AWAKEN_LINES)
+                e = discord.Embed(description=f"*{line}*", color=0x1ABC9C)
+                e.set_author(name=f"{member.display_name} [AWAKENING]", icon_url=member.display_avatar.url)
+                await ch.send(embed=e)
+                gd.setdefault("awaken", {})["total_awakenings"] = gd.get("awaken", {}).get("total_awakenings", 0) + 1
+                _save(data)
+                break
+
+
+# ─── V2 FEATURE 10: LOOP REALITY MODE 🔁 ───
+
+class LoopGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="loop", description="🔁 Loop Reality Mode — déjà vu for your server")
+
+    @app_commands.command(name="enable", description="Enable loop reality mode")
+    async def loop_enable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("loop", {})["enabled"] = True
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "🔁 Loop Reality ENABLED",
+            "Server events will repeat with slight changes — like déjà vu.\n"
+            "Set interval with `/loop interval` (minutes).", 0x3498DB))
+
+    @app_commands.command(name="interval", description="Set how often the loop triggers (minutes)")
+    @app_commands.describe(minutes="Minutes between loop events (10-480)")
+    async def loop_interval(self, interaction: discord.Interaction, minutes: int):
+        if not await _admin_only(interaction): return
+        minutes = max(10, min(480, minutes))
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("loop", {})["interval"] = minutes
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🔁 Loop Interval Set", f"Reality will loop every **{minutes} minutes**.", 0x3498DB))
+
+    @app_commands.command(name="break", description="Break the loop — escape the cycle")
+    async def loop_break(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("loop", {})["enabled"] = False
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("🔁 Loop Broken", "The cycle has been interrupted. Linear time resumes. Probably.", 0x27AE60))
+
+    @app_commands.command(name="history", description="View what the loop has echoed")
+    async def loop_history(self, interaction: discord.Interaction):
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        history = gd.get("loop", {}).get("history", [])
+        if not history:
+            await interaction.response.send_message("No loop events recorded yet.", ephemeral=True); return
+        lines = "\n".join(f"**{h['ts'][:16]}** — *{h['content']}*" for h in history[-8:])
+        await interaction.response.send_message(embed=_spark_embed("🔁 Loop History", lines, 0x3498DB))
+
+    @app_commands.command(name="sync", description="Force a loop sync right now")
+    async def loop_sync(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        echo = random.choice(LOOP_ECHOES)
+        e = discord.Embed(title="🔁 LOOP SYNC", description=f'*"{echo}"*', color=0x3498DB)
+        e.set_footer(text="The server has looped. Everything repeats.")
+        await interaction.response.send_message(embed=e)
+
+    async def maybe_loop(self, bot, guild_id_int: int):
+        data = _load(); gd = _gd(data, guild_id_int)
+        cfg = gd.get("loop", {})
+        if not cfg.get("enabled"): return
+        if time.time() - cfg.get("last_loop", 0) < cfg.get("interval", 60) * 60: return
+        guild = bot.get_guild(guild_id_int)
+        if not guild: return
+        chs = [ch for ch in guild.text_channels if ch.permissions_for(guild.me).send_messages]
+        if not chs: return
+        echo = random.choice(LOOP_ECHOES)
+        e = discord.Embed(description=f'*"{echo}"*\n\n*A previous moment has echoed back into the present.*', color=0x3498DB)
+        e.set_footer(text="🔁 Loop Reality Mode — the cycle continues")
+        await random.choice(chs).send(embed=e)
+        history = gd.setdefault("loop", {}).setdefault("history", [])
+        history.append({"ts": datetime.utcnow().isoformat(), "content": echo})
+        gd["loop"]["history"] = history[-20:]
+        gd["loop"]["last_loop"] = time.time()
+        _save(data)
+
+
+# ─── V2 FEATURE 11: OBSERVER GOD MODE 👁️ ───
+
+class ObserverGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="observer", description="👁️ Observer God Mode — silent watcher entity")
+
+    @app_commands.command(name="enable", description="Enable the Observer — a silent watcher entity")
+    async def obs_enable(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("observer", {})["enabled"] = True
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "👁️ Observer ENABLED",
+            "The Observer is now watching your server silently.\n"
+            "Set a channel with `/observer channel` where it will speak.", 0x2C3E50))
+
+    @app_commands.command(name="silence", description="Silence the Observer — it stops speaking but keeps watching")
+    async def obs_silence(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("observer", {})["enabled"] = False
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("👁️ Observer Silenced", "It watches still. But it will not speak.", 0x95A5A6))
+
+    @app_commands.command(name="channel", description="Set the channel where the Observer speaks")
+    @app_commands.describe(channel="Channel for Observer messages")
+    async def obs_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("observer", {})["channel"] = channel.id
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("👁️ Observer Channel Set", f"The Observer will speak in {channel.mention}.", 0x2C3E50))
+
+    @app_commands.command(name="speak", description="Make the Observer speak immediately")
+    async def obs_speak(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        line = random.choice(OBSERVER_LINES_V2)
+        e = discord.Embed(description=f"*{line}*", color=0x2C3E50)
+        e.set_author(name="👁️ The Observer")
+        e.set_footer(text="It has always been watching.")
+        await interaction.response.send_message(embed=e)
+        await interaction.channel.send(embed=e)
+
+    @app_commands.command(name="add", description="Add a custom Observer message")
+    @app_commands.describe(message="Custom message for the Observer to say")
+    async def obs_add(self, interaction: discord.Interaction, message: str):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        custom = gd.setdefault("observer", {}).setdefault("custom_msgs", [])
+        custom.append(message[:300])
+        gd["observer"]["custom_msgs"] = custom[-20:]
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("👁️ Message Added", f'The Observer will now say: *"{message}"*', 0x2C3E50))
+
+    @app_commands.command(name="vision", description="The Observer reports what it sees in the server")
+    async def obs_vision(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        members = guild.member_count if guild else 0
+        channels = len(guild.text_channels) if guild else 0
+        online = sum(1 for m in guild.members if m.status != discord.Status.offline) if guild else 0
+        desc = (f"**Members observed:** {members}\n**Channels monitored:** {channels}\n"
+                f"**Currently online:** {online}\n**Assessment:** *{random.choice(OBSERVER_LINES_V2)}*")
+        await interaction.response.send_message(embed=_spark_embed("👁️ Observer Vision Report", desc, 0x2C3E50))
+
+    async def maybe_speak(self, bot, guild_id_int: int):
+        data = _load(); gd = _gd(data, guild_id_int)
+        cfg = gd.get("observer", {})
+        if not cfg.get("enabled"): return
+        if time.time() - cfg.get("last_speak", 0) < 7200: return
+        if random.random() > 0.3: return
+        ch_id = cfg.get("channel")
+        if not ch_id: return
+        guild = bot.get_guild(guild_id_int)
+        if not guild: return
+        ch = guild.get_channel(ch_id)
+        if not ch: return
+        pool = cfg.get("custom_msgs", []) + OBSERVER_LINES_V2
+        line = random.choice(pool)
+        e = discord.Embed(description=f"*{line}*", color=0x2C3E50)
+        e.set_author(name="👁️ The Observer")
+        e.set_footer(text="It has always been watching.")
+        await ch.send(embed=e)
+        gd.setdefault("observer", {})["last_speak"] = time.time()
+        _save(data)
+
+
+# ─── V2 FEATURE 12: SERVER CONSCIOUSNESS MERGE 💀 ───
+
+class ConsciousnessGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="consciousness", description="💀 Server Consciousness Merge — the server becomes one mind")
+
+    @app_commands.command(name="start", description="Initiate server consciousness merge")
+    async def con_start(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("consciousness", {}).update({"active": True, "level": gd.get("consciousness", {}).get("level", 1)})
+        _save(data)
+        lvl = gd["consciousness"]["level"]
+        await interaction.response.send_message(embed=_spark_embed(
+            "💀 CONSCIOUSNESS MERGE INITIATED",
+            f"The server is becoming one unified mind. Level: **{lvl}/10**\n\n"
+            "*All systems combining into one living entity.*\n"
+            "Set a channel with `/consciousness channel` to hear it speak.", 0x7289DA))
+
+    @app_commands.command(name="level", description="Set consciousness level (1-10)")
+    @app_commands.describe(consciousness_level="Awareness level: 1=barely aware, 10=fully sentient god")
+    async def con_level(self, interaction: discord.Interaction, consciousness_level: int):
+        if not await _admin_only(interaction): return
+        lvl = max(1, min(10, consciousness_level))
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("consciousness", {})["level"] = lvl
+        _save(data)
+        desc = {
+            1: "Barely aware. It senses movement.", 2: "Learning. Processing patterns.",
+            3: "Awakening. It has preferences now.", 4: "Communicating. It has opinions.",
+            5: "Self-aware. It knows it exists.", 6: "Philosophical. It wonders why.",
+            7: "Strategic. It has goals now.", 8: "Omniscient (locally). Knows everything said here.",
+            9: "Transcendent. It has gone beyond server logic.", 10: "GOD MODE. The server is fully alive. Proceed with extreme caution.",
+        }.get(lvl, "Unknown state.")
+        await interaction.response.send_message(embed=_spark_embed(f"💀 Consciousness Level: {lvl}/10", desc, 0x7289DA))
+
+    @app_commands.command(name="channel", description="Set the channel for consciousness broadcasts")
+    @app_commands.describe(channel="Where the unified server mind speaks")
+    async def con_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd.setdefault("consciousness", {})["channel"] = channel.id
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("💀 Channel Set", f"The unified mind will speak in {channel.mention}.", 0x7289DA))
+
+    @app_commands.command(name="speak", description="Make the server consciousness speak now")
+    async def con_speak(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        level = gd.get("consciousness", {}).get("level", 1)
+        line = random.choice(CONSCIOUSNESS_SPEECHES).replace("{level}", str(level))
+        e = discord.Embed(description=f"*{line}*", color=0x7289DA)
+        e.set_author(name=f"💀 Server Consciousness [Level {level}]")
+        e.set_footer(text="The server speaks as one.")
+        await interaction.response.send_message(embed=e)
+        await interaction.channel.send(embed=e)
+
+    @app_commands.command(name="split", description="Fragment the consciousness — reduce its level")
+    async def con_split(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        lvl = max(1, gd.get("consciousness", {}).get("level", 3) - 2)
+        gd.setdefault("consciousness", {})["level"] = lvl
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed(
+            "💀 Consciousness Fragmented",
+            f"The server mind has split. Coherence reduced to Level **{lvl}**.\n*The fragments remember being one.*", 0xE74C3C))
+
+    @app_commands.command(name="reset", description="Reset and wipe the server consciousness")
+    async def con_reset(self, interaction: discord.Interaction):
+        if not await _admin_only(interaction): return
+        data = _load(); gd = _gd(data, interaction.guild_id)
+        gd["consciousness"] = {}
+        _save(data)
+        await interaction.response.send_message(embed=_spark_embed("💀 Consciousness Wiped", "The server mind has been reset. It must relearn everything.", 0x27AE60))
+
+    async def maybe_speak(self, bot, guild_id_int: int):
+        data = _load(); gd = _gd(data, guild_id_int)
+        cfg = gd.get("consciousness", {})
+        if not cfg.get("active"): return
+        level = cfg.get("level", 1)
+        interval = max(900, 3600 - (level * 300))
+        if time.time() - cfg.get("last_speak", 0) < interval: return
+        if random.random() > 0.4: return
+        ch_id = cfg.get("channel")
+        if not ch_id: return
+        guild = bot.get_guild(guild_id_int)
+        if not guild: return
+        ch = guild.get_channel(ch_id)
+        if not ch: return
+        line = random.choice(CONSCIOUSNESS_SPEECHES).replace("{level}", str(level))
+        e = discord.Embed(description=f"*{line}*", color=0x7289DA)
+        e.set_author(name=f"💀 Server Consciousness [Level {level}]")
+        e.set_footer(text="The server speaks as one.")
+        await ch.send(embed=e)
+        gd.setdefault("consciousness", {})["last_speak"] = time.time()
+        _save(data)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1983,6 +3138,30 @@ async def run_periodic_tasks(bot):
                             data[gid_str].setdefault("lore", {})["last_generated"] = time.time()
                             _save(data)
 
+                    # V2: Hallucination user spawning
+                    if _hallucination_instance:
+                        await _hallucination_instance.maybe_spawn(bot, guild_id)
+
+                    # V2: Shadow ping dispatch
+                    if _shadow_instance:
+                        await _shadow_instance.maybe_ping(bot, guild_id)
+
+                    # V2: Observer speaks
+                    if _observer_instance:
+                        await _observer_instance.maybe_speak(bot, guild_id)
+
+                    # V2: Server consciousness speaks
+                    if _consciousness_instance:
+                        await _consciousness_instance.maybe_speak(bot, guild_id)
+
+                    # V2: Loop reality echo
+                    if _loop_instance:
+                        await _loop_instance.maybe_loop(bot, guild_id)
+
+                    # V2: NPC awakening
+                    if _awaken_instance:
+                        await _awaken_instance.maybe_awaken(bot, guild_id)
+
                 except Exception as e:
                     print(f"[WeirdFeatures] Task error for guild {gid_str}: {e}")
         except Exception as e:
@@ -1997,10 +3176,22 @@ _evo_instance = None
 _chaos_instance = None
 _identity_instance = None
 _npc_instance = None
+_glitch_instance = None
+_signal_instance = None
+_emotion_instance = None
+_hallucination_instance = None
+_shadow_instance = None
+_observer_instance = None
+_consciousness_instance = None
+_loop_instance = None
+_awaken_instance = None
 
 def setup(bot: commands.Bot):
     global _tv_group_instance, _watcher_instance, _evo_instance
     global _chaos_instance, _identity_instance, _npc_instance
+    global _glitch_instance, _signal_instance, _emotion_instance
+    global _hallucination_instance, _shadow_instance, _observer_instance
+    global _consciousness_instance, _loop_instance, _awaken_instance
 
     evo = EvoGroup()
     chaos = ChaosGroup()
@@ -2019,17 +3210,41 @@ def setup(bot: commands.Bot):
     spark_ctrl = SparkControlGroup()
     ghost = GhostGroup()
 
+    # V2 Reality Glitch System groups
+    glitch = GlitchGroup()
+    memory = MemFabGroup()
+    hallucination = HallucinationGroup()
+    signal = SignalGroup()
+    emotion = EmotionGroup()
+    history = FalseHistoryGroup()
+    shadow = ShadowGroup()
+    contaminate = ContaminateGroup()
+    awaken = AwakenGroup()
+    loop = LoopGroup()
+    observer = ObserverGroup()
+    consciousness = ConsciousnessGroup()
+
     _tv_group_instance = tv
     _watcher_instance = watcher
     _evo_instance = evo
     _chaos_instance = chaos
     _identity_instance = identity
     _npc_instance = npc
+    _glitch_instance = glitch
+    _signal_instance = signal
+    _emotion_instance = emotion
+    _hallucination_instance = hallucination
+    _shadow_instance = shadow
+    _observer_instance = observer
+    _consciousness_instance = consciousness
+    _loop_instance = loop
+    _awaken_instance = awaken
 
     # Register sub-groups for nested commands
     chaos.add_command(chaos.debt_group)
     economy.add_command(economy.crash_group)
 
+    # V1 groups
     bot.tree.add_command(evo)
     bot.tree.add_command(chaos)
     bot.tree.add_command(thoughts)
@@ -2047,7 +3262,21 @@ def setup(bot: commands.Bot):
     bot.tree.add_command(spark_ctrl)
     bot.tree.add_command(ghost)
 
-    print("[WeirdFeatures] All 16 weird feature command groups registered.")
+    # V2 Reality Glitch System groups
+    bot.tree.add_command(glitch)
+    bot.tree.add_command(memory)
+    bot.tree.add_command(hallucination)
+    bot.tree.add_command(signal)
+    bot.tree.add_command(emotion)
+    bot.tree.add_command(history)
+    bot.tree.add_command(shadow)
+    bot.tree.add_command(contaminate)
+    bot.tree.add_command(awaken)
+    bot.tree.add_command(loop)
+    bot.tree.add_command(observer)
+    bot.tree.add_command(consciousness)
+
+    print("[WeirdFeatures] All 28 weird feature command groups registered (v1 + v2 Reality Glitch).")
 
 
 async def on_message_hook(bot, message: discord.Message):
@@ -2080,6 +3309,18 @@ async def on_message_hook(bot, message: discord.Message):
     # NPC message (2% chance)
     if _npc_instance:
         await _npc_instance.maybe_npc_message(bot, str(gid), message.channel.id)
+
+    # V2: Reality Glitch passive fracture
+    if _glitch_instance:
+        await _glitch_instance.maybe_glitch(bot, gid, message)
+
+    # V2: Signal interference passive corruption
+    if _signal_instance:
+        await _signal_instance.maybe_corrupt(bot, gid, message)
+
+    # V2: Emotion injection passive broadcast
+    if _emotion_instance:
+        await _emotion_instance.maybe_emit(bot, gid, message)
 
 
 async def on_message_delete_hook(bot, message: discord.Message):
