@@ -2381,6 +2381,66 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   <div class="an-chart-wrap" style="height:220px;"><canvas id="an-jl-chart"></canvas></div>
 </div>
 
+<!-- ─── Server Mood System ─── -->
+<div class="card" style="margin-bottom:18px;" id="an-mood-card">
+  <div class="card-title"><i class="fas fa-brain"></i> Server Mood — live atmosphere reading</div>
+
+  <!-- Current Mood Hero -->
+  <div id="an-mood-hero" style="display:flex;align-items:center;gap:22px;padding:18px 0 22px;flex-wrap:wrap;">
+    <div id="an-mood-emoji" style="font-size:4.2rem;line-height:1;filter:drop-shadow(0 0 18px rgba(91,140,255,.5));transition:all .4s;">😐</div>
+    <div style="flex:1;min-width:160px;">
+      <div id="an-mood-label" style="font-size:1.45rem;font-weight:800;color:var(--text);letter-spacing:-.5px;margin-bottom:4px;">Normal Activity</div>
+      <div id="an-mood-flavour" style="font-size:.85rem;color:var(--muted);font-style:italic;margin-bottom:12px;max-width:420px;">Loading mood data…</div>
+      <!-- Score Bar -->
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:.7rem;color:#e74c3c;font-weight:700;">−50</span>
+        <div style="flex:1;height:10px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;position:relative;">
+          <div id="an-mood-bar-fill" style="position:absolute;top:0;left:0;height:100%;width:50%;border-radius:99px;transition:width .6s ease,background .6s ease;background:#5b8cff;"></div>
+          <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:2px;height:100%;background:rgba(255,255,255,.25);"></div>
+        </div>
+        <span style="font-size:.7rem;color:#2ecc71;font-weight:700;">+50</span>
+      </div>
+      <div style="text-align:center;margin-top:5px;font-size:.78rem;color:var(--muted);">Score: <span id="an-mood-score-val" style="font-weight:700;color:var(--text);">0</span> / 50</div>
+    </div>
+  </div>
+
+  <!-- Signal Breakdown Row -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+    <div style="background:rgba(46,204,113,.08);border:1px solid rgba(46,204,113,.2);border-radius:10px;padding:12px;text-align:center;">
+      <div style="font-size:1.4rem;font-weight:800;color:#2ecc71;" id="an-mood-pos">—</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;">Positive Signals</div>
+    </div>
+    <div style="background:rgba(91,140,255,.08);border:1px solid rgba(91,140,255,.18);border-radius:10px;padding:12px;text-align:center;">
+      <div style="font-size:1.4rem;font-weight:800;color:#5b8cff;" id="an-mood-neu">—</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;">Neutral Signals</div>
+    </div>
+    <div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.18);border-radius:10px;padding:12px;text-align:center;">
+      <div style="font-size:1.4rem;font-weight:800;color:#e74c3c;" id="an-mood-neg">—</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;">Negative Signals</div>
+    </div>
+  </div>
+
+  <!-- Recent Highlights -->
+  <div id="an-mood-highlights-wrap" style="margin-bottom:20px;">
+    <div style="font-size:.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Recent Signal Highlights</div>
+    <ul id="an-mood-highlights" style="margin:0;padding:0 0 0 18px;list-style:disc;color:var(--muted);font-size:.85rem;line-height:1.8;">
+      <li style="color:var(--muted);font-style:italic;">No signal highlights yet — mood data accumulates as the server chats.</li>
+    </ul>
+  </div>
+
+  <!-- Mood History Chart -->
+  <div id="an-mood-history-wrap">
+    <div style="font-size:.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Mood Score Over Time</div>
+    <div id="an-mood-hist-empty" class="an-empty" style="display:none;"><i class="fas fa-chart-line"></i>Mood history builds up over time. Check back after your server has been active for a bit.</div>
+    <div class="an-chart-wrap" style="height:180px;"><canvas id="an-mood-hist-chart"></canvas></div>
+  </div>
+
+  <!-- Last Updated Footer -->
+  <div style="margin-top:14px;font-size:.73rem;color:var(--muted);text-align:right;">
+    SP4RK Mood Engine ·  Last computed: <span id="an-mood-ts">—</span>
+  </div>
+</div>
+
 </div><!-- end #analytics -->
 
 <script>
@@ -2585,6 +2645,122 @@ html.bl-compact .page-header { margin-bottom: 18px; }
         { label: 'Left',   data: daily.map(d=>d.leaves||0), borderColor:'#e74c3c', backgroundColor:'rgba(231,76,60,.07)', fill:true, tension:0.3, pointRadius:daily.length>20?2:4, pointBackgroundColor:'#e74c3c' },
       ]);
     }
+
+    /* ── Server Mood ── */
+    _renderMood(data.mood || {});
+  }
+
+  function _moodColor(score) {
+    if (score >= 40) return '#f1c40f';
+    if (score >= 20) return '#2ecc71';
+    if (score >= -10) return '#5b8cff';
+    if (score >= -30) return '#e67e22';
+    return '#e74c3c';
+  }
+
+  function _moodGlow(score) {
+    if (score >= 40) return '0 0 22px rgba(241,196,15,.45)';
+    if (score >= 20) return '0 0 22px rgba(46,204,113,.4)';
+    if (score >= -10) return '0 0 18px rgba(91,140,255,.4)';
+    if (score >= -30) return '0 0 22px rgba(230,126,34,.4)';
+    return '0 0 22px rgba(231,76,60,.45)';
+  }
+
+  function _fmtTs(ts) {
+    if (!ts) return '—';
+    try {
+      const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
+      const now = new Date();
+      const diff = Math.floor((now - d) / 60000);
+      if (diff < 1) return 'just now';
+      if (diff < 60) return diff + 'm ago';
+      const h = Math.floor(diff / 60);
+      if (h < 24) return h + 'h ago';
+      return Math.floor(h/24) + 'd ago';
+    } catch(_) { return ts; }
+  }
+
+  function _renderMood(moodData) {
+    const cur = moodData.current || {};
+    const hist = moodData.history || [];
+
+    const score  = parseFloat(cur.mood_score ?? 0);
+    const label  = cur.mood_label  || 'Normal Activity';
+    const emoji  = cur.mood_emoji  || '😐';
+    const flavour= cur.flavour     || '';
+    const pos    = cur.pos_count   ?? 0;
+    const neg    = cur.neg_count   ?? 0;
+    const neu    = cur.neu_count   ?? 0;
+    const hl     = Array.isArray(cur.highlights) ? cur.highlights : [];
+    const ts     = cur.ts          || '';
+
+    /* Emoji + label */
+    const emojiEl = document.getElementById('an-mood-emoji');
+    if (emojiEl) { emojiEl.textContent = emoji; emojiEl.style.filter = `drop-shadow(${_moodGlow(score)})`; }
+    _setText('an-mood-label',   label);
+    _setText('an-mood-flavour', flavour || (pos === 0 && neg === 0 ? 'No signals recorded yet — send some messages to calibrate the mood.' : ''));
+    _setText('an-mood-score-val', (score >= 0 ? '+' : '') + score.toFixed(1));
+    _setText('an-mood-ts', _fmtTs(ts));
+
+    /* Score bar: score ranges -50 to +50; bar fill = (score+50)/100 * 100% */
+    const pct = Math.min(100, Math.max(0, ((score + 50) / 100) * 100));
+    const barFill = document.getElementById('an-mood-bar-fill');
+    if (barFill) { barFill.style.width = pct + '%'; barFill.style.background = _moodColor(score); }
+
+    /* Signal breakdown */
+    _setText('an-mood-pos', pos);
+    _setText('an-mood-neu', neu);
+    _setText('an-mood-neg', neg);
+
+    /* Highlights list */
+    const hlEl = document.getElementById('an-mood-highlights');
+    if (hlEl) {
+      if (hl.length === 0) {
+        hlEl.innerHTML = '<li style="color:var(--muted);font-style:italic;">No signal highlights yet — mood data accumulates as the server chats.</li>';
+      } else {
+        hlEl.innerHTML = hl.map(h => `<li>${_escHtml(h)}</li>`).join('');
+      }
+    }
+
+    /* History chart */
+    const histEmpty = document.getElementById('an-mood-hist-empty');
+    const histCanvas = document.getElementById('an-mood-hist-chart');
+    if (hist.length === 0) {
+      if (histEmpty) histEmpty.style.display = '';
+      if (histCanvas) histCanvas.style.display = 'none';
+      _destroyChart('an-mood-hist-chart');
+    } else {
+      if (histEmpty) histEmpty.style.display = 'none';
+      if (histCanvas) histCanvas.style.display = '';
+      const hLabels = hist.map(h => _fmtTs(h.ts || ''));
+      const hScores = hist.map(h => parseFloat(h.mood_score || 0));
+      const hColors = hScores.map(s => _moodColor(s));
+      _makeChart('an-mood-hist-chart', 'line', hLabels, [{
+        label: 'Mood Score',
+        data:  hScores,
+        borderColor: '#5b8cff',
+        backgroundColor: 'rgba(91,140,255,.08)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: hScores.length > 15 ? 2 : 5,
+        pointBackgroundColor: hColors,
+        pointBorderColor: hColors,
+      }], {
+        scales: {
+          x: { ticks: { color: '#5a6f93', font: { size: 9 } }, grid: { color: 'rgba(91,140,255,.05)' } },
+          y: {
+            ticks: { color: '#5a6f93', font: { size: 10 } },
+            grid: { color: 'rgba(91,140,255,.07)' },
+            min: -50, max: 50,
+            afterDataLimits(axis) { axis.min = -50; axis.max = 50; }
+          }
+        }
+      });
+    }
+  }
+
+  function _escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 })();
 </script>

@@ -5237,6 +5237,19 @@ def api_spark_analytics():
         'vs_prev_net':    prev_net,
     }
     del data['prev_daily']
+
+    # ---- Server Mood System ----
+    try:
+        mood_current = db_spark.mood_get_current(guild_id)
+        mood_history = db_spark.mood_get_history(guild_id, limit=24)
+        data['mood'] = {
+            'current': mood_current,
+            'history': mood_history,
+        }
+    except Exception as _me:
+        print(f"[dashboard] mood data error: {_me}")
+        data['mood'] = {'current': {}, 'history': []}
+
     return jsonify({'ok': True, 'data': data})
 
 

@@ -1933,6 +1933,16 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         return
     await rr_mod.handle_reaction_add(bot, payload)
     await starboard_mod.handle_reaction(bot, payload, added=True)
+    # Mood signal: reactions are a positive engagement indicator
+    try:
+        import db_spark as _dbs
+        _dbs.mood_record_signal(
+            str(payload.guild_id), 1,
+            f"Reaction added: {payload.emoji}",
+            str(payload.user_id), "positive",
+        )
+    except Exception:
+        pass
 
 @bot.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
@@ -2057,11 +2067,16 @@ async def on_message(message):
     if len(_processed_msg_ids) > 2000:
         _processed_msg_ids.clear()
 
-    # ---- Analytics: track daily message count ----
+    # ---- Analytics: track daily message count + server mood signal ----
     if message.guild:
         try:
             import db_spark as _dbs
-            _dbs.analytics_record_message(str(message.guild.id))
+            gid_str = str(message.guild.id)
+            _dbs.analytics_record_message(gid_str)
+            # Mood signal — score this message and record it
+            score, reason, category = _dbs.classify_mood_signal(message.content or "")
+            if score != 0:
+                _dbs.mood_record_signal(gid_str, score, reason, str(message.author.id), category)
         except Exception:
             pass
 

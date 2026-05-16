@@ -164,6 +164,30 @@ CREATE TABLE IF NOT EXISTS spark_analytics_voice (
     PRIMARY KEY (guild_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS spark_av_guild_mins ON spark_analytics_voice (guild_id, minutes DESC);
+
+CREATE TABLE IF NOT EXISTS spark_mood_signals (
+    id          BIGSERIAL PRIMARY KEY,
+    guild_id    TEXT NOT NULL,
+    ts          TIMESTAMPTZ DEFAULT NOW(),
+    score       INT NOT NULL,
+    reason      TEXT,
+    user_id     TEXT
+);
+CREATE INDEX IF NOT EXISTS spark_msig_guild_ts ON spark_mood_signals (guild_id, ts DESC);
+
+CREATE TABLE IF NOT EXISTS spark_mood_snapshots (
+    guild_id    TEXT NOT NULL,
+    ts          TIMESTAMPTZ DEFAULT NOW(),
+    mood_score  NUMERIC(6,2) NOT NULL DEFAULT 0,
+    mood_label  TEXT NOT NULL,
+    mood_emoji  TEXT NOT NULL,
+    pos_count   INT DEFAULT 0,
+    neg_count   INT DEFAULT 0,
+    neu_count   INT DEFAULT 0,
+    highlights  JSONB DEFAULT '[]'::jsonb,
+    PRIMARY KEY (guild_id, ts)
+);
+CREATE INDEX IF NOT EXISTS spark_msnap_guild_ts ON spark_mood_snapshots (guild_id, ts DESC);
 """
 
 
@@ -997,6 +1021,264 @@ def analytics_record_voice(guild_id: str, user_id: str, username: str, minutes: 
             conn.commit()
     except Exception as e:
         print(f"[db_spark] analytics_record_voice: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Server Mood System
+# ---------------------------------------------------------------------------
+
+_MOOD_POSITIVE_WORDS = {
+    "thanks","thank","gg","nice","great","awesome","love","good","cool","yes","perfect",
+    "beautiful","amazing","helpful","welcome","happy","lol","lmao","haha","agree","agreed",
+    "wholesome","kind","friendly","blessed","poggers","pog","based","w","goat","legend",
+    "❤️","🔥","✅","🎉","👍","😂","💯","🙏","✨","😊",
+}
+_MOOD_NEGATIVE_WORDS = {
+    "hate","stupid","idiot","noob","wtf","stfu","trash","loser","ugly","dumb","toxic",
+    "shut up","kys","die","banned","worst","terrible","awful","garbage","pathetic","cringe",
+    "waste","useless","cancer","scam","fraud","liar","cheat","disgrace","disgusting","vile",
+}
+_MOOD_TENSION_WORDS = {
+    "fight","mad","angry","argument","drama","beef","heated","arguing","drama","conflict",
+    "disagree","wrong","leave","ban","kick","report","abuse","harass",
+}
+_MOOD_SPARK_FLAVOUR = {
+    "Golden Server":     "The server is operating at peak emotional capacity. Rare. Cherish this.",
+    "Chill & Friendly":  "Vibes are smooth. The server is at peace with itself.",
+    "Normal Activity":   "Everything seems… normal. Suspiciously normal.",
+    "Tense Atmosphere":  "Something is brewing. The mood has shifted. Tread carefully.",
+    "Chaotic / Dead":    "The server is in emotional freefall. Reality is negotiable here. 💀",
+}
+
+# In-memory fallback (deque of dicts per guild)
+from collections import deque as _deque
+_mood_sig_cache: dict = {}   # guild_id -> deque(maxlen=150) of {score, reason, user_id, ts}
+_mood_snap_cache: dict = {}  # guild_id -> latest snapshot dict
+_mood_hist_cache: dict = {}  # guild_id -> deque(maxlen=48) of snapshots
+
+
+def _mood_cache_signal(guild_id: str, score: int, reason: str, user_id: str) -> None:
+    if guild_id not in _mood_sig_cache:
+        _mood_sig_cache[guild_id] = _deque(maxlen=150)
+    _mood_sig_cache[guild_id].append({
+        "score": score, "reason": reason, "user_id": user_id,
+        "ts": datetime.utcnow().isoformat(),
+    })
+
+
+def _mood_label_from_score(score: float) -> tuple:
+    """Returns (label, emoji, css_class)."""
+    if score >= 40:
+        return "Golden Server",    "😇", "mood-golden"
+    elif score >= 20:
+        return "Chill & Friendly", "😊", "mood-chill"
+    elif score >= -10:
+        return "Normal Activity",  "😐", "mood-normal"
+    elif score >= -30:
+        return "Tense Atmosphere", "😬", "mood-tense"
+    else:
+        return "Chaotic / Dead",   "💀", "mood-chaotic"
+
+
+def classify_mood_signal(content: str) -> tuple:
+    """Score a message: returns (score: int, reason: str, category: str)."""
+    if not content:
+        return 0, "Empty message", "neutral"
+    lower = content.lower()
+    words = set(lower.split())
+
+    neg_hits = words & _MOOD_NEGATIVE_WORDS
+    if neg_hits:
+        sc = max(-4, -2 * len(neg_hits))
+        return sc, f"Negative language: {', '.join(list(neg_hits)[:2])}", "negative"
+
+    tension_hits = words & _MOOD_TENSION_WORDS
+    if tension_hits:
+        return -2, f"Tension keywords: {', '.join(list(tension_hits)[:2])}", "negative"
+
+    pos_hits = words & _MOOD_POSITIVE_WORDS
+    if pos_hits:
+        sc = min(4, 1 + len(pos_hits))
+        return sc, f"Positive interaction: {', '.join(list(pos_hits)[:2])}", "positive"
+
+    # Spam-like (very short)
+    stripped = content.strip()
+    if len(stripped) < 4:
+        return -1, "Low-quality message (very short)", "negative"
+
+    # Heavy caps
+    alpha = [c for c in stripped if c.isalpha()]
+    if len(alpha) > 5 and sum(1 for c in alpha if c.isupper()) / len(alpha) > 0.7:
+        return -1, "Heavy caps usage", "negative"
+
+    return 1, "Active chat contribution", "positive"
+
+
+def mood_record_signal(guild_id: str, score: int, reason: str,
+                       user_id: str, category: str = "neutral") -> None:
+    """Record a mood signal — Postgres with in-memory fallback."""
+    _mood_cache_signal(guild_id, score, reason, user_id)
+    if not is_available():
+        return
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO spark_mood_signals (guild_id, score, reason, user_id) VALUES (%s,%s,%s,%s)",
+                    (guild_id, score, reason, user_id),
+                )
+                conn.commit()
+    except Exception as e:
+        print(f"[db_spark] mood_record_signal: {e}")
+
+
+def mood_compute_snapshot(guild_id: str) -> dict:
+    """Compute and persist current mood from recent signals. Returns snapshot dict."""
+    # Pull signals from DB or cache
+    signals = []
+    if is_available():
+        try:
+            with _conn() as conn:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                    cur.execute(
+                        """SELECT score, reason FROM spark_mood_signals
+                           WHERE guild_id = %s
+                           ORDER BY ts DESC LIMIT 100""",
+                        (guild_id,),
+                    )
+                    signals = [dict(r) for r in cur.fetchall()]
+        except Exception as e:
+            print(f"[db_spark] mood_compute_snapshot fetch: {e}")
+
+    if not signals and guild_id in _mood_sig_cache:
+        signals = list(_mood_sig_cache[guild_id])
+
+    if not signals:
+        label, emoji, _ = _mood_label_from_score(0)
+        return {
+            "mood_score": 0, "mood_label": label, "mood_emoji": emoji,
+            "pos_count": 0, "neg_count": 0, "neu_count": 0,
+            "highlights": [], "ts": datetime.utcnow().isoformat(),
+            "flavour": _MOOD_SPARK_FLAVOUR.get(label, ""),
+        }
+
+    scores = [s["score"] for s in signals]
+    total = sum(scores)
+    # Normalize: 100 signals * max +4 = 400 → map to -50..+50
+    max_magnitude = max(len(signals) * 4, 1)
+    normalized = round(max(-50, min(50, (total / max_magnitude) * 50)), 1)
+
+    pos_count = sum(1 for s in scores if s > 0)
+    neg_count = sum(1 for s in scores if s < 0)
+    neu_count = len(scores) - pos_count - neg_count
+
+    # Collect top reason highlights (deduplicated)
+    seen_reasons = set()
+    highlights = []
+    for s in signals:
+        r = s.get("reason", "")
+        if r and r not in seen_reasons:
+            seen_reasons.add(r)
+            highlights.append(r)
+        if len(highlights) >= 5:
+            break
+
+    label, emoji, _ = _mood_label_from_score(normalized)
+    snap = {
+        "mood_score":  normalized,
+        "mood_label":  label,
+        "mood_emoji":  emoji,
+        "pos_count":   pos_count,
+        "neg_count":   neg_count,
+        "neu_count":   neu_count,
+        "highlights":  highlights,
+        "ts":          datetime.utcnow().isoformat(),
+        "flavour":     _MOOD_SPARK_FLAVOUR.get(label, ""),
+    }
+
+    # Persist snapshot
+    _mood_snap_cache[guild_id] = snap
+    if guild_id not in _mood_hist_cache:
+        _mood_hist_cache[guild_id] = _deque(maxlen=48)
+    _mood_hist_cache[guild_id].append(snap)
+
+    if is_available():
+        try:
+            with _conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """INSERT INTO spark_mood_snapshots
+                           (guild_id, mood_score, mood_label, mood_emoji,
+                            pos_count, neg_count, neu_count, highlights)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+                        (guild_id, normalized, label, emoji,
+                         pos_count, neg_count, neu_count,
+                         json.dumps(highlights)),
+                    )
+                    conn.commit()
+        except Exception as e:
+            print(f"[db_spark] mood_compute_snapshot persist: {e}")
+
+    return snap
+
+
+def mood_get_current(guild_id: str) -> dict:
+    """Return the latest mood snapshot, computing if needed."""
+    if guild_id in _mood_snap_cache:
+        return _mood_snap_cache[guild_id]
+    if is_available():
+        try:
+            with _conn() as conn:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                    cur.execute(
+                        """SELECT mood_score, mood_label, mood_emoji,
+                                  pos_count, neg_count, neu_count, highlights,
+                                  ts::text AS ts
+                           FROM spark_mood_snapshots
+                           WHERE guild_id = %s
+                           ORDER BY ts DESC LIMIT 1""",
+                        (guild_id,),
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        snap = dict(row)
+                        if isinstance(snap.get("highlights"), str):
+                            try:
+                                snap["highlights"] = json.loads(snap["highlights"])
+                            except Exception:
+                                snap["highlights"] = []
+                        snap["flavour"] = _MOOD_SPARK_FLAVOUR.get(snap.get("mood_label", ""), "")
+                        _mood_snap_cache[guild_id] = snap
+                        return snap
+        except Exception as e:
+            print(f"[db_spark] mood_get_current: {e}")
+    return mood_compute_snapshot(guild_id)
+
+
+def mood_get_history(guild_id: str, limit: int = 24) -> list:
+    """Return recent mood snapshots for history chart."""
+    if guild_id in _mood_hist_cache:
+        hist = list(_mood_hist_cache[guild_id])[-limit:]
+        if hist:
+            return hist
+    if is_available():
+        try:
+            with _conn() as conn:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                    cur.execute(
+                        """SELECT mood_score, mood_label, mood_emoji,
+                                  pos_count, neg_count, neu_count,
+                                  ts::text AS ts
+                           FROM spark_mood_snapshots
+                           WHERE guild_id = %s
+                           ORDER BY ts DESC LIMIT %s""",
+                        (guild_id, limit),
+                    )
+                    rows = [dict(r) for r in cur.fetchall()]
+                    return list(reversed(rows))
+        except Exception as e:
+            print(f"[db_spark] mood_get_history: {e}")
+    return []
 
 
 def analytics_get_data(guild_id: str, days: int = 30) -> dict:
