@@ -5172,6 +5172,74 @@ def sitemap_xml():
     return xml, 200, {'Content-Type': 'application/xml; charset=utf-8'}
 
 
+# ---- SP4RK ANALYTICS ----
+@app.route('/api/spark/analytics', methods=['GET'])
+def api_spark_analytics():
+    if not session.get('logged_in'):
+        return jsonify({'ok': False, 'error': 'Not logged in'}), 401
+    guild_id = (request.args.get('guild_id') or session.get('selected_guild_id', '')).strip()
+    try:
+        period = max(7, min(60, int(request.args.get('period', '30'))))
+    except (ValueError, TypeError):
+        period = 30
+    if not guild_id:
+        return jsonify({'ok': False, 'error': 'guild_id required'}), 400
+
+    data = db_spark.analytics_get_data(guild_id, period)
+
+    daily = data.get('daily', [])
+    prev_daily = data.get('prev_daily', [])
+
+    total_joins  = sum(d.get('joins', 0)  for d in daily)
+    total_leaves = sum(d.get('leaves', 0) for d in daily)
+    net          = total_joins - total_leaves
+    prev_net     = sum(d.get('joins', 0) - d.get('leaves', 0) for d in prev_daily)
+
+    if prev_net != 0:
+        growth_rate = round(((net - prev_net) / abs(prev_net)) * 100, 1)
+    elif net > 0:
+        growth_rate = 100.0
+    else:
+        growth_rate = 0.0
+
+    retention = 100.0 if total_joins == 0 else round(
+        max(0.0, 1.0 - total_leaves / total_joins) * 100, 1
+    )
+    health_score = min(100, max(0, 50 + net))
+
+    peak = max(daily, key=lambda d: d.get('joins', 0)) if daily else {}
+
+    if net > prev_net:
+        trend = 'Accelerating'
+    elif net == prev_net:
+        trend = 'Steady'
+    else:
+        trend = 'Slowing'
+
+    if net > 5:
+        health_label = 'Thriving'
+    elif net >= 0:
+        health_label = 'Stable'
+    else:
+        health_label = 'Declining'
+
+    data['metrics'] = {
+        'growth_rate':    growth_rate,
+        'net_members':    net,
+        'retention':      retention,
+        'health_score':   health_score,
+        'health_label':   health_label,
+        'total_joins':    total_joins,
+        'total_leaves':   total_leaves,
+        'peak_join_date': peak.get('date', '—'),
+        'peak_join_count': peak.get('joins', 0),
+        'trend':          trend,
+        'vs_prev_net':    prev_net,
+    }
+    del data['prev_daily']
+    return jsonify({'ok': True, 'data': data})
+
+
 # ---- HEALTH CHECK ----
 @app.route('/health')
 @app.route('/ping')

@@ -144,6 +144,26 @@ CREATE TABLE IF NOT EXISTS spark_json_store (
     updated_at  TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (scope, key)
 );
+
+CREATE TABLE IF NOT EXISTS spark_analytics_daily (
+    guild_id    TEXT NOT NULL,
+    date        DATE NOT NULL,
+    messages    INT DEFAULT 0,
+    joins       INT DEFAULT 0,
+    leaves      INT DEFAULT 0,
+    PRIMARY KEY (guild_id, date)
+);
+CREATE INDEX IF NOT EXISTS spark_ad_guild_date ON spark_analytics_daily (guild_id, date DESC);
+
+CREATE TABLE IF NOT EXISTS spark_analytics_voice (
+    guild_id    TEXT NOT NULL,
+    user_id     TEXT NOT NULL,
+    username    TEXT,
+    minutes     INT DEFAULT 0,
+    updated_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (guild_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS spark_av_guild_mins ON spark_analytics_voice (guild_id, minutes DESC);
 """
 
 
@@ -889,6 +909,162 @@ def set_blob(scope: str, data: Any, key: str = "global") -> bool:
     except Exception as e:
         print(f"[db_spark] set_blob({scope},{key}): {e}")
         return False
+
+
+# ---------------------------------------------------------------------------
+# Analytics
+# ---------------------------------------------------------------------------
+def analytics_record_message(guild_id: str) -> None:
+    if not is_available():
+        return
+    today = datetime.now(timezone.utc).date().isoformat()
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO spark_analytics_daily (guild_id, date, messages)
+                    VALUES (%s, %s, 1)
+                    ON CONFLICT (guild_id, date) DO UPDATE
+                        SET messages = spark_analytics_daily.messages + 1
+                    """,
+                    (guild_id, today),
+                )
+            conn.commit()
+    except Exception as e:
+        print(f"[db_spark] analytics_record_message: {e}")
+
+
+def analytics_record_join(guild_id: str) -> None:
+    if not is_available():
+        return
+    today = datetime.now(timezone.utc).date().isoformat()
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO spark_analytics_daily (guild_id, date, joins)
+                    VALUES (%s, %s, 1)
+                    ON CONFLICT (guild_id, date) DO UPDATE
+                        SET joins = spark_analytics_daily.joins + 1
+                    """,
+                    (guild_id, today),
+                )
+            conn.commit()
+    except Exception as e:
+        print(f"[db_spark] analytics_record_join: {e}")
+
+
+def analytics_record_leave(guild_id: str) -> None:
+    if not is_available():
+        return
+    today = datetime.now(timezone.utc).date().isoformat()
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO spark_analytics_daily (guild_id, date, leaves)
+                    VALUES (%s, %s, 1)
+                    ON CONFLICT (guild_id, date) DO UPDATE
+                        SET leaves = spark_analytics_daily.leaves + 1
+                    """,
+                    (guild_id, today),
+                )
+            conn.commit()
+    except Exception as e:
+        print(f"[db_spark] analytics_record_leave: {e}")
+
+
+def analytics_record_voice(guild_id: str, user_id: str, username: str, minutes: int) -> None:
+    if not is_available() or minutes < 1:
+        return
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO spark_analytics_voice (guild_id, user_id, username, minutes)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (guild_id, user_id) DO UPDATE
+                        SET minutes    = spark_analytics_voice.minutes + EXCLUDED.minutes,
+                            username   = EXCLUDED.username,
+                            updated_at = NOW()
+                    """,
+                    (guild_id, user_id, username, minutes),
+                )
+            conn.commit()
+    except Exception as e:
+        print(f"[db_spark] analytics_record_voice: {e}")
+
+
+def analytics_get_data(guild_id: str, days: int = 30) -> dict:
+    """Return analytics data for the dashboard."""
+    empty = {"daily": [], "prev_daily": [], "top_chatters": [], "top_voice": []}
+    if not is_available():
+        return empty
+    try:
+        with _conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT date::text, messages, joins, leaves
+                    FROM spark_analytics_daily
+                    WHERE guild_id = %s
+                      AND date >= CURRENT_DATE - (%s * INTERVAL '1 day')
+                    ORDER BY date ASC
+                    """,
+                    (guild_id, days),
+                )
+                daily = [dict(r) for r in cur.fetchall()]
+
+                cur.execute(
+                    """
+                    SELECT date::text, messages, joins, leaves
+                    FROM spark_analytics_daily
+                    WHERE guild_id = %s
+                      AND date >= CURRENT_DATE - (%s * INTERVAL '1 day')
+                      AND date <  CURRENT_DATE - (%s * INTERVAL '1 day')
+                    ORDER BY date ASC
+                    """,
+                    (guild_id, days * 2, days),
+                )
+                prev_daily = [dict(r) for r in cur.fetchall()]
+
+                cur.execute(
+                    """
+                    SELECT COALESCE(username, user_id) AS username, messages
+                    FROM spark_xp
+                    WHERE guild_id = %s AND messages > 0
+                    ORDER BY messages DESC
+                    LIMIT 10
+                    """,
+                    (guild_id,),
+                )
+                top_chatters = [dict(r) for r in cur.fetchall()]
+
+                cur.execute(
+                    """
+                    SELECT COALESCE(username, user_id) AS username, minutes
+                    FROM spark_analytics_voice
+                    WHERE guild_id = %s
+                    ORDER BY minutes DESC
+                    LIMIT 10
+                    """,
+                    (guild_id,),
+                )
+                top_voice = [dict(r) for r in cur.fetchall()]
+
+        return {
+            "daily": daily,
+            "prev_daily": prev_daily,
+            "top_chatters": top_chatters,
+            "top_voice": top_voice,
+        }
+    except Exception as e:
+        print(f"[db_spark] analytics_get_data: {e}")
+        return empty
 
 
 # ---------------------------------------------------------------------------

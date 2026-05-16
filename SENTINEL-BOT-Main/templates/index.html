@@ -8,6 +8,7 @@
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <style>
 :root {
   --bg: #060d1c; --bg-deep: #04091a; --sidebar: #091428; --card: #0f1d38; --card-hover: #162440;
@@ -438,6 +439,10 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   <nav>
     <div class="nav-section">Configuration</div>
     <div id="sortable-nav">
+      <div class="nav-item" onclick="showTab('analytics',this)" data-tab="analytics">
+        <i class="fas fa-chart-bar"></i> Analytics
+        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+      </div>
       <div class="nav-item active" onclick="showTab('general',this)" data-tab="general">
         <i class="fas fa-cog"></i> General
         <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
@@ -2261,6 +2266,329 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   </div>
 </div>
 
+<!-- ==================== ANALYTICS TAB ==================== -->
+<div id="analytics" class="tab-content">
+<style>
+.an-period-btn { padding:5px 14px; border-radius:7px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.8rem; font-weight:600; cursor:pointer; transition:all .18s; }
+.an-period-btn.active, .an-period-btn:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+.an-metric-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+.an-metric {
+  background:linear-gradient(180deg,rgba(15,29,56,.95) 0%,rgba(9,18,40,.95) 100%);
+  border:1px solid var(--border); border-radius:12px; padding:16px 18px;
+  transition:border-color .2s,transform .15s;
+}
+.an-metric:hover { border-color:var(--border-strong); transform:translateY(-2px); }
+.an-metric-icon { font-size:.85rem; margin-bottom:6px; }
+.an-metric-val { font-size:1.6rem; font-weight:800; letter-spacing:-1px; line-height:1; }
+.an-metric-lbl { font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; font-weight:600; margin-top:4px; }
+.an-green { color:#2ecc71; }
+.an-red   { color:#e74c3c; }
+.an-blue  { color:#5b8cff; }
+.an-gold  { color:#f59e0b; }
+.an-purple{ color:#a78bfa; }
+.an-charts-row { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px; }
+.an-chart-wrap { position:relative; height:200px; }
+.an-health-banner {
+  display:flex; align-items:flex-start; gap:12px;
+  background:rgba(46,204,113,.07); border:1px solid rgba(46,204,113,.25);
+  border-radius:11px; padding:14px 18px; margin-bottom:20px;
+}
+.an-health-banner.declining { background:rgba(231,76,60,.07); border-color:rgba(231,76,60,.25); }
+.an-health-dot { width:10px; height:10px; border-radius:50%; background:#2ecc71; margin-top:5px; flex-shrink:0; box-shadow:0 0 8px #2ecc71; }
+.an-health-dot.declining { background:#e74c3c; box-shadow:0 0 8px #e74c3c; }
+.an-health-text { font-size:.88rem; line-height:1.55; color:var(--text); }
+.an-health-label { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#2ecc71; margin-bottom:3px; }
+.an-health-label.declining { color:#e74c3c; }
+.an-empty { text-align:center; padding:40px 20px; color:var(--muted); font-size:.88rem; }
+.an-empty i { font-size:1.6rem; display:block; margin-bottom:10px; opacity:.5; }
+@media(max-width:768px){ .an-charts-row{grid-template-columns:1fr;} }
+</style>
+
+<div class="page-header">
+  <h2><i class="fas fa-chart-bar" style="color:var(--accent);margin-right:10px;"></i>Analytics</h2>
+  <p>Server growth, member activity, message volume, and voice usage — all in one place.</p>
+</div>
+
+<!-- Period picker -->
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:22px;flex-wrap:wrap;">
+  <span style="font-size:.8rem;color:var(--muted);font-weight:600;margin-right:4px;">PERIOD</span>
+  <button class="an-period-btn active" data-period="7"  onclick="setAnalyticsPeriod(7,this)">7 days</button>
+  <button class="an-period-btn"        data-period="14" onclick="setAnalyticsPeriod(14,this)">14 days</button>
+  <button class="an-period-btn"        data-period="30" onclick="setAnalyticsPeriod(30,this)">30 days</button>
+  <button class="an-period-btn"        data-period="60" onclick="setAnalyticsPeriod(60,this)">60 days</button>
+  <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="loadAnalytics()"><i class="fas fa-rotate-right"></i> Refresh</button>
+</div>
+
+<!-- ─── Server Growth ─── -->
+<div class="card" style="margin-bottom:18px;" id="an-growth-card">
+  <div class="card-title"><i class="fas fa-chart-line"></i> Server Growth</div>
+  <div id="an-metric-grid" class="an-metric-grid">
+    <div class="an-metric"><div class="an-metric-icon"><i class="fas fa-arrow-trend-up an-green"></i></div><div class="an-metric-val an-green" id="an-growth-rate">—</div><div class="an-metric-lbl">Growth Rate</div></div>
+    <div class="an-metric"><div class="an-metric-icon"><i class="fas fa-users an-blue"></i></div><div class="an-metric-val an-blue" id="an-net-members">—</div><div class="an-metric-lbl">Net Members</div></div>
+    <div class="an-metric"><div class="an-metric-icon"><i class="fas fa-shield-halved an-purple"></i></div><div class="an-metric-val an-purple" id="an-retention">—</div><div class="an-metric-lbl">Retention Rate</div></div>
+    <div class="an-metric"><div class="an-metric-icon"><i class="fas fa-heart-pulse an-gold"></i></div><div class="an-metric-val an-gold" id="an-health-score">—</div><div class="an-metric-lbl">Health Score</div></div>
+    <div class="an-metric"><div class="an-metric-icon"><i class="fas fa-user-plus an-green"></i></div><div class="an-metric-val an-green" id="an-total-joins">—</div><div class="an-metric-lbl">Total Joins</div></div>
+    <div class="an-metric"><div class="an-metric-icon"><i class="fas fa-user-minus an-red"></i></div><div class="an-metric-val an-red" id="an-total-leaves">—</div><div class="an-metric-lbl">Total Leaves</div></div>
+    <div class="an-metric"><div class="an-metric-icon"><i class="fas fa-calendar-day an-blue"></i></div><div class="an-metric-val" style="font-size:1rem;font-weight:700;" id="an-peak-date">—</div><div class="an-metric-lbl">Peak Join Day</div></div>
+    <div class="an-metric"><div class="an-metric-icon"><i class="fas fa-rocket an-gold"></i></div><div class="an-metric-val" style="font-size:1rem;font-weight:700;" id="an-trend">—</div><div class="an-metric-lbl">vs Prev Period</div></div>
+  </div>
+
+  <div class="an-charts-row">
+    <div>
+      <div style="font-size:.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Cumulative Net Growth</div>
+      <div class="an-chart-wrap"><canvas id="an-growth-chart"></canvas></div>
+    </div>
+    <div>
+      <div style="font-size:.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Daily Joins vs Leaves</div>
+      <div class="an-chart-wrap"><canvas id="an-joinleave-bar-chart"></canvas></div>
+    </div>
+  </div>
+
+  <div id="an-health-banner" class="an-health-banner">
+    <div class="an-health-dot" id="an-health-dot"></div>
+    <div>
+      <div class="an-health-label" id="an-health-label-txt">Server Health</div>
+      <div class="an-health-text" id="an-health-msg">Loading server health…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Top Chatters ─── -->
+<div class="card" style="margin-bottom:18px;">
+  <div class="card-title"><i class="fas fa-message"></i> Top Chatters — all-time</div>
+  <div id="an-chatters-empty" class="an-empty" style="display:none;"><i class="fas fa-comment-slash"></i>No message data yet — chatters appear once messages are tracked.</div>
+  <div class="an-chart-wrap" style="height:240px;"><canvas id="an-chatters-chart"></canvas></div>
+</div>
+
+<!-- ─── Top Voice ─── -->
+<div class="card" style="margin-bottom:18px;">
+  <div class="card-title"><i class="fas fa-microphone"></i> Top Voice Activity — minutes</div>
+  <div id="an-voice-empty" class="an-empty" style="display:none;"><i class="fas fa-microphone-slash"></i>No voice data yet — voice minutes are tracked when members join voice channels.</div>
+  <div class="an-chart-wrap" style="height:240px;"><canvas id="an-voice-chart"></canvas></div>
+</div>
+
+<!-- ─── Daily Messages ─── -->
+<div class="card" style="margin-bottom:18px;">
+  <div class="card-title"><i class="fas fa-envelope"></i> Daily Messages — last <span id="an-period-label">30</span> days</div>
+  <div id="an-msgs-empty" class="an-empty" style="display:none;"><i class="fas fa-inbox"></i>No message data recorded yet. Messages will appear here as the bot tracks activity.</div>
+  <div class="an-chart-wrap" style="height:220px;"><canvas id="an-msgs-chart"></canvas></div>
+</div>
+
+<!-- ─── Daily Join / Leave ─── -->
+<div class="card" style="margin-bottom:18px;">
+  <div class="card-title"><i class="fas fa-door-open"></i> Daily Join / Leave — last <span id="an-period-label2">30</span> days</div>
+  <div id="an-jl-empty" class="an-empty" style="display:none;"><i class="fas fa-user-slash"></i>No join/leave data yet. It will appear here as members join or leave.</div>
+  <div class="an-chart-wrap" style="height:220px;"><canvas id="an-jl-chart"></canvas></div>
+</div>
+
+</div><!-- end #analytics -->
+
+<script>
+/* ==================== ANALYTICS JS ==================== */
+(function(){
+  let _anPeriod = 7;
+  let _anCharts = {};
+  const _CHART_DEFAULTS = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#7a93b8', font: { size: 11 }, boxWidth: 12 } }, tooltip: { backgroundColor: '#0f1d38', titleColor: '#e8f0ff', bodyColor: '#7a93b8', borderColor: 'rgba(91,140,255,.3)', borderWidth: 1 } },
+    scales: {
+      x: { ticks: { color: '#5a6f93', font: { size: 10 } }, grid: { color: 'rgba(91,140,255,.06)' } },
+      y: { ticks: { color: '#5a6f93', font: { size: 10 } }, grid: { color: 'rgba(91,140,255,.08)' }, beginAtZero: true }
+    }
+  };
+
+  function _destroyChart(id) {
+    if (_anCharts[id]) { try { _anCharts[id].destroy(); } catch(_){} delete _anCharts[id]; }
+  }
+
+  function _makeChart(id, type, labels, datasets, extra) {
+    _destroyChart(id);
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    const cfg = Object.assign({}, _CHART_DEFAULTS, extra || {});
+    cfg.scales = Object.assign({}, _CHART_DEFAULTS.scales, (extra||{}).scales||{});
+    _anCharts[id] = new Chart(canvas, { type, data: { labels, datasets }, options: cfg });
+  }
+
+  function _shortLabel(s) {
+    if (!s) return '?';
+    const parts = String(s).split(/[#\s]/);
+    return parts[0].length > 12 ? parts[0].slice(0,11)+'…' : parts[0];
+  }
+
+  function _fmtDate(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    return (dt.getMonth()+1)+'/'+(dt.getDate());
+  }
+
+  window.setAnalyticsPeriod = function(p, el) {
+    _anPeriod = p;
+    document.querySelectorAll('.an-period-btn').forEach(b => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+    document.querySelectorAll('[id^="an-period-label"]').forEach(e => e.textContent = p);
+    loadAnalytics();
+  };
+
+  window.loadAnalytics = function() {
+    const gid = window.currentGuildId || (document.getElementById('guildPick') ? document.getElementById('guildPick').value : '');
+    if (!gid) {
+      document.getElementById('an-health-msg').textContent = 'Select a server first.';
+      return;
+    }
+    fetch('/api/spark/analytics?guild_id=' + encodeURIComponent(gid) + '&period=' + _anPeriod)
+      .then(r => r.json())
+      .then(res => {
+        if (!res.ok) { console.warn('Analytics error:', res.error); return; }
+        _renderAnalytics(res.data);
+      })
+      .catch(err => console.error('Analytics fetch error:', err));
+  };
+
+  function _setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
+  function _renderAnalytics(data) {
+    const m = data.metrics || {};
+    const daily = data.daily || [];
+    const topChatters = data.top_chatters || [];
+    const topVoice = data.top_voice || [];
+
+    /* ── Metric cards ── */
+    const gr = m.growth_rate;
+    _setText('an-growth-rate', (gr >= 0 ? '+' : '') + gr + '%');
+    _setText('an-net-members', (m.net_members >= 0 ? '+' : '') + (m.net_members || 0));
+    _setText('an-retention', (m.retention || 0) + '%');
+    _setText('an-health-score', (m.health_score || 0) + '/100');
+    _setText('an-total-joins', m.total_joins || 0);
+    _setText('an-total-leaves', m.total_leaves || 0);
+    const pd = m.peak_join_date;
+    _setText('an-peak-date', pd && pd !== '—' ? _fmtDate(pd) + ' (' + (m.peak_join_count||0) + ')' : '—');
+    _setText('an-trend', m.trend || '—');
+
+    /* ── Health banner ── */
+    const declining = m.health_label === 'Declining';
+    const hBanner = document.getElementById('an-health-banner');
+    const hDot = document.getElementById('an-health-dot');
+    const hLabel = document.getElementById('an-health-label-txt');
+    if (hBanner) hBanner.className = 'an-health-banner' + (declining ? ' declining' : '');
+    if (hDot) hDot.className = 'an-health-dot' + (declining ? ' declining' : '');
+    if (hLabel) { hLabel.className = 'an-health-label' + (declining ? ' declining' : ''); hLabel.textContent = 'Server Health — ' + (m.health_label || 'Unknown'); }
+    const joins = m.total_joins || 0, leaves = m.total_leaves || 0, net = m.net_members || 0;
+    const msg = joins === 0
+      ? 'No member activity recorded in this period yet.'
+      : 'Your server ' + (net >= 0 ? 'gained' : 'lost') + ' ' + Math.abs(net) + ' member' + (Math.abs(net)!==1?'s':'') + ' in the last ' + _anPeriod + ' days (' + (gr>=0?'+':'') + gr + '%). ' +
+        'Retention is ' + (m.retention||0) + '%. ' +
+        (m.peak_join_date && m.peak_join_date !== '—' ? 'Peak activity was ' + m.peak_join_date + ' with ' + (m.peak_join_count||0) + ' join(s). ' : '') +
+        'Growth is ' + (m.trend||'steady').toLowerCase() + ' vs the previous window.';
+    _setText('an-health-msg', msg);
+
+    /* ── Cumulative Growth Chart ── */
+    const labels = daily.map(d => _fmtDate(d.date));
+    let cumulative = 0;
+    const cumData = daily.map(d => { cumulative += (d.joins||0) - (d.leaves||0); return cumulative; });
+    _makeChart('an-growth-chart', 'line', labels, [{
+      label: 'Net member change',
+      data: cumData,
+      borderColor: '#2ecc71',
+      backgroundColor: 'rgba(46,204,113,.12)',
+      fill: true,
+      tension: 0.35,
+      pointRadius: cumData.length > 20 ? 2 : 4,
+      pointBackgroundColor: '#2ecc71',
+    }]);
+
+    /* ── Daily Joins vs Leaves Bar Chart ── */
+    _makeChart('an-joinleave-bar-chart', 'bar', labels, [
+      { label: 'Joined', data: daily.map(d=>d.joins||0), backgroundColor: 'rgba(46,204,113,.7)', borderRadius: 4 },
+      { label: 'Left',   data: daily.map(d=>d.leaves||0), backgroundColor: 'rgba(231,76,60,.6)', borderRadius: 4 },
+    ]);
+
+    /* ── Top Chatters ── */
+    const chatEmpty = document.getElementById('an-chatters-empty');
+    const chatCanvas = document.getElementById('an-chatters-chart');
+    if (topChatters.length === 0) {
+      if (chatEmpty) chatEmpty.style.display = '';
+      if (chatCanvas) chatCanvas.style.display = 'none';
+      _destroyChart('an-chatters-chart');
+    } else {
+      if (chatEmpty) chatEmpty.style.display = 'none';
+      if (chatCanvas) chatCanvas.style.display = '';
+      _makeChart('an-chatters-chart', 'bar',
+        topChatters.map(c => _shortLabel(c.username)),
+        [{
+          label: 'Messages (all-time)',
+          data: topChatters.map(c => c.messages||0),
+          backgroundColor: 'rgba(91,140,255,.75)',
+          borderRadius: 5,
+        }],
+        { indexAxis: 'x' }
+      );
+    }
+
+    /* ── Top Voice ── */
+    const voiceEmpty = document.getElementById('an-voice-empty');
+    const voiceCanvas = document.getElementById('an-voice-chart');
+    if (topVoice.length === 0) {
+      if (voiceEmpty) voiceEmpty.style.display = '';
+      if (voiceCanvas) voiceCanvas.style.display = 'none';
+      _destroyChart('an-voice-chart');
+    } else {
+      if (voiceEmpty) voiceEmpty.style.display = 'none';
+      if (voiceCanvas) voiceCanvas.style.display = '';
+      _makeChart('an-voice-chart', 'bar',
+        topVoice.map(v => _shortLabel(v.username)),
+        [{
+          label: 'Voice (minutes)',
+          data: topVoice.map(v => v.minutes||0),
+          backgroundColor: 'rgba(167,139,250,.75)',
+          borderRadius: 5,
+        }]
+      );
+    }
+
+    /* ── Daily Messages Line ── */
+    const msgsEmpty = document.getElementById('an-msgs-empty');
+    const msgsCanvas = document.getElementById('an-msgs-chart');
+    const hasMessages = daily.some(d => (d.messages||0) > 0);
+    if (!hasMessages) {
+      if (msgsEmpty) msgsEmpty.style.display = '';
+      if (msgsCanvas) msgsCanvas.style.display = 'none';
+      _destroyChart('an-msgs-chart');
+    } else {
+      if (msgsEmpty) msgsEmpty.style.display = 'none';
+      if (msgsCanvas) msgsCanvas.style.display = '';
+      _makeChart('an-msgs-chart', 'line', labels, [{
+        label: 'Messages',
+        data: daily.map(d => d.messages||0),
+        borderColor: '#5b8cff',
+        backgroundColor: 'rgba(91,140,255,.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: daily.length > 20 ? 2 : 4,
+        pointBackgroundColor: '#5b8cff',
+      }]);
+    }
+
+    /* ── Daily Join/Leave Line ── */
+    const jlEmpty = document.getElementById('an-jl-empty');
+    const jlCanvas = document.getElementById('an-jl-chart');
+    const hasJL = daily.some(d => (d.joins||0)+(d.leaves||0) > 0);
+    if (!hasJL) {
+      if (jlEmpty) jlEmpty.style.display = '';
+      if (jlCanvas) jlCanvas.style.display = 'none';
+      _destroyChart('an-jl-chart');
+    } else {
+      if (jlEmpty) jlEmpty.style.display = 'none';
+      if (jlCanvas) jlCanvas.style.display = '';
+      _makeChart('an-jl-chart', 'line', labels, [
+        { label: 'Joined', data: daily.map(d=>d.joins||0), borderColor:'#2ecc71', backgroundColor:'rgba(46,204,113,.08)', fill:true, tension:0.3, pointRadius:daily.length>20?2:4, pointBackgroundColor:'#2ecc71' },
+        { label: 'Left',   data: daily.map(d=>d.leaves||0), borderColor:'#e74c3c', backgroundColor:'rgba(231,76,60,.07)', fill:true, tension:0.3, pointRadius:daily.length>20?2:4, pointBackgroundColor:'#e74c3c' },
+      ]);
+    }
+  }
+})();
+</script>
+
 </div><!-- end .main -->
 <div id="toast"></div>
 
@@ -2275,7 +2603,7 @@ const tabTitles = {
   autoresponder: 'Auto-Responder', customcommands: 'Custom Commands', reactionroles: 'Reaction Roles', mentionreact: 'Mention Reactions',
   leveling: 'Leveling & XP', starboard: 'Starboard',
   account: 'Account Settings', users: 'User Management',
-  feedback: 'Feedback'
+  feedback: 'Feedback', analytics: 'Analytics'
 };
 
 function showTab(id, el) {
@@ -2297,6 +2625,7 @@ function showTab(id, el) {
   if (id === 'general') loadConnectionStatus();
   if (id === 'users') { {% if is_admin %}pollPendingUsers(); loadPendingList();{% endif %} }
   if (id === 'feedback') loadFeedback();
+  if (id === 'analytics') loadAnalytics();
 }
 
 /* ============ FEEDBACK (star rating system) ============ */

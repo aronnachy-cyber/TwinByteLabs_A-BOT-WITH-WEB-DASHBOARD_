@@ -1892,6 +1892,11 @@ async def on_member_join(member):
     await social.send_welcome_message(bot, member, gcfg)
     await logs.log_template(bot, config, "sp4rk.welcome", user=member, server=member.guild)
     dlog("👋 JOIN", f"{member} joined {member.guild.name}", guild_id=member.guild.id)
+    try:
+        import db_spark as _dbs
+        _dbs.analytics_record_join(str(member.guild.id))
+    except Exception:
+        pass
 
 @bot.event
 async def on_member_update(before, after):
@@ -1916,6 +1921,11 @@ async def on_member_remove(member):
     refresh_config()
     await logs.log_template(bot, config, "sp4rk.leave", user=member, server=member.guild)
     dlog("🚪 LEAVE", f"{member} left {member.guild.name}", guild_id=member.guild.id)
+    try:
+        import db_spark as _dbs
+        _dbs.analytics_record_leave(str(member.guild.id))
+    except Exception:
+        pass
 
 @bot.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
@@ -1985,9 +1995,29 @@ async def on_message_delete(message):
     )
     dlog("🗑️ MSG-DELETE", f"{message.author} deleted a message in #{message.channel.name}", guild_id=message.guild.id if message.guild else None)
 
+_voice_sessions: dict = {}  # (guild_id, user_id) -> datetime of VC join
+
 @bot.event
 async def on_voice_state_update(member, before, after):
     refresh_config()
+
+    # ---- Analytics: track voice session minutes ----
+    try:
+        import db_spark as _dbs
+        key = (str(member.guild.id), str(member.id))
+        if before.channel is None and after.channel is not None:
+            _voice_sessions[key] = datetime.utcnow()
+        elif before.channel is not None and after.channel is None:
+            if key in _voice_sessions:
+                delta = datetime.utcnow() - _voice_sessions.pop(key)
+                mins = int(delta.total_seconds() / 60)
+                if mins > 0:
+                    _dbs.analytics_record_voice(
+                        str(member.guild.id), str(member.id), str(member), mins
+                    )
+    except Exception:
+        pass
+
     gcfg = get_config_for_guild(str(member.guild.id))
     log_ch = gcfg.get("log_channel", "").strip()
     if not log_ch:
@@ -2006,7 +2036,6 @@ async def on_voice_state_update(member, before, after):
                                     user=member, channel=before.channel)
             dlog("🔇 VC-LEAVE", f"{member} left VC: {before.channel.name}", guild_id=member.guild.id)
         else:
-            # Moved VC — reuse leave template with combined channel string
             move_chan = f"**{before.channel.name}** → **{after.channel.name}**"
             await logs.log_template(bot, config, "sp4rk.voice_leave",
                                     user=member, channel=move_chan)
@@ -2027,6 +2056,14 @@ async def on_message(message):
     _processed_msg_ids.add(message.id)
     if len(_processed_msg_ids) > 2000:
         _processed_msg_ids.clear()
+
+    # ---- Analytics: track daily message count ----
+    if message.guild:
+        try:
+            import db_spark as _dbs
+            _dbs.analytics_record_message(str(message.guild.id))
+        except Exception:
+            pass
 
     # ---- Weird Features passive hooks ----
     try:
