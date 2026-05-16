@@ -28,6 +28,7 @@ import server_template as template_mod
 import leveling as leveling_mod
 import starboard as starboard_mod
 import levelup_card as levelup_card_mod
+import weird_features as weird_mod
 
 BOT_START_TIME = datetime.utcnow()
 
@@ -1766,6 +1767,12 @@ async def ar_list(interaction: discord.Interaction):
 
 bot.tree.add_command(autorespond_group)
 
+# Register all weird/chaos feature commands
+try:
+    weird_mod.setup(bot)
+except Exception as _we:
+    print(f"[WeirdFeatures] setup error: {_we}")
+
 # ---------------- EVENTS ----------------
 @bot.event
 async def on_ready():
@@ -1805,6 +1812,11 @@ async def on_ready():
     dlog("✅ BOT-START", f"SP4RK online as {bot.user}")
     print(f"✅ SP4RK Online! Logged in as {bot.user}")
     _persist_bot_guilds(bot)
+    # Start weird features background tasks
+    try:
+        await weird_mod.start_background_tasks(bot)
+    except Exception as _we:
+        print(f"[WeirdFeatures] background task start error: {_we}")
 
 def _persist_bot_guilds(b):
     """Write the bot's current guild list to bot_guilds.json so the web
@@ -1959,6 +1971,11 @@ async def on_message_delete(message):
     refresh_config()
     gcfg = get_config_for_guild(str(message.guild.id)) if message.guild else config
     log_ch = gcfg.get("log_channel", "").strip()
+    # Ghost message system hook
+    try:
+        await weird_mod.on_message_delete_hook(bot, message)
+    except Exception:
+        pass
     if not log_ch:
         return
     await logs.log_template(
@@ -2010,6 +2027,12 @@ async def on_message(message):
     _processed_msg_ids.add(message.id)
     if len(_processed_msg_ids) > 2000:
         _processed_msg_ids.clear()
+
+    # ---- Weird Features passive hooks ----
+    try:
+        await weird_mod.on_message_hook(bot, message)
+    except Exception:
+        pass
 
     # ---- Owner DM approval handler ----
     if isinstance(message.channel, discord.DMChannel):
