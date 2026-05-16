@@ -4458,6 +4458,15 @@ except Exception as _e:
 # ---------------- MISSING COMMANDS ----------------
 # All remaining slash + prefix commands from the v2.5 command list.
 try:
+    import premium_features as _prem
+    _prem.setup(bot, dlog=dlog)
+    print("✅ premium_features loaded successfully.")
+except Exception as _e:
+    import traceback
+    print(f"⚠️  Failed to load premium_features: {_e}")
+    traceback.print_exc()
+
+try:
     import commands_missing as _cmds_missing
     _cmds_missing.setup(bot, dlog=dlog)
     print("✅ commands_missing loaded successfully.")
