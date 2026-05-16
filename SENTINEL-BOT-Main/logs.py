@@ -2,16 +2,21 @@ import discord
 
 
 async def _resolve_log_channel_id(config, guild_id=None):
-    """Return the effective log channel ID: per-guild override if set, else global config."""
+    """Return the effective log channel ID for a specific guild.
+
+    If guild_id is provided we ONLY use that guild's own log_channel setting.
+    We never fall back to another guild's config — that would cause cross-server
+    log leaking when a guild hasn't configured a log channel yet.
+    """
     if guild_id:
         try:
             from dashboard import get_guild_config
             gcfg = get_guild_config(str(guild_id))
             ch = gcfg.get("log_channel", "").strip()
-            if ch:
-                return ch
+            return ch  # empty string if not configured — caller will skip logging
         except Exception:
-            pass
+            return ""  # on any error, do not fall through to another guild's channel
+    # No guild context at all (e.g. a DM-based event) — use the global config only
     return config.get("log_channel", "").strip()
 
 

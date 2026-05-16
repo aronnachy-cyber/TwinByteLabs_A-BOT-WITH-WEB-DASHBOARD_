@@ -2107,7 +2107,8 @@ async def on_message(message):
                             bot, config,
                             f"{'⛔' if action=='ban' else '🚪'} Owner-Approved {action.capitalize()}",
                             f"`{matched_data['username']}` was {action}ned — approved by {message.author}.",
-                            color=0xe74c3c if action == "ban" else 0xe67e22
+                            color=0xe74c3c if action == "ban" else 0xe67e22,
+                            guild_id=guild.id
                         )
                         dlog(f"{'⛔' if action=='ban' else '🚪'} {action.upper()}", f"{matched_data['username']} {action}ned — approved by {message.author}", guild_id=guild.id)
                         notify_msg = (
@@ -2453,7 +2454,7 @@ async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reas
         await logs.log_event(
             bot, config, "⏱️ Temp Ban",
             f"{member} temp-banned by {ctx.author} for {label} | Reason: {reason}",
-            color=0xe74c3c
+            color=0xe74c3c, guild_id=ctx.guild.id if ctx.guild else None
         )
         await dm_owner("temp-ban", str(member), f"{label} — {reason}", str(ctx.author))
         _increment_report_action()
@@ -2467,7 +2468,7 @@ async def tempban(ctx, member: discord.Member, duration: str, *, reason="No reas
                 await logs.log_event(
                     bot, config, "✅ Temp Ban Expired",
                     f"{member} was automatically unbanned after {label}.",
-                    color=0x2ecc71
+                    color=0x2ecc71, guild_id=ctx.guild.id if ctx.guild else None
                 )
                 dlog("✅ UNBAN", f"Temp-ban expired for {member} after {label}", guild_id=ctx.guild.id if ctx.guild else None)
             except Exception as e:
@@ -3330,6 +3331,7 @@ async def slash_warn(interaction: discord.Interaction,
     await logs.log_event(
         bot, config, "⚠️ Warning Issued",
         f"{member} warned by {auth} | Reason: {reason}", color=0xf39c12,
+        guild_id=interaction.guild_id if interaction.guild else None,
     )
 
 
@@ -3393,6 +3395,7 @@ async def slash_clearwarnings(interaction: discord.Interaction, member: discord.
     await logs.log_event(
         bot, config, "🧹 Warnings Cleared",
         f"{member}'s warnings cleared by {interaction.user}", color=0x2ecc71,
+        guild_id=interaction.guild_id if interaction.guild else None,
     )
     await interaction.response.send_message(
         f"✅ **Warnings Cleared** — All warnings have been removed for {member.mention}.\n"
