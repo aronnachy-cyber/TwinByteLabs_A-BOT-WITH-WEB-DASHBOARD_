@@ -970,12 +970,20 @@ def _build_manual_pages() -> list:
                 "**2.** Moderation\n"
                 "**3.** Channel & Member Tools\n"
                 "**4.** Features (XP, Giveaways, Tickets, Reaction Roles)\n"
-                "**5.** Utility, Auto-Mod & Prefix Commands"
+                "**5.** Utility, Auto-Mod & Prefix Commands\n"
+                "**6.** 👑 Advanced Reaction Role Panels\n"
+                "**7.** 📜 Logging & AutoMod Config\n"
+                "**8.** 🧾 Tag System\n"
+                "**9.** 📁 Case Management\n"
+                "**10.** 📊 Server Analytics\n"
+                "**11.** ⚙️ Automation Rules & Permissions\n"
+                "**12.** 💎 Premium & God Panel"
             ), False),
             ("Quick start", (
                 "Type `/` to browse all slash commands\n"
                 "Default prefix: `!` — change with `/setprefix`\n"
-                "Run `/dashboard` to manage all settings visually"
+                "Run `/dashboard` to manage all settings visually\n"
+                "Run `/godpanel` for a full server admin overview"
             ), False),
         ]
     ))
@@ -992,6 +1000,7 @@ def _build_manual_pages() -> list:
             ("Bans & Kicks", (
                 "`/kick @member [reason]` — Kick a member\n"
                 "`/ban @member [reason]` — Permanent ban\n"
+                "`/softban @member [reason] [days]` — Ban + unban to clear messages\n"
                 "`/unban <user_id>` — Unban by Discord ID\n"
                 "`/tempban @member <duration> [reason]` — Timed ban (e.g. `2h`, `7d`)\n"
                 "`/massban <id1 id2 ...>` — Ban up to 50 users at once"
@@ -1057,9 +1066,10 @@ def _build_manual_pages() -> list:
                 "`/ticket-panel #channel [...]` — Post a custom Open Ticket button"
             ), False),
             ("Reaction Roles", (
-                "`/setup-reaction-role <msg_id> <emoji> @role` — Add a rule\n"
+                "`/setup-reaction-role <msg_id> <emoji> @role` — Simple reaction role\n"
                 "`/remove-reaction-role <msg_id> <emoji>` — Remove a rule\n"
-                "`/list-reaction-roles` — Show all active rules"
+                "`/list-reaction-roles` — Show all active rules\n"
+                "For panel-style RR (buttons/dropdowns) → see **Page 6**"
             ), False),
             ("Auto-Responder", (
                 "`/autorespond add <trigger> <reply> [match]` — Add a rule\n"
@@ -1094,7 +1104,8 @@ def _build_manual_pages() -> list:
                 "Block links · Block invites · Block mass mentions\n"
                 "Spam · Caps · Emoji · Duplicate · Wall · Anti-Zalgo filters\n"
                 "Graduated punishments: warns → mute → tempban → kick\n"
-                "AI moderation (Gemini) · Anti-raid · Role monitor · Log channel"
+                "AI moderation (Gemini) · Anti-raid · Role monitor · Log channel\n"
+                "For slash-based AutoMod config → see **Page 7**"
             ), False),
             ("Prefix Commands", (
                 "`!mute` · `!unmute` · `!tempban`\n"
@@ -1103,6 +1114,206 @@ def _build_manual_pages() -> list:
                 "`!slowmode` · `!purgeuser` · `!purgereaction` · `!massban`\n"
                 "`!role add/remove` · `!nick` · `!voicekick` · `!snipe`\n"
                 "`!refresh` *(reload config)* · `!sync` *(re-sync slash cmds)*"
+            ), False),
+        ]
+    ))
+    # ── Page 6: Advanced Reaction Role Panels ─────────────────────────────
+    pages.append(page(
+        "👑 Advanced Reaction Role Panels",
+        "Build button-style or dropdown-style role self-assignment panels with analytics.",
+        [
+            ("Creating a Panel", (
+                "`/rr create <title> [description]` — Create a new panel\n"
+                "  → Returns a **Panel ID** you'll use in all other /rr commands\n"
+                "`/rr add <panel_id> <emoji> @role` — Add an emoji → role mapping\n"
+                "`/rr remove <panel_id> <emoji>` — Remove a mapping"
+            ), False),
+            ("Posting a Panel", (
+                "`/rr build <panel_id> [#channel]` — Post as **buttons** *(one button per role)*\n"
+                "`/rr dropdown <panel_id> [#channel]` — Post as a **select menu** *(dropdown)*\n"
+                "  Members click to toggle their roles — changes apply instantly"
+            ), False),
+            ("Panel Settings", (
+                "`/rr limit <panel_id> <count>` — Max roles a user can hold from this panel\n"
+                "  Use `0` for unlimited"
+            ), False),
+            ("Analytics", (
+                "`/rr stats <panel_id>` — See how many times each role has been picked\n"
+                "  Includes a visual bar chart per role"
+            ), False),
+            ("Workflow example", (
+                "1. `/rr create \"Game Roles\" \"Pick your genre\"`\n"
+                "2. `/rr add ABC123 🎮 @Gaming`\n"
+                "3. `/rr add ABC123 🎨 @Art`\n"
+                "4. `/rr limit ABC123 2`\n"
+                "5. `/rr dropdown ABC123 #roles`"
+            ), False),
+        ]
+    ))
+    # ── Page 7: Logging & AutoMod Config ──────────────────────────────────
+    pages.append(page(
+        "📜 Logging & AutoMod Config",
+        "Slash command controls for the Ultra Logging System and Smart AutoMod.",
+        [
+            ("Ultra Logging — /logs", (
+                "`/logs enable` — Toggle logging on/off\n"
+                "`/logs channel #channel` — Set where logs are sent\n"
+                "`/logs events <preset>` — Configure tracked events\n"
+                "  Presets: `all` · `messages` · `members` · `roles` · `voice` · `channels`\n"
+                "`/logs filter <event>` — Toggle a single event on/off\n"
+                "`/logs status` — View current logging config\n"
+                "`/logs export` — Download recent action logs as a `.txt` file"
+            ), False),
+            ("Smart AutoMod — /automod", (
+                "`/automod enable` — Toggle AutoMod on/off\n"
+                "`/automod antispam <on/off>` — Anti-spam detection\n"
+                "`/automod antilink <on/off>` — Block external links\n"
+                "`/automod antiinvite <on/off>` — Block Discord invite links\n"
+                "`/automod punish <warn/mute/kick/ban>` — Default punishment\n"
+                "`/automod escalation` — Toggle auto-escalation (warn → mute → ban)\n"
+                "`/automod status` — View full AutoMod config"
+            ), False),
+        ]
+    ))
+    # ── Page 8: Tag System ────────────────────────────────────────────────
+    pages.append(page(
+        "🧾 Tag System",
+        "Create reusable server responses that support dynamic variables.",
+        [
+            ("Managing Tags — /tag", (
+                "`/tag create <name> <content>` — Create a new tag\n"
+                "`/tag edit <name> <new_content>` — Update an existing tag\n"
+                "`/tag delete <name>` — Delete a tag\n"
+                "`/tag list` — List all tags with use counts and previews\n"
+                "`/tag use <name> [@target]` — Post a tag in chat\n"
+                "`/tag embed <name> <title> <description>` — Create an embed-style tag"
+            ), False),
+            ("Variable Substitution", (
+                "Tags support dynamic variables that are filled in when posted:\n\n"
+                "`{user}` — Mentions the command user (or @target if provided)\n"
+                "`{username}` — Username as plain text\n"
+                "`{server}` — Server name\n"
+                "`{membercount}` / `{count}` — Current member count\n"
+                "`{channel}` — Mentions the current channel"
+            ), False),
+            ("Example", (
+                "`/tag create welcome Welcome {user} to {server}! We now have {count} members.`\n"
+                "`/tag use welcome @NewMember`\n"
+                "→ Posts: *Welcome @NewMember to My Server! We now have 342 members.*"
+            ), False),
+        ]
+    ))
+    # ── Page 9: Case Management ───────────────────────────────────────────
+    pages.append(page(
+        "📁 Case Management",
+        "Track, view, and resolve moderation cases with a full case database.",
+        [
+            ("Creating Cases — /case", (
+                "`/case create @member <type> <reason>` — Open a new case\n"
+                "  Types: `warn` · `mute` · `kick` · `ban` · `softban` · `note`\n"
+                "  → Each case gets a unique numeric ID"
+            ), False),
+            ("Viewing Cases", (
+                "`/case view <id>` — Full details for a specific case\n"
+                "  Shows type, user, moderator, reason, status, and notes\n"
+                "`/case list [@member]` — List recent cases (filter by user optional)\n"
+                "  🔴 = open  ·  🟢 = closed"
+            ), False),
+            ("Closing Cases", (
+                "`/case close <id> [note]` — Mark a case as resolved\n"
+                "  Optional note is saved as the resolution reason"
+            ), False),
+            ("Softban", (
+                "`/softban @member [reason] [delete_days]` — Ban then immediately\n"
+                "  unban to clear message history without a permanent ban\n"
+                "  `delete_days` controls how many days of messages to remove (1–7)"
+            ), False),
+        ]
+    ))
+    # ── Page 10: Server Analytics ─────────────────────────────────────────
+    pages.append(page(
+        "📊 Server Analytics",
+        "Slash commands for server stats and growth data. Full charts live in the Byte Labs dashboard.",
+        [
+            ("Overview & Activity — /stats", (
+                "`/stats server` — Complete server overview: members, channels, roles, boosts\n"
+                "`/stats activity` — Message volume: today / this week / last 30 days + peak day\n"
+                "`/stats users` — Top 5 chatters and top 5 voice users\n"
+                "`/stats growth` — Member growth: joins, leaves, net change, retention rate\n"
+                "`/stats export` — Download 60-day analytics + mood snapshot as a JSON file"
+            ), False),
+            ("Server Mood System", (
+                "SP4RK tracks live server atmosphere from messages and reactions:\n\n"
+                "😇 **Golden Server** (+40 to +50) — Peak positivity\n"
+                "😊 **Chill & Friendly** (+20 to +39) — Good vibes\n"
+                "😐 **Normal Activity** (−10 to +19) — Business as usual\n"
+                "😬 **Tense Atmosphere** (−11 to −29) — Watch the chat\n"
+                "💀 **Chaotic / Dead** (−30 to −50) — Things are rough\n\n"
+                "Full mood card with score bar and history chart → **Analytics tab** in Byte Labs"
+            ), False),
+        ]
+    ))
+    # ── Page 11: Automation Rules & Permissions ───────────────────────────
+    pages.append(page(
+        "⚙️ Automation Rules & Permissions",
+        "Build IF → THEN automation rules and manage channel/role permissions.",
+        [
+            ("Automation Rules — /rule", (
+                "`/rule create <name> <condition> <value> <action> [action_value]` — Create a rule\n\n"
+                "**Conditions:** `spam` · `word` · `newaccount` · `joinrate` · `capslock`\n"
+                "**Actions:** `warn` · `mute` · `kick` · `ban` · `delete` · `slowmode`\n\n"
+                "`/rule list` — View all rules with enabled status and trigger counts\n"
+                "`/rule toggle <name>` — Enable or disable a rule\n"
+                "`/rule delete <name>` — Permanently remove a rule"
+            ), False),
+            ("Examples", (
+                "If someone sends 5 spam messages → mute:\n"
+                "→ `/rule create antispam spam 5 mute 10m`\n\n"
+                "Block a word and delete it:\n"
+                "→ `/rule create nolinks word discord.gg delete`\n\n"
+                "Flag new accounts under 7 days old:\n"
+                "→ `/rule create newaccts newaccount 7 warn`"
+            ), False),
+            ("Permission Manager — /perm", (
+                "`/perm view [#channel]` — Show permission overwrites for a channel\n"
+                "`/perm lock #channel [@role]` — Deny send_messages for a role\n"
+                "`/perm unlock #channel [@role]` — Restore send_messages for a role\n"
+                "`/perm clone @from_role @to_role` — Copy one role's channel overwrites to another\n"
+                "`/perm audit [@member]` — Full breakdown of what permissions a member has"
+            ), False),
+        ]
+    ))
+    # ── Page 12: Premium & God Panel ──────────────────────────────────────
+    pages.append(page(
+        "💎 Premium & God Panel",
+        "SP4RK Elite Mode features and the admin God Panel overview command.",
+        [
+            ("God Panel — /godpanel", (
+                "`/godpanel` — One-command full server overview *(Admin only)*\n\n"
+                "Shows everything at a glance:\n"
+                "• Member count (humans / bots) and online count\n"
+                "• Total bans on record\n"
+                "• Open moderation cases\n"
+                "• Live server mood score + label\n"
+                "• Active automation rules count\n"
+                "• Tag count, AutoMod status, logging status\n"
+                "• Boost tier, role count, RR panel count"
+            ), False),
+            ("SP4RK Elite — /sparkelite", (
+                "`/sparkelite enable` — Activate SP4RK Premium mode for this server\n"
+                "  Unlocks: advanced logs · smart AutoMod AI · full analytics · automation engine\n\n"
+                "`/sparkelite elitemode` — Toggle Elite Mode\n"
+                "  Maximum power mode: context detection · severity scoring · auto-escalation\n\n"
+                "`/sparkelite status` — View current Premium / Elite tier status"
+            ), False),
+            ("Premium Feature Summary", (
+                "All premium commands are available to any server with SP4RK:\n\n"
+                "📖 **p.6** `/rr` — Advanced RR Panels (buttons + dropdowns)\n"
+                "📖 **p.7** `/logs` + `/automod` — Logging & AutoMod slash config\n"
+                "📖 **p.8** `/tag` — Tag system with variable substitution\n"
+                "📖 **p.9** `/case` + `/softban` — Case management\n"
+                "📖 **p.10** `/stats` — Analytics & mood system\n"
+                "📖 **p.11** `/rule` + `/perm` — Automation & permissions"
             ), False),
         ]
     ))
