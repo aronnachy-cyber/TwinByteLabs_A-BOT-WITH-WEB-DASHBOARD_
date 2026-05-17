@@ -63,10 +63,7 @@ def _ch(channel_id: str) -> str:
 
 async def send_welcome_message(bot, member, config):
     # ── Channel routing ──────────────────────────────────────────────────────
-    welcome_ch_id = (
-        config.get("welcome_channel", "").strip()
-        or config.get("log_channel", "").strip()
-    )
+    welcome_ch_id = config.get("welcome_channel", "").strip()
     if not welcome_ch_id:
         return
 

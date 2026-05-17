@@ -609,40 +609,17 @@ async def handle_ai_mention(message):
 
     try:
         async with message.channel.typing():
-            # --- Step 4: Call Gemini ---
-            sess = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
-            try:
-                resp = await sess.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={GEMINI_KEY}",
-                    json={
-                        "systemInstruction": {"parts": [{"text": system_instruction}]},
-                        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-                        "generationConfig": {"temperature": 1.0, "maxOutputTokens": 350},
-                    },
-                )
-                if resp.status != 200:
-                    body = await resp.text()
-                    print(f"[SP4RK] Gemini HTTP {resp.status}: {body[:200]}")
-                    await resp.release()
-                    await sess.close()
-                    await message.reply(
-                        "ngl my AI brain just glitched out 💀 try again in a sec bestie",
-                        mention_author=False,
-                    )
-                    return
-                data = await resp.json()
-                await resp.release()
-            finally:
-                await sess.close()
-
-            # --- Step 5: Extract reply ---
-            reply = (
-                data.get("candidates", [{}])[0]
-                .get("content", {})
-                .get("parts", [{}])[0]
-                .get("text", "")
-                .strip()
+            # --- Step 4: Generate reply via Byte AI brain ---
+            reply = await ai_brain.generate_response(
+                user_prompt, system_instruction, guild_id=guild_id
             )
+
+            if reply is None:
+                await message.reply(
+                    "ngl my AI brain just glitched out 💀 try again in a sec bestie",
+                    mention_author=False,
+                )
+                return
 
             if not reply:
                 await message.reply(
@@ -654,9 +631,9 @@ async def handle_ai_mention(message):
             await message.reply(reply[:1900], mention_author=False)
             dlog("💬 AI-MENTION", f"[{personality_mode}] {message.author} → {text[:80]}", guild_id=message.guild.id if message.guild else None)
 
-            # --- Step 6: Save to memory (skip very short/empty questions) ---
+            # --- Step 5: Save to memory (skip very short/empty questions) ---
             if len(text) >= 10:
-                ai_brain.save_to_memory(text, reply, guild_id=guild_id, source="gemini")
+                ai_brain.save_to_memory(text, reply, guild_id=guild_id, source="byte_ai")
 
     except discord.Forbidden:
         print(f"[SP4RK] Missing Send Messages permission in #{message.channel}")

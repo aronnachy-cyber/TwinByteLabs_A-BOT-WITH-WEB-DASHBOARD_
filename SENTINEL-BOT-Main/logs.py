@@ -16,8 +16,8 @@ async def _resolve_log_channel_id(config, guild_id=None):
             return ch  # empty string if not configured — caller will skip logging
         except Exception:
             return ""  # on any error, do not fall through to another guild's channel
-    # No guild context at all (e.g. a DM-based event) — use the global config only
-    return config.get("log_channel", "").strip()
+    # No guild context — never fall back to any channel; silence is safer than leaking
+    return ""
 
 
 async def log_event(bot, config, title, description, color=0x3498db, guild_id=None):

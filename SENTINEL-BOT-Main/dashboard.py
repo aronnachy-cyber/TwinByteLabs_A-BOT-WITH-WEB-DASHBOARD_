@@ -5205,6 +5205,61 @@ def api_byte_ai_settings_set():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@app.route('/api/byte-ai/memory', methods=['GET'])
+def api_byte_ai_memory_list():
+    if not session.get('logged_in'):
+        return jsonify({'ok': False, 'error': 'Not logged in'}), 401
+    guild_id = request.args.get('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({'ok': False, 'error': 'guild_id required'}), 400
+    try:
+        import ai_brain as _ab
+        limit = min(50, max(1, int(request.args.get('limit', '20'))))
+        memories = _ab.list_memories(guild_id, limit=limit)
+        for m in memories:
+            if m.get('created_at'):
+                m['created_at'] = str(m['created_at'])
+        return jsonify({'ok': True, 'memories': memories})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/byte-ai/teach', methods=['POST'])
+def api_byte_ai_teach():
+    if not session.get('logged_in'):
+        return jsonify({'ok': False, 'error': 'Not logged in'}), 401
+    data = request.get_json() or {}
+    guild_id = data.get('guild_id', '').strip()
+    question = data.get('question', '').strip()
+    answer = data.get('answer', '').strip()
+    if not guild_id:
+        return jsonify({'ok': False, 'error': 'guild_id required'}), 400
+    if not question or not answer:
+        return jsonify({'ok': False, 'error': 'question and answer are required'}), 400
+    try:
+        import ai_brain as _ab
+        ok = _ab.teach_memory(question, answer, guild_id=guild_id)
+        return jsonify({'ok': ok})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/byte-ai/memory/delete', methods=['POST'])
+def api_byte_ai_memory_delete():
+    if not session.get('logged_in'):
+        return jsonify({'ok': False, 'error': 'Not logged in'}), 401
+    data = request.get_json() or {}
+    memory_id = data.get('id', '').strip()
+    if not memory_id:
+        return jsonify({'ok': False, 'error': 'id required'}), 400
+    try:
+        import ai_brain as _ab
+        ok = _ab.delete_memory(memory_id)
+        return jsonify({'ok': ok})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 # ---- SP4RK ANALYTICS ----
 @app.route('/api/spark/analytics', methods=['GET'])
 def api_spark_analytics():

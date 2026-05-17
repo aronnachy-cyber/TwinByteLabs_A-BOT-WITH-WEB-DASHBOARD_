@@ -658,6 +658,55 @@ def get_ai_stats(guild_id: str = "global") -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Core generation — wraps the Gemini API call so callers don't need the key
+# ---------------------------------------------------------------------------
+async def generate_response(
+    prompt: str,
+    system_instruction: str,
+    guild_id: str = "global",
+    temperature: float = 1.0,
+    max_tokens: int = 350,
+) -> Optional[str]:
+    """Call Gemini with the given prompt and return the text reply, or None on failure.
+
+    The GEMINI_KEY is read from the environment here so this module is the
+    single place that ever touches the key for conversational responses.
+    """
+    import aiohttp
+    gemini_key = os.environ.get("GEMINI_KEY", "").strip()
+    if not gemini_key:
+        return None
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"gemini-2.0-flash-lite:generateContent?key={gemini_key}"
+    )
+    payload = {
+        "systemInstruction": {"parts": [{"text": system_instruction}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens},
+    }
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as sess:
+            resp = await sess.post(url, json=payload)
+            if resp.status != 200:
+                body = await resp.text()
+                print(f"[ai_brain] Gemini HTTP {resp.status}: {body[:200]}")
+                return None
+            data = await resp.json()
+        reply = (
+            data.get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+            .strip()
+        )
+        return reply or None
+    except Exception as e:
+        print(f"[ai_brain] generate_response error: {e}")
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Initialise on import
 # ---------------------------------------------------------------------------
 _ensure_ai_schema()
