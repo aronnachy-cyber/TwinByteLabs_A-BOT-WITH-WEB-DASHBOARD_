@@ -464,11 +464,49 @@ def _save_guild_configs(data: dict) -> None:
 
 _preload_guild_config_cache()
 
+# Keys that hold Discord channel/role IDs or other server-specific resource
+# identifiers.  They must NEVER be inherited from the global config dict —
+# if Server A saves its log_channel, that value must not appear in Server B's
+# effective config just because Server B hasn't set one yet.
+_GUILD_ONLY_KEYS: frozenset = frozenset({
+    "log_channel",
+    "welcome_channel",
+    "message_log_channel",
+    "join_log_channel",
+    "voice_log_channel",
+    "mute_role",
+    "auto_role",
+    "bot_admin_role",
+    "bot_mod_role",
+    "ticket_category",
+    "owner_dm_id",
+    "multi_channel",
+})
+
+
 def get_guild_config(guild_id: str) -> dict:
-    """Return the effective config for a guild: per-guild overrides merged over the global defaults."""
+    """Return the effective config for a guild: per-guild overrides merged over global defaults.
+
+    Guild-only keys (channel/role IDs) are NEVER inherited from the global config
+    so that a server that hasn't configured a log channel never receives another
+    server's channel ID as a fallback.
+    """
     guild_id = str(guild_id).strip()
     data = _load_guild_configs()
-    return {**config, **data.get(guild_id, {})}
+    guild_overrides = data.get(guild_id, {})
+
+    # Build base from global config, but strip out all guild-only keys so they
+    # can only come from the guild's own saved config.
+    base = {k: v for k, v in config.items() if k not in _GUILD_ONLY_KEYS}
+
+    # Merge: global non-channel defaults → guild's own saved values.
+    result = {**base, **guild_overrides}
+
+    # Guarantee every guild-only key exists in the result (empty = not configured).
+    for key in _GUILD_ONLY_KEYS:
+        result.setdefault(key, "")
+
+    return result
 
 def save_guild_config(guild_id: str, updates: dict) -> None:
     """Persist per-guild config overrides (only keys that differ from the global config).
