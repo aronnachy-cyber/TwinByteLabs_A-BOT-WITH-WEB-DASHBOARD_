@@ -437,90 +437,89 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     </div>
   </div>
   <nav>
-    <div class="nav-section">Configuration</div>
-    <div id="sortable-nav">
-      <div class="nav-item" onclick="showTab('analytics',this)" data-tab="analytics">
-        <i class="fas fa-chart-bar"></i> Analytics
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item active" onclick="showTab('general',this)" data-tab="general">
-        <i class="fas fa-cog"></i> General
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('moderation',this)" data-tab="moderation">
-        <i class="fas fa-gavel"></i> Moderation
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('automod',this)" data-tab="automod">
-        <i class="fas fa-robot"></i> Automod
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('security',this)" data-tab="security">
-        <i class="fas fa-user-shield"></i> Security
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('social',this)" data-tab="social">
-        <i class="fas fa-bell"></i> Social Notifier
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('warnings',this)" data-tab="warnings">
-        <i class="fas fa-exclamation-triangle"></i> Live Warnings
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('logs',this)" data-tab="logs">
-        <i class="fas fa-list-alt"></i> Action Logs
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('giveaways',this)" data-tab="giveaways">
-        <i class="fas fa-gift"></i> Giveaways
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('tickets',this)" data-tab="tickets">
-        <i class="fas fa-ticket-alt"></i> Tickets
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('autoresponder',this)" data-tab="autoresponder">
-        <i class="fas fa-comments"></i> Auto-Responder
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('customcommands',this)" data-tab="customcommands">
-        <i class="fas fa-keyboard"></i> Custom Commands
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('reactionroles',this)" data-tab="reactionroles">
-        <i class="fas fa-smile"></i> Reaction Roles
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('mentionreact',this)" data-tab="mentionreact">
-        <i class="fas fa-crown"></i> Mention Reactions
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('leveling',this)" data-tab="leveling">
-        <i class="fas fa-chart-line"></i> Leveling &amp; XP
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('starboard',this)" data-tab="starboard">
-        <i class="fas fa-star"></i> Starboard
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      {% if is_admin %}
-      <div class="nav-item" onclick="showTab('users',this)" data-tab="users">
-        <i class="fas fa-users"></i> Users
-        <span id="pending-nav-badge" style="margin-left:auto;background:var(--red);color:#fff;font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px;display:{% if pending_users|length > 0 %}inline{% else %}none{% endif %}">{{ pending_users|length }}</span>
-      </div>
-      {% endif %}
-      <div class="nav-item" onclick="showTab('feedback',this)" data-tab="feedback">
-        <i class="fas fa-star"></i> Feedback
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('embeds',this)" data-tab="embeds">
-        <i class="fas fa-paint-brush"></i> Embed Editor
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
-      <div class="nav-item" onclick="showTab('account',this)" data-tab="account">
-        <i class="fas fa-user-circle"></i> Account
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-      </div>
+    <!-- OVERVIEW -->
+    <div class="nav-section">Overview</div>
+    <div class="nav-item" onclick="showTab('analytics',this)" data-tab="analytics">
+      <i class="fas fa-chart-bar"></i> Analytics
+    </div>
+
+    <!-- ENGAGEMENT -->
+    <div class="nav-section">Engagement</div>
+    <div class="nav-item active" onclick="showTab('general',this)" data-tab="general">
+      <i class="fas fa-cog"></i> General Setup
+    </div>
+    <div class="nav-item" onclick="showTab('leveling',this)" data-tab="leveling">
+      <i class="fas fa-trophy"></i> Leveling &amp; XP
+    </div>
+    <div class="nav-item" onclick="showTab('giveaways',this)" data-tab="giveaways">
+      <i class="fas fa-gift"></i> Giveaways
+    </div>
+    <div class="nav-item" onclick="showTab('starboard',this)" data-tab="starboard">
+      <i class="fas fa-star"></i> Starboard
+    </div>
+    <div class="nav-item" onclick="showTab('reactionroles',this)" data-tab="reactionroles">
+      <i class="fas fa-hand-pointer"></i> Reaction Roles
+    </div>
+    <div class="nav-item" onclick="showTab('mentionreact',this)" data-tab="mentionreact">
+      <i class="fas fa-at"></i> Mention Reactions
+    </div>
+
+    <!-- AUTOMATION -->
+    <div class="nav-section">Automation</div>
+    <div class="nav-item" onclick="showTab('autoresponder',this)" data-tab="autoresponder">
+      <i class="fas fa-comments"></i> Auto-Responder
+    </div>
+    <div class="nav-item" onclick="showTab('customcommands',this)" data-tab="customcommands">
+      <i class="fas fa-keyboard"></i> Custom Commands
+    </div>
+    <div class="nav-item" onclick="showTab('social',this)" data-tab="social">
+      <i class="fas fa-bell"></i> Social Notifier
+    </div>
+    <div class="nav-item" onclick="showTab('tickets',this)" data-tab="tickets">
+      <i class="fas fa-ticket-alt"></i> Tickets
+    </div>
+    <div class="nav-item" onclick="showTab('embeds',this)" data-tab="embeds">
+      <i class="fas fa-paint-brush"></i> Embed Editor
+    </div>
+
+    <!-- MODERATION -->
+    <div class="nav-section">Moderation</div>
+    <div class="nav-item" onclick="showTab('moderation',this)" data-tab="moderation">
+      <i class="fas fa-gavel"></i> Moderation
+    </div>
+    <div class="nav-item" onclick="showTab('automod',this)" data-tab="automod">
+      <i class="fas fa-robot"></i> Automod
+    </div>
+    <div class="nav-item" onclick="showTab('security',this)" data-tab="security">
+      <i class="fas fa-user-shield"></i> Security &amp; Anti-Raid
+    </div>
+    <div class="nav-item" onclick="showTab('warnings',this)" data-tab="warnings">
+      <i class="fas fa-exclamation-triangle"></i> Live Warnings
+    </div>
+    <div class="nav-item" onclick="showTab('logs',this)" data-tab="logs">
+      <i class="fas fa-list-alt"></i> Action Logs
+    </div>
+
+    <!-- INTELLIGENCE -->
+    <div class="nav-section">Intelligence</div>
+    <div class="nav-item" onclick="showTab('byte-ai',this)" data-tab="byte-ai">
+      <i class="fas fa-brain"></i> Byte AI
+      <span style="margin-left:auto;background:linear-gradient(135deg,#6c3fc5,#4f8ef7);color:#fff;font-size:0.6rem;font-weight:800;padding:2px 7px;border-radius:10px;letter-spacing:.5px;">NEW</span>
+    </div>
+
+    <!-- ACCOUNT -->
+    <div class="nav-section">Account</div>
+    {% if is_admin %}
+    <div class="nav-item" onclick="showTab('users',this)" data-tab="users">
+      <i class="fas fa-users"></i> Users
+      <span id="pending-nav-badge" style="margin-left:auto;background:var(--red);color:#fff;font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px;display:{% if pending_users|length > 0 %}inline{% else %}none{% endif %}">{{ pending_users|length }}</span>
+    </div>
+    {% endif %}
+    <div class="nav-item" onclick="showTab('feedback',this)" data-tab="feedback">
+      <i class="fas fa-star"></i> Feedback
+    </div>
+    <div class="nav-item" onclick="showTab('account',this)" data-tab="account">
+      <i class="fas fa-user-circle"></i> Account
     </div>
   </nav>
   <div class="sidebar-footer">
@@ -1780,8 +1779,28 @@ html.bl-compact .page-header { margin-bottom: 18px; }
 <!-- ==================== LEVELING TAB ==================== -->
 <div id="leveling" class="tab-content">
   <div class="page-header">
-    <h2>Leveling &amp; XP</h2>
+    <h2><i class="fas fa-trophy" style="color:var(--accent);margin-right:10px;"></i>Leveling &amp; XP</h2>
     <p>Members earn XP for every message. Level up, climb the leaderboard, and unlock role rewards — all configurable from here.</p>
+  </div>
+
+  <!-- Enable / Disable toggle -->
+  <div class="card" style="margin-bottom:20px;border-color:rgba(91,140,255,.3);">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-weight:700;font-size:1rem;margin-bottom:3px;"><i class="fas fa-toggle-on" style="color:var(--green);margin-right:8px;"></i>Leveling System</div>
+        <div style="font-size:.82rem;color:var(--muted);">Toggle XP and leveling on or off for this server. Existing XP and levels are always kept — no data is lost.</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span id="lv-enabled-label" style="font-size:.82rem;font-weight:700;color:var(--green);">Enabled</span>
+        <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer;">
+          <input type="checkbox" id="lv-enabled-toggle" checked onchange="saveLevelingEnabled(this.checked)"
+            style="opacity:0;width:0;height:0;position:absolute;">
+          <span id="lv-enabled-slider" style="position:absolute;top:0;left:0;right:0;bottom:0;background:var(--green);border-radius:28px;transition:.3s;box-shadow:0 0 10px rgba(46,204,113,.35);">
+            <span style="position:absolute;height:22px;width:22px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s;transform:translateX(0);" id="lv-slider-thumb"></span>
+          </span>
+        </label>
+      </div>
+    </div>
   </div>
 
   <div class="card" style="margin-bottom:20px;">
@@ -1949,6 +1968,126 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     <div id="sb-status" style="color:var(--muted);font-size:.9rem;padding:10px 0;">Enter a Guild ID and save to view the active config.</div>
   </div>
 </div>
+
+<!-- ==================== BYTE AI TAB ==================== -->
+<div id="byte-ai" class="tab-content">
+<style>
+.bai-personality-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin-bottom:18px; }
+.bai-mode-card {
+  border:2px solid var(--border); border-radius:12px; padding:16px 14px;
+  cursor:pointer; text-align:center; transition:all .2s;
+  background:linear-gradient(180deg,rgba(15,29,56,.95),rgba(9,18,40,.95));
+}
+.bai-mode-card:hover { border-color:var(--accent); transform:translateY(-2px); }
+.bai-mode-card.selected { border-color:#6c3fc5; background:rgba(108,63,197,.12); box-shadow:0 0 0 1px rgba(108,63,197,.4); }
+.bai-mode-emoji { font-size:2rem; display:block; margin-bottom:8px; }
+.bai-mode-name { font-weight:700; font-size:.88rem; color:var(--text); margin-bottom:3px; }
+.bai-mode-desc { font-size:.73rem; color:var(--muted); line-height:1.4; }
+.bai-toggle-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+</style>
+
+<div class="page-header">
+  <h2><i class="fas fa-brain" style="color:#a78bfa;margin-right:10px;"></i>Byte AI</h2>
+  <p>Configure Byte AI's behaviour for this server — enable or disable it, pick a personality, and view memory stats.</p>
+</div>
+
+<!-- AI on/off toggle -->
+<div class="card" style="margin-bottom:20px;border-color:rgba(108,63,197,.35);">
+  <div class="bai-toggle-row">
+    <div>
+      <div style="font-weight:700;font-size:1rem;margin-bottom:3px;"><i class="fas fa-toggle-on" style="color:#a78bfa;margin-right:8px;"></i>Byte AI — Server Toggle</div>
+      <div style="font-size:.82rem;color:var(--muted);">When off, Byte AI will not respond to @mentions or AI commands in this server.</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <span id="bai-enabled-label" style="font-size:.82rem;font-weight:700;color:#a78bfa;">Enabled</span>
+      <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer;">
+        <input type="checkbox" id="bai-enabled-toggle" checked onchange="saveByteAIEnabled(this.checked)"
+          style="opacity:0;width:0;height:0;position:absolute;">
+        <span id="bai-enabled-slider" style="position:absolute;top:0;left:0;right:0;bottom:0;background:#6c3fc5;border-radius:28px;transition:.3s;box-shadow:0 0 10px rgba(108,63,197,.4);">
+          <span style="position:absolute;height:22px;width:22px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s;" id="bai-slider-thumb"></span>
+        </span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Personality Mode picker -->
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title"><i class="fas fa-masks-theater"></i> Personality Mode</div>
+  <p style="color:var(--muted);font-size:.82rem;margin-bottom:16px;">Choose how Byte AI talks in this server. This sets the default — individual users can override it for themselves.</p>
+  <div class="bai-personality-grid" id="bai-personality-grid">
+    <div class="bai-mode-card" data-mode="default" onclick="selectByteAIMode('default')">
+      <span class="bai-mode-emoji">😎</span>
+      <div class="bai-mode-name">Default</div>
+      <div class="bai-mode-desc">Chill gen-z vibes, casual and real.</div>
+    </div>
+    <div class="bai-mode-card" data-mode="funny" onclick="selectByteAIMode('funny')">
+      <span class="bai-mode-emoji">😂</span>
+      <div class="bai-mode-name">Funny</div>
+      <div class="bai-mode-desc">Comedy mode, jokes and punchlines.</div>
+    </div>
+    <div class="bai-mode-card" data-mode="savage" onclick="selectByteAIMode('savage')">
+      <span class="bai-mode-emoji">🔥</span>
+      <div class="bai-mode-name">Savage</div>
+      <div class="bai-mode-desc">Roasts and spicy comebacks.</div>
+    </div>
+    <div class="bai-mode-card" data-mode="helper" onclick="selectByteAIMode('helper')">
+      <span class="bai-mode-emoji">🤝</span>
+      <div class="bai-mode-name">Helper</div>
+      <div class="bai-mode-desc">Professional, clear and helpful.</div>
+    </div>
+    <div class="bai-mode-card" data-mode="anime" onclick="selectByteAIMode('anime')">
+      <span class="bai-mode-emoji">🌸</span>
+      <div class="bai-mode-name">Anime</div>
+      <div class="bai-mode-desc">Enthusiastic and dramatic, senpai vibes.</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <button onclick="saveByteAISettings()" class="btn-primary"
+      style="background:linear-gradient(135deg,#6c3fc5,#4f8ef7);color:#fff;border:none;padding:10px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.88rem;">
+      <i class="fas fa-save"></i> Save AI Settings
+    </button>
+    <button onclick="loadByteAI()" style="background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 18px;cursor:pointer;font-size:.88rem;">
+      <i class="fas fa-rotate"></i> Refresh
+    </button>
+  </div>
+</div>
+
+<!-- AI Commands Reference -->
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title"><i class="fas fa-terminal"></i> Bot Commands Reference</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:6px;">
+    <div style="background:var(--bg-deep);border:1px solid var(--border);border-radius:9px;padding:12px;">
+      <code style="color:#a78bfa;font-size:.85rem;font-weight:700;">!aimode &lt;mode&gt;</code>
+      <div style="font-size:.76rem;color:var(--muted);margin-top:4px;">Switch personality (default / funny / savage / helper / anime)</div>
+    </div>
+    <div style="background:var(--bg-deep);border:1px solid var(--border);border-radius:9px;padding:12px;">
+      <code style="color:#a78bfa;font-size:.85rem;font-weight:700;">!aimemory</code>
+      <div style="font-size:.76rem;color:var(--muted);margin-top:4px;">Browse Byte AI's saved memory for this server</div>
+    </div>
+    <div style="background:var(--bg-deep);border:1px solid var(--border);border-radius:9px;padding:12px;">
+      <code style="color:#a78bfa;font-size:.85rem;font-weight:700;">!aistats</code>
+      <div style="font-size:.76rem;color:var(--muted);margin-top:4px;">View AI performance and learning analytics</div>
+    </div>
+    <div style="background:var(--bg-deep);border:1px solid var(--border);border-radius:9px;padding:12px;">
+      <code style="color:#a78bfa;font-size:.85rem;font-weight:700;">!thumbsup / !thumbsdown</code>
+      <div style="font-size:.76rem;color:var(--muted);margin-top:4px;">Rate the last AI response to improve its learning</div>
+    </div>
+    <div style="background:var(--bg-deep);border:1px solid var(--border);border-radius:9px;padding:12px;">
+      <code style="color:#a78bfa;font-size:.85rem;font-weight:700;">@mention Byte AI</code>
+      <div style="font-size:.76rem;color:var(--muted);margin-top:4px;">Just @mention the bot to start a conversation</div>
+    </div>
+    <div style="background:var(--bg-deep);border:1px solid var(--border);border-radius:9px;padding:12px;">
+      <code style="color:#a78bfa;font-size:.85rem;font-weight:700;">!aisettings</code>
+      <div style="font-size:.76rem;color:var(--muted);margin-top:4px;">View current AI server configuration</div>
+    </div>
+  </div>
+  <p class="help-text" style="margin-top:12px;"><i class="fas fa-circle-info"></i>
+    Byte AI uses <strong>Gemini</strong> to power responses. Make sure your <code>GEMINI_KEY</code> secret is set for AI features to work.
+    Memory is stored per-server, so different servers get fully independent AI contexts.
+  </p>
+</div>
+</div><!-- end #byte-ai -->
 
 <!-- ==================== FEEDBACK TAB ==================== -->
 <div id="feedback" class="tab-content">
@@ -2772,14 +2911,15 @@ html.bl-compact .page-header { margin-bottom: 18px; }
 const IS_ADMIN = {{ is_admin | tojson }};
 // ---- NAV ----
 const tabTitles = {
-  general: 'General Settings', moderation: 'Moderation Settings',
-  automod: 'Automod Settings', security: 'Security & Anti-Raid',
-  social: 'Social Notifier', warnings: 'Live Warnings', logs: 'Action Logs',
-  giveaways: 'Giveaways', tickets: 'Support Tickets',
-  autoresponder: 'Auto-Responder', customcommands: 'Custom Commands', reactionroles: 'Reaction Roles', mentionreact: 'Mention Reactions',
-  leveling: 'Leveling & XP', starboard: 'Starboard',
-  account: 'Account Settings', users: 'User Management',
-  feedback: 'Feedback', analytics: 'Analytics'
+  analytics: 'Analytics',
+  general: 'General Setup', leveling: 'Leveling & XP', giveaways: 'Giveaways',
+  starboard: 'Starboard', reactionroles: 'Reaction Roles', mentionreact: 'Mention Reactions',
+  autoresponder: 'Auto-Responder', customcommands: 'Custom Commands',
+  social: 'Social Notifier', tickets: 'Support Tickets', embeds: 'Embed Editor',
+  moderation: 'Moderation', automod: 'Automod', security: 'Security & Anti-Raid',
+  warnings: 'Live Warnings', logs: 'Action Logs',
+  'byte-ai': 'Byte AI',
+  account: 'Account Settings', users: 'User Management', feedback: 'Feedback'
 };
 
 function showTab(id, el) {
@@ -2802,6 +2942,7 @@ function showTab(id, el) {
   if (id === 'users') { {% if is_admin %}pollPendingUsers(); loadPendingList();{% endif %} }
   if (id === 'feedback') loadFeedback();
   if (id === 'analytics') loadAnalytics();
+  if (id === 'byte-ai') loadByteAI();
 }
 
 /* ============ FEEDBACK (star rating system) ============ */
@@ -4189,6 +4330,17 @@ async function loadLeveling() {
       document.getElementById('lv-msg').value       = cfg.level_up_message || '';
       _lvRoleRewards = (cfg.role_rewards && typeof cfg.role_rewards === 'object') ? {...cfg.role_rewards} : {};
       _renderRoleRewards();
+      // Reflect leveling_enabled in the toggle
+      const lvEnabled = cfg.leveling_enabled !== false;
+      const lvToggle = document.getElementById('lv-enabled-toggle');
+      if (lvToggle) lvToggle.checked = lvEnabled;
+      saveLevelingEnabled._skipSave = true;
+      const lvLbl = document.getElementById('lv-enabled-label');
+      const lvSldr = document.getElementById('lv-enabled-slider');
+      const lvThumb = document.getElementById('lv-slider-thumb');
+      if (lvLbl) { lvLbl.textContent = lvEnabled ? 'Enabled' : 'Disabled'; lvLbl.style.color = lvEnabled ? 'var(--green)' : 'var(--muted)'; }
+      if (lvSldr) { lvSldr.style.background = lvEnabled ? 'var(--green)' : 'rgba(255,255,255,.15)'; lvSldr.style.boxShadow = lvEnabled ? '0 0 10px rgba(46,204,113,.35)' : 'none'; }
+      if (lvThumb) { lvThumb.style.transform = lvEnabled ? 'translateX(24px)' : 'translateX(0)'; }
     }
     const tbody = document.getElementById('lv-table-body');
     if (!Array.isArray(lb) || !lb.length) {
@@ -4281,6 +4433,80 @@ async function resetLevelUser(guildId, userId) {
     showToast('✅ XP reset!');
     loadLeveling();
   } catch(e) { showToast('❌ Error', true); }
+}
+
+async function saveLevelingEnabled(enabled) {
+  const gid = document.getElementById('lv-guild-id').value.trim() || currentGuildId;
+  const lbl = document.getElementById('lv-enabled-label');
+  const sldr = document.getElementById('lv-enabled-slider');
+  const thumb = document.getElementById('lv-slider-thumb');
+  if (lbl) { lbl.textContent = enabled ? 'Enabled' : 'Disabled'; lbl.style.color = enabled ? 'var(--green)' : 'var(--muted)'; }
+  if (sldr) { sldr.style.background = enabled ? 'var(--green)' : 'rgba(255,255,255,.15)'; sldr.style.boxShadow = enabled ? '0 0 10px rgba(46,204,113,.35)' : 'none'; }
+  if (thumb) { thumb.style.transform = enabled ? 'translateX(24px)' : 'translateX(0)'; }
+  if (!gid) { showToast('⚠️ Enter a Guild ID first.', true); return; }
+  try {
+    const res = await fetch('/api/leveling/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({guild_id: gid, leveling_enabled: enabled})});
+    const data = await res.json();
+    if (data.error) { showToast('❌ '+data.error, true); return; }
+    showToast(enabled ? '✅ Leveling enabled!' : '🔴 Leveling disabled.');
+  } catch(e) { showToast('❌ Error saving.', true); }
+}
+
+// ---- BYTE AI ----
+let _baiMode = 'default';
+
+function selectByteAIMode(mode) {
+  _baiMode = mode;
+  document.querySelectorAll('.bai-mode-card').forEach(c => c.classList.toggle('selected', c.dataset.mode === mode));
+}
+
+async function loadByteAI() {
+  const gid = currentGuildId;
+  if (!gid) return;
+  try {
+    const res = await fetch(`/api/byte-ai/settings?guild_id=${encodeURIComponent(gid)}`);
+    const data = await res.json();
+    if (!data.ok) return;
+    const s = data.settings || {};
+    const enabled = s.ai_enabled !== false;
+    const toggle = document.getElementById('bai-enabled-toggle');
+    const lbl = document.getElementById('bai-enabled-label');
+    const sldr = document.getElementById('bai-enabled-slider');
+    const thumb = document.getElementById('bai-slider-thumb');
+    if (toggle) toggle.checked = enabled;
+    if (lbl) { lbl.textContent = enabled ? 'Enabled' : 'Disabled'; lbl.style.color = enabled ? '#a78bfa' : 'var(--muted)'; }
+    if (sldr) { sldr.style.background = enabled ? '#6c3fc5' : 'rgba(255,255,255,.15)'; sldr.style.boxShadow = enabled ? '0 0 10px rgba(108,63,197,.4)' : 'none'; }
+    if (thumb) { thumb.style.transform = enabled ? 'translateX(24px)' : 'translateX(0)'; }
+    selectByteAIMode(s.default_personality || 'default');
+  } catch(e) { console.error('loadByteAI error', e); }
+}
+
+async function saveByteAIEnabled(enabled) {
+  const gid = currentGuildId;
+  const lbl = document.getElementById('bai-enabled-label');
+  const sldr = document.getElementById('bai-enabled-slider');
+  const thumb = document.getElementById('bai-slider-thumb');
+  if (lbl) { lbl.textContent = enabled ? 'Enabled' : 'Disabled'; lbl.style.color = enabled ? '#a78bfa' : 'var(--muted)'; }
+  if (sldr) { sldr.style.background = enabled ? '#6c3fc5' : 'rgba(255,255,255,.15)'; sldr.style.boxShadow = enabled ? '0 0 10px rgba(108,63,197,.4)' : 'none'; }
+  if (thumb) { thumb.style.transform = enabled ? 'translateX(24px)' : 'translateX(0)'; }
+  if (!gid) { showToast('⚠️ Select a server first.', true); return; }
+  try {
+    const res = await fetch('/api/byte-ai/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({guild_id: gid, ai_enabled: enabled})});
+    const data = await res.json();
+    if (!data.ok) { showToast('❌ ' + (data.error || 'Error'), true); return; }
+    showToast(enabled ? '✅ Byte AI enabled!' : '🔴 Byte AI disabled.');
+  } catch(e) { showToast('❌ Error saving.', true); }
+}
+
+async function saveByteAISettings() {
+  const gid = currentGuildId;
+  if (!gid) { showToast('⚠️ Select a server first.', true); return; }
+  try {
+    const res = await fetch('/api/byte-ai/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({guild_id: gid, default_personality: _baiMode})});
+    const data = await res.json();
+    if (!data.ok) { showToast('❌ ' + (data.error || 'Error'), true); return; }
+    showToast('✅ Byte AI settings saved!');
+  } catch(e) { showToast('❌ Error saving.', true); }
 }
 
 // ---- STARBOARD ----

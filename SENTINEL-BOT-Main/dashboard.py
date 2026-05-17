@@ -5172,6 +5172,39 @@ def sitemap_xml():
     return xml, 200, {'Content-Type': 'application/xml; charset=utf-8'}
 
 
+# ---- BYTE AI SETTINGS ----
+@app.route('/api/byte-ai/settings', methods=['GET'])
+def api_byte_ai_settings_get():
+    if not session.get('logged_in'):
+        return jsonify({'ok': False, 'error': 'Not logged in'}), 401
+    guild_id = request.args.get('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({'ok': False, 'error': 'guild_id required'}), 400
+    try:
+        import ai_brain as _ab
+        settings = _ab.get_server_settings(guild_id)
+        return jsonify({'ok': True, 'settings': settings})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/byte-ai/settings', methods=['POST'])
+def api_byte_ai_settings_set():
+    if not session.get('logged_in'):
+        return jsonify({'ok': False, 'error': 'Not logged in'}), 401
+    data = request.get_json() or {}
+    guild_id = data.pop('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({'ok': False, 'error': 'guild_id required'}), 400
+    allowed = {k: v for k, v in data.items() if k in ('ai_enabled', 'default_personality', 'language', 'moderation_level')}
+    try:
+        import ai_brain as _ab
+        _ab.update_server_settings(guild_id, **allowed)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 # ---- SP4RK ANALYTICS ----
 @app.route('/api/spark/analytics', methods=['GET'])
 def api_spark_analytics():

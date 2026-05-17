@@ -39,6 +39,11 @@ try:
 except Exception:
     _db_so = None  # type: ignore
 
+try:
+    import db_spark as _db_spark
+except Exception:
+    _db_spark = None  # type: ignore
+
 logger = logging.getLogger("server_official")
 logging.basicConfig(level=logging.INFO)
 
@@ -1327,6 +1332,11 @@ async def on_member_join(member: discord.Member):
     g = member.guild
     cfg = get_guild_config(str(g.id))
     _bump_join(str(g.id))
+    try:
+        if _db_spark and _db_spark.is_available():
+            _db_spark.analytics_record_join(str(g.id))
+    except Exception:
+        pass
 
     # Welcome role
     role_id = cfg.get("welcome_role_id")
@@ -1394,6 +1404,11 @@ async def on_member_remove(member: discord.Member):
     g = member.guild
     cfg = get_guild_config(str(g.id))
     _bump_leave(str(g.id))
+    try:
+        if _db_spark and _db_spark.is_available():
+            _db_spark.analytics_record_leave(str(g.id))
+    except Exception:
+        pass
     wc_id = cfg.get("welcome_channel_id")
     msg_tpl = cfg.get("leave_message", "")
     if wc_id and wc_id.isdigit() and msg_tpl:
@@ -1427,6 +1442,11 @@ async def on_message(message: discord.Message):
 
     # Activity tracking
     _bump_messages_for(str(g.id), str(message.author.id))
+    try:
+        if _db_spark and _db_spark.is_available():
+            _db_spark.analytics_record_message(str(g.id))
+    except Exception:
+        pass
 
     # Custom commands (! prefix) — placeholder substitution + AI polish
     if message.content.startswith("!") and len(message.content) > 1:
