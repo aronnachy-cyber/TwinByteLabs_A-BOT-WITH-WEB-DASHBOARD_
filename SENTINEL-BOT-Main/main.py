@@ -29,6 +29,7 @@ import leveling as leveling_mod
 import starboard as starboard_mod
 import levelup_card as levelup_card_mod
 import weird_features as weird_mod
+import ai_brain
 
 BOT_START_TIME = datetime.utcnow()
 
@@ -523,7 +524,14 @@ def build_server_context(guild) -> str:
 
 
 async def handle_ai_mention(message):
-    """Reply conversationally with Gemini when the bot is @mentioned."""
+    """Reply conversationally with Gemini when the bot is @mentioned.
+
+    Brain flow:
+      1. Check long-term memory — if we know the answer, reply instantly.
+      2. Optionally fetch a web search snippet (if SERPER_API_KEY is set).
+      3. Call Gemini with the user's personality mode + server context.
+      4. Save the Q&A to memory for future instant replies.
+    """
     if bot.user is None:
         return
 
@@ -541,6 +549,10 @@ async def handle_ai_mention(message):
         return
     _ai_mention_last[message.author.id] = now
 
+    # Update user's last-active timestamp in background
+    guild_id = str(message.guild.id) if message.guild else "global"
+    ai_brain.touch_user(str(message.author.id), message.author.display_name)
+
     # If no Gemini key, send a friendly fallback straight away.
     if not GEMINI_KEY:
         try:
@@ -552,30 +564,52 @@ async def handle_ai_mention(message):
             print(f"[SP4RK] AI mention fallback send error: {e}")
         return
 
+    # --- Step 1: Memory check ---
+    memory_hit = ai_brain.lookup_memory(text, guild_id)
+    if memory_hit:
+        try:
+            cached_reply = memory_hit["answer"]
+            await message.reply(cached_reply[:1900], mention_author=False)
+            dlog("🧠 AI-MEMORY-HIT", f"{message.author} → {text[:60]}", guild_id=message.guild.id if message.guild else None)
+        except Exception as e:
+            print(f"[SP4RK] memory reply error: {e}")
+        return
+
+    # --- Step 2: Get user personality ---
+    user_profile = ai_brain.get_user_profile(str(message.author.id), message.author.display_name)
+    personality_mode = user_profile.get("personality_mode", "default")
+
+    # Check if server has a default personality override
+    server_ai = ai_brain.get_server_settings(guild_id)
+    if not server_ai.get("ai_enabled", True):
+        return  # AI disabled for this server
+    if personality_mode == "default":
+        personality_mode = server_ai.get("default_personality", "default")
+
+    system_instruction = ai_brain.get_personality_prompt(personality_mode)
+
+    # --- Step 3: Build context ---
     server_ctx = build_server_context(message.guild)
     server_block = (
         f"\n\n--- THIS SERVER'S INFORMATION ---\n{server_ctx}\n--- END SERVER INFO ---"
         if server_ctx else ""
     )
-    system_instruction = (
-        "You are SP4RK — a chill, gen-z Discord bot who's lowkey the goat of server management. "
-        "Your whole vibe is casual, real, and a lil' funny without trying too hard. "
-        "Talk like a gen-z bestie: use words like 'ngl', 'fr', 'no cap', 'lowkey', 'bussin', 'slay', 'vibe', 'bro', 'bet', 'finna', 'rn', 'imo', 'W', 'L', 'mid', 'it's giving', 'on god' — but naturally, not every sentence. "
-        "Keep replies SHORT and punchy — under 800 characters usually. "
-        "Never sound corporate, formal, or robotic. Don't use em dashes (—). "
-        "Light markdown is fine (bold, bullet points) but no walls of text. "
-        "If someone's rude, clap back calmly and confidently — no cap. "
-        "When asked about the server (channels, roles, rules, members etc.) use the server info below to give accurate answers, but keep the chill tone. "
-        "You're helpful but make it feel effortless, like you're just vibing and helping at the same time."
-    )
+
+    # Optional web search enrichment
+    search_context = ""
+    search_snippet = await ai_brain.web_search(text)
+    if search_snippet:
+        search_context = f"\n\n--- LIVE WEB SEARCH RESULTS ---\n{search_snippet}\n--- END SEARCH ---"
+
     user_prompt = (
-        f"{server_block}\n\nUser ({message.author.display_name}): {text}"
-        if server_block else
+        f"{server_block}{search_context}\n\nUser ({message.author.display_name}): {text}"
+        if (server_block or search_context) else
         f"User ({message.author.display_name}): {text}"
     )
+
     try:
         async with message.channel.typing():
-            # Step 1: call Gemini and await the response
+            # --- Step 4: Call Gemini ---
             sess = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
             try:
                 resp = await sess.post(
@@ -601,7 +635,7 @@ async def handle_ai_mention(message):
             finally:
                 await sess.close()
 
-            # Step 2: extract the reply text
+            # --- Step 5: Extract reply ---
             reply = (
                 data.get("candidates", [{}])[0]
                 .get("content", {})
@@ -610,7 +644,6 @@ async def handle_ai_mention(message):
                 .strip()
             )
 
-            # Step 3: await sending the reply — still inside the typing block
             if not reply:
                 await message.reply(
                     "bro my AI said nothing 💀 try asking me something else fr",
@@ -619,7 +652,11 @@ async def handle_ai_mention(message):
                 return
 
             await message.reply(reply[:1900], mention_author=False)
-            dlog("💬 AI-MENTION", f"{message.author} → {text[:80]}", guild_id=message.guild.id if message.guild else None)
+            dlog("💬 AI-MENTION", f"[{personality_mode}] {message.author} → {text[:80]}", guild_id=message.guild.id if message.guild else None)
+
+            # --- Step 6: Save to memory (skip very short/empty questions) ---
+            if len(text) >= 10:
+                ai_brain.save_to_memory(text, reply, guild_id=guild_id, source="gemini")
 
     except discord.Forbidden:
         print(f"[SP4RK] Missing Send Messages permission in #{message.channel}")
@@ -2573,6 +2610,234 @@ def _hierarchy_block(ctx, member, action_word):
     if ctx.author.id != ctx.guild.owner_id and member.top_role >= ctx.author.top_role:
         return f"❌ **Action Blocked** — Cannot {action_word} {member.mention}.\n> Their role is equal to or higher than yours."
     return None
+
+# ============================================================
+# AI BRAIN COMMANDS
+# ============================================================
+
+@bot.command(name="aimode")
+async def cmd_aimode(ctx, mode: str = None):
+    """Set your personal AI personality mode.
+    Usage: !aimode [default|funny|savage|helper|anime]
+           !aimode        → show current mode
+    """
+    valid = ai_brain.VALID_MODES
+    user_id = str(ctx.author.id)
+    username = ctx.author.display_name
+
+    if mode is None:
+        profile = ai_brain.get_user_profile(user_id, username)
+        current = profile.get("personality_mode", "default")
+        modes_list = " | ".join(f"`{m}`" for m in valid)
+        embed = discord.Embed(
+            title="🤖 Your AI Personality Mode",
+            description=f"Currently set to: **{current}**\n\nAvailable modes:\n{modes_list}",
+            color=0x7289da,
+        )
+        embed.set_footer(text="Use !aimode <mode> to switch")
+        await ctx.send(embed=embed)
+        return
+
+    mode = mode.lower()
+    if mode not in valid:
+        await ctx.send(
+            f"❌ Unknown mode `{mode}`. Valid modes: {', '.join(f'`{m}`' for m in valid)}"
+        )
+        return
+
+    ok = ai_brain.set_user_personality(user_id, username, mode)
+    if ok:
+        descriptions = {
+            "default": "Chill gen-z vibes 😎",
+            "funny": "Comedy chaos activated 😂",
+            "savage": "No-filter clap-back mode 🔥",
+            "helper": "Professional helper mode 📚",
+            "anime": "Sugoi! Full weeb mode 🌸",
+        }
+        embed = discord.Embed(
+            title=f"✅ AI Mode set to `{mode}`",
+            description=descriptions.get(mode, ""),
+            color=0x2ecc71,
+        )
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("❌ Couldn't update your mode. Try again in a sec.")
+
+
+@bot.command(name="aimemory")
+async def cmd_aimemory(ctx, action: str = "list", *, rest: str = ""):
+    """Manage the AI brain's memory.
+    Usage:
+      !aimemory list               — show top memories for this server
+      !aimemory add <q> | <a>     — teach the bot an answer (mods only)
+      !aimemory delete <id>        — delete a memory by ID (mods only)
+    """
+    guild_id = str(ctx.guild.id) if ctx.guild else "global"
+    action = action.lower()
+
+    if action == "list":
+        memories = ai_brain.list_memories(guild_id, limit=8)
+        if not memories:
+            await ctx.send("🧠 No memories stored yet — start chatting with me!")
+            return
+        embed = discord.Embed(
+            title="🧠 SP4RK AI Memory",
+            description=f"Top {len(memories)} stored Q&A pairs for this server",
+            color=0x7289da,
+        )
+        for m in memories:
+            q = m["question"][:60] + ("…" if len(m["question"]) > 60 else "")
+            src = m.get("source", "?")
+            hits = m.get("hit_count", 0)
+            mid = m.get("id", "?")
+            embed.add_field(
+                name=f"❓ {q}",
+                value=f"Source: `{src}` • Hits: `{hits}` • ID: `{mid}`",
+                inline=False,
+            )
+        embed.set_footer(text="Use !aimemory add <question> | <answer> to teach me something")
+        await ctx.send(embed=embed)
+        return
+
+    if action == "add":
+        if not ctx.author.guild_permissions.manage_messages:
+            await ctx.send("❌ You need **Manage Messages** permission to teach me things.")
+            return
+        if "|" not in rest:
+            await ctx.send("❌ Format: `!aimemory add <question> | <answer>`")
+            return
+        parts = rest.split("|", 1)
+        question = parts[0].strip()
+        answer = parts[1].strip()
+        if not question or not answer:
+            await ctx.send("❌ Both question and answer must not be empty.")
+            return
+        ok = ai_brain.teach_memory(question, answer, guild_id)
+        if ok:
+            await ctx.send(f"✅ Got it! I'll remember that:\n**Q:** {question[:100]}\n**A:** {answer[:200]}")
+        else:
+            await ctx.send("❌ Couldn't save to memory. Try again.")
+        return
+
+    if action == "delete":
+        if not ctx.author.guild_permissions.manage_messages:
+            await ctx.send("❌ You need **Manage Messages** permission to delete memories.")
+            return
+        memory_id = rest.strip()
+        if not memory_id:
+            await ctx.send("❌ Format: `!aimemory delete <id>` — get IDs from `!aimemory list`")
+            return
+        ok = ai_brain.delete_memory(memory_id)
+        if ok:
+            await ctx.send(f"🗑️ Memory `{memory_id}` deleted.")
+        else:
+            await ctx.send(f"❌ Couldn't find memory `{memory_id}`.")
+        return
+
+    await ctx.send("❓ Unknown action. Use `!aimemory list`, `!aimemory add <q> | <a>`, or `!aimemory delete <id>`.")
+
+
+@bot.command(name="aistats")
+async def cmd_aistats(ctx):
+    """Show AI brain statistics for this server."""
+    guild_id = str(ctx.guild.id) if ctx.guild else "global"
+    stats = ai_brain.get_ai_stats(guild_id)
+    if not stats:
+        await ctx.send("📊 No AI stats available yet — no Postgres connection.")
+        return
+    embed = discord.Embed(
+        title="📊 SP4RK AI Brain Stats",
+        color=0x3498db,
+        timestamp=datetime.utcnow(),
+    )
+    embed.add_field(name="🧠 Memories Stored",   value=f"**{stats.get('total_memories', 0)}**",  inline=True)
+    embed.add_field(name="⚡ Memory Hits",        value=f"**{stats.get('total_hits', 0)}**",       inline=True)
+    embed.add_field(name="✍️ Manually Taught",    value=f"**{stats.get('manual_memories', 0)}**", inline=True)
+    embed.add_field(name="🤖 AI Generated",       value=f"**{stats.get('gemini_memories', 0)}**", inline=True)
+    embed.add_field(name="👥 Users Tracked",      value=f"**{stats.get('total_users', 0)}**",     inline=True)
+    embed.add_field(name="👍 Thumbs Up",          value=f"**{stats.get('thumbs_up', 0)}**",       inline=True)
+    embed.add_field(name="👎 Thumbs Down",        value=f"**{stats.get('thumbs_down', 0)}**",     inline=True)
+    web_search_status = "🟢 Active" if ai_brain.SERPER_KEY else "🔴 Offline (no SERPER_API_KEY)"
+    embed.add_field(name="🌐 Web Search",         value=web_search_status,                        inline=True)
+    embed.set_footer(text="SP4RK AI Brain — powered by Gemini + persistent memory")
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="thumbsup", aliases=["gud", "goodanswer"])
+async def cmd_thumbsup(ctx):
+    """Give positive feedback on the last AI response."""
+    guild_id = str(ctx.guild.id) if ctx.guild else "global"
+    ai_brain.log_feedback(
+        question="(recent conversation)",
+        original_answer="(recent response)",
+        feedback="thumbsup",
+        guild_id=guild_id,
+    )
+    await ctx.send("👍 Thanks for the feedback! I'll keep that in mind fr.")
+
+
+@bot.command(name="thumbsdown", aliases=["bad", "badanswer"])
+async def cmd_thumbsdown(ctx, *, correction: str = ""):
+    """Give negative feedback on the last AI response.
+    Optionally provide a correction: !thumbsdown The answer should be...
+    """
+    guild_id = str(ctx.guild.id) if ctx.guild else "global"
+    ai_brain.log_feedback(
+        question="(recent conversation)",
+        original_answer="(recent response)",
+        feedback="thumbsdown",
+        corrected_answer=correction,
+        guild_id=guild_id,
+    )
+    msg = "👎 Got it — noted for improvement."
+    if correction:
+        msg += f" Thanks for the correction: *{correction[:100]}*"
+    await ctx.send(msg)
+
+
+@bot.command(name="aisettings")
+@commands.has_permissions(manage_guild=True)
+async def cmd_aisettings(ctx, setting: str = None, *, value: str = None):
+    """Configure AI settings for this server (admins only).
+    Usage:
+      !aisettings                         — show current settings
+      !aisettings enable/disable          — turn AI on or off
+      !aisettings personality <mode>      — set default personality for this server
+    """
+    guild_id = str(ctx.guild.id) if ctx.guild else "global"
+    current = ai_brain.get_server_settings(guild_id)
+
+    if setting is None:
+        modes_list = " | ".join(f"`{m}`" for m in ai_brain.VALID_MODES)
+        embed = discord.Embed(title="⚙️ Server AI Settings", color=0xe67e22)
+        embed.add_field(name="AI Enabled",           value="✅ Yes" if current.get("ai_enabled") else "❌ No", inline=True)
+        embed.add_field(name="Default Personality",  value=f"`{current.get('default_personality','default')}`",  inline=True)
+        embed.add_field(name="Available Modes",      value=modes_list, inline=False)
+        embed.set_footer(text="Use !aisettings enable/disable or !aisettings personality <mode>")
+        await ctx.send(embed=embed)
+        return
+
+    setting = setting.lower()
+    if setting in ("enable", "on"):
+        ai_brain.update_server_settings(guild_id, ai_enabled=True)
+        await ctx.send("✅ AI brain **enabled** for this server.")
+    elif setting in ("disable", "off"):
+        ai_brain.update_server_settings(guild_id, ai_enabled=False)
+        await ctx.send("🔴 AI brain **disabled** for this server. Members can't mention me for AI replies.")
+    elif setting == "personality":
+        mode = (value or "").lower().strip()
+        if mode not in ai_brain.VALID_MODES:
+            await ctx.send(f"❌ Unknown mode. Valid: {', '.join(f'`{m}`' for m in ai_brain.VALID_MODES)}")
+            return
+        ai_brain.update_server_settings(guild_id, default_personality=mode)
+        await ctx.send(f"✅ Server default personality set to `{mode}`.")
+    else:
+        await ctx.send("❓ Unknown setting. Use `enable`, `disable`, or `personality <mode>`.")
+
+
+# ============================================================
+# END AI BRAIN COMMANDS
+# ============================================================
 
 @bot.command()
 @commands.has_permissions(manage_roles=True)
