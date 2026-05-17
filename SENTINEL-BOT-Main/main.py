@@ -3282,6 +3282,39 @@ async def voicekick(ctx, member: discord.Member):
     except Exception as e:
         await ctx.send(f"❌ **Voice Kick Failed** — `{e}`")
 
+
+# ---------------- !kickbot ----------------
+@bot.command(name="kickbot")
+@commands.has_permissions(kick_members=True)
+async def cmd_kickbot(ctx, member: discord.Member, *, reason: str = "No reason provided"):
+    """Kick another bot if its role is lower than mine.  Usage: !kickbot @BotName [reason]"""
+    ok, why = automod.can_kick_bot(member, ctx.guild.me)
+    if not ok:
+        await ctx.send(f"❌ **Action Blocked** — {why}")
+        return
+    if not ctx.guild.me.guild_permissions.kick_members:
+        await ctx.send("❌ **Missing Permission** — I need the **Kick Members** permission.")
+        return
+    try:
+        await member.kick(reason=f"Bot kick by {ctx.author} — {reason}")
+        await ctx.send(
+            f"🤖 **Bot Kicked** — {member.mention} (`{member}`)\n"
+            f"> 🛡️ **By:** {ctx.author.mention}\n"
+            f"> 📝 **Reason:** {reason}"
+        )
+        await logs.log_event(bot, config, "🤖 Bot Kick",
+            f"{ctx.author} kicked bot {member} | Reason: {reason}",
+            color=0xe67e22, guild_id=ctx.guild.id if ctx.guild else None)
+        dlog("🤖 BOT-KICK", f"{ctx.author} kicked bot {member} — {reason}", guild_id=ctx.guild.id if ctx.guild else None)
+    except discord.Forbidden:
+        await ctx.send(
+            f"❌ **Permission Denied** — I can't kick {member.mention}.\n"
+            f"> Make sure my role is above their highest role in **Server Settings → Roles**."
+        )
+    except Exception as e:
+        await ctx.send(f"❌ **Bot Kick Failed** — `{e}`")
+
+
 @bot.command(name="snipe")
 @commands.has_permissions(manage_messages=True)
 async def snipe_cmd(ctx):
@@ -4032,6 +4065,48 @@ async def slash_kick(interaction: discord.Interaction,
         )
     except Exception as e:
         await interaction.followup.send(f"❌ **Kick Failed** — `{e}`", ephemeral=True)
+
+
+# ---------------- /kickbot ----------------
+@bot.tree.command(name="kickbot", description="Kick another bot whose role is below mine")
+@app_commands.describe(member="The bot to kick", reason="Why you're kicking this bot")
+@app_commands.check(_is_bot_mod)
+async def slash_kickbot(interaction: discord.Interaction,
+                        member: discord.Member, reason: str = "No reason provided"):
+    if not await _slash_guard_guild(interaction):
+        return
+    ok, why = automod.can_kick_bot(member, interaction.guild.me)
+    if not ok:
+        return await interaction.response.send_message(
+            f"❌ **Action Blocked** — {why}", ephemeral=True
+        )
+    if not interaction.guild.me.guild_permissions.kick_members:
+        return await interaction.response.send_message(
+            "❌ **Missing Permission** — I need the **Kick Members** permission.", ephemeral=True
+        )
+    await interaction.response.defer()
+    try:
+        await member.kick(reason=f"Bot kick by {interaction.user} — {reason}")
+        await interaction.followup.send(
+            f"🤖 **Bot Kicked** — {member.mention} (`{member}`)\n"
+            f"> 🛡️ **By:** {interaction.user.mention}\n"
+            f"> 📝 **Reason:** {reason}"
+        )
+        await logs.log_event(bot, config, "🤖 Bot Kick",
+            f"{interaction.user} kicked bot {member} | Reason: {reason}",
+            color=0xe67e22, guild_id=interaction.guild.id if interaction.guild else None)
+        supabase_save_mod_log(interaction.guild.id, "bot-kick", str(member),
+            str(interaction.user), reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        _increment_report_action()
+        dlog("🤖 BOT-KICK", f"{member} kicked by {interaction.user} — {reason}", guild_id=interaction.guild_id)
+    except discord.Forbidden:
+        await interaction.followup.send(
+            f"❌ **Permission Denied** — I can't kick {member.mention}.\n"
+            f"> Make sure my role is above their highest role in **Server Settings → Roles**.",
+            ephemeral=True,
+        )
+    except Exception as e:
+        await interaction.followup.send(f"❌ **Bot Kick Failed** — `{e}`", ephemeral=True)
 
 
 # ---------------- /ban ----------------

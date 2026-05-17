@@ -197,6 +197,37 @@ def can_bot_action(target, bot_member):
         return (False, f"hierarchy check failed: {e}")
 
 
+def can_kick_bot(target, bot_member):
+    """Return (allowed: bool, reason: str) for kicking another bot.
+
+    Unlike can_bot_action, this allows bot targets — but still enforces:
+      • Cannot target SP4RK itself
+      • Target must actually be a bot
+      • Target's highest role must be strictly BELOW SP4RK's highest role
+      • Target cannot have Administrator or Manage Guild permissions
+    """
+    try:
+        if target is None or bot_member is None:
+            return (False, "missing member context")
+        if target.id == bot_member.id:
+            return (False, "I can't kick myself")
+        if not getattr(target, "bot", False):
+            return (False, "target is not a bot — use `/kick` for regular members")
+        perms = getattr(target, "guild_permissions", None)
+        if perms and (perms.administrator or perms.manage_guild):
+            return (False, "target bot has Administrator or Manage Server — cannot kick it")
+        if hasattr(target, "top_role") and hasattr(bot_member, "top_role"):
+            if target.top_role >= bot_member.top_role:
+                return (
+                    False,
+                    f"target bot's highest role (**{target.top_role.name}**) is equal to or "
+                    f"above mine (**{bot_member.top_role.name}**) — adjust role order first",
+                )
+        return (True, "")
+    except Exception as e:
+        return (False, f"hierarchy check failed: {e}")
+
+
 async def _instant_mute(message, reason, minutes=AUTOMUTE_MINUTES):
     """
     Auto-mute (timeout) the user for `minutes`. NO owner verification.
