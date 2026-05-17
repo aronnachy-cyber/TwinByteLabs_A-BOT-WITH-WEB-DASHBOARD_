@@ -557,7 +557,7 @@ async def handle_ai_mention(message):
     if not GEMINI_KEY:
         try:
             await message.reply(
-                "yo! i'm SP4RK 👋 my AI brain's offline rn but i'm still here for moderation stuff. use `/help` to see what i can do fr",
+                "yo! Byte AI is offline rn but i'm still here for moderation stuff. use `/help` to see what i can do fr",
                 mention_author=False,
             )
         except Exception as e:
@@ -2630,7 +2630,7 @@ async def cmd_aimode(ctx, mode: str = None):
         current = profile.get("personality_mode", "default")
         modes_list = " | ".join(f"`{m}`" for m in valid)
         embed = discord.Embed(
-            title="🤖 Your AI Personality Mode",
+            title="🤖 Your Byte AI Personality Mode",
             description=f"Currently set to: **{current}**\n\nAvailable modes:\n{modes_list}",
             color=0x7289da,
         )
@@ -2681,7 +2681,7 @@ async def cmd_aimemory(ctx, action: str = "list", *, rest: str = ""):
             await ctx.send("🧠 No memories stored yet — start chatting with me!")
             return
         embed = discord.Embed(
-            title="🧠 SP4RK AI Memory",
+            title="🧠 Byte AI Memory",
             description=f"Top {len(memories)} stored Q&A pairs for this server",
             color=0x7289da,
         )
@@ -2695,7 +2695,7 @@ async def cmd_aimemory(ctx, action: str = "list", *, rest: str = ""):
                 value=f"Source: `{src}` • Hits: `{hits}` • ID: `{mid}`",
                 inline=False,
             )
-        embed.set_footer(text="Use !aimemory add <question> | <answer> to teach me something")
+        embed.set_footer(text="Use !aimemory add <question> | <answer> to teach Byte AI something")
         await ctx.send(embed=embed)
         return
 
@@ -2746,7 +2746,7 @@ async def cmd_aistats(ctx):
         await ctx.send("📊 No AI stats available yet — no Postgres connection.")
         return
     embed = discord.Embed(
-        title="📊 SP4RK AI Brain Stats",
+        title="📊 Byte AI Stats",
         color=0x3498db,
         timestamp=datetime.utcnow(),
     )
@@ -2759,7 +2759,7 @@ async def cmd_aistats(ctx):
     embed.add_field(name="👎 Thumbs Down",        value=f"**{stats.get('thumbs_down', 0)}**",     inline=True)
     web_search_status = "🟢 Active" if ai_brain.SERPER_KEY else "🔴 Offline (no SERPER_API_KEY)"
     embed.add_field(name="🌐 Web Search",         value=web_search_status,                        inline=True)
-    embed.set_footer(text="SP4RK AI Brain — powered by Gemini + persistent memory")
+    embed.set_footer(text="Byte AI — powered by Gemini + persistent memory")
     await ctx.send(embed=embed)
 
 
@@ -2809,11 +2809,11 @@ async def cmd_aisettings(ctx, setting: str = None, *, value: str = None):
 
     if setting is None:
         modes_list = " | ".join(f"`{m}`" for m in ai_brain.VALID_MODES)
-        embed = discord.Embed(title="⚙️ Server AI Settings", color=0xe67e22)
+        embed = discord.Embed(title="⚙️ Byte AI — Server Settings", color=0xe67e22)
         embed.add_field(name="AI Enabled",           value="✅ Yes" if current.get("ai_enabled") else "❌ No", inline=True)
         embed.add_field(name="Default Personality",  value=f"`{current.get('default_personality','default')}`",  inline=True)
         embed.add_field(name="Available Modes",      value=modes_list, inline=False)
-        embed.set_footer(text="Use !aisettings enable/disable or !aisettings personality <mode>")
+        embed.set_footer(text="Byte AI — use !aisettings enable/disable or !aisettings personality <mode>")
         await ctx.send(embed=embed)
         return
 
