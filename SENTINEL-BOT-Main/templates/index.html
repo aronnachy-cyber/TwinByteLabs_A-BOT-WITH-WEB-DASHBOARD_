@@ -1807,11 +1807,6 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     <div class="card-title"><i class="fas fa-sliders-h"></i> XP Settings</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
       <div>
-        <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Server (Guild) ID</label>
-        <input id="lv-guild-id" type="text" placeholder="e.g. 123456789012345678"
-          style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
-      </div>
-      <div>
         <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Level-Up Channel ID <span style="opacity:.6;">(blank = same channel)</span></label>
         <input id="lv-channel" type="text" placeholder="e.g. 987654321098765432"
           style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.88rem;outline:none;">
@@ -1894,11 +1889,11 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   </div>
 
   <div class="card">
-    <div class="card-title"><i class="fas fa-trophy"></i> XP Leaderboard <span id="lv-guild-label" style="color:var(--muted);font-size:.8rem;margin-left:8px;"></span></div>
+    <div class="card-title"><i class="fas fa-trophy"></i> XP Leaderboard</div>
     <table class="warnings-table">
       <thead><tr><th>#</th><th>User ID</th><th>Level</th><th>XP</th><th>Messages</th><th>Action</th></tr></thead>
       <tbody id="lv-table-body">
-        <tr><td colspan="6" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Enter a Guild ID and click Save to load the leaderboard.</td></tr>
+        <tr><td colspan="6" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading leaderboard…</td></tr>
       </tbody>
     </table>
   </div>
@@ -4418,12 +4413,9 @@ async function removeMentionReaction(guildId, userId) {
 }
 
 // ---- LEVELING ----
-let _lvGuildId = '';
 async function loadLeveling() {
-  const gid = document.getElementById('lv-guild-id').value.trim() || _lvGuildId;
+  const gid = currentGuildId;
   if (!gid) return;
-  _lvGuildId = gid;
-  document.getElementById('lv-guild-label').textContent = `(${gid})`;
   try {
     const [cfgRes, lbRes] = await Promise.all([
       fetch(`/api/leveling/config?guild_id=${gid}`),
@@ -4515,8 +4507,8 @@ function removeRoleReward(lvl) {
 }
 
 async function saveLevelingConfig() {
-  const gid = document.getElementById('lv-guild-id').value.trim();
-  if (!gid) { showToast('❌ Enter a Guild ID first.', true); return; }
+  const gid = currentGuildId;
+  if (!gid) { showToast('❌ No server selected.', true); return; }
   const payload = {
     guild_id: gid,
     xp_min: parseInt(document.getElementById('lv-xp-min').value) || 15,
@@ -4531,7 +4523,6 @@ async function saveLevelingConfig() {
     const data = await res.json();
     if (data.error) { showToast('❌ '+data.error, true); return; }
     showToast('✅ Leveling config saved!');
-    _lvGuildId = gid;
     loadLeveling();
   } catch(e) { showToast('❌ Error saving.', true); }
 }
@@ -4546,14 +4537,14 @@ async function resetLevelUser(guildId, userId) {
 }
 
 async function saveLevelingEnabled(enabled) {
-  const gid = document.getElementById('lv-guild-id').value.trim() || currentGuildId;
+  const gid = currentGuildId;
   const lbl = document.getElementById('lv-enabled-label');
   const sldr = document.getElementById('lv-enabled-slider');
   const thumb = document.getElementById('lv-slider-thumb');
   if (lbl) { lbl.textContent = enabled ? 'Enabled' : 'Disabled'; lbl.style.color = enabled ? 'var(--green)' : 'var(--muted)'; }
   if (sldr) { sldr.style.background = enabled ? 'var(--green)' : 'rgba(255,255,255,.15)'; sldr.style.boxShadow = enabled ? '0 0 10px rgba(46,204,113,.35)' : 'none'; }
   if (thumb) { thumb.style.transform = enabled ? 'translateX(24px)' : 'translateX(0)'; }
-  if (!gid) { showToast('⚠️ Enter a Guild ID first.', true); return; }
+  if (!gid) { showToast('⚠️ No server selected.', true); return; }
   try {
     const res = await fetch('/api/leveling/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({guild_id: gid, leveling_enabled: enabled})});
     const data = await res.json();
