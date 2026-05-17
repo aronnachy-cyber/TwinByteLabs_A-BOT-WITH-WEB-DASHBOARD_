@@ -13,7 +13,8 @@ DEFAULT_CFG = {
     "cooldown": 60,
     "level_up_channel": "",
     "level_up_message": "🎉 {user} levelled up to **Level {level}**!",
-    "role_rewards": {}
+    "role_rewards": {},
+    "leveling_enabled": True,
 }
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -121,14 +122,33 @@ def _save_user(guild_id: str, user_id: str, entry: dict, username: str = ""):
     _save_file(_XP_FILE, data)
 
 # ── XP awarding ──────────────────────────────────────────────────────────────
+def is_leveling_enabled(guild_id: str) -> bool:
+    """Return True if leveling/XP is enabled for this guild (default: True)."""
+    cfg = get_config(str(guild_id))
+    val = cfg.get("leveling_enabled", True)
+    if isinstance(val, bool):
+        return val
+    return str(val).lower() not in ("false", "0", "off", "no")
+
+
+def set_leveling_enabled(guild_id: str, enabled: bool) -> None:
+    """Enable or disable leveling/XP for a guild and persist the setting."""
+    set_config(str(guild_id), leveling_enabled=enabled)
+
+
 def try_add_xp(guild_id: str, user_id: str, username: str = "") -> dict | None:
     """
-    Award XP if the cooldown has passed.
-    Returns {level_up, new_level, old_level, xp} or None if on cooldown.
+    Award XP if the cooldown has passed and leveling is enabled for the guild.
+    Returns {level_up, new_level, old_level, xp} or None if on cooldown/disabled.
     """
     import random
     guild_id = str(guild_id)
     user_id  = str(user_id)
+
+    # Bail out immediately if leveling is disabled for this server
+    if not is_leveling_enabled(guild_id):
+        return None
+
     cfg      = get_config(guild_id)
     cooldown = int(cfg.get("cooldown", 60))
     now      = time.time()

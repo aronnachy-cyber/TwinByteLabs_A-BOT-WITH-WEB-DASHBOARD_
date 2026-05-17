@@ -2846,6 +2846,80 @@ async def cmd_aisettings(ctx, setting: str = None, *, value: str = None):
 # END AI BRAIN COMMANDS
 # ============================================================
 
+# ============================================================
+# LEVELING TOGGLE COMMAND
+# ============================================================
+
+@bot.command(name="leveling")
+@commands.has_permissions(manage_guild=True)
+async def cmd_leveling(ctx, toggle: str = None):
+    """Enable or disable leveling and XP for this server.
+    Usage:
+      !leveling          — show current status
+      !leveling on       — enable XP and leveling
+      !leveling off      — disable XP and leveling
+    Requires: Manage Server permission.
+    """
+    if not ctx.guild:
+        await ctx.send("❌ This command can only be used inside a server.")
+        return
+
+    guild_id = str(ctx.guild.id)
+
+    if toggle is None:
+        enabled = leveling_mod.is_leveling_enabled(guild_id)
+        status  = "🟢 **Enabled**" if enabled else "🔴 **Disabled**"
+        embed = discord.Embed(
+            title="🏆 Leveling & XP System",
+            description=f"Current status for **{ctx.guild.name}**: {status}",
+            color=0x2ecc71 if enabled else 0xe74c3c,
+        )
+        embed.add_field(
+            name="Toggle",
+            value="`!leveling on` — enable\n`!leveling off` — disable",
+            inline=False,
+        )
+        embed.set_footer(text="Only members with Manage Server permission can change this.")
+        await ctx.send(embed=embed)
+        return
+
+    toggle = toggle.lower().strip()
+
+    if toggle in ("on", "enable", "yes", "true"):
+        leveling_mod.set_leveling_enabled(guild_id, True)
+        embed = discord.Embed(
+            title="✅ Leveling Enabled",
+            description=f"XP and leveling are now **active** in **{ctx.guild.name}**.\nMembers will earn XP for every message and level up over time.",
+            color=0x2ecc71,
+        )
+        embed.set_footer(text="Use !leveling off to disable at any time.")
+        await ctx.send(embed=embed)
+        dlog("🏆 LEVELING-ON", f"Leveling enabled by {ctx.author}", guild_id=ctx.guild.id)
+
+    elif toggle in ("off", "disable", "no", "false"):
+        leveling_mod.set_leveling_enabled(guild_id, False)
+        embed = discord.Embed(
+            title="🔴 Leveling Disabled",
+            description=f"XP and leveling are now **paused** in **{ctx.guild.name}**.\nExisting XP and levels are kept — no data is deleted.",
+            color=0xe74c3c,
+        )
+        embed.set_footer(text="Use !leveling on to re-enable at any time.")
+        await ctx.send(embed=embed)
+        dlog("🔴 LEVELING-OFF", f"Leveling disabled by {ctx.author}", guild_id=ctx.guild.id)
+
+    else:
+        await ctx.send("❓ Unknown option. Use `!leveling on` or `!leveling off`.")
+
+
+@cmd_leveling.error
+async def cmd_leveling_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You need **Manage Server** permission to change leveling settings.")
+
+# ============================================================
+# END LEVELING TOGGLE COMMAND
+# ============================================================
+
 @bot.command()
 @commands.has_permissions(manage_roles=True)
 async def mute(ctx, member: discord.Member, duration: str = None):
