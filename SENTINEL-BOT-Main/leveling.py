@@ -184,3 +184,51 @@ def get_rank(guild_id: str, user_id: str) -> int:
         if e["user_id"] == uid:
             return e["rank"]
     return -1
+
+# ── startup migration ────────────────────────────────────────────────────────
+def migrate_xp_from_json() -> int:
+    """
+    On startup: read leveling_xp.json and upsert every entry into Postgres.
+    This prevents data loss when the JSON file is wiped on a fresh deploy.
+    Safe to call repeatedly — uses ON CONFLICT DO UPDATE so it never
+    overwrites a HIGHER xp value that already exists in the DB.
+    Returns the number of rows migrated (0 if nothing to do or no DB).
+    """
+    ds = _db()
+    if not ds:
+        print("[LVL] ⚠️  Postgres not available — XP will only be stored in leveling_xp.json "
+              "(data will be lost on redeploy). Set DATABASE_URL to fix this.")
+        return 0
+
+    if not os.path.exists(_XP_FILE):
+        return 0
+
+    data = _load_file(_XP_FILE, {})
+    if not data:
+        return 0
+
+    migrated = 0
+    errors   = 0
+    for key, entry in data.items():
+        try:
+            parts = key.split(":", 1)
+            if len(parts) != 2:
+                continue
+            guild_id, user_id = parts
+            xp       = int(entry.get("xp", 0))
+            level    = int(entry.get("level", 0))
+            messages = int(entry.get("messages", 0))
+            username = entry.get("username", "")
+            # Only migrate if xp > 0 so we don't flood the DB with empty rows
+            if xp <= 0:
+                continue
+            ds.upsert_xp(guild_id, user_id, xp, level, messages, username, safe_migrate=True)
+            migrated += 1
+        except Exception as e:
+            errors += 1
+            print(f"[LVL] migrate row {key} error: {e}")
+
+    if migrated:
+        print(f"[LVL] ✅ Migrated {migrated} XP row(s) from leveling_xp.json → Postgres"
+              + (f" ({errors} errors)" if errors else ""))
+    return migrated

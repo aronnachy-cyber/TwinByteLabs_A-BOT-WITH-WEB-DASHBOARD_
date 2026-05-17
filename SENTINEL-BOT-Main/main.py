@@ -2057,6 +2057,13 @@ async def on_ready():
             await security.check_security_2fa(bot, guild, gcfg, log_callback=dlog)
         except Exception as _e:
             print(f"[2FA] startup check error: {_e}")
+    # Migrate any XP data from leveling_xp.json → Postgres on every startup.
+    # This is a no-op if the JSON file is empty or already synced.
+    try:
+        leveling_mod.migrate_xp_from_json()
+    except Exception as _xp_err:
+        print(f"[LVL] migrate_xp_from_json error: {_xp_err}")
+
     dlog("✅ BOT-START", f"SP4RK online as {bot.user}")
     print(f"✅ SP4RK Online! Logged in as {bot.user}")
     _persist_bot_guilds(bot)

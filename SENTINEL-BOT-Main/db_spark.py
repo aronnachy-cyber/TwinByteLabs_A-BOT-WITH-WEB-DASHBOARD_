@@ -781,22 +781,40 @@ def get_all_warning_history() -> Dict[str, Any]:
 # XP / Leveling
 # ---------------------------------------------------------------------------
 def upsert_xp(guild_id: str, user_id: str, xp: int, level: int, messages: int,
-              username: str = "") -> bool:
+              username: str = "", safe_migrate: bool = False) -> bool:
+    """
+    Upsert XP for a user.
+    When safe_migrate=True (startup migration from JSON), never overwrite a
+    HIGHER xp value already stored in Postgres — protects existing data.
+    """
     if not is_available():
         return False
     try:
         with _conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO spark_xp (guild_id, user_id, username, xp, level, messages, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, NOW())
-                    ON CONFLICT (guild_id, user_id) DO UPDATE
-                        SET xp = EXCLUDED.xp,
-                            level = EXCLUDED.level,
-                            messages = EXCLUDED.messages,
-                            username = COALESCE(NULLIF(EXCLUDED.username,''), spark_xp.username),
-                            updated_at = NOW()
-                """, (str(guild_id), str(user_id), str(username), int(xp), int(level), int(messages)))
+                if safe_migrate:
+                    # During migration: only update if the stored xp is lower
+                    cur.execute("""
+                        INSERT INTO spark_xp (guild_id, user_id, username, xp, level, messages, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                        ON CONFLICT (guild_id, user_id) DO UPDATE
+                            SET xp       = GREATEST(spark_xp.xp, EXCLUDED.xp),
+                                level    = GREATEST(spark_xp.level, EXCLUDED.level),
+                                messages = GREATEST(spark_xp.messages, EXCLUDED.messages),
+                                username = COALESCE(NULLIF(EXCLUDED.username,''), spark_xp.username),
+                                updated_at = NOW()
+                    """, (str(guild_id), str(user_id), str(username), int(xp), int(level), int(messages)))
+                else:
+                    cur.execute("""
+                        INSERT INTO spark_xp (guild_id, user_id, username, xp, level, messages, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                        ON CONFLICT (guild_id, user_id) DO UPDATE
+                            SET xp         = EXCLUDED.xp,
+                                level      = EXCLUDED.level,
+                                messages   = EXCLUDED.messages,
+                                username   = COALESCE(NULLIF(EXCLUDED.username,''), spark_xp.username),
+                                updated_at = NOW()
+                    """, (str(guild_id), str(user_id), str(username), int(xp), int(level), int(messages)))
             conn.commit()
         return True
     except Exception as e:
