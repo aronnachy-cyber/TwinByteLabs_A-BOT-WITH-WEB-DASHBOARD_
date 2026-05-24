@@ -3513,7 +3513,7 @@ async def on_app_command_error(interaction: discord.Interaction, error):
             perms = getattr(original, "missing_permissions", None) or getattr(error, "missing_permissions", [])
             msg = f"❌ **Bot Missing Permission** — I need the **{', '.join(perms)}** permission to do that."
         elif isinstance(error, app_commands.CheckFailure):
-            msg = "❌ **Access Denied** — You don't have permission to use this command."
+            msg = "❌ **Access Denied** — You don't have the required role or permission to use this command."
         elif isinstance(error, app_commands.CommandOnCooldown):
             msg = f"⏳ **Slow Down** — Try again in **{error.retry_after:.1f}s**."
         elif isinstance(original, discord.Forbidden):
@@ -3525,12 +3525,35 @@ async def on_app_command_error(interaction: discord.Interaction, error):
             if original is not error:
                 print(f"[slash error] original: {type(original).__name__}: {original}")
             msg = "❌ **Something went wrong** — An unexpected error occurred. Please try again."
-        if interaction.response.is_done():
-            await interaction.followup.send(msg, ephemeral=True)
-        else:
-            await interaction.response.send_message(msg, ephemeral=True)
+
+        # Always respond — never let the interaction silently expire.
+        # If defer hasn't been called yet, send a direct response; otherwise use followup.
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)
+        except discord.NotFound:
+            # Interaction expired before we could respond — nothing we can do.
+            print(f"[slash error] interaction expired, could not send: {msg}")
+        except Exception as send_err:
+            # Last resort: defer then followup
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.defer(ephemeral=True)
+                await interaction.followup.send(msg, ephemeral=True)
+            except Exception:
+                print(f"[slash error handler] final fallback failed: {send_err}")
     except Exception as e:
         print(f"[slash error handler] failed: {e}")
+        # Absolute last resort — make sure Discord gets SOME response
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "❌ An unexpected error occurred.", ephemeral=True
+                )
+        except Exception:
+            pass
 
 
 # ---------------- /warn ----------------
@@ -3892,28 +3915,53 @@ async def slash_untimeout(interaction: discord.Interaction, member: discord.Memb
 @app_commands.describe(amount="How many to delete (1-200)")
 @app_commands.check(_is_bot_mod)
 async def slash_purge(interaction: discord.Interaction, amount: int = 10):
-    if not await _slash_guard_guild(interaction):
+    # Defer immediately — this must be the first await so Discord always gets
+    # an acknowledgement within 3 seconds regardless of what happens next.
+    await interaction.response.defer(ephemeral=True)
+
+    if not interaction.guild:
+        await interaction.followup.send(
+            "❌ **Server Only** — This command can only be used inside a server.", ephemeral=True
+        )
         return
     if amount < 1 or amount > 200:
-        return await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ **Invalid Amount** — Please provide a number between 1 and 200.", ephemeral=True
         )
-    await interaction.response.defer(ephemeral=True)
-    try:
-        deleted = await interaction.channel.purge(limit=amount)
+        return
+
+    # Check that the bot actually has permission to delete messages in this channel.
+    # Announcement (news) channels often have per-channel overrides that block the bot
+    # even when the invoking user is an admin.
+    channel = interaction.channel
+    bot_perms = channel.permissions_for(interaction.guild.me)
+    if not bot_perms.manage_messages:
         await interaction.followup.send(
-            f"🧹 **Channel Purged** — Deleted **{len(deleted)}** message(s) in {interaction.channel.mention}.\n"
+            "❌ **Bot Missing Permission** — I need **Manage Messages** in "
+            f"{channel.mention} to purge messages.\n"
+            "> Check the channel's permission overrides and make sure SP4RK has **Manage Messages** enabled.",
+            ephemeral=True
+        )
+        return
+
+    try:
+        deleted = await channel.purge(limit=amount)
+        await interaction.followup.send(
+            f"🧹 **Channel Purged** — Deleted **{len(deleted)}** message(s) in {channel.mention}.\n"
             f"> 🛡️ **By:** {interaction.user.mention}",
             ephemeral=True
         )
         await logs.log_event(bot, config, "🧹 Purge",
-            f"{interaction.user} purged {len(deleted)} messages in #{interaction.channel.name}",
+            f"{interaction.user} purged {len(deleted)} messages in #{channel.name}",
             color=0x9b59b6, guild_id=interaction.guild.id if interaction.guild else None)
         dlog("🧹 PURGE",
-            f"{interaction.user} deleted {len(deleted)} messages in #{interaction.channel.name}", guild_id=interaction.guild_id)
+            f"{interaction.user} deleted {len(deleted)} messages in #{channel.name}",
+            guild_id=interaction.guild_id)
     except discord.Forbidden:
         await interaction.followup.send(
-            "❌ **Permission Denied** — I don't have permission to delete messages in this channel.", ephemeral=True
+            "❌ **Permission Denied** — I don't have permission to delete messages in this channel.\n"
+            "> For announcement channels, also ensure SP4RK has **Manage Messages** in the channel overrides.",
+            ephemeral=True
         )
     except Exception as e:
         await interaction.followup.send(f"❌ **Purge Failed** — `{e}`", ephemeral=True)
