@@ -481,6 +481,9 @@ _GUILD_ONLY_KEYS: frozenset = frozenset({
     "ticket_category",
     "owner_dm_id",
     "multi_channel",
+    "captcha_channel",
+    "captcha_role",
+    "level_up_channel",
 })
 
 
@@ -509,18 +512,46 @@ def get_guild_config(guild_id: str) -> dict:
     return result
 
 def save_guild_config(guild_id: str, updates: dict) -> None:
-    """Persist per-guild config overrides (only keys that differ from the global config).
+    """Persist per-guild config overrides.
+
+    Uses a direct per-guild Postgres upsert so saves are always atomic and
+    never depend on whether the in-memory cache is fully populated.  The
+    local JSON file is kept as a warm-start fallback only.
 
     If ``log_channel`` is included, it is also mirrored into the SO bot's
     per-guild config (as ``log_channel_id``) so both bots share one value.
     """
     guild_id = str(guild_id).strip()
     with _guild_cfg_lock:
-        data = _load_guild_configs()
-        existing = data.get(guild_id, {})
+        # Merge updates into whatever the cache has for this guild.
+        global _guild_config_cache
+        if _guild_config_cache is None:
+            _load_guild_configs()  # warm cache on first call
+        existing = dict((_guild_config_cache or {}).get(guild_id, {}))
         existing.update(updates)
-        data[guild_id] = existing
-        _save_guild_configs(data)
+
+        # Keep cache in sync immediately.
+        if _guild_config_cache is not None:
+            _guild_config_cache[guild_id] = existing
+
+        # 1) Postgres — direct per-guild upsert (atomic, no stale-cache risk).
+        try:
+            import db_spark as _ds
+            if _ds.is_available():
+                _ds.upsert_guild_config(guild_id, existing)
+        except Exception as _e:
+            print(f"[guild_cfg] Postgres upsert error: {_e}")
+
+        # 2) JSON hot copy — rebuild from updated cache.
+        try:
+            snapshot = dict(_guild_config_cache) if _guild_config_cache else {}
+            snapshot[guild_id] = existing
+            tmp = _GUILD_CONFIGS_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(snapshot, f, indent=2)
+            os.replace(tmp, _GUILD_CONFIGS_FILE)
+        except Exception as _e:
+            print(f"[guild_cfg] JSON write error: {_e}")
 
     if "log_channel" in updates:
         try:
@@ -528,6 +559,20 @@ def save_guild_config(guild_id: str, updates: dict) -> None:
             _so.update_guild_config(guild_id, {"log_channel_id": updates["log_channel"]})
         except Exception as _e:
             print(f"[dashboard] SO log_channel sync skipped: {_e}")
+
+    # Sync leveling_enabled to the leveling subsystem's own config store
+    # so that !leveling on/off and the dashboard toggle stay consistent.
+    if "leveling_enabled" in updates:
+        try:
+            import leveling as _lvl
+            raw = updates["leveling_enabled"]
+            if isinstance(raw, bool):
+                enabled = raw
+            else:
+                enabled = str(raw).lower() not in ("false", "0", "off", "no")
+            _lvl.set_leveling_enabled(guild_id, enabled)
+        except Exception as _e:
+            print(f"[guild_cfg] leveling_enabled sync error: {_e}")
 
 def _sp4rk_live_state(user_guild_ids=None) -> dict:
     """Return SP4RK bot guild list filtered to the user's admin guilds.
@@ -1156,6 +1201,7 @@ TOGGLE_KEYS = [
     "daily_report",
     "spam_filter", "caps_filter", "emoji_filter", "duplicate_filter",
     "wall_filter", "anti_zalgo", "grad_punish", "automod_on",
+    "leveling_enabled",
 ]
 
 TEXT_KEYS = [
@@ -1167,7 +1213,8 @@ TEXT_KEYS = [
     "welcome_line4_label", "welcome_line4_channel",
     "welcome_footer_emoji", "welcome_footer_msg",
     "welcome_staff_msg", "welcome_staff_emoji",
-    "log_channel", "profanity_level", "mute_role", "auto_role",
+    "log_channel", "message_log_channel", "join_log_channel", "voice_log_channel",
+    "profanity_level", "mute_role", "auto_role",
     "auto_custom_blacklist", "auto_allowlist", "webhook_log", "banned_words",
     "youtube_channel_link", "youtube_notify_msg", "multi_channel",
     "owner_dm_id", "ticket_category",
@@ -1179,6 +1226,8 @@ TEXT_KEYS = [
     "automod_tempban_warns", "automod_tempban_mins",
     "automod_kick_warns",
     "bot_admin_role", "bot_mod_role",
+    "captcha_channel", "captcha_role",
+    "level_up_channel",
 ]
 
 PUBLIC_BOT_CONFIG_KEYS = set(TOGGLE_KEYS + TEXT_KEYS + ["warning_limit"])

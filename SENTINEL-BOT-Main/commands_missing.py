@@ -1230,6 +1230,32 @@ def setup(bot: commands.Bot, dlog=None):
         )
         _dlog("🤖 AUTOMOD-SETUP", f"Automod {state} by {interaction.user}")
 
+    # ── /leveling ──
+    @bot.tree.command(name="leveling", description="Enable or disable the XP and leveling system for this server.")
+    @app_commands.describe(enabled="True = on, False = off")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def slash_leveling(interaction: discord.Interaction, enabled: bool):
+        if not await _guard(interaction):
+            return
+        try:
+            import leveling as _lvl
+            _lvl.set_leveling_enabled(str(interaction.guild.id), enabled)
+        except Exception as _e:
+            await interaction.response.send_message(f"❌ Failed to update leveling: {_e}", ephemeral=True)
+            return
+        # Also persist to main guild config so dashboard shows correct state
+        _save_gcfg(interaction.guild.id, {"leveling_enabled": "ON" if enabled else "OFF"})
+        state = "ON" if enabled else "OFF"
+        emoji = "✅" if enabled else "🔴"
+        embed = discord.Embed(
+            title=f"{emoji} Leveling & XP System",
+            description=f"Leveling is now **{state}** for **{interaction.guild.name}**.",
+            color=0x2ecc71 if enabled else 0xe74c3c,
+        )
+        embed.set_footer(text="Members will earn XP for every message when enabled.")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        _dlog(f"🏆 LEVELING-{state}", f"Leveling {state} by {interaction.user}", guild_id=interaction.guild.id)
+
     # ── /antilink ──
     @bot.tree.command(name="antilink", description="Toggle the link filter — blocks non-whitelisted URLs.")
     @app_commands.checks.has_permissions(manage_messages=True)

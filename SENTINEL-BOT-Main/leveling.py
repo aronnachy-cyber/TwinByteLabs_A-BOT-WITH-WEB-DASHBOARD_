@@ -123,12 +123,38 @@ def _save_user(guild_id: str, user_id: str, entry: dict, username: str = ""):
 
 # ── XP awarding ──────────────────────────────────────────────────────────────
 def is_leveling_enabled(guild_id: str) -> bool:
-    """Return True if leveling/XP is enabled for this guild (default: True)."""
-    cfg = get_config(str(guild_id))
-    val = cfg.get("leveling_enabled", True)
-    if isinstance(val, bool):
-        return val
-    return str(val).lower() not in ("false", "0", "off", "no")
+    """Return True if leveling/XP is enabled for this guild (default: True).
+
+    Checks the leveling-specific config first, then falls back to the main
+    guild config (where the dashboard toggle saves to) so both the
+    ``!leveling on/off`` command and the dashboard toggle stay in sync.
+    """
+    guild_id = str(guild_id)
+
+    # 1) Check leveling-specific config store (set by !leveling command)
+    cfg = get_config(guild_id)
+    # Only trust the leveling store if it actually has the key set
+    if "leveling_enabled" in cfg and cfg["leveling_enabled"] != DEFAULT_CFG["leveling_enabled"]:
+        val = cfg["leveling_enabled"]
+        if isinstance(val, bool):
+            return val
+        return str(val).lower() not in ("false", "0", "off", "no")
+
+    # 2) Fall back to main guild config (set by dashboard toggle)
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            main_cfg = _ds.get_one_guild_config(guild_id)
+            if main_cfg and "leveling_enabled" in main_cfg:
+                val = main_cfg["leveling_enabled"]
+                if isinstance(val, bool):
+                    return val
+                return str(val).lower() not in ("false", "0", "off", "no")
+    except Exception:
+        pass
+
+    # 3) Default: enabled
+    return True
 
 
 def set_leveling_enabled(guild_id: str, enabled: bool) -> None:
