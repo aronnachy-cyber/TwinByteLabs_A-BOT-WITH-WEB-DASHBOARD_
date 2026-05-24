@@ -197,6 +197,37 @@ html,body{
 }
 .btn-logout:hover{background:rgba(231,76,60,.2);}
 
+/* ── PAGE ENTRY ANIMATION ── */
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(22px);}
+  to  {opacity:1;transform:translateY(0);}
+}
+@keyframes popIn{
+  from{opacity:0;transform:scale(.88);}
+  to  {opacity:1;transform:scale(1);}
+}
+.picker{
+  animation:fadeUp .38s cubic-bezier(.16,1,.3,1) both;
+}
+.server-item{
+  animation:popIn .3s cubic-bezier(.16,1,.3,1) both;
+}
+
+/* ── CLICK LOADING STATE ── */
+.server-item.loading .server-icon-wrap::after{
+  content:'';
+  position:absolute;inset:0;
+  border-radius:50%;
+  border:3px solid transparent;
+  border-top-color:var(--accent);
+  animation:spin .7s linear infinite;
+}
+.server-item.loading img,
+.server-item.loading .server-icon-fallback{
+  opacity:.35;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
 /* ── RESPONSIVE ── */
 @media(max-width:480px){
   .picker{padding:28px 20px 24px;}
@@ -223,10 +254,10 @@ html,body{
   </div>
 
   {% if user_guilds %}
-  <div class="server-grid">
+  <div class="server-grid" id="serverGrid">
     {% for g in user_guilds %}
     {% set g_initial = g.name[0]|upper if g.name else 'S' %}
-    <a class="server-item" href="{{ url_for('index') }}?guild={{ g.id }}">
+    <a class="server-item" href="{{ url_for('index') }}?guild={{ g.id }}" onclick="handleServerClick(event, this)">
       <div class="server-icon-wrap">
         {% if g.icon_url %}
         <img src="{{ g.icon_url }}" alt="{{ g.name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
@@ -270,5 +301,18 @@ html,body{
 
 </div>
 
+<script>
+// Stagger server item pop-in animations
+document.querySelectorAll('.server-item').forEach(function(el, i){
+  el.style.animationDelay = (i * 38) + 'ms';
+});
+
+// Show spinner on the clicked server card while the page loads
+function handleServerClick(e, el){
+  el.classList.add('loading');
+  // If navigation takes longer than 3s, remove the spinner (safety)
+  setTimeout(function(){ el.classList.remove('loading'); }, 3000);
+}
+</script>
 </body>
 </html>
