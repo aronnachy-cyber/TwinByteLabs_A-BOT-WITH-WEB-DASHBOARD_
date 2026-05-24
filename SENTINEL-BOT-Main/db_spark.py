@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS spark_action_logs (
     id          TEXT PRIMARY KEY,
     event_type  TEXT NOT NULL,
     description TEXT NOT NULL,
+    guild_id    TEXT DEFAULT '',
     ts          TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS spark_alog_ts ON spark_action_logs (ts DESC);
@@ -572,6 +573,12 @@ def list_action_logs(limit: int = 300, guild_id: str = "") -> List[Dict[str, Any
     try:
         with _conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                # Ensure the guild_id column exists (one-time migration for older installs)
+                cur.execute("""
+                    ALTER TABLE spark_action_logs
+                    ADD COLUMN IF NOT EXISTS guild_id TEXT DEFAULT ''
+                """)
+                conn.commit()
                 if guild_id:
                     cur.execute(
                         """SELECT event_type, description, guild_id, ts

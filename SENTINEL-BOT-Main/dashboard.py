@@ -1175,6 +1175,20 @@ def _trigger_bot_config_refresh():
 # ---- ACTION LOGS ----
 action_logs = []
 
+def _preload_action_logs():
+    """Load recent action logs from Postgres into the in-memory list at startup."""
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.list_action_logs(limit=300)
+            if rows:
+                action_logs.extend(rows)
+                print(f"📋 Action logs preloaded ({len(rows)} entries)")
+    except Exception as _e:
+        print(f"[action_logs] preload failed: {_e}")
+
+_preload_action_logs()
+
 def add_dashboard_log(event_type, description, guild_id=None):
     action_logs.insert(0, {
         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -3259,6 +3273,30 @@ def dev_forms_page():
         storage_backend=storage,
     )
 
+# ---- API: BOT SLASH COMMAND SYNC ----
+@app.route('/api/bot/sync', methods=['POST'])
+def api_bot_sync():
+    """Force a Discord slash command sync. Requires logged-in admin / dev session."""
+    if not (session.get('logged_in') and (is_dev_session() or session.get('discord_id') == os.environ.get('ADMIN_DISCORD_ID', ''))):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
+    try:
+        import main as _main_mod
+        b = getattr(_main_mod, "bot", None)
+        if not b or not b.is_ready():
+            return jsonify({"ok": False, "error": "Bot is not running or not ready yet."}), 503
+        import asyncio
+        loop = getattr(b, "loop", None) or asyncio.get_event_loop()
+        async def _do_sync():
+            synced = await b.tree.sync()
+            return len(synced)
+        future = asyncio.run_coroutine_threadsafe(_do_sync(), loop)
+        count = future.result(timeout=30)
+        add_dashboard_log("🔄 SYNC", f"Slash commands synced by dashboard ({count} commands)")
+        return jsonify({"ok": True, "count": count})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 # ---- DEV: TESTCORD ----
 @app.route('/dev/testcord', methods=['GET'])
 def dev_testcord_page():
@@ -3810,7 +3848,12 @@ def api_guild_config_get():
     # Merging would cause every field to appear populated when switching servers,
     # because global defaults fill in any key the guild hasn't set yet.
     data = _load_guild_configs()
-    return jsonify(data.get(guild_id, {}))
+    guild_cfg = data.get(guild_id, {})
+    result = dict(guild_cfg)
+    # Tell the frontend this guild has never been configured — triggers onboarding.
+    if guild_id and not guild_cfg:
+        result['_is_new'] = True
+    return jsonify(result)
 
 # ---- API: PER-GUILD CONFIG (POST / SAVE) ----
 @app.route('/api/guild_config', methods=['POST'])
