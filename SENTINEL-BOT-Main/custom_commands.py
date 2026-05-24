@@ -262,64 +262,6 @@ def match_message(bot: str, guild_id: Optional[str], content: str):
     return None, ""
 
 
-# ── AI formatter (Gemini) ─────────────────────────────────────────────────────
-
-def ai_format_response(description: str, result: str, user_message: str = "",
-                       gemini_key: str = "") -> Optional[str]:
-    """
-    Ask Gemini to polish `result` into a natural Discord reply.
-
-    `result` should already have placeholders substituted before calling this.
-    `gemini_key` is read dynamically so it always reflects the current env value.
-    Returns the formatted text, or None if Gemini is unavailable / fails.
-    """
-    key = gemini_key or os.environ.get("GEMINI_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
-    if not key:
-        return None
-
-    desc = (description or "").strip()
-    res = (result or "").strip()
-    if not res:
-        return None
-
-    prompt = (
-        "You are a helpful Discord bot assistant. A server admin has written a custom "
-        "command response for you to deliver to users.\n\n"
-        f"ADMIN DESCRIPTION / CONTEXT:\n{desc or '(none provided)'}\n\n"
-        f"RESPONSE TO DELIVER (convey every fact faithfully):\n{res}\n\n"
-        f"USER MESSAGE THAT TRIGGERED THE COMMAND:\n{user_message or '(none)'}\n\n"
-        "Rewrite the response as a friendly, clear Discord message. "
-        "Keep it concise (max ~120 words). Preserve all facts and instructions exactly. "
-        "Do NOT invent new information. Do NOT wrap the reply in quotes. "
-        "Use light Discord markdown (bold, lists) where helpful — no headings."
-    )
-    try:
-        r = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}",
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 320},
-            },
-            timeout=12,
-        )
-        if not r.ok:
-            print(f"[CC] Gemini API error {r.status_code}: {r.text[:200]}")
-            return None
-        text = (
-            r.json()
-            .get("candidates", [{}])[0]
-            .get("content", {})
-            .get("parts", [{}])[0]
-            .get("text", "")
-        ).strip()
-        if len(text) > 2 and text[0] == text[-1] and text[0] in ('"', "'"):
-            text = text[1:-1].strip()
-        return text or None
-    except Exception as e:
-        print(f"[CC] AI format error: {e}")
-        return None
-
-
 def cooldown_ok(channel_id: int) -> bool:
     """Per-channel rate limit guard so AI can't be flood-triggered."""
     now = time.time()

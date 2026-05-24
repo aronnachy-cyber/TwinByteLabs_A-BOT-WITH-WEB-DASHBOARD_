@@ -1474,21 +1474,66 @@ def setup(bot: commands.Bot, dlog=None):
     _captcha_group = app_commands.Group(name="captcha", description="Captcha verification settings.")
 
     @_captcha_group.command(name="setup", description="Enable captcha verification for new members.")
-    @app_commands.describe(enabled="Enable or disable captcha verification")
+    @app_commands.describe(
+        enabled="Enable or disable captcha verification",
+        channel="Channel where verification messages are sent",
+        role="Role assigned to members after passing captcha",
+    )
     @app_commands.checks.has_permissions(administrator=True)
-    async def slash_captcha_setup(interaction: discord.Interaction, enabled: bool):
+    async def slash_captcha_setup(
+        interaction: discord.Interaction,
+        enabled: bool,
+        channel: discord.TextChannel = None,
+        role: discord.Role = None,
+    ):
         if not await _guard(interaction):
             return
         cfg = _gcfg(interaction.guild.id)
         cfg["captcha_enabled"] = "ON" if enabled else "OFF"
+        if channel:
+            cfg["captcha_channel"] = str(channel.id)
+        if role:
+            cfg["captcha_role"] = str(role.id)
         _save_gcfg(interaction.guild.id, cfg)
         state = "ON" if enabled else "OFF"
         emoji = "✅" if enabled else "🔴"
-        await interaction.response.send_message(
-            f"{emoji} **Captcha Verification** is now **{state}**.\n"
-            f"> Configure the verification channel and role in the **Byte Labs dashboard**.", ephemeral=True
-        )
+
+        lines = [f"{emoji} **Captcha Verification** is now **{state}**."]
+        if channel:
+            lines.append(f"> 📢 **Verification Channel:** {channel.mention}")
+        elif cfg.get("captcha_channel"):
+            lines.append(f"> 📢 **Verification Channel:** <#{cfg['captcha_channel']}> (already set)")
+        else:
+            lines.append("> ⚠️ No verification channel set — use `/captcha setup channel:#your-channel`")
+        if role:
+            lines.append(f"> 🎖️ **Verified Role:** {role.mention}")
+        elif cfg.get("captcha_role"):
+            lines.append(f"> 🎖️ **Verified Role:** <@&{cfg['captcha_role']}> (already set)")
+        else:
+            lines.append("> ⚠️ No verified role set — use `/captcha setup role:@your-role`")
+
+        await interaction.response.send_message("\n".join(lines), ephemeral=True)
         _dlog("🔐 CAPTCHA", f"Captcha {state} by {interaction.user}")
+
+    @_captcha_group.command(name="status", description="Show current captcha configuration for this server.")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def slash_captcha_status(interaction: discord.Interaction):
+        if not await _guard(interaction):
+            return
+        cfg = _gcfg(interaction.guild.id)
+        state = cfg.get("captcha_enabled", "OFF")
+        ch_id = cfg.get("captcha_channel", "")
+        role_id = cfg.get("captcha_role", "")
+        embed = discord.Embed(
+            title="🔐 Captcha Configuration",
+            color=0x2ecc71 if state == "ON" else 0xe74c3c,
+            timestamp=datetime.utcnow(),
+        )
+        embed.add_field(name="Status", value=f"{'✅ Enabled' if state == 'ON' else '🔴 Disabled'}", inline=True)
+        embed.add_field(name="Channel", value=f"<#{ch_id}>" if ch_id else "❌ Not set", inline=True)
+        embed.add_field(name="Verified Role", value=f"<@&{role_id}>" if role_id else "❌ Not set", inline=True)
+        embed.set_footer(text="Use /captcha setup to configure")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     bot.tree.add_command(_captcha_group)
 
