@@ -3223,6 +3223,41 @@ function blRefreshDevPanel(){
       <div><span>Theme</span><code>${(t.accent||'default')} · splash:${!t.hideSplash} · compact:${!!t.compact}</code></div>
     `;
   }
+  // Testcord status
+  blRefreshTestcordStatus();
+}
+
+async function blRefreshTestcordStatus(){
+  const dot   = document.getElementById('bl-dev-tc-dot');
+  const label = document.getElementById('bl-dev-tc-label');
+  if (!dot || !label) return;
+  try {
+    const r = await fetch('/dev/testcord/status');
+    if (r.status === 403){
+      dot.style.background   = 'var(--muted,#7a93b8)';
+      label.style.color      = 'var(--muted,#7a93b8)';
+      label.textContent      = 'Unlock dev mode to check status';
+      return;
+    }
+    const d = await r.json();
+    if (d.token_set){
+      dot.style.background   = '#10b981';
+      dot.style.boxShadow    = '0 0 8px rgba(16,185,129,.5)';
+      label.style.color      = '#6ee7b7';
+      label.textContent      = d.guild_id
+        ? `Token set · Guild ${d.guild_id}`
+        : 'Token set · global sync mode';
+    } else {
+      dot.style.background   = '#ef4444';
+      dot.style.boxShadow    = 'none';
+      label.style.color      = '#f4a8a0';
+      label.textContent      = 'TESTCORD_TOKEN not set';
+    }
+  } catch(e){
+    dot.style.background     = 'var(--muted,#7a93b8)';
+    label.style.color        = 'var(--muted,#7a93b8)';
+    label.textContent        = 'Could not fetch status';
+  }
 }
 
 function blApplyAccent(val){
@@ -4788,6 +4823,17 @@ pollPendingUsers();
     </div>
     <a href="/dev/maintenance/preview" target="_blank" class="bl-dev-btn" style="margin-top:10px;text-decoration:none;justify-content:center;">
       <i class="fas fa-eye"></i> Preview maintenance page
+    </a>
+  </section>
+
+  <section class="bl-dev-sec">
+    <div class="bl-dev-sec-title"><i class="fas fa-flask-vial"></i> Testcord</div>
+    <div id="bl-dev-testcord-status" style="display:flex;align-items:center;gap:9px;font-size:.83rem;margin-bottom:10px;">
+      <span id="bl-dev-tc-dot" style="width:9px;height:9px;border-radius:50%;background:var(--muted,#7a93b8);flex-shrink:0;display:inline-block;"></span>
+      <span id="bl-dev-tc-label" style="color:var(--muted,#7a93b8);">Checking…</span>
+    </div>
+    <a href="/dev/testcord" target="_blank" class="bl-dev-btn" style="text-decoration:none;justify-content:center;">
+      <i class="fas fa-arrow-up-right-from-square"></i> Open Testcord Tools
     </a>
   </section>
 

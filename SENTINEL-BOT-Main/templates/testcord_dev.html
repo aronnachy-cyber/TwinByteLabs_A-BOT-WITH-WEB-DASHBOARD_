@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Testcord · Developer Tools</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  :root{
+    --bg:#06101f; --bg2:#0a1830; --card:#0f213c; --border:#1c3257;
+    --text:#e8f0ff; --muted:#8295b8; --accent:#5b8cff; --accent2:#7eb1ff;
+    --good:#10b981; --warn:#f59e0b; --danger:#ef4444;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:linear-gradient(180deg,#04091a 0%,#06101f 60%);
+    color:var(--text); font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    min-height:100vh;
+  }
+  .topbar{
+    position:sticky; top:0; z-index:10;
+    display:flex; align-items:center; gap:14px; padding:14px 22px;
+    background:rgba(10,24,48,0.92); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .topbar h1{ margin:0; font-size:1.15rem; font-weight:700; display:flex; align-items:center; gap:10px; }
+  .topbar h1 i{ color:var(--accent2); }
+  .pill{
+    font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px;
+    background:rgba(91,140,255,0.14); color:var(--accent2);
+    border:1px solid rgba(91,140,255,0.32); padding:4px 10px; border-radius:999px;
+    font-weight:700;
+  }
+  .pill.ok{ background:rgba(16,185,129,0.14); color:#6ee7b7; border-color:rgba(16,185,129,0.32); }
+  .pill.warn{ background:rgba(245,158,11,0.14); color:#fbbf24; border-color:rgba(245,158,11,0.35); }
+  .topbar .spacer{ flex:1; }
+  .topbar a, .topbar button{
+    color:var(--text); background:transparent; border:1px solid var(--border);
+    border-radius:8px; padding:8px 14px; font-size:0.88rem; cursor:pointer;
+    text-decoration:none; display:inline-flex; align-items:center; gap:8px;
+    font-family:inherit;
+  }
+  .topbar a:hover, .topbar button:hover{ background:rgba(91,140,255,0.12); border-color:var(--accent); }
+  .wrap{ max-width:960px; margin:0 auto; padding:28px 22px 72px; }
+  h2{ font-size:0.7rem; text-transform:uppercase; letter-spacing:1.4px; color:var(--accent); font-weight:700; margin:28px 0 12px; }
+  h2:first-child{ margin-top:0; }
+  .card{
+    background:var(--card); border:1px solid var(--border);
+    border-radius:14px; padding:20px 22px; margin-bottom:16px;
+  }
+  .status-row{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .status-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .status-dot.on{ background:#10b981; box-shadow:0 0 8px rgba(16,185,129,.5); }
+  .status-dot.off{ background:#ef4444; }
+  .status-label{ font-size:.92rem; font-weight:600; }
+  .status-sub{ font-size:.78rem; color:var(--muted); margin-top:2px; }
+  .kv-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-top:16px; }
+  .kv{ background:rgba(91,140,255,.06); border:1px solid rgba(91,140,255,.14); border-radius:10px; padding:12px 14px; }
+  .kv .k{ font-size:.68rem; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); margin-bottom:4px; }
+  .kv .v{ font-size:.94rem; font-weight:600; }
+  .kv .v code{ background:rgba(91,140,255,.12); padding:2px 7px; border-radius:5px; font-size:.82rem; color:#cfe0ff; font-family:'JetBrains Mono',monospace; }
+  .cmd-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px;
+  }
+  .cmd-card{
+    background:rgba(91,140,255,.04); border:1px solid rgba(91,140,255,.12);
+    border-radius:10px; padding:12px 14px;
+    display:flex; align-items:flex-start; gap:10px;
+  }
+  .cmd-card .icon{ font-size:1rem; padding-top:1px; flex-shrink:0; }
+  .cmd-card .name{ font-size:.86rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--accent2); }
+  .cmd-card .desc{ font-size:.78rem; color:var(--muted); margin-top:2px; line-height:1.45; }
+  .badge{
+    display:inline-block; font-size:.62rem; text-transform:uppercase; letter-spacing:.5px;
+    font-weight:700; padding:2px 7px; border-radius:999px; vertical-align:middle;
+    margin-left:6px;
+  }
+  .badge-prefix{ background:rgba(245,158,11,.16); color:#fbbf24; }
+  .badge-slash{ background:rgba(91,140,255,.18); color:#9cc1ff; }
+  .setup-box{
+    background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.22);
+    border-radius:12px; padding:18px 20px;
+  }
+  .setup-box ol{ margin:10px 0 0 0; padding-left:20px; line-height:1.9; font-size:.9rem; color:var(--muted); }
+  .setup-box ol li strong{ color:var(--text); }
+  .setup-box code{ background:rgba(255,255,255,.07); padding:2px 7px; border-radius:5px; font-family:'JetBrains Mono',monospace; font-size:.82rem; color:#cfe0ff; }
+  .back-link{ color:var(--accent); text-decoration:none; font-size:.85rem; }
+  .back-link:hover{ text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1><i class="fas fa-flask-vial"></i> Testcord
+    {% if token_set %}
+    <span class="pill ok"><i class="fas fa-circle" style="font-size:.5rem;"></i> Token Set</span>
+    {% else %}
+    <span class="pill warn"><i class="fas fa-triangle-exclamation" style="font-size:.7rem;"></i> No Token</span>
+    {% endif %}
+    <span class="pill">Developer</span>
+  </h1>
+  <span class="spacer"></span>
+  <a href="/dashboard"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+</div>
+
+<div class="wrap">
+
+  <!-- STATUS -->
+  <h2><i class="fas fa-signal"></i> Configuration status</h2>
+  <div class="card">
+    <div class="status-row">
+      <div class="status-dot {% if token_set %}on{% else %}off{% endif %}"></div>
+      <div>
+        <div class="status-label">
+          {% if token_set %}Testcord is configured{% else %}Testcord is not configured{% endif %}
+        </div>
+        <div class="status-sub">
+          {% if token_set %}TESTCORD_TOKEN is set — bot can be started as a separate process
+          {% else %}TESTCORD_TOKEN is missing — add it in your environment secrets{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="kv-grid">
+      <div class="kv">
+        <div class="k">TESTCORD_TOKEN</div>
+        <div class="v">{% if token_set %}<span style="color:#10b981;">✔ Set</span>{% else %}<span style="color:#ef4444;">✘ Not set</span>{% endif %}</div>
+      </div>
+      <div class="kv">
+        <div class="k">TEST_GUILD_ID</div>
+        <div class="v">
+          {% if guild_set %}<code>{{ guild_id }}</code>{% else %}<span style="color:var(--muted);">Not set (global sync)</span>{% endif %}
+        </div>
+      </div>
+      <div class="kv">
+        <div class="k">Prefix</div>
+        <div class="v"><code>t!</code></div>
+      </div>
+      <div class="kv">
+        <div class="k">Slash prefix</div>
+        <div class="v"><code>/tc-*</code></div>
+      </div>
+    </div>
+  </div>
+
+  {% if not token_set %}
+  <!-- SETUP GUIDE -->
+  <h2><i class="fas fa-wrench"></i> Setup guide</h2>
+  <div class="setup-box">
+    <div style="font-weight:700;margin-bottom:6px;"><i class="fas fa-triangle-exclamation" style="color:#f59e0b;margin-right:6px;"></i> Testcord token is not configured</div>
+    <ol>
+      <li>Create a new Discord application at <strong>discord.com/developers</strong> and add a bot user.</li>
+      <li>Copy the bot token and add it as a secret named <strong><code>TESTCORD_TOKEN</code></strong> in your Replit environment secrets.</li>
+      <li>Optionally add <strong><code>TEST_GUILD_ID</code></strong> (your test server's ID) for instant slash command sync instead of the usual 1-hour global delay.</li>
+      <li>Run <code>python SENTINEL-BOT-Main/testcord.py</code> to start the bot (separate process from the dashboard).</li>
+    </ol>
+  </div>
+  {% endif %}
+
+  <!-- PREFIX COMMANDS -->
+  <h2><i class="fas fa-terminal"></i> Prefix commands <span class="badge badge-prefix">t!</span></h2>
+  <div class="cmd-grid">
+    <div class="cmd-card"><div class="icon">🏓</div><div><div class="name">t!ping</div><div class="desc">Check if Testcord is alive and show latency.</div></div></div>
+    <div class="cmd-card"><div class="icon">📢</div><div><div class="name">t!echo [text]</div><div class="desc">Echo a message back as an embed.</div></div></div>
+    <div class="cmd-card"><div class="icon">👤</div><div><div class="name">t!userinfo [@user]</div><div class="desc">Show account info for a member.</div></div></div>
+    <div class="cmd-card"><div class="icon">🏠</div><div><div class="name">t!serverinfo</div><div class="desc">Show details about the current server.</div></div></div>
+    <div class="cmd-card"><div class="icon">🖼️</div><div><div class="name">t!avatar [@user]</div><div class="desc">Display a user's full avatar.</div></div></div>
+    <div class="cmd-card"><div class="icon">🎖️</div><div><div class="name">t!roles [@user]</div><div class="desc">List all roles assigned to a member.</div></div></div>
+    <div class="cmd-card"><div class="icon">⚠️</div><div><div class="name">t!warn @user [reason]</div><div class="desc">Simulate a warning — nothing is saved to DB.</div></div></div>
+    <div class="cmd-card"><div class="icon">⏱️</div><div><div class="name">t!timeout @user [dur] [reason]</div><div class="desc">Simulate a timeout — member is not affected.</div></div></div>
+    <div class="cmd-card"><div class="icon">🖋️</div><div><div class="name">t!embed [title] | [desc]</div><div class="desc">Preview a custom embed layout.</div></div></div>
+    <div class="cmd-card"><div class="icon">❓</div><div><div class="name">t!help</div><div class="desc">Show the full Testcord command list.</div></div></div>
+  </div>
+
+  <!-- SLASH COMMANDS -->
+  <h2><i class="fas fa-slash"></i> Slash commands <span class="badge badge-slash">/tc-*</span></h2>
+  <div class="cmd-grid">
+    <div class="cmd-card"><div class="icon">🏓</div><div><div class="name">/tc-ping</div><div class="desc">Check Testcord latency via slash command.</div></div></div>
+    <div class="cmd-card"><div class="icon">👤</div><div><div class="name">/tc-userinfo @user</div><div class="desc">Show information about a user.</div></div></div>
+    <div class="cmd-card"><div class="icon">⚠️</div><div><div class="name">/tc-warn @user [reason]</div><div class="desc">Simulate issuing a warning — test only, nothing is saved.</div></div></div>
+    <div class="cmd-card"><div class="icon">🔨</div><div><div class="name">/tc-ban @user [reason]</div><div class="desc">Simulate a ban — member is NOT actually banned.</div></div></div>
+    <div class="cmd-card"><div class="icon">👢</div><div><div class="name">/tc-kick @user [reason]</div><div class="desc">Simulate a kick — member is NOT actually kicked.</div></div></div>
+    <div class="cmd-card"><div class="icon">⏱️</div><div><div class="name">/tc-timeout @user [duration]</div><div class="desc">Simulate a timeout — NOT applied to the member.</div></div></div>
+    <div class="cmd-card"><div class="icon">🖋️</div><div><div class="name">/tc-embed [title] [desc] [color]</div><div class="desc">Test the embed builder and preview output.</div></div></div>
+    <div class="cmd-card"><div class="icon">📋</div><div><div class="name">/tc-logs #channel</div><div class="desc">Send a sample log embed to test a log channel.</div></div></div>
+    <div class="cmd-card"><div class="icon">🔐</div><div><div class="name">/tc-captcha</div><div class="desc">Preview the captcha setup command response.</div></div></div>
+    <div class="cmd-card"><div class="icon">🤖</div><div><div class="name">/tc-automod</div><div class="desc">Preview automod status for this server.</div></div></div>
+  </div>
+
+</div>
+</body>
+</html>

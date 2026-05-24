@@ -3259,6 +3259,41 @@ def dev_forms_page():
         storage_backend=storage,
     )
 
+# ---- DEV: TESTCORD ----
+@app.route('/dev/testcord', methods=['GET'])
+def dev_testcord_page():
+    """Dedicated Testcord management page. Requires an unlocked dev session."""
+    if not is_dev_session():
+        return render_template('login.html',
+                               error="Page not found.",
+                               discord_configured=bool(DISCORD_CLIENT_ID)), 404
+    token_set  = bool(os.environ.get("TESTCORD_TOKEN", "").strip())
+    guild_set  = bool(os.environ.get("TEST_GUILD_ID",  "").strip())
+    guild_id   = os.environ.get("TEST_GUILD_ID", "").strip() or "—"
+    return render_template(
+        'testcord_dev.html',
+        token_set=token_set,
+        guild_set=guild_set,
+        guild_id=guild_id,
+        dev_unlocked=True,
+    )
+
+
+@app.route('/dev/testcord/status', methods=['GET'])
+def dev_testcord_status():
+    """Return JSON status of the Testcord bot — called by the dev panel."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    token_set = bool(os.environ.get("TESTCORD_TOKEN", "").strip())
+    guild_set = bool(os.environ.get("TEST_GUILD_ID",  "").strip())
+    return jsonify({
+        "ok":        True,
+        "token_set": token_set,
+        "guild_set": guild_set,
+        "guild_id":  os.environ.get("TEST_GUILD_ID", "").strip() or None,
+    })
+
+
 # ---- DEV: LICENSE MANAGEMENT ----
 @app.route('/dev/licenses', methods=['GET'])
 def dev_licenses_list():
