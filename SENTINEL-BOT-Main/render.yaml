@@ -4,7 +4,7 @@ services:
     runtime: python
     rootDir: SENTINEL-BOT-Main
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 wsgi:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --worker-class gthread --threads 4 --timeout 120 wsgi:app
     healthCheckPath: /health
     plan: free
     envVars:
@@ -54,9 +54,19 @@ services:
         value: "3.11.0"
       - key: DISCORD_TOKEN
         sync: false
+      - key: SERVER_TOKEN
+        sync: false
+      - key: W_TOKEN
+        sync: false
       - key: GEMINI_KEY
         sync: false
       - key: FLASK_SECRET_KEY
         sync: false
       - key: SESSION_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
         sync: false

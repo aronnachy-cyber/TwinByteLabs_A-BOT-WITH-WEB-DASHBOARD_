@@ -1880,8 +1880,16 @@ async def on_ready():
     s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
     await bot.change_presence(status=s_map.get(config.get("bot_status", "online"), discord.Status.online))
     try:
+        # Guild-level sync first — propagates INSTANTLY (no 1-hour wait)
+        for _guild in bot.guilds:
+            try:
+                bot.tree.copy_global_to(guild=_guild)
+                await bot.tree.sync(guild=_guild)
+            except Exception:
+                pass
+        # Global sync for new guilds the bot joins later
         synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} global slash command(s)")
+        print(f"✅ Synced {len(synced)} global slash command(s) + guild-level instant sync done")
     except Exception as e:
         print(f"Slash command sync error: {e}")
     sync_bot_settings.start()
@@ -1902,16 +1910,18 @@ async def on_ready():
             await security.check_security_2fa(bot, guild, gcfg, log_callback=dlog)
         except Exception as _e:
             print(f"[2FA] startup check error: {_e}")
-    # Migrate any XP data from leveling_xp.json → Postgres on every startup.
-    # This is a no-op if the JSON file is empty or already synced.
+    # Migrate any XP data from leveling_xp.json → Postgres — run in executor
+    # so it never blocks the event loop (it's a synchronous DB call).
     try:
-        leveling_mod.migrate_xp_from_json()
+        import asyncio as _asyncio
+        await _asyncio.get_event_loop().run_in_executor(None, leveling_mod.migrate_xp_from_json)
     except Exception as _xp_err:
         print(f"[LVL] migrate_xp_from_json error: {_xp_err}")
 
     dlog("✅ BOT-START", f"SP4RK online as {bot.user}")
     print(f"✅ SP4RK Online! Logged in as {bot.user}")
-    _persist_bot_guilds(bot)
+    import asyncio as _asyncio2
+    await _asyncio2.get_event_loop().run_in_executor(None, _persist_bot_guilds, bot)
     # Start weird features background tasks
     try:
         await weird_mod.start_background_tasks(bot)

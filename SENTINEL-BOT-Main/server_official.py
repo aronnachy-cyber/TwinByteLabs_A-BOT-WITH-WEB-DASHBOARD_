@@ -1269,8 +1269,15 @@ async def on_ready():
     logger.info(f"[server_official] Logged in as {bot.user} (id={bot.user.id})")
     await _refresh_invite_cache()
     try:
+        # Guild-level sync first — propagates INSTANTLY (no 1-hour wait)
+        for _guild in bot.guilds:
+            try:
+                bot.tree.copy_global_to(guild=_guild)
+                await bot.tree.sync(guild=_guild)
+            except Exception:
+                pass
         synced = await bot.tree.sync()
-        logger.info(f"[server_official] Synced {len(synced)} slash commands")
+        logger.info(f"[server_official] Synced {len(synced)} slash commands + guild-level instant sync done")
     except Exception as e:
         logger.error(f"[server_official] sync error: {e}")
     if not scheduler_tick.is_running():
