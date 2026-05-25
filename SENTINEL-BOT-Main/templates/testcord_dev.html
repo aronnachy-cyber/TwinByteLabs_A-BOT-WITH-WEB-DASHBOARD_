@@ -24,7 +24,7 @@
     background:rgba(10,24,48,0.92); backdrop-filter:blur(10px);
     border-bottom:1px solid var(--border);
   }
-  .topbar h1{ margin:0; font-size:1.15rem; font-weight:700; display:flex; align-items:center; gap:10px; }
+  .topbar h1{ margin:0; font-size:1.15rem; font-weight:700; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .topbar h1 i{ color:var(--accent2); }
   .pill{
     font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px;
@@ -34,52 +34,83 @@
   }
   .pill.ok{ background:rgba(16,185,129,0.14); color:#6ee7b7; border-color:rgba(16,185,129,0.32); }
   .pill.warn{ background:rgba(245,158,11,0.14); color:#fbbf24; border-color:rgba(245,158,11,0.35); }
+  .pill.danger{ background:rgba(239,68,68,0.14); color:#fca5a5; border-color:rgba(239,68,68,0.35); }
   .topbar .spacer{ flex:1; }
-  .topbar a, .topbar button{
+  .topbar a{
     color:var(--text); background:transparent; border:1px solid var(--border);
     border-radius:8px; padding:8px 14px; font-size:0.88rem; cursor:pointer;
     text-decoration:none; display:inline-flex; align-items:center; gap:8px;
-    font-family:inherit;
   }
-  .topbar a:hover, .topbar button:hover{ background:rgba(91,140,255,0.12); border-color:var(--accent); }
-  .wrap{ max-width:960px; margin:0 auto; padding:28px 22px 72px; }
+  .topbar a:hover{ background:rgba(91,140,255,0.12); border-color:var(--accent); }
+  .wrap{ max-width:980px; margin:0 auto; padding:28px 22px 72px; }
   h2{ font-size:0.7rem; text-transform:uppercase; letter-spacing:1.4px; color:var(--accent); font-weight:700; margin:28px 0 12px; }
   h2:first-child{ margin-top:0; }
   .card{
     background:var(--card); border:1px solid var(--border);
     border-radius:14px; padding:20px 22px; margin-bottom:16px;
   }
-  .status-row{
-    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-  }
-  .status-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-  .status-dot.on{ background:#10b981; box-shadow:0 0 8px rgba(16,185,129,.5); }
+
+  /* ── Status row ── */
+  .status-row{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .status-dot{ width:12px; height:12px; border-radius:50%; flex-shrink:0; transition:background .3s; }
+  .status-dot.on{ background:#10b981; box-shadow:0 0 8px rgba(16,185,129,.55); animation:pulse 2s infinite; }
   .status-dot.off{ background:#ef4444; }
-  .status-label{ font-size:.92rem; font-weight:600; }
+  .status-dot.unknown{ background:var(--muted); }
+  @keyframes pulse{ 0%,100%{ box-shadow:0 0 8px rgba(16,185,129,.55); } 50%{ box-shadow:0 0 16px rgba(16,185,129,.85); } }
+  .status-label{ font-size:.95rem; font-weight:700; }
   .status-sub{ font-size:.78rem; color:var(--muted); margin-top:2px; }
-  .kv-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-top:16px; }
+
+  /* ── KV grid ── */
+  .kv-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-top:16px; }
   .kv{ background:rgba(91,140,255,.06); border:1px solid rgba(91,140,255,.14); border-radius:10px; padding:12px 14px; }
   .kv .k{ font-size:.68rem; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); margin-bottom:4px; }
-  .kv .v{ font-size:.94rem; font-weight:600; }
+  .kv .v{ font-size:.9rem; font-weight:600; }
   .kv .v code{ background:rgba(91,140,255,.12); padding:2px 7px; border-radius:5px; font-size:.82rem; color:#cfe0ff; font-family:'JetBrains Mono',monospace; }
-  .cmd-grid{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px;
+
+  /* ── Buttons ── */
+  .btn-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:10px 20px; border-radius:9px; font-size:.88rem; font-weight:600;
+    cursor:pointer; border:none; font-family:inherit; transition:opacity .15s, transform .1s;
   }
+  .btn:active{ transform:scale(.97); }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .btn-start{ background:linear-gradient(135deg,#10b981,#059669); color:#fff; }
+  .btn-stop{  background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; }
+  .btn-refresh{ background:rgba(91,140,255,.14); color:var(--accent2); border:1px solid rgba(91,140,255,.28); }
+  .btn-refresh:hover{ background:rgba(91,140,255,.24); }
+
+  /* ── Log console ── */
+  .log-wrap{
+    background:#020d1c; border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; font-family:'JetBrains Mono','Fira Mono',monospace;
+    font-size:.78rem; line-height:1.6; max-height:320px; overflow-y:auto;
+    white-space:pre-wrap; word-break:break-all; color:#a8c7e8;
+  }
+  .log-wrap .log-empty{ color:var(--muted); font-style:italic; }
+  .log-wrap::-webkit-scrollbar{ width:5px; }
+  .log-wrap::-webkit-scrollbar-track{ background:transparent; }
+  .log-wrap::-webkit-scrollbar-thumb{ background:rgba(91,140,255,.3); border-radius:3px; }
+
+  /* ── Command cards ── */
+  .cmd-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px; }
   .cmd-card{
     background:rgba(91,140,255,.04); border:1px solid rgba(91,140,255,.12);
     border-radius:10px; padding:12px 14px;
     display:flex; align-items:flex-start; gap:10px;
   }
-  .cmd-card .icon{ font-size:1rem; padding-top:1px; flex-shrink:0; }
+  .cmd-card .icon{ font-size:1rem; padding-top:2px; flex-shrink:0; }
   .cmd-card .name{ font-size:.86rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--accent2); }
   .cmd-card .desc{ font-size:.78rem; color:var(--muted); margin-top:2px; line-height:1.45; }
   .badge{
     display:inline-block; font-size:.62rem; text-transform:uppercase; letter-spacing:.5px;
-    font-weight:700; padding:2px 7px; border-radius:999px; vertical-align:middle;
-    margin-left:6px;
+    font-weight:700; padding:2px 7px; border-radius:999px; vertical-align:middle; margin-left:6px;
   }
   .badge-prefix{ background:rgba(245,158,11,.16); color:#fbbf24; }
-  .badge-slash{ background:rgba(91,140,255,.18); color:#9cc1ff; }
+  .badge-slash{  background:rgba(91,140,255,.18); color:#9cc1ff; }
+
+  /* ── Setup box ── */
   .setup-box{
     background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.22);
     border-radius:12px; padding:18px 20px;
@@ -87,19 +118,26 @@
   .setup-box ol{ margin:10px 0 0 0; padding-left:20px; line-height:1.9; font-size:.9rem; color:var(--muted); }
   .setup-box ol li strong{ color:var(--text); }
   .setup-box code{ background:rgba(255,255,255,.07); padding:2px 7px; border-radius:5px; font-family:'JetBrains Mono',monospace; font-size:.82rem; color:#cfe0ff; }
-  .back-link{ color:var(--accent); text-decoration:none; font-size:.85rem; }
-  .back-link:hover{ text-decoration:underline; }
+
+  /* ── Toast ── */
+  #tc-toast{
+    position:fixed; bottom:24px; right:24px; z-index:999;
+    background:#0f213c; border:1px solid var(--border); border-radius:10px;
+    padding:12px 18px; font-size:.86rem; display:none;
+    align-items:center; gap:10px; max-width:320px;
+    box-shadow:0 8px 32px rgba(0,0,0,.5);
+  }
+  #tc-toast.show{ display:flex; }
+  #tc-toast.ok  { border-color:rgba(16,185,129,.4); }
+  #tc-toast.err { border-color:rgba(239,68,68,.4); }
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <h1><i class="fas fa-flask-vial"></i> Testcord
-    {% if token_set %}
-    <span class="pill ok"><i class="fas fa-circle" style="font-size:.5rem;"></i> Token Set</span>
-    {% else %}
-    <span class="pill warn"><i class="fas fa-triangle-exclamation" style="font-size:.7rem;"></i> No Token</span>
-    {% endif %}
+  <h1>
+    <i class="fas fa-flask-vial"></i> Testcord
+    <span id="tc-header-pill" class="pill warn"><i class="fas fa-circle" style="font-size:.5rem;"></i> Checking…</span>
     <span class="pill">Developer</span>
   </h1>
   <span class="spacer"></span>
@@ -108,31 +146,25 @@
 
 <div class="wrap">
 
-  <!-- STATUS -->
-  <h2><i class="fas fa-signal"></i> Configuration status</h2>
+  <!-- STATUS + CONTROLS -->
+  <h2><i class="fas fa-signal"></i> Status &amp; controls</h2>
   <div class="card">
     <div class="status-row">
-      <div class="status-dot {% if token_set %}on{% else %}off{% endif %}"></div>
+      <div class="status-dot unknown" id="tc-dot"></div>
       <div>
-        <div class="status-label">
-          {% if token_set %}Testcord is configured{% else %}Testcord is not configured{% endif %}
-        </div>
-        <div class="status-sub">
-          {% if token_set %}TESTCORD_TOKEN is set — bot can be started as a separate process
-          {% else %}TESTCORD_TOKEN is missing — add it in your environment secrets{% endif %}
-        </div>
+        <div class="status-label" id="tc-status-label">Checking…</div>
+        <div class="status-sub" id="tc-status-sub">Fetching bot status</div>
       </div>
     </div>
+
     <div class="kv-grid">
       <div class="kv">
         <div class="k">TESTCORD_TOKEN</div>
-        <div class="v">{% if token_set %}<span style="color:#10b981;">✔ Set</span>{% else %}<span style="color:#ef4444;">✘ Not set</span>{% endif %}</div>
+        <div class="v" id="tc-kv-token">—</div>
       </div>
       <div class="kv">
         <div class="k">TEST_GUILD_ID</div>
-        <div class="v">
-          {% if guild_set %}<code>{{ guild_id }}</code>{% else %}<span style="color:var(--muted);">Not set (global sync)</span>{% endif %}
-        </div>
+        <div class="v" id="tc-kv-guild">—</div>
       </div>
       <div class="kv">
         <div class="k">Prefix</div>
@@ -143,21 +175,41 @@
         <div class="v"><code>/tc-*</code></div>
       </div>
     </div>
+
+    <div class="btn-row">
+      <button class="btn btn-start" id="tc-btn-start" onclick="tcStart()">
+        <i class="fas fa-play"></i> Start Testcord
+      </button>
+      <button class="btn btn-stop" id="tc-btn-stop" onclick="tcStop()" disabled>
+        <i class="fas fa-stop"></i> Stop Testcord
+      </button>
+      <button class="btn btn-refresh" onclick="tcRefresh()">
+        <i class="fas fa-arrows-rotate"></i> Refresh
+      </button>
+    </div>
   </div>
 
   {% if not token_set %}
   <!-- SETUP GUIDE -->
   <h2><i class="fas fa-wrench"></i> Setup guide</h2>
   <div class="setup-box">
-    <div style="font-weight:700;margin-bottom:6px;"><i class="fas fa-triangle-exclamation" style="color:#f59e0b;margin-right:6px;"></i> Testcord token is not configured</div>
+    <div style="font-weight:700;margin-bottom:6px;"><i class="fas fa-triangle-exclamation" style="color:#f59e0b;margin-right:6px;"></i> TESTCORD_TOKEN is not configured</div>
     <ol>
       <li>Create a new Discord application at <strong>discord.com/developers</strong> and add a bot user.</li>
-      <li>Copy the bot token and add it as a secret named <strong><code>TESTCORD_TOKEN</code></strong> in your Replit environment secrets.</li>
-      <li>Optionally add <strong><code>TEST_GUILD_ID</code></strong> (your test server's ID) for instant slash command sync instead of the usual 1-hour global delay.</li>
-      <li>Run <code>python SENTINEL-BOT-Main/testcord.py</code> to start the bot (separate process from the dashboard).</li>
+      <li>Copy the bot token and add it as a secret named <strong><code>TESTCORD_TOKEN</code></strong> in your environment secrets.</li>
+      <li>Optionally add <strong><code>TEST_GUILD_ID</code></strong> (your test server's ID) for instant slash command sync.</li>
+      <li>Come back here and click <strong>Start Testcord</strong> — no terminal needed.</li>
     </ol>
   </div>
   {% endif %}
+
+  <!-- LIVE LOG -->
+  <h2><i class="fas fa-terminal"></i> Live log</h2>
+  <div class="card" style="padding:0;">
+    <div class="log-wrap" id="tc-log">
+      <span class="log-empty">No log output yet — start the bot to see activity here.</span>
+    </div>
+  </div>
 
   <!-- PREFIX COMMANDS -->
   <h2><i class="fas fa-terminal"></i> Prefix commands <span class="badge badge-prefix">t!</span></h2>
@@ -170,7 +222,7 @@
     <div class="cmd-card"><div class="icon">🎖️</div><div><div class="name">t!roles [@user]</div><div class="desc">List all roles assigned to a member.</div></div></div>
     <div class="cmd-card"><div class="icon">⚠️</div><div><div class="name">t!warn @user [reason]</div><div class="desc">Simulate a warning — nothing is saved to DB.</div></div></div>
     <div class="cmd-card"><div class="icon">⏱️</div><div><div class="name">t!timeout @user [dur] [reason]</div><div class="desc">Simulate a timeout — member is not affected.</div></div></div>
-    <div class="cmd-card"><div class="icon">🖋️</div><div><div class="name">t!embed [title] | [desc]</div><div class="desc">Preview a custom embed layout.</div></div></div>
+    <div class="cmd-card"><div class="icon">🖋️</div><div><div class="name">t!embed [#color] [text]</div><div class="desc">Preview a custom embed layout.</div></div></div>
     <div class="cmd-card"><div class="icon">❓</div><div><div class="name">t!help</div><div class="desc">Show the full Testcord command list.</div></div></div>
   </div>
 
@@ -190,5 +242,110 @@
   </div>
 
 </div>
+
+<!-- Toast -->
+<div id="tc-toast"></div>
+
+<script>
+let _tcRunning = false;
+let _pollTimer = null;
+
+async function tcRefresh() {
+  try {
+    const r = await fetch('/dev/testcord/status');
+    const d = await r.json();
+    if (!d.ok) { showToast('❌ ' + (d.error || 'Status fetch failed'), 'err'); return; }
+    _tcRunning = d.running;
+    updateUI(d);
+  } catch(e) {
+    showToast('❌ Network error', 'err');
+  }
+}
+
+function updateUI(d) {
+  const dot   = document.getElementById('tc-dot');
+  const label = document.getElementById('tc-status-label');
+  const sub   = document.getElementById('tc-status-sub');
+  const pill  = document.getElementById('tc-header-pill');
+  const btnStart = document.getElementById('tc-btn-start');
+  const btnStop  = document.getElementById('tc-btn-stop');
+
+  if (d.running) {
+    dot.className   = 'status-dot on';
+    label.textContent = '✅ Testcord is running';
+    sub.textContent   = 'Bot thread is alive and connected to Discord';
+    pill.className  = 'pill ok';
+    pill.innerHTML  = '<i class="fas fa-circle" style="font-size:.5rem;"></i> Online';
+    btnStart.disabled = true;
+    btnStop.disabled  = false;
+  } else {
+    dot.className   = 'status-dot off';
+    label.textContent = d.token_set ? '⏹ Testcord is stopped' : '⚠️ Token not configured';
+    sub.textContent   = d.token_set
+      ? 'Click Start to bring the bot online'
+      : 'Add TESTCORD_TOKEN to your environment secrets first';
+    pill.className  = 'pill ' + (d.token_set ? 'warn' : 'danger');
+    pill.innerHTML  = d.token_set
+      ? '<i class="fas fa-circle" style="font-size:.5rem;"></i> Offline'
+      : '<i class="fas fa-triangle-exclamation" style="font-size:.7rem;"></i> No Token';
+    btnStart.disabled = !d.token_set;
+    btnStop.disabled  = true;
+  }
+
+  document.getElementById('tc-kv-token').innerHTML = d.token_set
+    ? '<span style="color:#10b981;">✔ Set</span>'
+    : '<span style="color:#ef4444;">✘ Not set</span>';
+
+  document.getElementById('tc-kv-guild').innerHTML = d.guild_set
+    ? '<code>' + (d.guild_id || '—') + '</code>'
+    : '<span style="color:var(--muted);">Not set (global sync)</span>';
+
+  if (Array.isArray(d.log) && d.log.length) {
+    const el = document.getElementById('tc-log');
+    el.textContent = d.log.join('\n');
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+async function tcStart() {
+  document.getElementById('tc-btn-start').disabled = true;
+  showToast('⏳ Starting Testcord…', 'ok');
+  try {
+    const r = await fetch('/dev/testcord/start', { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) {
+      if (d.already_running) showToast('ℹ️ Already running', 'ok');
+      else showToast('✅ Testcord started!', 'ok');
+    } else {
+      showToast('❌ ' + (d.error || 'Start failed'), 'err');
+    }
+  } catch(e) { showToast('❌ Network error', 'err'); }
+  setTimeout(tcRefresh, 1500);
+}
+
+async function tcStop() {
+  document.getElementById('tc-btn-stop').disabled = true;
+  showToast('⏳ Stopping Testcord…', 'ok');
+  try {
+    const r = await fetch('/dev/testcord/stop', { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) showToast('⏹ Testcord stopped.', 'ok');
+    else showToast('❌ ' + (d.error || 'Stop failed'), 'err');
+  } catch(e) { showToast('❌ Network error', 'err'); }
+  setTimeout(tcRefresh, 1500);
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('tc-toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type || '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ''; }, 3500);
+}
+
+// Auto-refresh every 4 s
+tcRefresh();
+_pollTimer = setInterval(tcRefresh, 4000);
+</script>
 </body>
 </html>

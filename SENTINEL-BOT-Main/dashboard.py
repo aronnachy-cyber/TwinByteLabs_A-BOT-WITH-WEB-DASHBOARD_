@@ -3324,12 +3324,62 @@ def dev_testcord_status():
         return jsonify({"ok": False, "error": "Locked"}), 403
     token_set = bool(os.environ.get("TESTCORD_TOKEN", "").strip())
     guild_set = bool(os.environ.get("TEST_GUILD_ID",  "").strip())
+    running = False
+    log_lines = []
+    try:
+        import sys as _sys
+        tc = _sys.modules.get('testcord')
+        if tc:
+            running = tc.is_running()
+            log_lines = tc.get_log()[-40:]
+    except Exception:
+        pass
     return jsonify({
         "ok":        True,
         "token_set": token_set,
         "guild_set": guild_set,
         "guild_id":  os.environ.get("TEST_GUILD_ID", "").strip() or None,
+        "running":   running,
+        "log":       log_lines,
     })
+
+
+@app.route('/dev/testcord/start', methods=['POST'])
+def dev_testcord_start():
+    """Start the Testcord bot thread."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    if not os.environ.get("TESTCORD_TOKEN", "").strip():
+        return jsonify({"ok": False, "error": "TESTCORD_TOKEN is not set"}), 400
+    try:
+        import sys as _sys
+        import importlib
+        tc = _sys.modules.get('testcord')
+        if tc is None:
+            import os as _os
+            import sys as _sys2
+            _sys2.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+            tc = importlib.import_module('testcord')
+        started = tc.start_bot_thread()
+        return jsonify({"ok": True, "started": started, "already_running": not started and tc.is_running()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/dev/testcord/stop', methods=['POST'])
+def dev_testcord_stop():
+    """Stop the Testcord bot thread."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    try:
+        import sys as _sys
+        tc = _sys.modules.get('testcord')
+        if tc is None:
+            return jsonify({"ok": False, "error": "Testcord module not loaded"})
+        stopped = tc.stop_bot_thread()
+        return jsonify({"ok": True, "stopped": stopped})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # ---- DEV: LICENSE MANAGEMENT ----

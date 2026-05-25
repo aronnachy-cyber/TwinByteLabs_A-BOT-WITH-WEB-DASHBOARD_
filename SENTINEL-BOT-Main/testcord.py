@@ -17,6 +17,7 @@ from discord.ext import commands
 from discord import app_commands
 import os
 import asyncio
+import threading
 from datetime import datetime, timedelta, timezone
 
 TESTCORD_TOKEN = os.environ.get("TESTCORD_TOKEN", "").strip()
@@ -360,6 +361,70 @@ async def on_command_error(ctx, error):
         pass
     else:
         await ctx.send(f"❌ Error: `{error}`")
+
+
+# ─── Thread management (used by dashboard /dev/testcord/start|stop) ────────
+
+_bot_thread: threading.Thread | None = None
+_bot_log: list[str] = []          # ring buffer — last 100 lines
+_MAX_LOG = 100
+
+
+def _log(msg: str):
+    ts = datetime.utcnow().strftime("%H:%M:%S")
+    line = f"[{ts}] {msg}"
+    print(line)
+    _bot_log.append(line)
+    if len(_bot_log) > _MAX_LOG:
+        _bot_log.pop(0)
+
+
+def _run_bot():
+    """Target for the bot thread — runs the discord.py event loop."""
+    if not TESTCORD_TOKEN:
+        _log("❌ TESTCORD_TOKEN not set — cannot start.")
+        return
+    _log("🚀 Testcord starting…")
+    try:
+        bot.run(TESTCORD_TOKEN, reconnect=True, log_handler=None)
+    except Exception as e:
+        _log(f"❌ Bot crashed: {e}")
+    _log("⏹ Testcord stopped.")
+
+
+def start_bot_thread() -> bool:
+    """Start the Testcord bot in a daemon thread. Returns True if started."""
+    global _bot_thread
+    if _bot_thread and _bot_thread.is_alive():
+        return False  # already running
+    if not TESTCORD_TOKEN:
+        return False
+    _bot_thread = threading.Thread(target=_run_bot, name="TestcordBot", daemon=True)
+    _bot_thread.start()
+    return True
+
+
+def stop_bot_thread() -> bool:
+    """Ask the bot to shut down. Returns True if a shutdown was requested."""
+    global _bot_thread
+    if not (_bot_thread and _bot_thread.is_alive()):
+        return False
+    try:
+        loop = bot.loop
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(bot.close(), loop)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def is_running() -> bool:
+    return bool(_bot_thread and _bot_thread.is_alive())
+
+
+def get_log() -> list[str]:
+    return list(_bot_log)
 
 
 # ─── Entry ─────────────────────────────────────────────────────────────────
