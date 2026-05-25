@@ -47,10 +47,14 @@ def _self_ping():
     while True:
         try:
             # Priority: explicit DASHBOARD_URL > Render > Replit > localhost
+            # Note: RENDER_EXTERNAL_URL already contains the full URL with
+            # protocol (e.g. https://myapp.onrender.com) — do NOT prepend https://
+            _render_url = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+            _replit_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
             base = (
                 os.environ.get("DASHBOARD_URL", "").rstrip("/")
-                or (f"https://{os.environ['RENDER_EXTERNAL_URL']}" if "RENDER_EXTERNAL_URL" in os.environ else "")
-                or (f"https://{os.environ['REPLIT_DEV_DOMAIN']}" if "REPLIT_DEV_DOMAIN" in os.environ else "")
+                or _render_url
+                or (f"https://{_replit_domain}" if _replit_domain else "")
             )
             if not base:
                 port = int(os.environ.get("PORT", 5000))
