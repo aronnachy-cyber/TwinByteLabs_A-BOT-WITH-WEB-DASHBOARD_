@@ -21,11 +21,20 @@ DISCORD_API_BASE      = "https://discord.com/api/v10"
 # ---- SUPABASE ----
 _sb_url = os.environ.get("SUPABASE_URL", "")
 _sb_key = os.environ.get("SUPABASE_KEY", "")
-supabase: SupabaseClient = create_client(_sb_url, _sb_key) if _sb_url and _sb_key else None
-if supabase:
-    print("✅ Supabase connected")
-else:
-    print("⚠️  Supabase not configured — falling back to local JSON files")
+supabase: SupabaseClient = None  # initialised in background thread below
+
+def _init_supabase():
+    global supabase
+    if _sb_url and _sb_key:
+        try:
+            supabase = create_client(_sb_url, _sb_key)
+            print("✅ Supabase connected")
+        except Exception as _e:
+            print(f"⚠️  Supabase connection failed ({_e}) — falling back to local JSON files")
+    else:
+        print("⚠️  Supabase not configured — falling back to local JSON files")
+
+_threading.Thread(target=_init_supabase, daemon=True, name="supabase-init").start()
 
 app = Flask(__name__)
 
@@ -1036,13 +1045,14 @@ def _from_db_row(r):
 # ---- Postgres-backed user store (preferred when DATABASE_URL is set) ----
 import db_users as _db_users
 
-# One-shot migration of any pre-existing users.json into Postgres.
-# Safe: uses upsert, so re-running this on every boot is a no-op once empty.
-if _db_users.is_available() and os.path.exists(USERS_FILE):
-    try:
-        _db_users.migrate_from_json(USERS_FILE)
-    except Exception as _e:
-        print(f"[users] one-shot JSON→PG migration skipped: {_e}")
+def _migrate_users():
+    if _db_users.is_available() and os.path.exists(USERS_FILE):
+        try:
+            _db_users.migrate_from_json(USERS_FILE)
+        except Exception as _e:
+            print(f"[users] one-shot JSON→PG migration skipped: {_e}")
+
+_threading.Thread(target=_migrate_users, daemon=True, name="migrate-users").start()
 
 
 def load_users():
@@ -1398,12 +1408,14 @@ import db_forms as _db_spark_forms  # noqa: E402
 import db_spark as _db_spark          # noqa: E402
 _db_forms = _db_spark_forms           # backwards-compat alias
 
-# One-shot: copy any pre-existing JSON into the DB on first boot. Idempotent.
-if _db_forms.is_available() and os.path.exists(BOT_REQUESTS_FILE):
-    try:
-        _db_forms.migrate_from_json(BOT_REQUESTS_FILE)
-    except Exception as _e:
-        print(f"[forms] one-shot JSON→PG migration skipped: {_e}")
+def _migrate_forms():
+    if _db_forms.is_available() and os.path.exists(BOT_REQUESTS_FILE):
+        try:
+            _db_forms.migrate_from_json(BOT_REQUESTS_FILE)
+        except Exception as _e:
+            print(f"[forms] one-shot JSON→PG migration skipped: {_e}")
+
+_threading.Thread(target=_migrate_forms, daemon=True, name="migrate-forms").start()
 
 
 def _load_bot_requests():
