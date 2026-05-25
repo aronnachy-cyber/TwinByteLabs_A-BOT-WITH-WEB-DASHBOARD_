@@ -8,14 +8,24 @@ services:
     healthCheckPath: /health
     plan: free
     envVars:
-      - key: GEMINI_KEY
-        sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.0"
       - key: FLASK_SECRET_KEY
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: GEMINI_KEY
         sync: false
       - key: DASHBOARD_URL
         sync: false
       - key: START_BOT_IN_WEB
         value: "false"
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_REDIRECT_URI
+        sync: false
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
@@ -32,9 +42,13 @@ services:
     startCommand: python bot_worker.py
     plan: starter
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
       - key: DISCORD_TOKEN
         sync: false
       - key: GEMINI_KEY
         sync: false
       - key: FLASK_SECRET_KEY
+        sync: false
+      - key: SESSION_SECRET
         sync: false
