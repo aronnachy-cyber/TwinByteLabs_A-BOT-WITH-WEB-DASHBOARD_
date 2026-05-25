@@ -6,7 +6,8 @@
 <title>SP4RK — Dashboard</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <style>
@@ -411,16 +412,15 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     clearInterval(tipTimer);
     setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 600);
   }
-  // Show for at least ~1.4s so the user actually reads the alpha warning,
-  // then hide as soon as window finishes loading.
-  const MIN_MS = 1400;
+  // Hide as soon as the DOM is ready (don't wait for images/fonts).
+  const MIN_MS = 700;
   const start  = Date.now();
-  window.addEventListener('load', () => {
+  document.addEventListener('DOMContentLoaded', () => {
     const wait = Math.max(0, MIN_MS - (Date.now() - start));
     setTimeout(hideSplash, wait);
   });
-  // Safety net: never let the splash linger more than 6s.
-  setTimeout(hideSplash, 6000);
+  // Safety net: hide after 3s no matter what (was 6s).
+  setTimeout(hideSplash, 3000);
 })();
 </script>
 

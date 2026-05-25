@@ -18,10 +18,12 @@
 <meta name="twitter:title" content="{{ site.brand_name }} — Intelligent Bots for Modern Communities">
 <meta name="twitter:description" content="AI-driven Discord bots, dashboards, and automation tools that help communities run smoother.">
 <meta name="twitter:image" content="/static/bg-landing.png">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -2500,12 +2502,14 @@ footer{
     <div class="lock-icon"><i class="fas fa-shield-halved"></i></div>
     <h3>Developer Access</h3>
     <p>Enter the dev PIN to unlock developer tools.</p>
-    <input type="password" id="pinInput" maxlength="32" autocomplete="off" inputmode="numeric" placeholder="••••••" />
-    <div class="pin-error" id="pinError"></div>
-    <div class="pin-actions">
-      <button type="button" class="pin-cancel" onclick="closePinModal()">Cancel</button>
-      <button type="button" class="pin-submit" onclick="submitPin()">Unlock</button>
-    </div>
+    <form onsubmit="event.preventDefault();submitPin();" autocomplete="off">
+      <input type="password" id="pinInput" maxlength="32" autocomplete="current-password" inputmode="numeric" placeholder="••••••" />
+      <div class="pin-error" id="pinError"></div>
+      <div class="pin-actions">
+        <button type="button" class="pin-cancel" onclick="closePinModal()">Cancel</button>
+        <button type="submit" class="pin-submit">Unlock</button>
+      </div>
+    </form>
   </div>
 </div>
 
