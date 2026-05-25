@@ -39,13 +39,13 @@ def _bot_watchdog():
 
 
 def _self_ping():
-    """Ping /health every 8 minutes to prevent the process from going idle.
-    Render free tier spins down after 15 min of inactivity — 8 min gives a
-    comfortable safety margin.  Works on Render (RENDER_EXTERNAL_URL),
+    """Ping /health every 4 minutes to prevent the process from going idle.
+    Render free tier spins down after 15 min of inactivity — 4 min gives a
+    generous safety margin.  Works on Render (RENDER_EXTERNAL_URL),
     Replit (REPLIT_DEV_DOMAIN), and any custom DASHBOARD_URL, falling back
     to localhost.
     """
-    time.sleep(60)
+    time.sleep(30)
     while True:
         try:
             # Priority: explicit DASHBOARD_URL > Render > Replit > localhost
@@ -69,7 +69,7 @@ def _self_ping():
                     print(f"[KEEPALIVE] /health returned {resp.status}")
         except Exception as e:
             print(f"[KEEPALIVE] Ping failed: {e}")
-        time.sleep(480)  # 8 minutes
+        time.sleep(240)  # 4 minutes
 
 
 _token_present = bool(os.environ.get("DISCORD_TOKEN", "").strip())
