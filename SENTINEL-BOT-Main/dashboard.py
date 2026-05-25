@@ -9,7 +9,12 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 import threading as _threading
 import time as _time_module
-from supabase import create_client, Client as SupabaseClient
+try:
+    from supabase import create_client, Client as SupabaseClient
+except Exception as _supabase_import_err:
+    print(f"⚠️  supabase package import failed ({_supabase_import_err}) — Supabase features disabled")
+    create_client = None
+    SupabaseClient = None
 from werkzeug.middleware.proxy_fix import ProxyFix
 import license_manager as _lm
 
@@ -4663,11 +4668,17 @@ def so_api_global_avatar():
 # ============================================================
 # 🎨 EMBED EDITOR API (shared by SP4RK + Server Official)
 # ============================================================
-import embeds as _embeds_mod
+try:
+    import embeds as _embeds_mod
+except Exception as _embeds_import_err:
+    print(f"⚠️  embeds module import failed ({_embeds_import_err}) — embed editor disabled")
+    _embeds_mod = None
 
 
 def _embeds_for_bot(bot: str, guild_id=None):
     """Return [{key, label, default, override, effective, ...}] for a bot."""
+    if _embeds_mod is None:
+        return []
     items = []
     for entry in _embeds_mod.list_for_bot(bot):
         key = entry["key"]
@@ -4695,6 +4706,8 @@ def api_embeds_list():
 @app.route('/api/embeds', methods=['POST'])
 def api_embeds_save():
     """Save an SP4RK embed override. Body: {key, override:{title,description,color,footer,...}, guild_id?}"""
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
     body = request.get_json(silent=True) or {}
     key = (body.get("key") or "").strip()
     override = body.get("override") or {}
@@ -4716,6 +4729,8 @@ def api_embeds_save():
 @app.route('/api/embeds', methods=['DELETE'])
 def api_embeds_reset():
     """Reset an SP4RK embed override to default. Body: {key, guild_id?}"""
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
     body = request.get_json(silent=True) or {}
     key = (body.get("key") or "").strip()
     gid = body.get("guild_id")
@@ -4730,6 +4745,8 @@ def api_embeds_preview():
     """Preview an embed (rendered with sample placeholders).
     Body: {key, override?, guild_id?}  — override is the unsaved draft.
     Returns the rendered embed as a dict for client-side preview."""
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
     body = request.get_json(silent=True) or {}
     key = (body.get("key") or "").strip()
     if not key:
@@ -4750,6 +4767,8 @@ def so_api_embeds_list():
 
 @app.route('/server-official/api/embeds', methods=['POST'])
 def so_api_embeds_save():
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
     body = request.get_json(silent=True) or {}
     key = (body.get("key") or "").strip()
     override = body.get("override") or {}
@@ -4769,6 +4788,8 @@ def so_api_embeds_save():
 
 @app.route('/server-official/api/embeds', methods=['DELETE'])
 def so_api_embeds_reset():
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
     body = request.get_json(silent=True) or {}
     key = (body.get("key") or "").strip()
     gid = body.get("guild_id")
@@ -4780,6 +4801,8 @@ def so_api_embeds_reset():
 
 @app.route('/server-official/api/embeds/preview', methods=['POST'])
 def so_api_embeds_preview():
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
     body = request.get_json(silent=True) or {}
     key = (body.get("key") or "").strip()
     if not key:
