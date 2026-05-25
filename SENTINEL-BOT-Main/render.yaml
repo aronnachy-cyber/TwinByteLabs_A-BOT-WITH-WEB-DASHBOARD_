@@ -34,6 +34,14 @@ services:
         sync: false
       - key: SMTP_PORT
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
   - type: worker
     name: sentinel-os-bot
     runtime: python

@@ -462,7 +462,7 @@ def _save_guild_configs(data: dict) -> None:
             json.dump(data, f, indent=2)
         os.replace(tmp, _GUILD_CONFIGS_FILE)
 
-_preload_guild_config_cache()
+_threading.Thread(target=_preload_guild_config_cache, daemon=True, name="preload-guild-cfg").start()
 
 # Keys that hold Discord channel/role IDs or other server-specific resource
 # identifiers.  They must NEVER be inherited from the global config dict —
@@ -1187,7 +1187,7 @@ def _preload_action_logs():
     except Exception as _e:
         print(f"[action_logs] preload failed: {_e}")
 
-_preload_action_logs()
+_threading.Thread(target=_preload_action_logs, daemon=True, name="preload-action-logs").start()
 
 def add_dashboard_log(event_type, description, guild_id=None):
     action_logs.insert(0, {
