@@ -1217,15 +1217,26 @@ def get_analytics(guild_id: Optional[str] = None) -> Dict[str, Any]:
 # ============================================================
 TOKEN = os.environ.get("SERVER_TOKEN", "")
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-intents.guilds = True
-intents.invites = True
-intents.reactions = True
-intents.voice_states = True
+intents = discord.Intents.none()
+intents.guilds         = True   # guild/channel/role info
+intents.members        = True   # join / leave / update events
+intents.moderation     = True   # bans/unbans
+intents.invites        = True   # invite tracking
+intents.reactions      = True   # reaction events
+intents.voice_states   = True   # voice session tracking
+intents.messages       = True   # guild message events
+intents.message_content = True  # read message text
+intents.dm_messages    = True   # DM support
 
-bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
+bot = commands.Bot(
+    command_prefix="!",
+    intents=intents,
+    help_command=None,
+    max_messages=50,
+    chunk_guilds_at_startup=False,
+    member_cache_flags=discord.MemberCacheFlags.none(),
+    large_threshold=50,
+)
 
 # In-memory voice session tracking (start timestamps)
 _voice_sessions: Dict[Tuple[int, int], datetime] = {}

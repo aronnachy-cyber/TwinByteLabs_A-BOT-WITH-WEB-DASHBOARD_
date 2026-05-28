@@ -202,8 +202,10 @@ bot = commands.Bot(
     command_prefix=lambda b, m: get_config_for_guild(str(m.guild.id) if m.guild else '0').get('prefix', '!') or '!',
     intents=intents,
     help_command=None,
-    max_messages=100,              # default is 1 000; keep only recent 100
+    max_messages=50,               # keep only 50 recent messages (was 100)
     chunk_guilds_at_startup=False, # don't fetch all members at boot
+    member_cache_flags=discord.MemberCacheFlags.none(), # don't cache members
+    large_threshold=50,            # don't chunk guilds with 50+ members
 )
 
 def dlog(event_type, description, guild_id=None):
@@ -4330,8 +4332,8 @@ async def _birthday_task():
         print(f"[birthday_task] error: {e}")
 
 
-# ── Stat channels update every 10 minutes ─────────────────────────────────────
-@tasks.loop(minutes=10)
+# ── Stat channels update every 20 minutes ─────────────────────────────────────
+@tasks.loop(minutes=20)
 async def _stat_channels_task():
     if not bot.is_ready():
         return
@@ -4341,8 +4343,8 @@ async def _stat_channels_task():
         print(f"[stat_channels_task] error: {e}")
 
 
-# ── Twitch live check every 5 minutes ─────────────────────────────────────────
-@tasks.loop(minutes=5)
+# ── Twitch live check every 15 minutes ────────────────────────────────────────
+@tasks.loop(minutes=15)
 async def _twitch_task():
     if not bot.is_ready():
         return
