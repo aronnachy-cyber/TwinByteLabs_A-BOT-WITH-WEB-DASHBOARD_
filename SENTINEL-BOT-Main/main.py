@@ -4634,6 +4634,24 @@ async def slash_snipe(interaction: discord.Interaction):
     embed.set_footer(text=f"🗑️ Deleted in #{interaction.channel.name}  •  SP4RK Snipe")
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="slowmode", description="Set slowmode delay on this channel. Use 0 to disable.")
+@app_commands.describe(seconds="Delay in seconds (0 = off, max 21600)", channel="Channel to apply (defaults to current)")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def slash_slowmode_cmd(interaction: discord.Interaction, seconds: int, channel: discord.TextChannel = None):
+    if not await _slash_guard_guild(interaction): return
+    if seconds < 0 or seconds > 21600:
+        return await interaction.response.send_message("❌ Seconds must be between 0 and 21600.", ephemeral=True)
+    target = channel or interaction.channel
+    try:
+        await target.edit(slowmode_delay=seconds)
+        label = duration_label(seconds) if seconds else "disabled"
+        dlog("⏱️ SLOWMODE", f"Slowmode set to {seconds}s in #{target.name} by {interaction.user}", guild_id=interaction.guild_id)
+        await interaction.response.send_message(
+            f"{'🐌 **Slowmode set** to ' + label if seconds else '✅ **Slowmode disabled**'} in {target.mention}.", ephemeral=True
+        )
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to edit that channel.", ephemeral=True)
+
 @bot.tree.command(name="purge-reactions", description="Remove all reactions from the last N messages in this channel.")
 @app_commands.describe(amount="Number of messages to clear reactions from (max 100)")
 @app_commands.checks.has_permissions(manage_messages=True)
