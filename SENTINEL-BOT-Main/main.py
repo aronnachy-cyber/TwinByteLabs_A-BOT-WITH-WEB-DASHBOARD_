@@ -10,14 +10,79 @@ import requests
 import aiohttp
 from datetime import datetime, timedelta
 
-from dashboard import (
-    app, config as dash_config, run_dashboard, add_dashboard_log,
-    set_bot_restart_callback, set_bot_config_refresh_callback,
-    supabase_save_warning, supabase_clear_warnings,
-    supabase_save_mod_log, supabase_save_note, supabase_get_notes,
-    supabase_load_all_warnings,
-    get_guild_config as _get_guild_config,
-)
+if os.environ.get("BOT_ONLY"):
+    # ── Bot-only mode: skip 62 MB Flask app — use db_spark directly ───────────
+    import db_spark as _db
+
+    def add_dashboard_log(event_type, description, guild_id=None):
+        try:
+            _db.add_action_log(event_type, description, guild_id or "")
+        except Exception:
+            pass
+
+    def set_bot_restart_callback(cb): pass
+    def set_bot_config_refresh_callback(cb): pass
+    def run_dashboard(*a, **kw): pass
+    app = None
+
+    def supabase_save_warning(guild_id, member_id, username, count, reason, timestamp):
+        try:
+            _db.upsert_warning(str(member_id), username, count, str(guild_id))
+        except Exception:
+            pass
+
+    def supabase_clear_warnings(guild_id, member_id):
+        try:
+            _db.delete_warning(str(member_id), str(guild_id))
+        except Exception:
+            pass
+
+    def supabase_load_all_warnings():
+        try:
+            return _db.get_all_warnings()
+        except Exception:
+            return []
+
+    def supabase_save_mod_log(guild_id, action, target, moderator, reason, timestamp):
+        try:
+            _db.add_mod_log(str(guild_id), action, target, moderator, reason)
+        except Exception:
+            pass
+
+    def supabase_save_note(guild_id, member_id, username, note, moderator, timestamp):
+        try:
+            _db.add_note(str(guild_id), str(member_id), username, note, moderator)
+        except Exception:
+            pass
+
+    def supabase_get_notes(guild_id, member_id):
+        try:
+            return _db.get_notes(str(guild_id), str(member_id))
+        except Exception:
+            return []
+
+    def _get_guild_config(guild_id: str) -> dict:
+        try:
+            cfg = _db.get_one_guild_config(str(guild_id))
+            return cfg if cfg is not None else {}
+        except Exception:
+            return {}
+
+    try:
+        dash_config = _db.get_settings() or {}
+    except Exception:
+        dash_config = {}
+
+else:
+    # ── Combined mode (wsgi.py): dashboard + bot in same process ──────────────
+    from dashboard import (
+        app, config as dash_config, run_dashboard, add_dashboard_log,
+        set_bot_restart_callback, set_bot_config_refresh_callback,
+        supabase_save_warning, supabase_clear_warnings,
+        supabase_save_mod_log, supabase_save_note, supabase_get_notes,
+        supabase_load_all_warnings,
+        get_guild_config as _get_guild_config,
+    )
 import moderation, automod, roles, logs, social, security
 import giveaway as giveaway_mod
 import tickets as tickets_mod
