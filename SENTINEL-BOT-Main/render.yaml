@@ -1,38 +1,34 @@
 services:
   - type: web
-    name: sentinel-os-dashboard
+    name: sentinel-os
     runtime: python
     rootDir: SENTINEL-BOT-Main
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --max-requests 100 --max-requests-jitter 20 wsgi:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --max-requests 200 --max-requests-jitter 30 wsgi:app
     healthCheckPath: /health
     plan: free
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"
+      - key: START_BOT_IN_WEB
+        value: "true"
       - key: FLASK_SECRET_KEY
         sync: false
       - key: SESSION_SECRET
+        sync: false
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: SERVER_TOKEN
         sync: false
       - key: GEMINI_KEY
         sync: false
       - key: DASHBOARD_URL
         sync: false
-      - key: START_BOT_IN_WEB
-        value: "false"
       - key: DISCORD_CLIENT_ID
         sync: false
       - key: DISCORD_CLIENT_SECRET
         sync: false
       - key: DISCORD_REDIRECT_URI
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
         sync: false
       - key: SUPABASE_URL
         sync: false
@@ -42,31 +38,15 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
-  - type: worker
-    name: sentinel-os-bot
-    runtime: python
-    rootDir: SENTINEL-BOT-Main
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot_worker.py
-    plan: starter
-    envVars:
-      - key: PYTHON_VERSION
-        value: "3.11.0"
-      - key: DISCORD_TOKEN
+      - key: SMTP_USER
         sync: false
-      - key: SERVER_TOKEN
+      - key: SMTP_PASS
         sync: false
-      - key: W_TOKEN
+      - key: SMTP_HOST
         sync: false
-      - key: GEMINI_KEY
+      - key: SMTP_PORT
         sync: false
-      - key: FLASK_SECRET_KEY
+      - key: TWITCH_CLIENT_ID
         sync: false
-      - key: SESSION_SECRET
-        sync: false
-      - key: DATABASE_URL
-        sync: false
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_KEY
+      - key: TWITCH_CLIENT_SECRET
         sync: false
