@@ -56,6 +56,8 @@ services:
         sync: false
       - key: SERVER_TOKEN
         sync: false
+      - key: W_TOKEN
+        sync: false
       - key: GEMINI_KEY
         sync: false
       - key: FLASK_SECRET_KEY

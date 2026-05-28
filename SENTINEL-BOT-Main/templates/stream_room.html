@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wave — {{ room.title }}</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root{
+      --bg:#08080f;--bg2:#10101c;--bg3:#18182a;
+      --accent:#f43f5e;--accent2:#fb7185;
+      --text:#e8e8f2;--muted:#7a7a9a;
+      --border:rgba(255,255,255,0.07);
+      --card:rgba(255,255,255,0.04);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;overflow:hidden;}
+    body{background:var(--bg);color:var(--text);
+      font-family:'Inter',system-ui,sans-serif;
+      display:flex;flex-direction:column;}
+
+    /* ── TOP BAR ── */
+    .top-bar{
+      display:flex;align-items:center;gap:10px;
+      padding:0 14px;height:50px;flex-shrink:0;
+      background:var(--bg2);border-bottom:1px solid var(--border);
+    }
+    .wv-logo{display:flex;align-items:center;gap:7px;
+      font-weight:800;font-size:.9rem;color:var(--accent);white-space:nowrap;}
+    .wv-logo i{font-size:1rem;}
+    .room-title{flex:1;font-size:.85rem;font-weight:600;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .status-pill{display:inline-flex;align-items:center;gap:5px;
+      font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:20px;}
+    .status-live{background:rgba(244,63,94,.18);color:var(--accent2);border:1px solid rgba(244,63,94,.3);}
+    .status-wait{background:rgba(250,204,21,.12);color:#fbbf24;border:1px solid rgba(250,204,21,.3);}
+    .viewer-pill{display:inline-flex;align-items:center;gap:5px;
+      font-size:.75rem;color:var(--muted);
+      background:var(--card);border:1px solid var(--border);
+      padding:3px 10px;border-radius:20px;}
+    .viewer-pill .vdot{width:6px;height:6px;border-radius:50%;
+      background:#22c55e;animation:blink 1.5s ease-in-out infinite;}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    .top-btn{display:flex;align-items:center;gap:5px;
+      padding:5px 11px;border-radius:6px;border:none;cursor:pointer;
+      font-size:.75rem;font-weight:600;transition:all .15s;}
+    .top-btn-end{background:rgba(248,113,113,.12);color:#f87171;
+      border:1px solid rgba(248,113,113,.3);}
+    .top-btn-end:hover{background:rgba(248,113,113,.22);}
+
+    /* ── MAIN LAYOUT ── */
+    .main-layout{display:flex;flex:1;min-height:0;}
+
+    /* ── STREAM COLUMN ── */
+    .stream-col{flex:1;min-width:0;display:flex;flex-direction:column;background:#000;}
+
+    .stream-viewport{flex:1;min-height:0;position:relative;overflow:hidden;}
+
+    /* waiting screen */
+    .stream-waiting{
+      position:absolute;inset:0;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:14px;color:var(--muted);background:var(--bg);}
+    .stream-waiting i{font-size:3rem;color:var(--accent);opacity:.4;}
+    .stream-waiting h3{font-size:1.1rem;color:var(--text);}
+    .stream-waiting p{font-size:.82rem;max-width:280px;text-align:center;line-height:1.6;}
+
+    /* stream iframe */
+    #streamIframe{
+      position:absolute;inset:0;width:100%;height:100%;
+      border:none;display:none;}
+
+    /* stream video */
+    #streamVideo{
+      position:absolute;inset:0;width:100%;height:100%;
+      background:#000;display:none;}
+
+    /* ── HOST BAR ── */
+    .host-bar{
+      background:var(--bg2);border-top:1px solid var(--border);
+      padding:7px 12px;flex-shrink:0;
+      display:flex;align-items:center;gap:7px;
+    }
+    .host-label{font-size:.68rem;color:var(--accent);font-weight:800;
+      text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
+    .url-input{
+      flex:1;background:var(--bg3);border:1px solid var(--border);
+      color:var(--text);border-radius:6px;padding:5px 10px;font-size:.8rem;
+      outline:none;transition:border-color .2s;min-width:0;}
+    .url-input:focus{border-color:var(--accent);}
+    .url-input::placeholder{color:var(--muted);}
+    .hb-btn{display:flex;align-items:center;gap:5px;
+      padding:5px 11px;border-radius:6px;border:none;cursor:pointer;
+      font-size:.75rem;font-weight:600;white-space:nowrap;transition:all .15s;}
+    .hb-ghost{background:var(--card);color:var(--text);border:1px solid var(--border);}
+    .hb-ghost:hover{background:var(--bg3);}
+    .hb-scan{background:rgba(139,92,246,.16);color:#c084fc;border:1px solid rgba(139,92,246,.28);}
+    .hb-scan:hover{background:rgba(139,92,246,.26);}
+    .hb-primary{background:var(--accent);color:#fff;}
+    .hb-primary:hover{background:var(--accent2);}
+
+    /* ── MINI BROWSER ── */
+    .mini-browser{
+      background:var(--bg2);border-top:2px solid var(--accent);
+      flex-shrink:0;overflow:hidden;
+      transition:height .22s ease;}
+    .mini-browser.closed{height:0!important;}
+    .mini-toolbar{
+      display:flex;align-items:center;gap:6px;
+      padding:6px 10px;background:var(--bg3);
+      border-bottom:1px solid var(--border);}
+    .mb-nav-btn{
+      width:26px;height:26px;border-radius:5px;flex-shrink:0;
+      background:var(--card);border:1px solid var(--border);
+      color:var(--muted);cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      font-size:.7rem;transition:all .15s;}
+    .mb-nav-btn:hover{background:var(--bg2);color:var(--text);}
+    .mb-url-input{
+      flex:1;background:var(--bg);border:1px solid var(--border);
+      color:var(--text);border-radius:5px;
+      padding:4px 9px;font-size:.78rem;outline:none;min-width:0;}
+    .mb-url-input:focus{border-color:var(--accent);}
+    .mb-iframe-wrap{position:relative;overflow:hidden;height:calc(100% - 42px);}
+    #miniIframe{width:100%;height:100%;border:none;display:block;}
+    .mb-blocked{
+      position:absolute;inset:0;background:var(--bg2);
+      display:none;flex-direction:column;
+      align-items:center;justify-content:center;
+      gap:12px;color:var(--muted);text-align:center;padding:20px;}
+    .mb-blocked.show{display:flex;}
+    .mb-blocked i{font-size:2rem;color:#fbbf24;}
+    .mb-blocked p{font-size:.8rem;max-width:300px;line-height:1.6;}
+
+    /* ── CHAT SIDEBAR ── */
+    .chat-sidebar{
+      width:260px;flex-shrink:0;
+      background:var(--bg2);border-left:1px solid var(--border);
+      display:flex;flex-direction:column;}
+    .chat-hdr{
+      padding:10px 12px;border-bottom:1px solid var(--border);
+      font-size:.72rem;font-weight:700;color:var(--muted);
+      text-transform:uppercase;letter-spacing:.06em;
+      display:flex;align-items:center;justify-content:space-between;}
+    .chat-msgs{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:5px;}
+    .chat-msg{font-size:.78rem;line-height:1.4;padding:5px 8px;
+      border-radius:7px;background:var(--card);border:1px solid var(--border);
+      word-break:break-word;}
+    .msg-name{font-weight:700;color:var(--accent2);font-size:.72rem;margin-right:4px;}
+    .msg-time{color:var(--muted);font-size:.66rem;float:right;margin-left:6px;}
+    .msg-text{color:var(--text);}
+    .viewer-list{padding:6px 10px;border-top:1px solid var(--border);max-height:90px;overflow-y:auto;}
+    .vrow{display:flex;align-items:center;gap:6px;padding:2px 0;
+      font-size:.74rem;color:var(--muted);}
+    .vrow .vdot{width:5px;height:5px;border-radius:50%;background:#22c55e;flex-shrink:0;}
+    .chat-in{padding:7px 8px;border-top:1px solid var(--border);display:flex;gap:5px;}
+    .cn-input,.cm-input{
+      background:var(--bg3);border:1px solid var(--border);
+      color:var(--text);border-radius:5px;
+      padding:5px 7px;font-size:.75rem;outline:none;}
+    .cn-input:focus,.cm-input:focus{border-color:var(--accent);}
+    .cn-input{width:64px;flex-shrink:0;}
+    .cm-input{flex:1;min-width:0;}
+    .cs-btn{background:var(--accent);color:#fff;border:none;
+      border-radius:5px;padding:5px 9px;cursor:pointer;
+      font-size:.75rem;flex-shrink:0;transition:background .15s;}
+    .cs-btn:hover{background:var(--accent2);}
+
+    /* ── SCAN MODAL ── */
+    .modal-wrap{
+      position:fixed;inset:0;background:rgba(0,0,0,.72);
+      backdrop-filter:blur(4px);z-index:999;
+      display:none;align-items:center;justify-content:center;}
+    .modal-wrap.open{display:flex;}
+    .modal-box{
+      background:var(--bg2);border:1px solid var(--border);
+      border-radius:14px;width:460px;max-width:95vw;
+      max-height:82vh;overflow-y:auto;padding:20px;}
+    .modal-ttl{font-size:.95rem;font-weight:700;color:var(--text);
+      margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+    .modal-ttl i{color:var(--accent);}
+    .scan-item{
+      display:flex;align-items:center;gap:10px;
+      padding:9px 11px;border-radius:8px;
+      background:var(--card);border:1px solid var(--border);
+      margin-bottom:7px;cursor:pointer;transition:all .15s;}
+    .scan-item:hover{border-color:var(--accent);background:rgba(244,63,94,.07);}
+    .scan-item-ico{font-size:1.1rem;color:var(--accent);width:24px;text-align:center;flex-shrink:0;}
+    .scan-item-info{flex:1;min-width:0;}
+    .scan-item-title{font-size:.8rem;font-weight:600;color:var(--text);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .scan-item-type{font-size:.68rem;color:var(--muted);text-transform:uppercase;margin-top:1px;}
+    .scan-spinner{text-align:center;padding:28px 0;color:var(--muted);}
+    .scan-spinner i{font-size:1.4rem;color:var(--accent);display:block;margin-bottom:8px;}
+    .modal-cancel{display:block;width:100%;background:var(--card);
+      border:1px solid var(--border);color:var(--muted);border-radius:7px;
+      padding:7px;cursor:pointer;font-size:.8rem;margin-top:10px;transition:all .15s;}
+    .modal-cancel:hover{border-color:var(--accent);color:var(--text);}
+
+    /* scrollbar */
+    ::-webkit-scrollbar{width:4px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.13);border-radius:2px;}
+
+    @media(max-width:520px){
+      .chat-sidebar{width:200px;}
+      .host-bar .hb-ghost{display:none;}
+    }
+    @media(max-width:420px){.chat-sidebar{display:none;}}
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div class="wv-logo"><i class="fas fa-tower-broadcast"></i> Wave</div>
+  <div class="room-title">{{ room.title }}</div>
+  <span id="statusPill" class="status-pill status-wait">
+    <span style="width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7;"></span>
+    Waiting
+  </span>
+  <div class="viewer-pill">
+    <span class="vdot"></span>
+    <span id="vCount">1</span>
+  </div>
+  {% if is_host %}
+  <button class="top-btn top-btn-end" onclick="endSession()">
+    <i class="fas fa-stop"></i> End
+  </button>
+  {% endif %}
+</div>
+
+<!-- MAIN -->
+<div class="main-layout">
+
+  <!-- Stream + host controls -->
+  <div class="stream-col">
+
+    <!-- Viewport -->
+    <div class="stream-viewport">
+      <!-- Waiting -->
+      <div class="stream-waiting" id="streamWaiting">
+        <i class="fas fa-tower-broadcast"></i>
+        <h3>No stream yet</h3>
+        <p>
+          {% if is_host %}
+            Enter a URL below and click <strong>Stream This</strong> to go live.
+          {% else %}
+            Waiting for the host to start the stream…
+          {% endif %}
+        </p>
+      </div>
+      <!-- Page stream -->
+      <iframe id="streamIframe"
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
+              allowfullscreen></iframe>
+      <!-- Video stream -->
+      <video id="streamVideo" controls preload="none"></video>
+    </div>
+
+    <!-- Host bar -->
+    {% if is_host %}
+    <div class="host-bar">
+      <span class="host-label"><i class="fas fa-satellite-dish"></i> Host</span>
+      <input type="url" id="hostUrl" class="url-input"
+             placeholder="https://cricstreams.tv/ or paste any video URL…"
+             value="{{ room.stream_url or '' }}">
+      <button class="hb-btn hb-ghost" onclick="toggleBrowser()">
+        <i class="fas fa-globe"></i> Browse
+      </button>
+      <button class="hb-btn hb-scan" onclick="doScan(false)">
+        <i class="fas fa-magnifying-glass-play"></i> Find Videos
+      </button>
+      <button class="hb-btn hb-primary" onclick="streamHostUrl()">
+        <i class="fas fa-broadcast-tower"></i> Stream This
+      </button>
+    </div>
+
+    <!-- Mini browser panel -->
+    <div class="mini-browser closed" id="miniBrowser" style="height:300px;">
+      <div class="mini-toolbar">
+        <button class="mb-nav-btn" onclick="mbBack()" title="Back"><i class="fas fa-arrow-left"></i></button>
+        <button class="mb-nav-btn" onclick="mbReload()" title="Reload"><i class="fas fa-rotate-right"></i></button>
+        <input type="url" id="mbUrl" class="mb-url-input"
+               placeholder="Type URL and press Enter…"
+               onkeydown="if(event.key==='Enter')mbGo()">
+        <button class="hb-btn hb-ghost" onclick="mbGo()" style="padding:4px 9px;font-size:.72rem;">
+          <i class="fas fa-arrow-right"></i>
+        </button>
+        <button class="hb-btn hb-scan" onclick="doScan(true)" style="padding:4px 9px;font-size:.72rem;">
+          <i class="fas fa-magnifying-glass-play"></i> Find Videos
+        </button>
+        <button class="hb-btn hb-primary" onclick="streamMiniPage()" style="padding:4px 9px;font-size:.72rem;">
+          <i class="fas fa-broadcast-tower"></i> Stream Page
+        </button>
+      </div>
+      <div class="mb-iframe-wrap">
+        <iframe id="miniIframe"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
+                onload="onMbLoad()"></iframe>
+        <div class="mb-blocked" id="mbBlocked">
+          <i class="fas fa-shield-halved"></i>
+          <p>This site blocks preview embedding. Use <strong>Find Videos</strong> to extract streams from it instead.</p>
+          <button class="hb-btn hb-scan" onclick="doScan(true)">
+            <i class="fas fa-magnifying-glass-play"></i> Find Videos
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Chat sidebar -->
+  <div class="chat-sidebar">
+    <div class="chat-hdr">
+      <span><i class="fas fa-comments" style="margin-right:4px;"></i>Chat</span>
+      <span id="vCount2" style="color:var(--text);">1</span>
+    </div>
+    <div class="chat-msgs" id="chatMsgs"></div>
+    <div class="viewer-list" id="viewerList"></div>
+    <div class="chat-in">
+      <input type="text" id="chatName" class="cn-input" placeholder="Name" maxlength="24"
+             value="{{ session.get('user_name','Viewer') if session else 'Viewer' }}">
+      <input type="text" id="chatMsg" class="cm-input" placeholder="Message…" maxlength="200"
+             onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="cs-btn" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+    </div>
+  </div>
+
+</div>
+
+<!-- SCAN MODAL -->
+<div class="modal-wrap" id="scanModal" onclick="if(event.target===this)closeScan()">
+  <div class="modal-box">
+    <div class="modal-ttl"><i class="fas fa-film"></i> Found Streams</div>
+    <div id="scanBody">
+      <div class="scan-spinner"><i class="fas fa-circle-notch fa-spin"></i>Scanning…</div>
+    </div>
+    <button class="modal-cancel" onclick="closeScan()">Cancel</button>
+  </div>
+</div>
+
+<script>
+/* ─── State ──────────────────────────────────────────────── */
+const ROOM_ID    = {{ room_id | tojson }};
+const HOST_TOKEN = {{ host_token | tojson }};
+const IS_HOST    = {{ 'true' if is_host else 'false' }};
+
+let _url    = {{ (room.stream_url or '') | tojson }};
+let _type   = {{ (room.stream_type or 'none') | tojson }};
+let _chatN  = 0;
+let _hls    = null;
+let _mbUrl  = '';
+let _mbOpen = false;
+let _scanResults = [];
+
+/* ─── Polling ────────────────────────────────────────────── */
+async function poll() {
+  try {
+    const d = await fetch(`/api/wave/state/${ROOM_ID}`).then(r => r.json());
+    if (!d.ok) return;
+    const rm = d.room;
+
+    document.getElementById('vCount').textContent  = rm.viewer_count || 1;
+    document.getElementById('vCount2').textContent = rm.viewer_count || 1;
+
+    if ((rm.chat || []).length !== _chatN) {
+      _chatN = (rm.chat || []).length;
+      renderChat(rm.chat || []);
+    }
+    renderViewers(rm.viewers_list || []);
+
+    if (rm.stream_url !== _url || rm.stream_type !== _type) {
+      _url  = rm.stream_url  || '';
+      _type = rm.stream_type || 'none';
+      applyStream(_url, _type, rm.playing, rm.position, rm.position_ts);
+      if (IS_HOST) {
+        const hi = document.getElementById('hostUrl');
+        if (hi) hi.value = _url;
+      }
+    }
+
+    if (!IS_HOST && _type === 'video') syncPos(rm.position, rm.position_ts, rm.playing);
+  } catch(_) {}
+}
+setInterval(poll, 2000);
+poll();
+
+/* ─── Presence ───────────────────────────────────────────── */
+function pingMe() {
+  const name = (document.getElementById('chatName') || {value:'Viewer'}).value.trim() || 'Viewer';
+  fetch(`/api/wave/ping/${ROOM_ID}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name})
+  }).catch(_=>{});
+}
+setInterval(pingMe, 6000);
+pingMe();
+
+/* ─── Stream rendering ───────────────────────────────────── */
+function applyStream(url, type, playing, pos, posTs) {
+  const waiting = document.getElementById('streamWaiting');
+  const iframe  = document.getElementById('streamIframe');
+  const video   = document.getElementById('streamVideo');
+  const pill    = document.getElementById('statusPill');
+
+  if (!url || type === 'none') {
+    waiting.style.display = '';
+    iframe.style.display  = 'none';
+    video.style.display   = 'none';
+    if (_hls) { _hls.destroy(); _hls = null; }
+    pill.className = 'status-pill status-wait';
+    pill.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7;"></span> Waiting';
+    return;
+  }
+
+  pill.className = 'status-pill status-live';
+  pill.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1s infinite;"></span> LIVE';
+
+  if (type === 'iframe') {
+    waiting.style.display = 'none';
+    video.style.display   = 'none';
+    if (_hls) { _hls.destroy(); _hls = null; }
+    iframe.style.display  = 'block';
+    if (iframe.src !== url) iframe.src = url;
+
+  } else if (type === 'video') {
+    waiting.style.display = 'none';
+    iframe.style.display  = 'none';
+    video.style.display   = 'block';
+    loadVideo(url, playing, pos, posTs);
+  }
+}
+
+function loadVideo(url, playing, pos, posTs) {
+  const v = document.getElementById('streamVideo');
+  if (_hls) { _hls.destroy(); _hls = null; }
+  const isHls = url.includes('.m3u8') || url.includes('m3u8');
+
+  if (isHls && typeof Hls !== 'undefined' && Hls.isSupported()) {
+    _hls = new Hls({ enableWorker: false });
+    _hls.loadSource(url);
+    _hls.attachMedia(v);
+    _hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      if (pos) v.currentTime = pos;
+      if (playing) v.play().catch(_=>{});
+    });
+  } else if (isHls && v.canPlayType('application/vnd.apple.mpegurl')) {
+    v.src = url; v.load();
+    v.addEventListener('loadedmetadata', () => {
+      if (pos) v.currentTime = pos;
+      if (playing) v.play().catch(_=>{});
+    }, {once:true});
+  } else {
+    if (v.src !== url) { v.src = url; v.load(); }
+    if (pos) v.currentTime = pos;
+    if (playing) v.play().catch(_=>{});
+  }
+}
+
+function syncPos(pos, posTs, playing) {
+  const v = document.getElementById('streamVideo');
+  if (!v || v.style.display === 'none') return;
+  const lag    = (Date.now() / 1000) - (posTs || 0);
+  const target = (pos || 0) + (playing ? lag : 0);
+  if (Math.abs(v.currentTime - target) > 3) v.currentTime = target;
+  if (playing  && v.paused)  v.play().catch(_=>{});
+  if (!playing && !v.paused) v.pause();
+}
+
+/* ─── Host: sync video state ─────────────────────────────── */
+if (IS_HOST) {
+  const v = document.getElementById('streamVideo');
+  function hostSync() {
+    if (_type !== 'video') return;
+    fetch(`/api/wave/control/${ROOM_ID}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        host_token: HOST_TOKEN,
+        action: v.paused ? 'pause' : 'play',
+        position: v.currentTime
+      })
+    }).catch(_=>{});
+  }
+  v.addEventListener('play',  hostSync);
+  v.addEventListener('pause', hostSync);
+  v.addEventListener('seeked', hostSync);
+  setInterval(() => { if (_type === 'video') hostSync(); }, 5000);
+}
+
+/* ─── Chat ────────────────────────────────────────────────── */
+function renderChat(msgs) {
+  const box = document.getElementById('chatMsgs');
+  const atBot = box.scrollHeight - box.scrollTop <= box.clientHeight + 40;
+  box.innerHTML = msgs.map(m =>
+    `<div class="chat-msg">
+      <span class="msg-name">${esc(m.name)}</span>
+      <span class="msg-time">${esc(m.ts)}</span>
+      <div class="msg-text">${esc(m.text)}</div>
+    </div>`
+  ).join('');
+  if (atBot) box.scrollTop = box.scrollHeight;
+}
+
+function renderViewers(list) {
+  document.getElementById('viewerList').innerHTML = list.length
+    ? list.map(v => `<div class="vrow"><span class="vdot"></span>${esc(v.name)}</div>`).join('')
+    : '';
+}
+
+function sendChat() {
+  const name = document.getElementById('chatName').value.trim().slice(0,24) || 'Viewer';
+  const text = document.getElementById('chatMsg').value.trim();
+  if (!text) return;
+  document.getElementById('chatMsg').value = '';
+  fetch(`/api/wave/chat/${ROOM_ID}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name, text})
+  }).then(()=>poll()).catch(_=>{});
+}
+
+/* ─── Host: set stream ───────────────────────────────────── */
+function streamHostUrl() {
+  let url = (document.getElementById('hostUrl').value || '').trim();
+  if (!url) { alert('Enter a URL to stream.'); return; }
+  if (!url.startsWith('http')) url = 'https://' + url;
+  setStream(url, 'iframe');
+}
+
+function streamMiniPage() {
+  const url = (document.getElementById('mbUrl').value || _mbUrl || '').trim();
+  if (!url) { alert('Navigate to a page first.'); return; }
+  const hi = document.getElementById('hostUrl');
+  if (hi) hi.value = url;
+  setStream(url, 'iframe');
+}
+
+function setStream(url, type) {
+  fetch(`/api/wave/set-stream/${ROOM_ID}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({host_token: HOST_TOKEN, url, type})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) { _url = url; _type = type; applyStream(url, type, false, 0, Date.now()/1000); }
+    else alert('Error: ' + (d.error || 'Unknown'));
+  })
+  .catch(() => alert('Network error'));
+}
+
+/* ─── Mini browser ───────────────────────────────────────── */
+function toggleBrowser() {
+  _mbOpen = !_mbOpen;
+  const p = document.getElementById('miniBrowser');
+  p.classList.toggle('closed', !_mbOpen);
+}
+
+function mbGo() {
+  let url = (document.getElementById('mbUrl').value || '').trim();
+  if (!url) return;
+  if (!url.startsWith('http')) url = 'https://' + url;
+  document.getElementById('mbUrl').value = url;
+  _mbUrl = url;
+  document.getElementById('mbBlocked').classList.remove('show');
+  document.getElementById('miniIframe').src = url;
+}
+
+function mbBack() {
+  try { document.getElementById('miniIframe').contentWindow.history.back(); } catch(_) {}
+}
+function mbReload() {
+  const f = document.getElementById('miniIframe');
+  try { f.contentWindow.location.reload(); } catch(_) { f.src = f.src; }
+}
+
+function onMbLoad() {
+  const f = document.getElementById('miniIframe');
+  try {
+    const loc = f.contentWindow.location.href;
+    if (loc && loc !== 'about:blank') {
+      _mbUrl = loc;
+      document.getElementById('mbUrl').value = loc;
+    }
+    document.getElementById('mbBlocked').classList.remove('show');
+  } catch(_) {
+    // cross-origin block
+    document.getElementById('mbBlocked').classList.add('show');
+  }
+}
+
+/* ─── Video scan ─────────────────────────────────────────── */
+function doScan(fromMini) {
+  let url = fromMini
+    ? (document.getElementById('mbUrl').value || _mbUrl || '').trim()
+    : (document.getElementById('hostUrl').value || '').trim();
+  if (!url) { alert('Enter or browse to a URL first.'); return; }
+  if (!url.startsWith('http')) url = 'https://' + url;
+
+  document.getElementById('scanBody').innerHTML =
+    `<div class="scan-spinner"><i class="fas fa-circle-notch fa-spin"></i>Scanning <strong>${esc(url)}</strong>…</div>`;
+  document.getElementById('scanModal').classList.add('open');
+
+  fetch('/api/wave/scan', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({url})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (!d.ok || !d.results?.length) {
+      document.getElementById('scanBody').innerHTML =
+        `<div class="scan-spinner"><i class="fas fa-circle-exclamation" style="color:#fbbf24;"></i>No streams found. Try a direct video URL.</div>`;
+      return;
+    }
+    _scanResults = d.results;
+    const ico = t => ({m3u8:'signal',live:'satellite-dish',mp4:'film',video:'film',youtube:'brands fa-youtube'}[t]||'play');
+    document.getElementById('scanBody').innerHTML = d.results.map((r,i) =>
+      `<div class="scan-item" onclick="pickStream(${i})">
+        <div class="scan-item-ico"><i class="fas fa-${ico(r.type)}"></i></div>
+        <div class="scan-item-info">
+          <div class="scan-item-title">${esc(r.title || 'Stream ' + (i+1))}</div>
+          <div class="scan-item-type">${esc(r.type || 'video')}</div>
+        </div>
+        <i class="fas fa-play" style="color:var(--accent);font-size:.75rem;"></i>
+      </div>`
+    ).join('');
+  })
+  .catch(() => {
+    document.getElementById('scanBody').innerHTML =
+      `<div class="scan-spinner"><i class="fas fa-triangle-exclamation" style="color:#f87171;"></i>Scan failed.</div>`;
+  });
+}
+
+function pickStream(i) {
+  const r = _scanResults[i];
+  if (!r) return;
+  closeScan();
+  const type = (r.url.includes('.m3u8') || r.url.endsWith('.mp4') || r.url.endsWith('.webm'))
+    ? 'video' : 'iframe';
+  const hi = document.getElementById('hostUrl');
+  if (hi) hi.value = r.url;
+  setStream(r.url, type);
+}
+
+function closeScan() { document.getElementById('scanModal').classList.remove('open'); }
+
+/* ─── End session ────────────────────────────────────────── */
+function endSession() {
+  if (!confirm('End this stream for all viewers?')) return;
+  fetch(`/api/wave/end/${ROOM_ID}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({host_token: HOST_TOKEN})
+  }).then(() => { window.location.href = '/wave'; }).catch(_=>{});
+}
+
+/* ─── Escape helper ──────────────────────────────────────── */
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* initial render */
+if (_url && _type !== 'none') applyStream(_url, _type, false, 0, Date.now()/1000);
+</script>
+</body>
+</html>
