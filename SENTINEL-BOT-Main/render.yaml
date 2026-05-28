@@ -18,8 +18,16 @@ services:
         sync: false
       - key: DASHBOARD_URL
         sync: false
+      # Set to "true" on free tier to run the bot inside the web dyno
       - key: START_BOT_IN_WEB
         value: "false"
+      # Bot tokens (needed when START_BOT_IN_WEB=true on free tier)
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: SERVER_TOKEN
+        sync: false
+      - key: W_TOKEN
+        sync: false
       - key: DISCORD_CLIENT_ID
         sync: false
       - key: DISCORD_CLIENT_SECRET
@@ -42,6 +50,11 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
+
   - type: worker
     name: sentinel-os-bot
     runtime: python
@@ -69,4 +82,8 @@ services:
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
+        sync: false
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
         sync: false
