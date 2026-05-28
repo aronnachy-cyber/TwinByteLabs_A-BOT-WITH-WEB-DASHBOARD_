@@ -186,11 +186,21 @@ GEMINI_KEY    = os.environ.get("GEMINI_KEY", "") or os.environ.get("GOOGLE_API_K
 _PORT         = int(os.environ.get("PORT", 5000))
 DASHBOARD_URL = f"http://127.0.0.1:{_PORT}"
 
-intents = discord.Intents.all()
+intents = discord.Intents.none()
+intents.guilds          = True   # guild info, roles, channels
+intents.members         = True   # join / leave / update events
+intents.moderation      = True   # ban / unban events
+intents.reactions       = True   # reaction add/remove (raw handlers)
+intents.voice_states    = True   # voice channel tracking
+intents.messages        = True   # message events in guilds
+intents.message_content = True   # read message text for automod/AI
+intents.dm_messages     = True   # DM commands / warnings
 bot = commands.Bot(
     command_prefix=lambda b, m: get_config_for_guild(str(m.guild.id) if m.guild else '0').get('prefix', '!') or '!',
     intents=intents,
-    help_command=None
+    help_command=None,
+    max_messages=100,              # default is 1 000; keep only recent 100
+    chunk_guilds_at_startup=False, # don't fetch all members at boot
 )
 
 def dlog(event_type, description, guild_id=None):

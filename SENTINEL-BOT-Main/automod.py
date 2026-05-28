@@ -39,8 +39,42 @@ _LEET = {'@': 'a', '0': 'o', '1': 'i', '3': 'e', '$': 's',
          '4': 'a', '5': 's', '!': 'i', '+': 't', '7': 't', '9': 'g', '*': ''}
 
 # --- Per-user spam tracking: {guild_id: {user_id: deque of timestamps}} ---
-_spam_tracker     = defaultdict(lambda: defaultdict(deque))
-_duplicate_cache  = defaultdict(lambda: defaultdict(str))   # last message per user
+# Caps prevent unbounded memory growth on busy servers.
+_MAX_TRACKED_GUILDS = 200
+_MAX_TRACKED_USERS  = 300
+
+def _make_spam_tracker():
+    return defaultdict(deque)
+
+def _make_dup_tracker():
+    return defaultdict(str)
+
+_spam_tracker    = {}   # guild_id -> {user_id -> deque}
+_duplicate_cache = {}   # guild_id -> {user_id -> last_msg}
+
+def _get_spam_guild(guild_id):
+    if guild_id not in _spam_tracker:
+        if len(_spam_tracker) >= _MAX_TRACKED_GUILDS:
+            oldest = next(iter(_spam_tracker))
+            del _spam_tracker[oldest]
+        _spam_tracker[guild_id] = _make_spam_tracker()
+    g = _spam_tracker[guild_id]
+    if len(g) > _MAX_TRACKED_USERS:
+        oldest_user = next(iter(g))
+        del g[oldest_user]
+    return g
+
+def _get_dup_guild(guild_id):
+    if guild_id not in _duplicate_cache:
+        if len(_duplicate_cache) >= _MAX_TRACKED_GUILDS:
+            oldest = next(iter(_duplicate_cache))
+            del _duplicate_cache[oldest]
+        _duplicate_cache[guild_id] = _make_dup_tracker()
+    g = _duplicate_cache[guild_id]
+    if len(g) > _MAX_TRACKED_USERS:
+        oldest_user = next(iter(g))
+        del g[oldest_user]
+    return g
 
 def _normalize(text):
     t = unicodedata.normalize("NFKC", text).lower()
@@ -462,7 +496,7 @@ async def check_spam(message, config):
     user_id   = message.author.id
     now       = time.time()
 
-    q = _spam_tracker[guild_id][user_id]
+    q = _get_spam_guild(guild_id)[user_id]
     q.append(now)
     while q and now - q[0] > window:
         q.popleft()
@@ -499,8 +533,9 @@ async def check_duplicate(message, config):
         return False
     guild_id = message.guild.id
     user_id  = message.author.id
-    last     = _duplicate_cache[guild_id][user_id]
-    _duplicate_cache[guild_id][user_id] = content
+    g    = _get_dup_guild(guild_id)
+    last = g[user_id]
+    g[user_id] = content
     return last == content
 
 async def check_wall_of_text(message, config):
@@ -620,7 +655,7 @@ async def handle_message(message, config, add_warning_fn=None):
     guild_id = message.guild.id
     user_id  = author.id
     now      = time.time()
-    q = _spam_tracker[guild_id][user_id]
+    q = _get_spam_guild(guild_id)[user_id]
     q.append(now)
     while q and now - q[0] > RATE_LIMIT_WINDOW:
         q.popleft()
