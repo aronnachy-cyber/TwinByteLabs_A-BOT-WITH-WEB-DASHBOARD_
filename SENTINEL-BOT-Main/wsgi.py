@@ -1,7 +1,6 @@
 import threading
 import time
 import os
-import gc
 import urllib.request
 from dashboard import app, set_bot_restart_callback, set_bot_config_refresh_callback
 
@@ -124,17 +123,3 @@ elif not _wave_token_present:
 
 
 threading.Thread(target=_self_ping, daemon=True, name="self-keepalive").start()
-
-
-def _gc_worker():
-    """Force a full garbage collection every 5 minutes to reclaim unreferenced objects."""
-    while True:
-        time.sleep(300)
-        try:
-            collected = gc.collect()
-            if collected:
-                print(f"[GC] Collected {collected} objects")
-        except Exception:
-            pass
-
-threading.Thread(target=_gc_worker, daemon=True, name="gc-worker").start()

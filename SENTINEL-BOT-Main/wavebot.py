@@ -26,16 +26,8 @@ def _write_cfg(data: dict):
     tmp.replace(W_CONFIG)
 
 
-intents = discord.Intents.none()
-intents.guilds          = True   # guild/channel info for slash commands
-intents.guild_messages  = True   # message events (announcements)
-_client = discord.Client(
-    intents=intents,
-    max_messages=50,
-    chunk_guilds_at_startup=False,
-    member_cache_flags=discord.MemberCacheFlags.none(),
-    large_threshold=50,
-)
+intents = discord.Intents.default()
+_client = discord.Client(intents=intents)
 _tree = app_commands.CommandTree(_client)
 
 
