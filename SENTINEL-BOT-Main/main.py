@@ -29,6 +29,9 @@ import leveling as leveling_mod
 import starboard as starboard_mod
 import levelup_card as levelup_card_mod
 import weird_features as weird_mod
+import birthday as birthday_mod
+import boost as boost_mod
+import stat_channels as stat_channels_mod
 
 BOT_START_TIME = datetime.utcnow()
 
@@ -1870,6 +1873,12 @@ async def ar_list(interaction: discord.Interaction):
 
 bot.tree.add_command(autorespond_group)
 
+# Register MEE6-inspired feature commands
+bot.tree.add_command(birthday_mod.birthday_group)
+bot.tree.add_command(boost_mod.boost_group)
+bot.tree.add_command(stat_channels_mod.stats_group)
+bot.tree.add_command(social.twitch_group)
+
 # Register all weird/chaos feature commands
 try:
     weird_mod.setup(bot)
@@ -1906,6 +1915,12 @@ async def on_ready():
     daily_report_task.start()
     if not _reminder_tick.is_running():
         _reminder_tick.start()
+    if not _birthday_task.is_running():
+        _birthday_task.start()
+    if not _stat_channels_task.is_running():
+        _stat_channels_task.start()
+    if not _twitch_task.is_running():
+        _twitch_task.start()
     # Re-schedule any giveaways that were active when the bot was last restarted.
     # Without this, giveaway timers are lost on every restart and "active" giveaways
     # never roll over into "completed".
@@ -2028,6 +2043,11 @@ async def on_member_update(before, after):
         await security.check_security_2fa(bot, after.guild, gcfg, log_callback=dlog)
     except Exception as _e:
         print(f"[2FA] member_update check error: {_e}")
+    # Boost announcement + booster role
+    try:
+        await boost_mod.handle_boost_update(before, after)
+    except Exception as _be:
+        print(f"[boost] update error: {_be}")
 
 @bot.event
 async def on_member_ban(guild, user):
@@ -4291,6 +4311,47 @@ def _save_reminders(items: list) -> None:
     except Exception:
         pass
 
+# ── Birthday daily task (fires at 08:00 UTC) ─────────────────────────────────
+_birthday_last_day: int = -1
+
+@tasks.loop(minutes=30)
+async def _birthday_task():
+    if not bot.is_ready():
+        return
+    try:
+        from datetime import timezone as _tz
+        now = datetime.now(_tz.utc)
+        global _birthday_last_day
+        if now.hour >= 8 and _birthday_last_day != now.day:
+            _birthday_last_day = now.day
+            await birthday_mod.run_daily_birthdays(bot)
+            await birthday_mod.remove_expired_birthday_roles(bot)
+    except Exception as e:
+        print(f"[birthday_task] error: {e}")
+
+
+# ── Stat channels update every 10 minutes ─────────────────────────────────────
+@tasks.loop(minutes=10)
+async def _stat_channels_task():
+    if not bot.is_ready():
+        return
+    try:
+        await stat_channels_mod.update_all_stat_channels(bot)
+    except Exception as e:
+        print(f"[stat_channels_task] error: {e}")
+
+
+# ── Twitch live check every 5 minutes ─────────────────────────────────────────
+@tasks.loop(minutes=5)
+async def _twitch_task():
+    if not bot.is_ready():
+        return
+    try:
+        await social.check_twitch_alerts(bot)
+    except Exception as e:
+        print(f"[twitch_task] error: {e}")
+
+
 @tasks.loop(seconds=20)
 async def _reminder_tick():
     if not bot.is_ready():
@@ -4347,6 +4408,39 @@ async def slash_remind(interaction: discord.Interaction, when: str, reminder: st
         f"⏰ **Reminder set!** I'll remind you <t:{int(due.timestamp())}:R>.",
         ephemeral=True,
     )
+
+
+# ---- Slowmode ----
+@bot.tree.command(name="slowmode", description="Set channel slowmode delay (0 = off, max 21600 seconds)")
+@app_commands.describe(seconds="Slowmode delay in seconds (0 to disable, max 21600)")
+async def slash_slowmode(interaction: discord.Interaction, seconds: int):
+    if not await _slash_guard_guild(interaction):
+        return
+    if not _is_bot_mod(interaction):
+        return await interaction.response.send_message(
+            "❌ **Access Denied** — You need a Moderator role or Manage Messages permission.", ephemeral=True
+        )
+    if not 0 <= seconds <= 21600:
+        return await interaction.response.send_message(
+            "❌ Slowmode must be between **0** (off) and **21600** seconds (6 hours).", ephemeral=True
+        )
+    try:
+        await interaction.channel.edit(slowmode_delay=seconds, reason=f"Slowmode set by {interaction.user}")
+    except discord.Forbidden:
+        return await interaction.response.send_message("❌ I don't have permission to edit this channel.", ephemeral=True)
+    except Exception as e:
+        return await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+    if seconds == 0:
+        msg = f"✅ Slowmode **disabled** in {interaction.channel.mention}."
+    elif seconds < 60:
+        msg = f"🐌 Slowmode set to **{seconds} second(s)** in {interaction.channel.mention}."
+    elif seconds < 3600:
+        msg = f"🐌 Slowmode set to **{seconds // 60} minute(s)** in {interaction.channel.mention}."
+    else:
+        msg = f"🐌 Slowmode set to **{seconds // 3600} hour(s)** in {interaction.channel.mention}."
+    await interaction.response.send_message(msg)
+    dlog("🐌 SLOWMODE", f"{interaction.user} set slowmode to {seconds}s in #{interaction.channel.name}", guild_id=interaction.guild_id)
 
 
 # ---- Setprefix ----
