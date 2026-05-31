@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: sentinel-os-dashboard
+    name: sentinel-os
     runtime: python
     rootDir: SENTINEL-BOT-Main
     buildCommand: pip install -r requirements.txt
@@ -10,18 +10,12 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"
+      - key: START_BOT_IN_WEB
+        value: "true"
       - key: FLASK_SECRET_KEY
         sync: false
       - key: SESSION_SECRET
         sync: false
-      - key: GEMINI_KEY
-        sync: false
-      - key: DASHBOARD_URL
-        sync: false
-      # Run the bot inside the web dyno (free tier compatible)
-      - key: START_BOT_IN_WEB
-        value: "true"
-      # Bot tokens (needed when START_BOT_IN_WEB=true on free tier)
       - key: DISCORD_TOKEN
         sync: false
       - key: SERVER_TOKEN
@@ -34,13 +28,9 @@ services:
         sync: false
       - key: DISCORD_REDIRECT_URI
         sync: false
-      - key: SMTP_USER
+      - key: GEMINI_KEY
         sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
+      - key: DASHBOARD_URL
         sync: false
       - key: SUPABASE_URL
         sync: false
@@ -50,38 +40,13 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
-      - key: TWITCH_CLIENT_ID
+      - key: SMTP_USER
         sync: false
-      - key: TWITCH_CLIENT_SECRET
+      - key: SMTP_PASS
         sync: false
-
-  - type: worker
-    name: sentinel-os-bot
-    runtime: python
-    rootDir: SENTINEL-BOT-Main
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot_worker.py
-    plan: starter
-    envVars:
-      - key: PYTHON_VERSION
-        value: "3.11.0"
-      - key: DISCORD_TOKEN
+      - key: SMTP_HOST
         sync: false
-      - key: SERVER_TOKEN
-        sync: false
-      - key: W_TOKEN
-        sync: false
-      - key: GEMINI_KEY
-        sync: false
-      - key: FLASK_SECRET_KEY
-        sync: false
-      - key: SESSION_SECRET
-        sync: false
-      - key: DATABASE_URL
-        sync: false
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_KEY
+      - key: SMTP_PORT
         sync: false
       - key: TWITCH_CLIENT_ID
         sync: false
