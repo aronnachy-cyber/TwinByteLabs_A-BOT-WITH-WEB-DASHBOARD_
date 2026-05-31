@@ -39,23 +39,13 @@ def _bot_watchdog():
 
 
 def _self_ping():
-    """Ping /health every 4 minutes to prevent the process from going idle.
-    Render free tier spins down after 15 min of inactivity — 4 min gives a
-    generous safety margin.  Works on Render (RENDER_EXTERNAL_URL),
-    Replit (REPLIT_DEV_DOMAIN), and any custom DASHBOARD_URL, falling back
-    to localhost.
-    """
+    """Ping /health every 4 minutes to prevent the process from going idle."""
     time.sleep(30)
     while True:
         try:
-            # Priority: explicit DASHBOARD_URL > Render > Replit > localhost
-            # Note: RENDER_EXTERNAL_URL already contains the full URL with
-            # protocol (e.g. https://myapp.onrender.com) — do NOT prepend https://
-            _render_url = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
             _replit_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
             base = (
                 os.environ.get("DASHBOARD_URL", "").rstrip("/")
-                or _render_url
                 or (f"https://{_replit_domain}" if _replit_domain else "")
             )
             if not base:
@@ -69,7 +59,7 @@ def _self_ping():
                     print(f"[KEEPALIVE] /health returned {resp.status}")
         except Exception as e:
             print(f"[KEEPALIVE] Ping failed: {e}")
-        time.sleep(240)  # 4 minutes
+        time.sleep(240)
 
 
 _token_present = bool(os.environ.get("DISCORD_TOKEN", "").strip())
@@ -80,46 +70,7 @@ if _token_present and not _disabled:
     threading.Thread(target=_bot_watchdog, daemon=True, name="bot-watchdog").start()
 elif not _token_present:
     print("[WSGI] DISCORD_TOKEN not set — Discord bot will not start. "
-          "Giveaways, autoresponder, reaction roles, and tickets need the bot running.")
-
-
-def _start_server_official():
-    try:
-        import server_official
-        server_official.start_bot_thread()
-        print("[WSGI] Server Official bot thread started.")
-    except Exception as e:
-        import traceback
-        print(f"[WSGI] Server Official start error: {e}")
-        traceback.print_exc()
-
-
-_server_token_present = bool(os.environ.get("SERVER_TOKEN", "").strip())
-if _server_token_present and not _disabled:
-    threading.Thread(target=_start_server_official, daemon=True).start()
-elif not _server_token_present:
-    print("[WSGI] SERVER_TOKEN not set — Server Official bot will not start. "
-          "Set SERVER_TOKEN to a Discord bot token to enable scheduled announcements, giveaways, "
-          "invite tracking and stats.")
-
-
-def _start_wave():
-    try:
-        import wavebot as wave_bot
-        wave_bot.start_bot_thread()
-        print("[WSGI] Wave bot thread started.")
-    except Exception as e:
-        import traceback
-        print(f"[WSGI] Wave start error: {e}")
-        traceback.print_exc()
-
-
-_wave_token_present = bool(os.environ.get("W_TOKEN", "").strip())
-if _wave_token_present and not _disabled:
-    threading.Thread(target=_start_wave, daemon=True).start()
-elif not _wave_token_present:
-    print("[WSGI] W_TOKEN not set — Wave streaming bot will not start. "
-          "Set W_TOKEN to a Discord bot token to enable watch party commands.")
+          "Set DISCORD_TOKEN in Secrets to enable the bot.")
 
 
 threading.Thread(target=_self_ping, daemon=True, name="self-keepalive").start()

@@ -18,20 +18,7 @@ from dashboard import (
     supabase_load_all_warnings,
     get_guild_config as _get_guild_config,
 )
-import moderation, automod, roles, logs, social, security
-import giveaway as giveaway_mod
-import tickets as tickets_mod
-import autoresponder as autoresponder_mod
-import mention_reactions as mention_reactions_mod
-import reaction_roles as rr_mod
-import server_template as template_mod
-import leveling as leveling_mod
-import starboard as starboard_mod
-import levelup_card as levelup_card_mod
-import weird_features as weird_mod
-import birthday as birthday_mod
-import boost as boost_mod
-import stat_channels as stat_channels_mod
+import moderation, automod, roles, logs, security
 
 BOT_START_TIME = datetime.utcnow()
 
@@ -731,7 +718,7 @@ def build_help_embed(prefix):
             f"**Prefix:** `{prefix}`  ·  **Version:** V2.5.0\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
             f"All slash commands also work via Discord's `/` menu.\n"
-            f"Covers moderation, utilities, tickets, giveaways, and server management.\n"
+            f"Covers moderation, safety, automod, and server security.\n"
             f"━━━━━━━━━━━━━━━━━━━━━━"
         ),
         color=0x4f8ef7,
@@ -784,43 +771,13 @@ def build_help_embed(prefix):
         "`/banner @user` — profile banner\n"
         "`/roleinfo @role` — role details"
     ))
-    embed.add_field(name="🎉 Giveaways & Tickets", inline=False, value=(
-        "`/giveaway <duration> <prize>` — start giveaway\n"
-        "`/giveaway-end <message_id>` — end giveaway\n"
-        "`/giveaway-reroll <message_id>` — reroll winner\n"
-        "`/poll <question> <options>` — reaction poll\n"
-        "`/ticket [reason]` — open support ticket\n"
-        "`/ticket-close` — close ticket"
+    embed.add_field(name="🛡️ Security", inline=False, value=(
+        "`/security` — configure 2FA enforcement, anti-raid, role monitor,\n"
+        "mass-ban prevention, and temp-lockdown thresholds"
     ))
-    embed.add_field(name="🎭 Reaction Roles", inline=False, value=(
-        "`/setup-reaction-role <message_id> <emoji> <role>` — add\n"
-        "`/remove-reaction-role <message_id> <emoji>` — remove\n"
-        "`/list-reaction-roles` — list all in this server"
-    ))
-    embed.add_field(name="🗣️ Auto-Responder", inline=False, value=(
-        "`/autorespond add <trigger> <response> [match]` — new rule\n"
-        "`/autorespond remove <trigger>` — remove rule\n"
-        "`/autorespond list` — list all rules"
-    ))
-    embed.add_field(name="🤖 Custom Commands (AI)", inline=False, value=(
-        f"Define `!trigger` commands from the dashboard. The bot reads your "
-        f"reference text, runs it through Gemini and posts a polished reply.\n"
-        f"Trigger any one with `!<trigger>` in chat."
-    ))
-    embed.add_field(name="🏷️ Tags (Dyno/Carl-bot style)", inline=False, value=(
-        "`/tag show <name>` — show a tag  (or `!tag <name>`)\n"
-        "`/tag create <name> <content>` — create a snippet\n"
-        "`/tag edit | delete | list | info`"
-    ))
-    embed.add_field(name="🔔 Quality of Life", inline=False, value=(
-        "`/afk [reason]` — bot replies when you're mentioned\n"
-        "`/highlight add <keyword>` — DM you when keyword appears\n"
-        "`/highlight remove | list | clear`"
-    ))
-    embed.add_field(name="🧬 Server Templates", inline=False, value=(
-        "`/copy` — snapshot this server's structure into a template\n"
-        "`/paste <template>` — recreate a copied template here\n"
-        "`/delete-template` — remove channels/roles added by `/paste`"
+    embed.add_field(name="🔔 Reminders", inline=False, value=(
+        "`/remind <duration> <message>` — get a DM reminder\n"
+        "Supports: `30s`, `5m`, `2h`, `1d`, etc."
     ))
     embed.add_field(name="🤖 Bot / Setup", inline=False, value=(
         f"`{prefix}refresh` — reload dashboard config\n"
@@ -939,50 +896,30 @@ def _build_manual_pages() -> list:
             ), False),
         ]
     ))
-    # ── Page 4: Features ──────────────────────────────────────────────────
+    # ── Page 4: Security & AutoMod Setup ─────────────────────────────────
     pages.append(page(
-        "🎉 Features",
-        "XP leveling, giveaways, polls, tickets, reaction roles, auto-responder, and server templates.",
+        "🛡️ Security & AutoMod Setup",
+        "Server security hardening and automated moderation configuration.",
         [
-            ("XP & Leveling", (
-                "`/rank [@member]` — View XP rank card\n"
-                "`/leaderboard` — Top 10 XP leaderboard\n"
-                "Configure XP rates and role rewards in the **dashboard**"
+            ("Security", (
+                "`/security 2fa` — Enforce 2FA for admin roles\n"
+                "`/security role-monitor` — Alert on suspicious role changes\n"
+                "`/security anti-raid` — Enable anti-raid join protection\n"
+                "`/security mass-ban-prevent` — Block mass bans\n"
+                "`/security temp-lockdown` — Auto-lock server on raid trigger"
             ), False),
-            ("Giveaways & Polls", (
-                "`/giveaway <duration> <prize> [winners]` — Start a giveaway\n"
-                "`/giveaway-end <msg_id>` — End early\n"
-                "`/giveaway-reroll <msg_id>` — Reroll winner\n"
-                "`/poll <question> <opt1> <opt2> [opt3] [opt4]` — Reaction poll"
-            ), False),
-            ("Tickets", (
-                "`/ticket [reason]` — Open a support ticket\n"
-                "`/ticket-close` — Close this ticket\n"
-                "`/ticket-panel #channel [...]` — Post a custom Open Ticket button"
-            ), False),
-            ("Reaction Roles", (
-                "`/setup-reaction-role <msg_id> <emoji> @role` — Simple reaction role\n"
-                "`/remove-reaction-role <msg_id> <emoji>` — Remove a rule\n"
-                "`/list-reaction-roles` — Show all active rules\n"
-                "For panel-style RR (buttons/dropdowns) → see **Page 6**"
-            ), False),
-            ("Auto-Responder", (
-                "`/autorespond add <trigger> <reply> [match]` — Add a rule\n"
-                "`/autorespond remove <trigger>` — Delete a rule\n"
-                "`/autorespond list` — Show all rules\n"
-                "`match` types: `contains` · `exact` · `startswith`"
-            ), False),
-            ("Server Templates", (
-                "`/copy` — Save this server's structure as a template\n"
-                "`/paste` — Apply a saved template here\n"
-                "`/delete-template` — Remove everything /paste added"
+            ("AutoMod Filters *(dashboard)*", (
+                "Block links · Block invites · Block mass mentions\n"
+                "Spam · Caps · Emoji · Duplicate · Wall · Anti-Zalgo\n"
+                "Graduated punishments: warns → mute → tempban → kick\n"
+                "AI moderation (Gemini) · Anti-raid · Role monitor · Log channel"
             ), False),
         ]
     ))
-    # ── Page 5: Utility, Auto-Mod & Prefix Commands ───────────────────────
+    # ── Page 5: Utility & Prefix Commands ────────────────────────────────
     pages.append(page(
-        "🔧 Utility, Auto-Mod & Prefix Commands",
-        "Info commands, fun, auto-moderation overview, and prefix equivalents.",
+        "🔧 Utility & Prefix Commands",
+        "Info commands, auto-moderation overview, and prefix equivalents.",
         [
             ("Info & Utility", (
                 "`/userinfo [@member]` — Member profile card\n"
@@ -991,7 +928,6 @@ def _build_manual_pages() -> list:
                 "`/roleinfo @role` — Role details\n"
                 "`/botinfo` — SP4RK stats\n"
                 "`/remind <duration> <msg>` — Set a DM reminder\n"
-                "`/8ball <q>` · `/coinflip` · `/dice [sides] [count]` — Fun\n"
                 "`/setprefix <p>` — Change server prefix *(Admin)*\n"
                 "`/dashboard` — Get your dashboard link *(Admin)*"
             ), False),
@@ -1012,36 +948,22 @@ def _build_manual_pages() -> list:
             ), False),
         ]
     ))
-    # ── Page 6: Advanced Reaction Role Panels ─────────────────────────────
+    # ── Page 6: Permissions & Roles ───────────────────────────────────────
     pages.append(page(
-        "👑 Advanced Reaction Role Panels",
-        "Build button-style or dropdown-style role self-assignment panels with analytics.",
+        "🔑 Permissions & Roles",
+        "Control who can use SP4RK's moderation commands.",
         [
-            ("Creating a Panel", (
-                "`/rr create <title> [description]` — Create a new panel\n"
-                "  → Returns a **Panel ID** you'll use in all other /rr commands\n"
-                "`/rr add <panel_id> <emoji> @role` — Add an emoji → role mapping\n"
-                "`/rr remove <panel_id> <emoji>` — Remove a mapping"
+            ("Bot Admin Role", (
+                "Set a **Bot Admin Role** in the dashboard — members with this role can\n"
+                "use all SP4RK admin commands without needing Discord's Manage Server perm."
             ), False),
-            ("Posting a Panel", (
-                "`/rr build <panel_id> [#channel]` — Post as **buttons** *(one button per role)*\n"
-                "`/rr dropdown <panel_id> [#channel]` — Post as a **select menu** *(dropdown)*\n"
-                "  Members click to toggle their roles — changes apply instantly"
+            ("Bot Mod Role", (
+                "Set a **Bot Mod Role** in the dashboard — members with this role can\n"
+                "use moderation commands (warn, kick, ban, timeout, purge, lock, etc.)."
             ), False),
-            ("Panel Settings", (
-                "`/rr limit <panel_id> <count>` — Max roles a user can hold from this panel\n"
-                "  Use `0` for unlimited"
-            ), False),
-            ("Analytics", (
-                "`/rr stats <panel_id>` — See how many times each role has been picked\n"
-                "  Includes a visual bar chart per role"
-            ), False),
-            ("Workflow example", (
-                "1. `/rr create \"Game Roles\" \"Pick your genre\"`\n"
-                "2. `/rr add ABC123 🎮 @Gaming`\n"
-                "3. `/rr add ABC123 🎨 @Art`\n"
-                "4. `/rr limit ABC123 2`\n"
-                "5. `/rr dropdown ABC123 #roles`"
+            ("Auto Role", (
+                "Automatically assign a role when a new member joins.\n"
+                "Configure the role in the dashboard under **Member Settings**."
             ), False),
         ]
     ))
@@ -1457,31 +1379,22 @@ async def slash_bot(interaction: discord.Interaction):
     latency_ms = round(bot.latency * 1000)
     guild_count = len(bot.guilds)
     total_members = sum(g.member_count for g in bot.guilds)
-    giveaways_active = len([g for g in giveaway_mod.get_all_giveaways() if not g.get("ended")])
-    tickets_open = len([t for t in tickets_mod.get_all_tickets() if t.get("status") == "open"])
-    ar_count = len(autoresponder_mod.get_all_responses())
-    rr_count = len(rr_mod.get_all_rules())
     embed = discord.Embed(
         title="🛡️ SP4RK — Sentinel OS",
         description=(
-            "**AI-Powered Discord Moderation & Management**\n"
+            "**AI-Powered Discord Moderation**\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "SP4RK is a feature-rich guardian bot built for modern Discord servers — "
-            "from intelligent automod to giveaways, tickets, and full server analytics.\n"
+            "SP4RK is a powerful moderation and security bot built for Discord servers.\n"
             "━━━━━━━━━━━━━━━━━━━━━━"
         ),
         color=0x3a8fff,
         timestamp=datetime.utcnow(),
     )
-    embed.add_field(name="⚡ Latency",          value=f"**{latency_ms}ms**",      inline=True)
-    embed.add_field(name="⏱️ Uptime",            value=f"**{uptime_str}**",        inline=True)
-    embed.add_field(name="🔢 Version",           value="**V2.5.0**",               inline=True)
-    embed.add_field(name="🌐 Servers",           value=f"**{guild_count:,}**",     inline=True)
-    embed.add_field(name="👥 Total Members",     value=f"**{total_members:,}**",   inline=True)
-    embed.add_field(name="🤖 Auto-Responders",  value=f"**{ar_count}**",           inline=True)
-    embed.add_field(name="🎉 Active Giveaways", value=f"**{giveaways_active}**",   inline=True)
-    embed.add_field(name="🎫 Open Tickets",     value=f"**{tickets_open}**",       inline=True)
-    embed.add_field(name="🎭 Reaction Roles",   value=f"**{rr_count}**",           inline=True)
+    embed.add_field(name="⚡ Latency",      value=f"**{latency_ms}ms**",    inline=True)
+    embed.add_field(name="⏱️ Uptime",        value=f"**{uptime_str}**",      inline=True)
+    embed.add_field(name="🔢 Version",       value="**V2.5.0**",             inline=True)
+    embed.add_field(name="🌐 Servers",       value=f"**{guild_count:,}**",   inline=True)
+    embed.add_field(name="👥 Total Members", value=f"**{total_members:,}**", inline=True)
     if interaction.guild and interaction.guild.me.display_avatar:
         embed.set_thumbnail(url=interaction.guild.me.display_avatar.url)
     embed.set_footer(text="SP4RK — Your Server's Guardian  •  Byte Labs", icon_url=interaction.guild.me.display_avatar.url if interaction.guild else discord.Embed.Empty)
@@ -1499,8 +1412,6 @@ async def slash_dashboard(interaction: discord.Interaction):
         for g in warnings_db.values()
         for v in (g.values() if isinstance(g, dict) else [])
     )
-    giveaways_active = len([g for g in giveaway_mod.get_all_giveaways() if not g.get("ended")])
-    tickets_open = len([t for t in tickets_mod.get_all_tickets() if t.get("status") == "open"])
     uptime = datetime.utcnow() - BOT_START_TIME
     hours, rem = divmod(int(uptime.total_seconds()), 3600)
     minutes = rem // 60
@@ -1522,378 +1433,25 @@ async def slash_dashboard(interaction: discord.Interaction):
     )
     if guild.icon:
         embed.set_thumbnail(url=guild.icon.url)
-    embed.add_field(name="👥 Members",          value=f"**{guild.member_count:,}**",                  inline=True)
-    embed.add_field(name="⚠️ Total Warnings",   value=f"**{total_warnings}** — {warn_status}",        inline=True)
-    embed.add_field(name="⏱️ Uptime",            value=f"**{hours}h {minutes}m**",                     inline=True)
-    embed.add_field(name="🎉 Giveaways Active", value=f"**{giveaways_active}**",                       inline=True)
-    embed.add_field(name="🎫 Open Tickets",     value=f"**{tickets_open}**",                           inline=True)
-    embed.add_field(name="🔰 Prefix",           value=f"`{_scfg.get('prefix','!')}`",                 inline=True)
+    embed.add_field(name="👥 Members",          value=f"**{guild.member_count:,}**",                      inline=True)
+    embed.add_field(name="⚠️ Total Warnings",   value=f"**{total_warnings}** — {warn_status}",            inline=True)
+    embed.add_field(name="⏱️ Uptime",            value=f"**{hours}h {minutes}m**",                         inline=True)
+    embed.add_field(name="🔰 Prefix",           value=f"`{_scfg.get('prefix','!')}`",                     inline=True)
     embed.add_field(name="🔍 Profanity Filter", value=f"**{_scfg.get('profanity_level','low').upper()}**", inline=True)
-    embed.add_field(name="🛡️ Anti-Raid",        value=raid_status,                                    inline=True)
-    embed.add_field(name="🤖 AI Moderation",    value=ai_status,                                      inline=True)
+    embed.add_field(name="🛡️ Anti-Raid",        value=raid_status,                                        inline=True)
+    embed.add_field(name="🤖 AI Moderation",    value=ai_status,                                          inline=True)
     embed.set_footer(text="SP4RK Admin Dashboard  •  Full controls at your web dashboard URL")
     await interaction.response.send_message(embed=embed, ephemeral=True)
-
-@bot.tree.command(name="giveaway", description="Start a giveaway (use duration like 30m, 2h, 1d)")
-@app_commands.describe(duration="Duration e.g. 30m, 2h, 1d", prize="What are you giving away?", winners="Number of winners (default 1)")
-async def slash_giveaway(interaction: discord.Interaction, duration: str, prize: str, winners: int = 1):
-    if not _is_bot_admin(interaction):
-        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Server** permission.", ephemeral=True)
-        return
-    seconds = parse_duration(duration)
-    if not seconds:
-        await interaction.response.send_message("❌ **Invalid Duration** — Use formats like `30m`, `2h`, `1d`, etc.", ephemeral=True)
-        return
-    if winners < 1 or winners > 20:
-        await interaction.response.send_message("❌ **Invalid Winners** — Number of winners must be between 1 and 20.", ephemeral=True)
-        return
-    await interaction.response.send_message(f"🎉 **Giveaway Starting** — Setting up a giveaway for **{prize}**!", ephemeral=True)
-    await giveaway_mod.start_giveaway(bot, interaction.channel, seconds, prize, interaction.user, winners)
-    dlog("🎉 GIVEAWAY", f"{interaction.user} started giveaway: {prize} ({duration})", guild_id=interaction.guild_id)
-
-@bot.tree.command(name="giveaway-end", description="Manually end a giveaway by message ID")
-@app_commands.describe(message_id="The giveaway message ID")
-async def slash_giveaway_end(interaction: discord.Interaction, message_id: str):
-    if not _is_bot_admin(interaction):
-        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Server** permission.", ephemeral=True)
-        return
-    try:
-        mid = int(message_id)
-    except ValueError:
-        await interaction.response.send_message("❌ **Invalid ID** — Please provide a valid message ID.", ephemeral=True)
-        return
-    await interaction.response.defer(ephemeral=True)
-    result = await giveaway_mod.end_giveaway(bot, mid, interaction.channel_id, force=True)
-    if result:
-        await interaction.followup.send("✅ **Giveaway Ended** — The giveaway has been concluded and a winner selected.", ephemeral=True)
-    else:
-        await interaction.followup.send("❌ **Not Found** — That giveaway doesn't exist or has already ended.", ephemeral=True)
-
-@bot.tree.command(name="giveaway-reroll", description="Reroll a giveaway winner")
-@app_commands.describe(message_id="The giveaway message ID")
-async def slash_giveaway_reroll(interaction: discord.Interaction, message_id: str):
-    if not _is_bot_admin(interaction):
-        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Server** permission.", ephemeral=True)
-        return
-    try:
-        mid = int(message_id)
-    except ValueError:
-        await interaction.response.send_message("❌ **Invalid ID** — Please provide a valid message ID.", ephemeral=True)
-        return
-    await interaction.response.defer(ephemeral=True)
-    winner = await giveaway_mod.reroll_giveaway(bot, mid, interaction.channel_id)
-    if winner:
-        await interaction.followup.send(f"🔄 **Giveaway Rerolled** — New winner: {winner.mention} 🎉", ephemeral=True)
-    else:
-        await interaction.followup.send("❌ **Reroll Failed** — No eligible entries found for this giveaway.", ephemeral=True)
-
-@bot.tree.command(name="poll", description="Create a reaction poll")
-@app_commands.describe(question="The poll question", option1="First option", option2="Second option", option3="Third option (optional)", option4="Fourth option (optional)")
-async def slash_poll(interaction: discord.Interaction, question: str, option1: str, option2: str, option3: str = None, option4: str = None):
-    options = [o for o in [option1, option2, option3, option4] if o]
-    emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
-    desc = "\n".join(f"{emojis[i]} **{opt}**" for i, opt in enumerate(options))
-    embed = discord.Embed(
-        title=f"📊 {question}",
-        description=(
-            f"{desc}\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"React with the corresponding emoji to cast your vote!"
-        ),
-        color=0x5b8cff,
-        timestamp=datetime.utcnow()
-    )
-    embed.set_footer(text=f"📊 Poll by {interaction.user.display_name}  •  SP4RK")
-    await interaction.response.send_message(embed=embed)
-    msg = await interaction.original_response()
-    for i in range(len(options)):
-        await msg.add_reaction(emojis[i])
-    dlog("📊 POLL", f"{interaction.user} created poll: {question}", guild_id=interaction.guild_id)
-
-@bot.tree.command(name="ticket", description="Open a support ticket")
-@app_commands.describe(reason="Why are you opening this ticket?")
-async def slash_ticket(interaction: discord.Interaction, reason: str = "General Support"):
-    await interaction.response.defer(ephemeral=True)
-    try:
-        result = await tickets_mod.create_ticket(interaction.guild, interaction.user, config, reason)
-        if result:
-            channel, ticket = result
-            await interaction.followup.send(
-                f"✅ **Ticket Created** — Your support ticket is ready.\n> 📬 **Channel:** {channel.mention}\n> 📝 **Reason:** {reason}",
-                ephemeral=True
-            )
-            dlog("🎫 TICKET", f"{interaction.user} opened ticket #{ticket['id']}: {reason}", guild_id=interaction.guild_id)
-        else:
-            await interaction.followup.send(
-                "❌ **Ticket Failed** — Could not create your ticket.\n> Ensure I have the **Manage Channels** permission and a valid ticket category is set in the dashboard.",
-                ephemeral=True
-            )
-    except Exception as e:
-        print(f"Ticket slash error: {e}")
-        await interaction.followup.send(f"❌ **Ticket Error** — `{e}`", ephemeral=True)
-
-@bot.tree.command(name="ticket-close", description="Close the current ticket channel")
-async def slash_ticket_close(interaction: discord.Interaction):
-    ticket_data = next((t for t in tickets_mod.get_all_tickets() if t["channel_id"] == interaction.channel.id), None)
-    if not ticket_data:
-        await interaction.response.send_message("❌ **Invalid Channel** — This channel is not a ticket channel.", ephemeral=True)
-        return
-    if not interaction.user.guild_permissions.manage_messages and interaction.user.id != ticket_data.get("user_id"):
-        await interaction.response.send_message("❌ **Access Denied** — Only staff or the original ticket opener can close this ticket.", ephemeral=True)
-        return
-    await interaction.response.send_message("🔒 **Closing Ticket** — Please wait while this ticket is being closed...")
-    await tickets_mod.close_ticket(interaction.channel, interaction.user)
-    dlog("🔒 TICKET-CLOSE", f"{interaction.user} closed ticket #{ticket_data.get('id', '?')}", guild_id=interaction.guild_id)
 
 
 # ============================================================
 # 🎫 /ticket-panel  — post a custom ticket panel with a button
 # ============================================================
 
-@bot.tree.command(name="ticket-panel", description="Post a custom ticket panel with an Open Ticket button")
-@app_commands.describe(
-    channel="Channel where the panel will be posted",
-    title="Panel embed title",
-    description="Panel embed description (supports \\n for new lines)",
-    button_label="Label on the Open Ticket button",
-    color="Embed color as a hex value without # (e.g. 5b8cff)",
-    footer="Footer text shown at the bottom of the embed",
-    thumbnail="URL of an image shown as a small thumbnail (top-right)",
-    image="URL of a large image shown at the bottom of the embed",
-)
-@app_commands.check(_is_bot_admin)
-async def slash_ticket_panel(
-    interaction: discord.Interaction,
-    channel: discord.TextChannel,
-    title: str = "🎫 Support Tickets",
-    description: str = "Need help? Click the button below to open a support ticket and our staff will assist you shortly.",
-    button_label: str = "Open Ticket",
-    color: str = "5b8cff",
-    footer: str = "SP4RK Ticket System",
-    thumbnail: str = "",
-    image: str = "",
-):
-    if not interaction.guild:
-        await interaction.response.send_message("❌ This command can only be used in a server.", ephemeral=True)
-        return
-
-    # Parse color
-    try:
-        embed_color = int(color.lstrip("#"), 16)
-    except (ValueError, AttributeError):
-        embed_color = 0x5b8cff
-
-    # Build embed
-    embed = discord.Embed(
-        title=title,
-        description=description.replace("\\n", "\n"),
-        color=embed_color,
-    )
-    embed.set_footer(text=footer)
-    if thumbnail.startswith("http"):
-        embed.set_thumbnail(url=thumbnail)
-    if image.startswith("http"):
-        embed.set_image(url=image)
-
-    # Build the persistent panel view with the custom button label
-    view = tickets_mod.TicketPanelView(button_label=button_label)
-
-    try:
-        await channel.send(embed=embed, view=view)
-        await interaction.response.send_message(
-            f"✅ **Ticket panel posted** in {channel.mention}!\n"
-            f"Members can click **{button_label}** to open a ticket.",
-            ephemeral=True,
-        )
-        dlog("🎫 TICKET-PANEL", f"{interaction.user} posted a ticket panel in #{channel.name}", guild_id=interaction.guild_id)
-    except discord.Forbidden:
-        await interaction.response.send_message(
-            f"❌ I don't have permission to send messages in {channel.mention}.", ephemeral=True
-        )
-    except Exception as e:
-        await interaction.response.send_message(f"❌ Failed to post panel: {e}", ephemeral=True)
-
-
-@slash_ticket_panel.error
-async def ticket_panel_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message(
-            "❌ **Missing Permission** — You need the **Manage Server** permission to post a ticket panel.",
-            ephemeral=True,
-        )
-    else:
-        await interaction.response.send_message(f"❌ Error: {error}", ephemeral=True)
-
-
-@bot.tree.command(name="setup-reaction-role", description="Link an emoji on a message to a role — users get the role when they react")
-@app_commands.describe(message_id="ID of the message to watch", emoji="The emoji to react with", role="Role to assign on reaction")
-async def slash_setup_rr(interaction: discord.Interaction, message_id: str, emoji: str, role: discord.Role):
-    if not interaction.user.guild_permissions.manage_roles:
-        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Roles** permission.", ephemeral=True)
-        return
-    try:
-        mid = int(message_id)
-    except ValueError:
-        await interaction.response.send_message("❌ **Invalid ID** — That doesn't look like a valid message ID.", ephemeral=True)
-        return
-    # Verify the message actually exists in this channel
-    try:
-        await interaction.channel.fetch_message(mid)
-    except discord.NotFound:
-        await interaction.response.send_message(
-            "❌ **Message Not Found** — No message with that ID was found in this channel.\n> Make sure you copy the ID from **this** channel.",
-            ephemeral=True
-        )
-        return
-    except Exception:
-        pass
-
-    is_new = rr_mod.add_rule(interaction.guild.id, interaction.channel.id, mid, emoji, role.id, role.name)
-    action = "linked" if is_new else "updated"
-    embed = discord.Embed(
-        title="✅ Reaction Role Configured",
-        description=(
-            f"A reaction role has been **{action}** successfully.\n\n"
-            f"🎭 **Emoji:** {emoji}\n"
-            f"🔰 **Role:** {role.mention} — `{role.name}`\n"
-            f"📌 **Message ID:** `{message_id}`\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"Members who react with {emoji} on that message will receive **{role.name}** automatically.\n"
-            f"Removing their reaction will revoke the role."
-        ),
-        color=0x2ecc71,
-        timestamp=datetime.utcnow(),
-    )
-    embed.set_footer(text=f"SP4RK Reaction Roles  •  Action: {action}")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-    dlog("🎭 REACTION-ROLE", f"{interaction.user} {action} {emoji} → {role.name} on msg {message_id}", guild_id=interaction.guild_id)
-
-@bot.tree.command(name="remove-reaction-role", description="Remove a reaction-role link from a message")
-@app_commands.describe(message_id="Message ID the rule is on", emoji="The emoji to unlink")
-async def slash_remove_rr(interaction: discord.Interaction, message_id: str, emoji: str):
-    if not interaction.user.guild_permissions.manage_roles:
-        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Roles** permission.", ephemeral=True)
-        return
-    removed = rr_mod.remove_rule(interaction.guild.id, message_id, emoji)
-    if removed:
-        await interaction.response.send_message(
-            f"✅ **Reaction Role Removed** — {emoji} unlinked from message `{message_id}`.", ephemeral=True
-        )
-        dlog("🎭 REACTION-ROLE REMOVE", f"{interaction.user} removed {emoji} on msg {message_id}", guild_id=interaction.guild_id)
-    else:
-        await interaction.response.send_message(
-            f"❌ **Rule Not Found** — No reaction role for {emoji} exists on message `{message_id}`.", ephemeral=True
-        )
-
-@bot.tree.command(name="list-reaction-roles", description="Show all active reaction roles in this server")
-async def slash_list_rr(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.manage_roles:
-        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Roles** permission.", ephemeral=True)
-        return
-    rules = rr_mod.get_guild_rules(interaction.guild.id)
-    if not rules:
-        await interaction.response.send_message(
-            "ℹ️ **No Reaction Roles** — None have been set up yet.\n> Use `/setup-reaction-role` to create one.", ephemeral=True
-        )
-        return
-    lines = []
-    for i, r in enumerate(rules[:25]):
-        mid   = r.get("message_id", "?")
-        emo   = r.get("emoji", "?")
-        rname = r.get("role_name", "Unknown Role")
-        lines.append(f"`{i+1}.` {emo} → **{rname}** — msg `{mid}`")
-    embed = discord.Embed(
-        title=f"🎭 Reaction Roles — {interaction.guild.name}",
-        description=(
-            f"**{len(rules)}** active reaction role rule(s).\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            + "\n".join(lines)
-        ),
-        color=0x3a8fff,
-        timestamp=datetime.utcnow(),
-    )
-    if interaction.guild.icon:
-        embed.set_thumbnail(url=interaction.guild.icon.url)
-    embed.set_footer(text=f"{len(rules)} rule(s) active  •  Use /remove-reaction-role to delete  •  SP4RK")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-autorespond_group = app_commands.Group(name="autorespond", description="Manage auto-responder rules")
-
-@autorespond_group.command(name="add", description="Add a keyword auto-responder rule")
-@app_commands.describe(trigger="Keyword or phrase to trigger on", response="Bot's response (use {user} for mention)", match="Match type: contains, exact, startswith")
-async def ar_add(interaction: discord.Interaction, trigger: str, response: str, match: str = "contains"):
-    if not interaction.user.guild_permissions.manage_messages:
-        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Messages** permission.", ephemeral=True)
-        return
-    if match not in ("contains", "exact", "startswith"):
-        await interaction.response.send_message("❌ **Invalid Match Type** — Must be one of: `contains`, `exact`, or `startswith`.", ephemeral=True)
-        return
-    is_new = autoresponder_mod.add_response(trigger, response, match)
-    action = "Added" if is_new else "Updated"
-    await interaction.response.send_message(
-        f"✅ **Auto-Responder {action}** — `{trigger}` → `{response}`\n> 🔍 **Match type:** {match}",
-        ephemeral=True
-    )
-    dlog("🤖 AUTO-RESPOND", f"{interaction.user} {action.lower()} trigger: {trigger}", guild_id=interaction.guild_id)
-
-@autorespond_group.command(name="remove", description="Remove an auto-responder rule")
-@app_commands.describe(trigger="The trigger keyword to remove")
-async def ar_remove(interaction: discord.Interaction, trigger: str):
-    if not interaction.user.guild_permissions.manage_messages:
-        await interaction.response.send_message("❌ **Missing Permission** — You need the **Manage Messages** permission.", ephemeral=True)
-        return
-    removed = autoresponder_mod.remove_response(trigger)
-    if removed:
-        await interaction.response.send_message(f"✅ **Auto-Responder Removed** — The rule for `{trigger}` has been deleted.", ephemeral=True)
-    else:
-        await interaction.response.send_message(f"❌ **Rule Not Found** — No auto-responder rule exists for `{trigger}`.", ephemeral=True)
-
-@autorespond_group.command(name="list", description="List all auto-responder rules")
-async def ar_list(interaction: discord.Interaction):
-    rules = autoresponder_mod.get_all_responses()
-    if not rules:
-        await interaction.response.send_message("ℹ️ **No Rules Set** — No auto-responder rules have been configured yet.", ephemeral=True)
-        return
-    desc = "\n".join(
-        f"`{i+1}.` `{r['trigger']}` → {r['response'][:50]}{'…' if len(r['response'])>50 else ''}  *({r.get('match','contains')})*"
-        for i, r in enumerate(rules[:20])
-    )
-    embed = discord.Embed(
-        title="🤖 Auto-Responder Rules",
-        description=(
-            f"**{len(rules)}** active rule(s) configured for this server.\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"{desc}"
-        ),
-        color=0x3a8fff,
-        timestamp=datetime.utcnow(),
-    )
-    embed.set_footer(text=f"SP4RK Auto-Responder  •  Use /autorespond add to create rules")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-bot.tree.add_command(autorespond_group)
-
-# Register MEE6-inspired feature commands
-bot.tree.add_command(birthday_mod.birthday_group)
-bot.tree.add_command(boost_mod.boost_group)
-bot.tree.add_command(stat_channels_mod.stats_group)
-bot.tree.add_command(social.twitch_group)
-
-# Register all weird/chaos feature commands
-try:
-    weird_mod.setup(bot)
-except Exception as _we:
-    print(f"[WeirdFeatures] setup error: {_we}")
-
 # ---------------- EVENTS ----------------
 @bot.event
 async def on_ready():
     refresh_config()
-    # Register persistent views so buttons survive bot restarts
-    bot.add_view(tickets_mod.TicketCloseView())
-    bot.add_view(tickets_mod.TicketPanelView())
-    # Give TicketPanelView access to guild config without a circular import
-    tickets_mod.set_config_callback(get_config_for_guild)
     # Wire up instant config refresh: dashboard save → refresh_config() immediately
     set_bot_config_refresh_callback(refresh_config)
     s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
@@ -1915,19 +1473,6 @@ async def on_ready():
     daily_report_task.start()
     if not _reminder_tick.is_running():
         _reminder_tick.start()
-    if not _birthday_task.is_running():
-        _birthday_task.start()
-    if not _stat_channels_task.is_running():
-        _stat_channels_task.start()
-    if not _twitch_task.is_running():
-        _twitch_task.start()
-    # Re-schedule any giveaways that were active when the bot was last restarted.
-    # Without this, giveaway timers are lost on every restart and "active" giveaways
-    # never roll over into "completed".
-    try:
-        await giveaway_mod.resume_pending(bot)
-    except Exception as e:
-        print(f"[GIVEAWAY] resume_pending error: {e}")
     # Check security_2fa setting for all connected guilds on startup.
     for guild in bot.guilds:
         gcfg = get_config_for_guild(str(guild.id))
@@ -1935,23 +1480,11 @@ async def on_ready():
             await security.check_security_2fa(bot, guild, gcfg, log_callback=dlog)
         except Exception as _e:
             print(f"[2FA] startup check error: {_e}")
-    # Migrate any XP data from leveling_xp.json → Postgres — run in executor
-    # so it never blocks the event loop (it's a synchronous DB call).
-    try:
-        import asyncio as _asyncio
-        await _asyncio.get_event_loop().run_in_executor(None, leveling_mod.migrate_xp_from_json)
-    except Exception as _xp_err:
-        print(f"[LVL] migrate_xp_from_json error: {_xp_err}")
 
     dlog("✅ BOT-START", f"SP4RK online as {bot.user}")
     print(f"✅ SP4RK Online! Logged in as {bot.user}")
     import asyncio as _asyncio2
     await _asyncio2.get_event_loop().run_in_executor(None, _persist_bot_guilds, bot)
-    # Start weird features background tasks
-    try:
-        await weird_mod.start_background_tasks(bot)
-    except Exception as _we:
-        print(f"[WeirdFeatures] background task start error: {_we}")
 
 def _persist_bot_guilds(b):
     """Write the bot's current guild list to bot_guilds.json so the web
@@ -2024,7 +1557,6 @@ async def on_member_join(member):
     await roles.assign_auto_role(member, gcfg)
     await moderation.handle_auto_role(member, gcfg)
     await security.anti_raid_check(member, gcfg, dm_callback=dm_all_owners, log_callback=dlog)
-    await social.send_welcome_message(bot, member, gcfg)
     await logs.log_template(bot, config, "sp4rk.welcome", user=member, server=member.guild)
     dlog("👋 JOIN", f"{member} joined {member.guild.name}", guild_id=member.guild.id)
     try:
@@ -2043,11 +1575,6 @@ async def on_member_update(before, after):
         await security.check_security_2fa(bot, after.guild, gcfg, log_callback=dlog)
     except Exception as _e:
         print(f"[2FA] member_update check error: {_e}")
-    # Boost announcement + booster role
-    try:
-        await boost_mod.handle_boost_update(before, after)
-    except Exception as _be:
-        print(f"[boost] update error: {_be}")
 
 @bot.event
 async def on_member_ban(guild, user):
@@ -2071,8 +1598,6 @@ async def on_member_remove(member):
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     if payload.guild_id is None:
         return
-    await rr_mod.handle_reaction_add(bot, payload)
-    await starboard_mod.handle_reaction(bot, payload, added=True)
     # Mood signal: reactions are a positive engagement indicator
     try:
         import db_spark as _dbs
@@ -2088,8 +1613,6 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     if payload.guild_id is None:
         return
-    await rr_mod.handle_reaction_remove(bot, payload)
-    await starboard_mod.handle_reaction(bot, payload, added=False)
 
 @bot.event
 async def on_message_edit(before, after):
@@ -2131,11 +1654,6 @@ async def on_message_delete(message):
     refresh_config()
     gcfg = get_config_for_guild(str(message.guild.id)) if message.guild else config
     log_ch = gcfg.get("log_channel", "").strip()
-    # Ghost message system hook
-    try:
-        await weird_mod.on_message_delete_hook(bot, message)
-    except Exception:
-        pass
     if not log_ch:
         return
     await logs.log_template(
@@ -2219,12 +1737,6 @@ async def on_message(message):
                 _dbs.mood_record_signal(gid_str, score, reason, str(message.author.id), category)
         except Exception:
             pass
-
-    # ---- Weird Features passive hooks ----
-    try:
-        await weird_mod.on_message_hook(bot, message)
-    except Exception:
-        pass
 
     # ---- Owner DM approval handler ----
     if isinstance(message.channel, discord.DMChannel):
@@ -2331,124 +1843,11 @@ async def on_message(message):
 
     refresh_config()
 
-    # ---- Custom Commands (! prefix, placeholder substitution + AI polish) ----
-    custom_cmd_handled = False
-    try:
-        import custom_commands as _cc_mod
-        gid = str(message.guild.id) if message.guild else None
-        _guild_prefix = get_config_for_guild(gid).get("prefix", "!") if gid else "!"
-        cmd, _cc_args = _cc_mod.match_message("sp4rk", gid, message.content or "")
-        if cmd:
-            custom_cmd_handled = True
-            # 1. Substitute placeholders first so AI sees real values
-            raw_result = cmd.get("result", "")
-            substituted = _cc_mod.substitute_placeholders(
-                raw_result, message, prefix=_guild_prefix, args=_cc_args
-            )
-            reply_text = substituted
-            if cmd.get("use_embed"):
-                e = discord.Embed(
-                    title=f"📌 !{cmd['trigger']}",
-                    description=reply_text[:4000],
-                    color=0x3a8fff,
-                    timestamp=datetime.utcnow(),
-                )
-                if cmd.get("description"):
-                    e.set_footer(text=f"{cmd['description'][:180]}  •  SP4RK Custom Command")
-                else:
-                    e.set_footer(text="SP4RK Custom Command")
-                await message.channel.send(embed=e)
-            else:
-                await message.channel.send(reply_text[:2000])
-    except Exception as _cc_err:
-        print(f"[SP4RK] custom command failed: {_cc_err}")
-
     guild_cfg = get_config_for_guild(str(message.guild.id)) if message.guild else config
-
-    # ---- Mention Reactions: react with configured emoji when a watched user is mentioned ----
-    try:
-        if message.guild and message.mentions and not message.mention_everyone:
-            guild_id = str(message.guild.id)
-            rules = mention_reactions_mod.get_rules(guild_id)
-            if rules:
-                rule_map = {r["user_id"]: r["emoji"] for r in rules}
-                for mentioned in message.mentions:
-                    emoji = rule_map.get(str(mentioned.id))
-                    if emoji:
-                        try:
-                            await message.add_reaction(emoji)
-                        except Exception as _re:
-                            print(f"[MR] react failed for {mentioned.id}: {_re}")
-    except Exception as _mr_err:
-        print(f"[MR] mention reaction error: {_mr_err}")
-
-    # ---- Leveling: award XP for every non-bot message ----
-    try:
-        if message.guild and not message.author.bot:
-            gid    = str(message.guild.id)
-            uid    = str(message.author.id)
-            result = leveling_mod.try_add_xp(gid, uid)
-            if result and result["level_up"]:
-                cfg        = leveling_mod.get_config(gid)
-                lvl_ch_id  = cfg.get("level_up_channel", "").strip()
-                old_lvl    = result.get("old_level", result["new_level"] - 1)
-                new_lvl    = result["new_level"]
-                # build level-up card image
-                try:
-                    avatar_url = str(message.author.display_avatar.replace(size=256).url)
-                except Exception:
-                    avatar_url = ""
-                try:
-                    card_buf = await levelup_card_mod.build_levelup_card(
-                        username   = message.author.display_name,
-                        avatar_url = avatar_url,
-                        old_level  = old_lvl,
-                        new_level  = new_lvl,
-                        guild_name = message.guild.name if message.guild else "",
-                    )
-                    card_file = discord.File(card_buf, filename="levelup.png")
-                except Exception as _ce:
-                    print(f"[LVL-CARD] build failed: {_ce}")
-                    card_file = None
-                # Build the level-up message text from config template (always sent).
-                lv_msg_tpl = cfg.get("level_up_message", "🎉 {user} levelled up to **Level {level}**!")
-                lv_msg = (
-                    lv_msg_tpl
-                    .replace("{user}", message.author.mention)
-                    .replace("{level}", str(new_lvl))
-                    .replace("{old_level}", str(old_lvl))
-                )
-                send_kwargs = {"content": lv_msg}
-                if card_file:
-                    send_kwargs["file"] = card_file
-                if lvl_ch_id:
-                    try:
-                        ch = bot.get_channel(int(lvl_ch_id)) or await bot.fetch_channel(int(lvl_ch_id))
-                        await ch.send(**send_kwargs)
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        await message.channel.send(**send_kwargs)
-                    except Exception:
-                        pass
-                role_rewards = cfg.get("role_rewards", {})
-                reward_role_id = role_rewards.get(str(result["new_level"]))
-                if reward_role_id:
-                    try:
-                        role = message.guild.get_role(int(reward_role_id))
-                        if role:
-                            await message.author.add_roles(role, reason=f"Level {result['new_level']} reward")
-                    except Exception:
-                        pass
-    except Exception as _lvl_err:
-        print(f"[LVL] error: {_lvl_err}")
 
     handled = await automod.handle_message(message, guild_cfg, add_warning_fn=add_warning)
     if not handled:
         await handle_ai_moderation(message)
-        await autoresponder_mod.check_message(message)
-    await social.check_social_alerts(message, guild_cfg, bot)
     await bot.process_commands(message)
 
 # ---------------- COMMAND ERROR HANDLER ----------------
@@ -2478,80 +1877,6 @@ def _hierarchy_block(ctx, member, action_word):
     if ctx.author.id != ctx.guild.owner_id and member.top_role >= ctx.author.top_role:
         return f"❌ **Action Blocked** — Cannot {action_word} {member.mention}.\n> Their role is equal to or higher than yours."
     return None
-
-# ============================================================
-# LEVELING TOGGLE COMMAND
-# ============================================================
-
-@bot.command(name="leveling")
-@commands.has_permissions(manage_guild=True)
-async def cmd_leveling(ctx, toggle: str = None):
-    """Enable or disable leveling and XP for this server.
-    Usage:
-      !leveling          — show current status
-      !leveling on       — enable XP and leveling
-      !leveling off      — disable XP and leveling
-    Requires: Manage Server permission.
-    """
-    if not ctx.guild:
-        await ctx.send("❌ This command can only be used inside a server.")
-        return
-
-    guild_id = str(ctx.guild.id)
-
-    if toggle is None:
-        enabled = leveling_mod.is_leveling_enabled(guild_id)
-        status  = "🟢 **Enabled**" if enabled else "🔴 **Disabled**"
-        embed = discord.Embed(
-            title="🏆 Leveling & XP System",
-            description=f"Current status for **{ctx.guild.name}**: {status}",
-            color=0x2ecc71 if enabled else 0xe74c3c,
-        )
-        embed.add_field(
-            name="Toggle",
-            value="`!leveling on` — enable\n`!leveling off` — disable",
-            inline=False,
-        )
-        embed.set_footer(text="Only members with Manage Server permission can change this.")
-        await ctx.send(embed=embed)
-        return
-
-    toggle = toggle.lower().strip()
-
-    if toggle in ("on", "enable", "yes", "true"):
-        leveling_mod.set_leveling_enabled(guild_id, True)
-        embed = discord.Embed(
-            title="✅ Leveling Enabled",
-            description=f"XP and leveling are now **active** in **{ctx.guild.name}**.\nMembers will earn XP for every message and level up over time.",
-            color=0x2ecc71,
-        )
-        embed.set_footer(text="Use !leveling off to disable at any time.")
-        await ctx.send(embed=embed)
-        dlog("🏆 LEVELING-ON", f"Leveling enabled by {ctx.author}", guild_id=ctx.guild.id)
-
-    elif toggle in ("off", "disable", "no", "false"):
-        leveling_mod.set_leveling_enabled(guild_id, False)
-        embed = discord.Embed(
-            title="🔴 Leveling Disabled",
-            description=f"XP and leveling are now **paused** in **{ctx.guild.name}**.\nExisting XP and levels are kept — no data is deleted.",
-            color=0xe74c3c,
-        )
-        embed.set_footer(text="Use !leveling on to re-enable at any time.")
-        await ctx.send(embed=embed)
-        dlog("🔴 LEVELING-OFF", f"Leveling disabled by {ctx.author}", guild_id=ctx.guild.id)
-
-    else:
-        await ctx.send("❓ Unknown option. Use `!leveling on` or `!leveling off`.")
-
-
-@cmd_leveling.error
-async def cmd_leveling_error(ctx, error):
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ You need **Manage Server** permission to change leveling settings.")
-
-# ============================================================
-# END LEVELING TOGGLE COMMAND
-# ============================================================
 
 @bot.command()
 @commands.has_permissions(manage_roles=True)
@@ -3274,202 +2599,6 @@ async def slash_userinfo(interaction: discord.Interaction,
         embed=_build_userinfo_embed(target, interaction.user)
     )
 
-# ---------------- SERVER TEMPLATE COMMANDS ----------------
-@bot.tree.command(name="copy", description="Copy this server's full structure (channels, roles, permissions) into a template")
-async def slash_copy(interaction: discord.Interaction):
-    if not _is_bot_admin(interaction):
-        await interaction.response.send_message("❌ **Access Denied** — You need the Admin role or Administrator permission.", ephemeral=True)
-        return
-    await interaction.response.defer(ephemeral=True)
-    try:
-        await interaction.edit_original_response(content="📸 Scanning server structure…")
-        template = await template_mod.copy_server(interaction.guild)
-        info = template_mod.get_template_info()
-        embed = discord.Embed(
-            title="📸 Server Template Saved",
-            description=(
-                f"**{interaction.guild.name}**'s structure has been captured.\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"📅 **Copied at:** {info['copied_at'][:19].replace('T', ' ')} UTC\n\n"
-                f"Use `/paste` in any server to recreate this exact structure."
-            ),
-            color=0x2ecc71,
-            timestamp=datetime.utcnow(),
-        )
-        if interaction.guild.icon:
-            embed.set_thumbnail(url=interaction.guild.icon.url)
-        embed.add_field(name="🎭 Roles",          value=f"**{info['roles']}**",          inline=True)
-        embed.add_field(name="📁 Categories",      value=f"**{info['categories']}**",     inline=True)
-        embed.add_field(name="💬 Text Channels",   value=f"**{info['text_channels']}**",  inline=True)
-        embed.add_field(name="🔊 Voice Channels",  value=f"**{info['voice_channels']}**", inline=True)
-        embed.set_footer(text="SP4RK — Server Template  •  Template stored globally")
-        await interaction.edit_original_response(content=None, embed=embed)
-        dlog("📸 COPY", f"{interaction.user} copied server template from {interaction.guild.name}", guild_id=interaction.guild_id)
-    except Exception as e:
-        print(f"/copy error: {e}")
-        await interaction.edit_original_response(content=f"❌ **Copy Failed** — Could not capture the server structure.\n> `{e}`")
-
-class DeleteTemplateConfirmView(discord.ui.View):
-    """Two-button confirm/cancel for /delete-template."""
-    def __init__(self, guild: discord.Guild):
-        super().__init__(timeout=60)
-        self.guild = guild
-
-    @discord.ui.button(label="Yes, delete everything", style=discord.ButtonStyle.danger, emoji="🗑️")
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not _is_bot_admin(interaction):
-            await interaction.response.send_message("❌ **Access Denied** — You need the Admin role or Administrator permission.", ephemeral=True)
-            return
-        for item in self.children:
-            item.disabled = True
-        await interaction.response.edit_message(
-            content="⏳ Deleting pasted channels, categories, and roles… this may take a minute.",
-            view=self
-        )
-        try:
-            async def progress(msg):
-                try:
-                    await interaction.edit_original_response(content=f"⏳ {msg}")
-                except Exception:
-                    pass
-
-            summary = await template_mod.delete_pasted(self.guild, progress_callback=progress)
-
-            log = template_mod.load_paste_log(self.guild.id)  # already cleared, use summary
-            embed = discord.Embed(
-                title="🗑️ Template Deleted",
-                description=(
-                    f"All SP4RK-pasted content has been removed from **{self.guild.name}**.\n\n"
-                    f"Only channels, categories, and roles created by `/paste` were affected.\n"
-                    f"Original server content was left untouched."
-                ),
-                color=0xe74c3c,
-                timestamp=datetime.utcnow(),
-            )
-            embed.add_field(name="🎭 Roles Deleted",          value=f"**{summary['roles']}**",         inline=True)
-            embed.add_field(name="📁 Categories Deleted",     value=f"**{summary['categories']}**",    inline=True)
-            embed.add_field(name="💬 Text Channels Deleted",  value=f"**{summary['text_channels']}**", inline=True)
-            embed.add_field(name="🔊 Voice Channels Deleted", value=f"**{summary['voice_channels']}**",inline=True)
-            if summary["failed"]:
-                embed.add_field(name="⚠️ Skipped (already gone or no permission)",
-                                value=f"**{summary['failed']}**", inline=True)
-            embed.set_footer(text="SP4RK — Server Template  •  Paste log cleared")
-            await interaction.edit_original_response(content=None, embed=embed, view=None)
-            dlog("🗑️ DELETE-TEMPLATE", f"{interaction.user} deleted pasted template from {self.guild.name}", guild_id=self.guild.id)
-        except FileNotFoundError:
-            await interaction.edit_original_response(
-                content="❌ No paste log found — either `/paste` was never run here, or it was already deleted.",
-                view=None
-            )
-        except Exception as e:
-            print(f"/delete-template error: {e}")
-            await interaction.edit_original_response(content=f"❌ An error occurred: `{e}`", view=None)
-
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="✖️")
-    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        for item in self.children:
-            item.disabled = True
-        await interaction.response.edit_message(content="✅ **Cancelled** — No changes were made. Your server structure is untouched.", view=self)
-
-@bot.tree.command(name="paste", description="Recreate a copied server template in this server (adds channels & roles)")
-async def slash_paste(interaction: discord.Interaction):
-    if not _is_bot_admin(interaction):
-        await interaction.response.send_message("❌ **Access Denied** — You need the Admin role or Administrator permission.", ephemeral=True)
-        return
-    info = template_mod.get_template_info()
-    if not info:
-        await interaction.response.send_message(
-            "❌ **No Template Found** — There's no saved template to paste.\n"
-            "> Run `/copy` in a server first to capture its structure, then use `/paste` here.",
-            ephemeral=True
-        )
-        return
-    await interaction.response.defer(ephemeral=True)
-    await interaction.edit_original_response(
-        content=(
-            f"⏳ Pasting template from **{info['source']}**…\n"
-            f"Creating {info['roles']} role(s), {info['categories']} categor(ies), "
-            f"{info['text_channels']} text and {info['voice_channels']} voice channel(s).\n"
-            f"This may take a minute — please wait."
-        )
-    )
-    try:
-        async def progress(msg):
-            try:
-                await interaction.edit_original_response(content=f"⏳ {msg}")
-            except Exception:
-                pass
-
-        summary = await template_mod.paste_server(interaction.guild, progress_callback=progress)
-
-        embed = discord.Embed(
-            title="✅ Server Template Applied",
-            description=(
-                f"Template from **{info['source']}** has been pasted into **{interaction.guild.name}**.\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"All roles, categories, and channels have been recreated.\n"
-                f"Existing items were skipped to avoid duplicates.\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━"
-            ),
-            color=0x2ecc71,
-            timestamp=datetime.utcnow(),
-        )
-        if interaction.guild.icon:
-            embed.set_thumbnail(url=interaction.guild.icon.url)
-        embed.add_field(name="🎭 Roles Created",          value=f"**{summary['roles']}**",         inline=True)
-        embed.add_field(name="📁 Categories Created",     value=f"**{summary['categories']}**",    inline=True)
-        embed.add_field(name="💬 Text Channels Created",  value=f"**{summary['text_channels']}**", inline=True)
-        embed.add_field(name="🔊 Voice Channels Created", value=f"**{summary['voice_channels']}**",inline=True)
-        embed.add_field(name="⏭️ Skipped",                value=f"**{summary['skipped']}**",       inline=True)
-        embed.set_footer(text="SP4RK — Server Template  •  Existing channels/roles were not duplicated")
-        await interaction.edit_original_response(content=None, embed=embed)
-        dlog("📋 PASTE", f"{interaction.user} pasted server template into {interaction.guild.name}", guild_id=interaction.guild_id)
-    except FileNotFoundError:
-        await interaction.edit_original_response(
-            content="❌ **No Template Found** — Run `/copy` in a server first to capture its structure."
-        )
-    except Exception as e:
-        print(f"/paste error: {e}")
-        await interaction.edit_original_response(
-            content=f"❌ **Paste Failed** — Something went wrong while applying the template.\n> `{e}`"
-        )
-
-@bot.tree.command(name="delete-template", description="Delete all channels, categories and roles that were added by /paste")
-async def slash_delete_template(interaction: discord.Interaction):
-    if not _is_bot_admin(interaction):
-        await interaction.response.send_message("❌ **Access Denied** — You need the Admin role or Administrator permission.", ephemeral=True)
-        return
-    log = template_mod.load_paste_log(interaction.guild.id)
-    if not log:
-        await interaction.response.send_message(
-            "❌ No paste log found for this server. Either `/paste` was never run here, "
-            "or the log was already cleared.",
-            ephemeral=True
-        )
-        return
-    # Show what will be deleted and ask for confirmation
-    pasted_at = log.get("pasted_at", "Unknown")[:19].replace("T", " ")
-    embed = discord.Embed(
-        title="⚠️ Confirm Template Deletion",
-        description=(
-            f"You are about to **permanently remove** all content SP4RK added via `/paste`.\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📋 **Template source:** {log.get('source', 'Unknown')}\n"
-            f"📅 **Pasted at:** {pasted_at} UTC\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"🎭 **Roles to delete:** {len(log.get('role_ids', []))}\n"
-            f"📁 **Categories to delete:** {len(log.get('category_ids', []))}\n"
-            f"💬 **Text Channels to delete:** {len(log.get('text_channel_ids', []))}\n"
-            f"🔊 **Voice Channels to delete:** {len(log.get('voice_channel_ids', []))}\n\n"
-            f"⚡ Items that were already deleted manually will be skipped.\n"
-            f"🚫 **This action cannot be undone.** Proceed with caution."
-        ),
-        color=0xe74c3c,
-        timestamp=datetime.utcnow(),
-    )
-    embed.set_footer(text="SP4RK — Server Template  •  You have 60 seconds to confirm")
-    view = DeleteTemplateConfirmView(interaction.guild)
-    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 # ---------------- SECURITY COMMANDS ----------------
 @bot.command()
@@ -4118,133 +3247,6 @@ async def slash_roleinfo(interaction: discord.Interaction, role: discord.Role):
     await interaction.response.send_message(embed=embed)
 
 
-# ---------------- LEVELING COMMANDS ----------------
-
-@bot.tree.command(name="rank", description="Show your XP rank card (or another member's)")
-@app_commands.describe(member="Member to check (defaults to you)")
-async def slash_rank(interaction: discord.Interaction, member: discord.Member = None):
-    if not await _slash_guard_guild(interaction):
-        return
-    target = member or interaction.user
-    gid  = str(interaction.guild.id)
-    uid  = str(target.id)
-    data = leveling_mod.get_user(gid, uid)
-    rank = leveling_mod.get_rank(gid, uid)
-    xp   = data.get("xp", 0)
-    lvl  = data.get("level", 0)
-    msgs = data.get("messages", 0)
-    next_lvl_xp = leveling_mod.level_to_xp(lvl + 1)
-    cur_lvl_xp  = leveling_mod.level_to_xp(lvl)
-    progress    = xp - cur_lvl_xp
-    needed      = max(next_lvl_xp - cur_lvl_xp, 1)
-    bar_filled  = int((progress / needed) * 20)
-    bar         = "█" * bar_filled + "░" * (20 - bar_filled)
-    embed = discord.Embed(
-        title=f"⭐ {target.display_name}'s Rank",
-        color=discord.Color(0xFFD700),
-        timestamp=datetime.utcnow(),
-    )
-    embed.set_thumbnail(url=target.display_avatar.url)
-    embed.add_field(name="🏆 Rank",     value=f"**#{rank}**" if rank > 0 else "_Unranked_", inline=True)
-    embed.add_field(name="⬆️ Level",    value=f"**{lvl}**",   inline=True)
-    embed.add_field(name="✨ XP",       value=f"**{xp:,}**",  inline=True)
-    embed.add_field(name="💬 Messages", value=f"**{msgs:,}**", inline=True)
-    embed.add_field(name=f"Progress to Level {lvl + 1}",
-                    value=f"`{bar}` {progress:,}/{needed:,} XP", inline=False)
-    embed.set_footer(text="SP4RK Leveling")
-    await interaction.response.send_message(embed=embed)
-
-
-@bot.tree.command(name="leaderboard", description="Show the server XP leaderboard (top 10)")
-async def slash_leaderboard(interaction: discord.Interaction):
-    if not await _slash_guard_guild(interaction):
-        return
-    gid  = str(interaction.guild.id)
-    lb   = leveling_mod.get_leaderboard(gid, limit=10)
-    if not lb:
-        await interaction.response.send_message("📊 No XP data yet — start chatting to earn XP!", ephemeral=True)
-        return
-    medals = ["🥇", "🥈", "🥉"]
-    lines  = []
-    for e in lb:
-        medal  = medals[e["rank"] - 1] if e["rank"] <= 3 else f"**#{e['rank']}**"
-        member = interaction.guild.get_member(int(e["user_id"]))
-        name   = member.display_name if member else f"<@{e['user_id']}>"
-        lines.append(f"{medal} **{name}** — Level {e['level']} · {e['xp']:,} XP")
-    embed = discord.Embed(
-        title=f"🏆 {interaction.guild.name} Leaderboard",
-        description="\n".join(lines),
-        color=discord.Color(0xFFD700),
-        timestamp=datetime.utcnow(),
-    )
-    embed.set_footer(text="SP4RK Leveling  •  /rank to see your full card")
-    await interaction.response.send_message(embed=embed)
-
-
-# ============================================================
-# 🎲 FUN & UTILITY COMMANDS
-# ============================================================
-import random as _random
-
-_8BALL_RESPONSES = [
-    "🎱 It is certain.", "🎱 It is decidedly so.", "🎱 Without a doubt.",
-    "🎱 Yes, definitely.", "🎱 You may rely on it.", "🎱 As I see it, yes.",
-    "🎱 Most likely.", "🎱 Outlook good.", "🎱 Yes.", "🎱 Signs point to yes.",
-    "🎱 Reply hazy, try again.", "🎱 Ask again later.", "🎱 Better not tell you now.",
-    "🎱 Cannot predict now.", "🎱 Concentrate and ask again.",
-    "🎱 Don't count on it.", "🎱 My reply is no.", "🎱 My sources say no.",
-    "🎱 Outlook not so good.", "🎱 Very doubtful.",
-]
-
-@bot.tree.command(name="8ball", description="Ask the magic 8-ball a question")
-@app_commands.describe(question="Your yes/no question")
-async def slash_8ball(interaction: discord.Interaction, question: str):
-    answer = _random.choice(_8BALL_RESPONSES)
-    embed = discord.Embed(
-        title="🎱 Magic 8-Ball",
-        color=0x1a1a2e,
-        timestamp=datetime.utcnow(),
-    )
-    embed.add_field(name="❓ Question", value=question[:512], inline=False)
-    embed.add_field(name="🔮 Answer", value=answer, inline=False)
-    embed.set_footer(text=f"Asked by {interaction.user}  •  SP4RK")
-    await interaction.response.send_message(embed=embed)
-
-
-@bot.tree.command(name="coinflip", description="Flip a coin — Heads or Tails?")
-async def slash_coinflip(interaction: discord.Interaction):
-    result = _random.choice(["🪙 **Heads!**", "🪙 **Tails!**"])
-    embed = discord.Embed(
-        title="🪙 Coin Flip",
-        description=result,
-        color=0xf59e0b,
-        timestamp=datetime.utcnow(),
-    )
-    embed.set_footer(text=f"Flipped by {interaction.user}  •  SP4RK")
-    await interaction.response.send_message(embed=embed)
-
-
-@bot.tree.command(name="dice", description="Roll one or more dice (e.g. /dice sides:20 count:2)")
-@app_commands.describe(sides="Number of sides (default 6, max 100)", count="How many dice to roll (default 1, max 10)")
-async def slash_dice(interaction: discord.Interaction, sides: int = 6, count: int = 1):
-    sides = max(2, min(100, sides))
-    count = max(1, min(10, count))
-    rolls = [_random.randint(1, sides) for _ in range(count)]
-    total = sum(rolls)
-    roll_str = "  +  ".join(f"**{r}**" for r in rolls)
-    embed = discord.Embed(
-        title=f"🎲 Dice Roll — {count}d{sides}",
-        color=0x10b981,
-        timestamp=datetime.utcnow(),
-    )
-    embed.add_field(name="🎲 Rolls", value=roll_str, inline=False)
-    if count > 1:
-        embed.add_field(name="➕ Total", value=f"**{total}**", inline=True)
-        embed.add_field(name="📊 Average", value=f"**{total/count:.1f}**", inline=True)
-    embed.set_footer(text=f"Rolled by {interaction.user}  •  SP4RK")
-    await interaction.response.send_message(embed=embed)
-
-
 @bot.tree.command(name="botinfo", description="Show SP4RK bot statistics and information")
 async def slash_botinfo(interaction: discord.Interaction):
     guild_count = len(bot.guilds)
@@ -4253,8 +3255,8 @@ async def slash_botinfo(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🤖 SP4RK — Bot Info",
         description=(
-            "SP4RK is a feature-rich moderation and community bot built for Discord servers "
-            "with AI-powered automod, leveling, giveaways, tickets, and more."
+            "SP4RK is a powerful moderation and server security bot for Discord — "
+            "with AI-powered automod, anti-raid, role monitoring, and advanced mod tools."
         ),
         color=0x5b8cff,
         timestamp=datetime.utcnow(),
@@ -4310,46 +3312,6 @@ def _save_reminders(items: list) -> None:
         _REMIND_FILE.write_text(_json.dumps(items))
     except Exception:
         pass
-
-# ── Birthday daily task (fires at 08:00 UTC) ─────────────────────────────────
-_birthday_last_day: int = -1
-
-@tasks.loop(minutes=30)
-async def _birthday_task():
-    if not bot.is_ready():
-        return
-    try:
-        from datetime import timezone as _tz
-        now = datetime.now(_tz.utc)
-        global _birthday_last_day
-        if now.hour >= 8 and _birthday_last_day != now.day:
-            _birthday_last_day = now.day
-            await birthday_mod.run_daily_birthdays(bot)
-            await birthday_mod.remove_expired_birthday_roles(bot)
-    except Exception as e:
-        print(f"[birthday_task] error: {e}")
-
-
-# ── Stat channels update every 10 minutes ─────────────────────────────────────
-@tasks.loop(minutes=10)
-async def _stat_channels_task():
-    if not bot.is_ready():
-        return
-    try:
-        await stat_channels_mod.update_all_stat_channels(bot)
-    except Exception as e:
-        print(f"[stat_channels_task] error: {e}")
-
-
-# ── Twitch live check every 5 minutes ─────────────────────────────────────────
-@tasks.loop(minutes=5)
-async def _twitch_task():
-    if not bot.is_ready():
-        return
-    try:
-        await social.check_twitch_alerts(bot)
-    except Exception as e:
-        print(f"[twitch_task] error: {e}")
 
 
 @tasks.loop(seconds=20)
