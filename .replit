@@ -1,4 +1,4 @@
-modules = ["python-3.11", "web", "nix"]
+modules = ["python-3.11", "web", "nix", "postgresql-16"]
 [agent]
 expertMode = true
 stack = "FLASK_VANILLA_JS"
