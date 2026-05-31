@@ -5420,6 +5420,68 @@ def health():
     body = f"OK bot={'up' if bot_alive else 'off'} ts={int(_t.time())}"
     return body, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
+
+# ---- BOT DIAGNOSTICS ----
+@app.route('/bot-debug')
+def bot_diagnostics():
+    """Public diagnostic endpoint — shows exactly why the bot is or isn't running.
+    Visit <your-domain>/bot-debug to debug bot startup issues.
+    """
+    import sys as _sys
+    import time as _t
+
+    token_raw = os.environ.get("DISCORD_TOKEN", "")
+    token_present = bool(token_raw.strip())
+    start_in_web = os.environ.get("START_BOT_IN_WEB", "(not set)")
+    disabled = start_in_web.lower() in {"0", "false", "no", "off"}
+
+    bot_alive = False
+    bot_thread_state = "not started"
+    try:
+        bot_mod = _sys.modules.get('main')
+        if bot_mod:
+            t = getattr(bot_mod, '_bot_thread', None)
+            if t is None:
+                bot_thread_state = "thread object is None"
+            elif t.is_alive():
+                bot_alive = True
+                bot_thread_state = "alive ✅"
+            else:
+                bot_thread_state = "dead / crashed ❌"
+        else:
+            bot_thread_state = "main module not imported (wsgi didn't start bot)"
+    except Exception as _e:
+        bot_thread_state = f"error checking thread: {_e}"
+
+    lines = [
+        "=== Sentinel Bot Diagnostics ===",
+        f"timestamp          : {int(_t.time())}",
+        "",
+        "--- Environment ---",
+        f"DISCORD_TOKEN set  : {'YES' if token_present else 'NO ← bot will not start'}",
+        f"START_BOT_IN_WEB   : {start_in_web} {'← bot is DISABLED in web process' if disabled else ''}",
+        f"SUPABASE_URL set   : {'YES' if os.environ.get('SUPABASE_URL') else 'NO (using fallback)'}",
+        f"DATABASE_URL set   : {'YES' if os.environ.get('DATABASE_URL') else 'NO'}",
+        "",
+        "--- Bot Thread ---",
+        f"bot_alive          : {'YES ✅' if bot_alive else 'NO ❌'}",
+        f"thread state       : {bot_thread_state}",
+        "",
+        "--- Diagnosis ---",
+    ]
+
+    if not token_present:
+        lines.append("❌ DISCORD_TOKEN is missing or empty. Set it in your environment variables.")
+    elif disabled:
+        lines.append("❌ START_BOT_IN_WEB is set to a falsy value. Change it to 'true'.")
+    elif bot_alive:
+        lines.append("✅ Bot is running normally.")
+    else:
+        lines.append("⚠️  Token is set and START_BOT_IN_WEB is not disabled, but the bot thread is not alive.")
+        lines.append("    Check your service logs for startup errors (invalid token, import error, etc).")
+
+    return "\n".join(lines), 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
 # ---- RUN ----
 def run_dashboard(port=None):
     if port is None:
