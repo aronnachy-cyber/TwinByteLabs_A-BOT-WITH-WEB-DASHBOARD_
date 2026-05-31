@@ -3278,6 +3278,38 @@ async def slash_botinfo(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
+@bot.tree.command(name="about", description="Learn about SP4RK and who made it")
+async def slash_about(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="✨ About SP4RK",
+        description=(
+            "SP4RK is a powerful Discord moderation and server security bot, "
+            "built to keep communities safe with AI-powered automod, anti-raid "
+            "protection, role monitoring, and advanced moderation tools."
+        ),
+        color=0x7c5cbf,
+        timestamp=datetime.utcnow(),
+    )
+    embed.add_field(name="👤 Created by", value="**Aronna Chowdhury**", inline=True)
+    embed.add_field(name="🎂 Bot Birthday", value="**19 February 2026**", inline=True)
+    embed.add_field(name="📦 Version", value="**V2.5.0**", inline=True)
+    embed.add_field(
+        name="🛡️ What SP4RK does",
+        value=(
+            "• AI-powered automod (Gemini)\n"
+            "• Anti-raid & mass-ban prevention\n"
+            "• Role monitoring & security enforcement\n"
+            "• Full moderation suite (warn, ban, mute, timeout, purge…)\n"
+            "• Detailed action logs & daily reports"
+        ),
+        inline=False,
+    )
+    if bot.user and bot.user.display_avatar:
+        embed.set_thumbnail(url=bot.user.display_avatar.url)
+    embed.set_footer(text="SP4RK  •  Made with ❤️ by Aronna Chowdhury")
+    await interaction.response.send_message(embed=embed)
+
+
 # ---- Persistent reminders for SP4RK ----
 import pathlib as _pathlib
 
