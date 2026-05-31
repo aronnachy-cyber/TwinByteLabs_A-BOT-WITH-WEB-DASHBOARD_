@@ -18,9 +18,9 @@ services:
         sync: false
       - key: DASHBOARD_URL
         sync: false
-      # Set to "true" on free tier to run the bot inside the web dyno
+      # Run the bot inside the web dyno (free tier compatible)
       - key: START_BOT_IN_WEB
-        value: "false"
+        value: "true"
       # Bot tokens (needed when START_BOT_IN_WEB=true on free tier)
       - key: DISCORD_TOKEN
         sync: false

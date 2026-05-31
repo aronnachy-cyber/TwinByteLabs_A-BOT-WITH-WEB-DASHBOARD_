@@ -15,7 +15,7 @@ services:
       - key: DASHBOARD_URL
         sync: false
       - key: START_BOT_IN_WEB
-        value: "false"
+        value: "true"
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
