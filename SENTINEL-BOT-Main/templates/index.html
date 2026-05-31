@@ -385,12 +385,12 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     "Use the Feedback tab to send bug reports straight to Byte Labs.",
     "Live Warnings refresh in real time — no manual reload needed.",
     "Set a log channel under General so SP4RK can post action logs.",
-    "Auto-Responder rules accept exact, contains, and regex matches.",
     "Anti-Raid kicks new accounts joining in bursts — toggle in Security.",
-    "Reaction Roles let members self-assign roles by reacting to a message.",
-    "Tickets are private channels — only the opener and staff can see them.",
+    "Type /about in Discord to see SP4RK's creator and official birthday.",
     "Pro tip: hover any chart point to see exact daily counts.",
     "Click a star in the Feedback tab to share how SP4RK is treating you.",
+    "Use /bot in Discord for a live status overview of SP4RK.",
+    "Daily reports summarise all mod actions — enable them in General.",
   ];
   const tipEl = document.getElementById('bl-tip-text');
   let i = Math.floor(Math.random() * TIPS.length);
@@ -633,12 +633,6 @@ html.bl-compact .page-header { margin-bottom: 18px; }
         <div class="row-label"><strong>Daily Report</strong>Post a moderation summary to log channel every 24 hours</div>
         <label class="toggle"><input type="checkbox" id="daily_report" {% if config.get('daily_report')=='ON' %}checked{% endif %}><span class="slider"></span></label>
       </div>
-      <div class="row">
-        <div class="row-label"><strong>Ticket Category ID</strong>Category channel where ticket channels are created</div>
-      </div>
-      <div class="input-wrap-full" style="margin-bottom:4px;">
-        <input type="text" id="ticket_category" value="{{ config.get('ticket_category','') }}" placeholder="Discord category channel ID (optional)">
-      </div>
       <div class="row" style="margin-top:10px;">
         <div class="row-label"><strong>Bot Admin Role ID</strong>Members with this role can use all admin commands (kick, ban, copy, etc.)</div>
       </div>
@@ -664,6 +658,29 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       </div>
       <div class="input-wrap-full">
         <input type="url" id="bot_avatar" value="{{ config.get('bot_avatar','') }}" placeholder="https://example.com/avatar.png">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-terminal"></i> Quick Command Reference</div>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:14px;">Key slash commands available in Discord. Type <code style="background:var(--input-bg);padding:1px 5px;border-radius:4px;">/</code> in any channel to see the full list.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.82rem;">
+        <div style="background:var(--input-bg);border-radius:8px;padding:10px 12px;">
+          <div style="color:var(--accent);font-weight:600;margin-bottom:6px;">ℹ️ Bot Info</div>
+          <div style="color:var(--text);line-height:1.8;"><code>/about</code> — Creator &amp; birthday<br><code>/bot</code> — Live bot status<br><code>/botinfo</code> — Stats &amp; uptime<br><code>/commands</code> — Full command list</div>
+        </div>
+        <div style="background:var(--input-bg);border-radius:8px;padding:10px 12px;">
+          <div style="color:#e74c3c;font-weight:600;margin-bottom:6px;">🔨 Moderation</div>
+          <div style="color:var(--text);line-height:1.8;"><code>/warn</code> — Issue a warning<br><code>/kick</code> / <code>/ban</code> — Remove member<br><code>/timeout</code> — Temporary mute<br><code>/purge</code> — Delete messages</div>
+        </div>
+        <div style="background:var(--input-bg);border-radius:8px;padding:10px 12px;">
+          <div style="color:#2ecc71;font-weight:600;margin-bottom:6px;">🛡️ Security</div>
+          <div style="color:var(--text);line-height:1.8;"><code>/lockdown</code> — Lock all channels<br><code>/unlockdown</code> — Lift lockdown<br><code>/security</code> — Security settings<br><code>/massban</code> — Raid response</div>
+        </div>
+        <div style="background:var(--input-bg);border-radius:8px;padding:10px 12px;">
+          <div style="color:#f39c12;font-weight:600;margin-bottom:6px;">🔍 Info &amp; Utility</div>
+          <div style="color:var(--text);line-height:1.8;"><code>/userinfo</code> — Member profile<br><code>/serverinfo</code> — Server stats<br><code>/remind</code> — Set a reminder<br><code>/dashboard</code> — This panel</div>
+        </div>
       </div>
     </div>
 

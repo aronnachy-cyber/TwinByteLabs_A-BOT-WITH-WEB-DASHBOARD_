@@ -783,6 +783,7 @@ def build_help_embed(prefix):
         f"`{prefix}refresh` — reload dashboard config\n"
         f"`{prefix}help` — show this menu  (alias `!commands`, `!cmds`)\n"
         "`/commands` — slash version of this menu\n"
+        "`/about` — who made SP4RK & its official birthday\n"
         "`/bot` — bot stats\n"
         "`/dashboard` — admin dashboard link"
     ))
@@ -927,6 +928,7 @@ def _build_manual_pages() -> list:
                 "`/avatar [@member]` — Full-size avatar\n"
                 "`/roleinfo @role` — Role details\n"
                 "`/botinfo` — SP4RK stats\n"
+                "`/about` — Who made SP4RK & its birthday\n"
                 "`/remind <duration> <msg>` — Set a DM reminder\n"
                 "`/setprefix <p>` — Change server prefix *(Admin)*\n"
                 "`/dashboard` — Get your dashboard link *(Admin)*"
