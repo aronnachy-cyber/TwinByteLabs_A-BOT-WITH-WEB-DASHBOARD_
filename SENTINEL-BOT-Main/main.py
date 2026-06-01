@@ -2872,16 +2872,9 @@ async def slash_kick(interaction: discord.Interaction,
                      member: discord.Member, reason: str = "No reason provided"):
     if not await _slash_guard_guild(interaction):
         return
-    ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
-    if not ok_bot:
-        return await interaction.response.send_message(
-            f"❌ **Action Blocked** — Cannot kick {member.mention}.\n> {why}", ephemeral=True
-        )
-    if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
-        return await interaction.response.send_message(
-            f"❌ **Action Blocked** — Cannot kick {member.mention}.\n> Their role is equal to or higher than yours.",
-            ephemeral=True,
-        )
+    block = _hierarchy_block_slash(interaction, member, "kick")
+    if block:
+        return await interaction.response.send_message(block, ephemeral=True)
     if not interaction.guild.me.guild_permissions.kick_members:
         return await interaction.response.send_message(
             "❌ **Missing Permission** — I need the **Kick Members** permission.", ephemeral=True
@@ -2959,16 +2952,9 @@ async def slash_ban(interaction: discord.Interaction,
                     member: discord.Member, reason: str = "No reason provided"):
     if not await _slash_guard_guild(interaction):
         return
-    ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
-    if not ok_bot:
-        return await interaction.response.send_message(
-            f"❌ **Action Blocked** — Cannot ban {member.mention}.\n> {why}", ephemeral=True
-        )
-    if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
-        return await interaction.response.send_message(
-            f"❌ **Action Blocked** — Cannot ban {member.mention}.\n> Their role is equal to or higher than yours.",
-            ephemeral=True,
-        )
+    block = _hierarchy_block_slash(interaction, member, "ban")
+    if block:
+        return await interaction.response.send_message(block, ephemeral=True)
     if not interaction.guild.me.guild_permissions.ban_members:
         return await interaction.response.send_message(
             "❌ **Missing Permission** — I need the **Ban Members** permission.", ephemeral=True
@@ -3042,15 +3028,12 @@ async def slash_timeout(interaction: discord.Interaction,
                         reason: str = "No reason provided"):
     if not await _slash_guard_guild(interaction):
         return
-    ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
-    if not ok_bot:
+    block = _hierarchy_block_slash(interaction, member, "time out")
+    if block:
+        return await interaction.response.send_message(block, ephemeral=True)
+    if member.bot:
         return await interaction.response.send_message(
-            f"❌ **Action Blocked** — Cannot time out {member.mention}.\n> {why}", ephemeral=True
-        )
-    if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
-        return await interaction.response.send_message(
-            f"❌ **Action Blocked** — Cannot time out {member.mention}.\n> Their role is equal to or higher than yours.",
-            ephemeral=True,
+            "❌ Discord does not support timing out bots — use `/kick` or `/ban` instead.", ephemeral=True
         )
     seconds = parse_duration(duration)
     if not seconds:
