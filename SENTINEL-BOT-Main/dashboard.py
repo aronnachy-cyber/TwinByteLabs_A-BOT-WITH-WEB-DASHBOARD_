@@ -77,9 +77,16 @@ app.secret_key = _get_or_create_secret_key()
 # Trust the reverse proxy (Render/Replit) so request.scheme/host_url reflect HTTPS
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 # Persistent, cross-redirect-safe session cookies for the Discord OAuth round-trip
+# SESSION_COOKIE_SECURE only applies when running behind an HTTPS proxy (Render/Replit).
+# On plain HTTP (local dev) it must be False or the browser won't send the cookie at all.
+_behind_https_proxy = bool(
+    os.environ.get("RENDER") or
+    os.environ.get("REPLIT_DEV_DOMAIN") or
+    os.environ.get("FORCE_HTTPS_COOKIES")
+)
 app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SECURE=_behind_https_proxy,
     SESSION_COOKIE_HTTPONLY=True,
     PERMANENT_SESSION_LIFETIME=timedelta(days=30),
 )

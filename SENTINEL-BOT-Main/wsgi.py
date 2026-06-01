@@ -39,13 +39,20 @@ def _bot_watchdog():
 
 
 def _self_ping():
-    """Ping /health every 4 minutes to prevent the process from going idle."""
+    """Ping /health every 2 minutes to prevent Render/Replit from spinning down.
+
+    Uses the public DASHBOARD_URL when set so the ping counts as real inbound
+    traffic on Render (internal localhost pings don't reset the idle timer).
+    Falls back to localhost only when no public URL is known.
+    """
     time.sleep(30)
     while True:
         try:
             _replit_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
+            _render_url    = os.environ.get("RENDER_EXTERNAL_URL", "")
             base = (
                 os.environ.get("DASHBOARD_URL", "").rstrip("/")
+                or (_render_url.rstrip("/") if _render_url else "")
                 or (f"https://{_replit_domain}" if _replit_domain else "")
             )
             if not base:
@@ -59,7 +66,7 @@ def _self_ping():
                     print(f"[KEEPALIVE] /health returned {resp.status}")
         except Exception as e:
             print(f"[KEEPALIVE] Ping failed: {e}")
-        time.sleep(240)
+        time.sleep(120)  # every 2 minutes — well within Render's 15-min idle window
 
 
 _token_present = bool(os.environ.get("DISCORD_TOKEN", "").strip())
