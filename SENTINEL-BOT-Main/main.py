@@ -1850,7 +1850,10 @@ async def on_message(message):
     handled = await automod.handle_message(message, guild_cfg, add_warning_fn=add_warning)
     if not handled:
         await handle_ai_moderation(message)
-    await bot.process_commands(message)
+        # Only process prefix commands when automod has NOT already deleted/acted
+        # on the message — prevents a double-response where automod sends a warning
+        # AND a command response both appear for the same message.
+        await bot.process_commands(message)
 
 # ---------------- COMMAND ERROR HANDLER ----------------
 @bot.event
@@ -1871,13 +1874,35 @@ async def on_command_error(ctx, error):
 
 # ---------------- MODERATION COMMANDS ----------------
 def _hierarchy_block(ctx, member, action_word):
-    """Return error message string if SP4RK can't action this member, else None."""
-    allowed, why = automod.can_bot_action(member, ctx.guild.me)
-    if not allowed:
-        return f"❌ **Action Blocked** — Cannot {action_word} {member.mention}.\n> {why}"
-    # Also check the invoking user's role isn't lower than the target's
+    """Return error message string if this COMMANDED action is blocked, else None.
+
+    For human-issued commands we ONLY check role position — not permission flags
+    (administrator / manage_guild). Those flags are checked by can_bot_action()
+    which is reserved for *autonomous* automod actions.
+
+    Rules:
+      • Bot cannot act on itself.
+      • Bot cannot act on the server owner.
+      • Target's top role must be strictly below the bot's top role
+        (Discord enforces this at the API level anyway).
+      • Invoker's top role must be strictly above the target's top role,
+        unless the invoker IS the server owner (owner can order any action).
+    """
+    if member.id == ctx.guild.me.id:
+        return f"❌ **Action Blocked** — I cannot {action_word} myself."
+    if member.id == ctx.guild.owner_id:
+        return f"❌ **Action Blocked** — I cannot {action_word} the server owner."
+    if member.top_role >= ctx.guild.me.top_role:
+        return (
+            f"❌ **Action Blocked** — Cannot {action_word} {member.mention}.\n"
+            f"> Their role (**{member.top_role.name}**) is equal to or above mine. "
+            f"Move SP4RK's role higher in Server Settings → Roles to fix this."
+        )
     if ctx.author.id != ctx.guild.owner_id and member.top_role >= ctx.author.top_role:
-        return f"❌ **Action Blocked** — Cannot {action_word} {member.mention}.\n> Their role is equal to or higher than yours."
+        return (
+            f"❌ **Action Blocked** — Cannot {action_word} {member.mention}.\n"
+            f"> Their role is equal to or higher than yours."
+        )
     return None
 
 @bot.command()
@@ -2735,12 +2760,19 @@ async def slash_warn(interaction: discord.Interaction,
                      member: discord.Member, reason: str = "Violation"):
     if not await _slash_guard_guild(interaction):
         return
-    # Mirror the !warn hierarchy checks (slash commands can't share ctx).
+    # Role-position hierarchy check for commanded /warn.
+    # We do NOT use can_bot_action() here — that blocks anyone with admin/manage_guild
+    # perms and is reserved for autonomous automod. For a human-issued command the
+    # only constraint is Discord's own role hierarchy.
     auth = interaction.user
-    ok_bot, why = automod.can_bot_action(member, interaction.guild.me)
-    if not ok_bot:
+    if member.id == interaction.guild.me.id:
+        return await interaction.response.send_message("❌ I cannot warn myself.", ephemeral=True)
+    if member.id == interaction.guild.owner_id:
+        return await interaction.response.send_message("❌ Cannot warn the server owner.", ephemeral=True)
+    if member.top_role >= interaction.guild.me.top_role:
         return await interaction.response.send_message(
-            f"❌ Cannot warn {member.mention} — {why}.", ephemeral=True
+            f"❌ Cannot warn {member.mention} — their role (**{member.top_role.name}**) is equal to or above mine.",
+            ephemeral=True,
         )
     if auth.id != interaction.guild.owner_id and member.top_role >= auth.top_role:
         return await interaction.response.send_message(
@@ -3763,13 +3795,20 @@ async def slash_modlogs(interaction: discord.Interaction, member: discord.Member
 
 # ─── helpers for new slash commands ───────────────────────────────────────────
 def _hierarchy_block_slash(interaction: discord.Interaction, member: discord.Member, action_word: str):
-    """Same as _hierarchy_block but takes an Interaction instead of Context."""
+    """Same as _hierarchy_block but takes an Interaction instead of Context.
+
+    Role-position only — does NOT block by permission flags (administrator /
+    manage_guild). Only Discord's role ordering matters for human-issued commands.
+    """
     if member.id == interaction.guild.me.id:
         return f"❌ I can't {action_word} myself."
     if member.id == interaction.guild.owner_id:
         return f"❌ I can't {action_word} the server owner."
     if member.top_role >= interaction.guild.me.top_role:
-        return f"❌ Cannot {action_word} {member.mention} — their role is above mine."
+        return (
+            f"❌ Cannot {action_word} {member.mention} — their role (**{member.top_role.name}**) "
+            f"is equal to or above mine. Move SP4RK's role higher in Server Settings → Roles."
+        )
     if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
         return f"❌ Cannot {action_word} {member.mention} — their role is equal to or higher than yours."
     return None
