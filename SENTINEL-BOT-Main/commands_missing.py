@@ -1358,7 +1358,11 @@ def setup(bot: commands.Bot, dlog=None):
         await interaction.response.send_message(f"✅ `{word}` removed from the blacklist.", ephemeral=True)
         _dlog("🚫 BLACKLIST-", f"{interaction.user} removed '{word}'")
 
-    bot.tree.add_command(_blacklist_group)
+    try:
+        bot.tree.add_command(_blacklist_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /blacklist already registered — skipping")
+        else: print(f"[commands_missing] /blacklist error: {_e}")
 
     # ── /whitelist group ──
     _whitelist_group = app_commands.Group(name="whitelist", description="Manage automod whitelist.")
@@ -1380,7 +1384,11 @@ def setup(bot: commands.Bot, dlog=None):
         await interaction.response.send_message(f"✅ {member.mention} is now whitelisted.", ephemeral=True)
         _dlog("✅ WHITELIST+", f"{interaction.user} whitelisted {member}")
 
-    bot.tree.add_command(_whitelist_group)
+    try:
+        bot.tree.add_command(_whitelist_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /whitelist already registered — skipping")
+        else: print(f"[commands_missing] /whitelist error: {_e}")
 
     # ── /antinuke group ──
     _antinuke_group = app_commands.Group(name="antinuke", description="Anti-nuke protection settings.")
@@ -1407,7 +1415,11 @@ def setup(bot: commands.Bot, dlog=None):
         await interaction.response.send_message("🔴 **Anti-Nuke** protection is now **OFF**.", ephemeral=True)
         _dlog("🛡️ ANTINUKE", f"Anti-nuke disabled by {interaction.user}")
 
-    bot.tree.add_command(_antinuke_group)
+    try:
+        bot.tree.add_command(_antinuke_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /antinuke already registered — skipping")
+        else: print(f"[commands_missing] /antinuke error: {_e}")
 
     # ── /antialt group ──
     _antialt_group = app_commands.Group(name="antialt", description="Alt-account protection settings.")
@@ -1434,7 +1446,11 @@ def setup(bot: commands.Bot, dlog=None):
         await interaction.response.send_message("🔴 **Anti-Alt** protection is now **OFF**.", ephemeral=True)
         _dlog("🛡️ ANTIALT", f"Anti-alt disabled by {interaction.user}")
 
-    bot.tree.add_command(_antialt_group)
+    try:
+        bot.tree.add_command(_antialt_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /antialt already registered — skipping")
+        else: print(f"[commands_missing] /antialt error: {_e}")
 
     # ── /security group ──
     _security_group = app_commands.Group(name="security", description="Server security tools.")
@@ -1470,7 +1486,11 @@ def setup(bot: commands.Bot, dlog=None):
     async def slash_security_status(interaction: discord.Interaction):
         await slash_security_scan.callback(interaction)
 
-    bot.tree.add_command(_security_group)
+    try:
+        bot.tree.add_command(_security_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /security already registered — skipping")
+        else: print(f"[commands_missing] /security error: {_e}")
 
     # ── /joinguard group ──
     _joinguard_group = app_commands.Group(name="joinguard", description="Join guard — restrict new accounts.")
@@ -1494,7 +1514,11 @@ def setup(bot: commands.Bot, dlog=None):
             )
         _dlog("🛡️ JOINGUARD", f"Join guard set to {days}d by {interaction.user}")
 
-    bot.tree.add_command(_joinguard_group)
+    try:
+        bot.tree.add_command(_joinguard_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /joinguard already registered — skipping")
+        else: print(f"[commands_missing] /joinguard error: {_e}")
 
     # ── /captcha group ──
     _captcha_group = app_commands.Group(name="captcha", description="Captcha verification settings.")
@@ -1561,7 +1585,11 @@ def setup(bot: commands.Bot, dlog=None):
         embed.set_footer(text="Use /captcha setup to configure")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    bot.tree.add_command(_captcha_group)
+    try:
+        bot.tree.add_command(_captcha_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /captcha already registered — skipping")
+        else: print(f"[commands_missing] /captcha error: {_e}")
 
     # ── /logs group ──
     _logs_group = app_commands.Group(name="logs", description="Configure logging channels.")
@@ -1622,7 +1650,13 @@ def setup(bot: commands.Bot, dlog=None):
         _save_gcfg(interaction.guild.id, cfg)
         await interaction.response.send_message(f"✅ **Voice Log Channel** → {channel.mention}", ephemeral=True)
 
-    bot.tree.add_command(_logs_group)
+    try:
+        bot.tree.add_command(_logs_group)
+    except Exception as _e:
+        if "already" in str(_e).lower():
+            print(f"[commands_missing] /logs already registered — skipping")
+        else:
+            print(f"[commands_missing] /logs error: {_e}")
 
     # ── /case group ──
     _case_group = app_commands.Group(name="case", description="View and search moderation cases.")
@@ -1685,7 +1719,11 @@ def setup(bot: commands.Bot, dlog=None):
         embed.set_footer(text="SP4RK Case Search")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    bot.tree.add_command(_case_group)
+    try:
+        bot.tree.add_command(_case_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /case already registered — skipping")
+        else: print(f"[commands_missing] /case error: {_e}")
 
     # ── /audit group ──
     _audit_group = app_commands.Group(name="audit", description="View the Discord audit log.")
@@ -1745,7 +1783,11 @@ def setup(bot: commands.Bot, dlog=None):
         except discord.Forbidden:
             await interaction.followup.send("❌ I need the **View Audit Log** permission.", ephemeral=True)
 
-    bot.tree.add_command(_audit_group)
+    try:
+        bot.tree.add_command(_audit_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /audit already registered — skipping")
+        else: print(f"[commands_missing] /audit error: {_e}")
 
     # ── /reactionrole group ──
     _rr_group = app_commands.Group(name="reactionrole", description="Manage reaction roles.")
@@ -1802,7 +1844,11 @@ def setup(bot: commands.Bot, dlog=None):
         else:
             await interaction.response.send_message(f"❌ No reaction role for {emoji} on `{message_id}`.", ephemeral=True)
 
-    bot.tree.add_command(_rr_group)
+    try:
+        bot.tree.add_command(_rr_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /rr already registered — skipping")
+        else: print(f"[commands_missing] /rr error: {_e}")
 
     # ── /buttonrole group ──
     _buttonrole_group = app_commands.Group(name="buttonrole", description="Manage button-based roles.")
@@ -1825,7 +1871,11 @@ def setup(bot: commands.Bot, dlog=None):
         await interaction.response.send_message(f"✅ **Button Role Created** — posted in {target.mention}.", ephemeral=True)
         _dlog("🔘 BUTTONROLE", f"{interaction.user} created button role for @{role.name}")
 
-    bot.tree.add_command(_buttonrole_group)
+    try:
+        bot.tree.add_command(_buttonrole_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /buttonrole already registered — skipping")
+        else: print(f"[commands_missing] /buttonrole error: {_e}")
 
     # ── /selectrole group ──
     _selectrole_group = app_commands.Group(name="selectrole", description="Manage dropdown-based roles.")
@@ -1860,7 +1910,11 @@ def setup(bot: commands.Bot, dlog=None):
         await interaction.response.send_message(f"✅ **Select Role Menu Created** — posted in {target.mention}.", ephemeral=True)
         _dlog("📋 SELECTROLE", f"{interaction.user} created select menu with {len(role_list)} roles")
 
-    bot.tree.add_command(_selectrole_group)
+    try:
+        bot.tree.add_command(_selectrole_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /selectrole already registered — skipping")
+        else: print(f"[commands_missing] /selectrole error: {_e}")
 
     # ── /selfrole group ──
     _selfrole_group = app_commands.Group(name="selfrole", description="Self-assignable role panels.")
@@ -1896,7 +1950,11 @@ def setup(bot: commands.Bot, dlog=None):
         await target.send(embed=embed, view=view)
         await interaction.response.send_message(f"✅ **Self-Role Panel Created** — posted in {target.mention}.", ephemeral=True)
 
-    bot.tree.add_command(_selfrole_group)
+    try:
+        bot.tree.add_command(_selfrole_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /selfrole already registered — skipping")
+        else: print(f"[commands_missing] /selfrole error: {_e}")
 
     # ── /autorole group ──
     _autorole_group = app_commands.Group(name="autorole", description="Auto-role settings.")
@@ -1918,7 +1976,11 @@ def setup(bot: commands.Bot, dlog=None):
             await interaction.response.send_message("✅ **Auto-Role Disabled** — New members won't be auto-assigned any role.", ephemeral=True)
         _dlog("🎭 AUTOROLE", f"Auto-role set to {role} by {interaction.user}")
 
-    bot.tree.add_command(_autorole_group)
+    try:
+        bot.tree.add_command(_autorole_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /autorole already registered — skipping")
+        else: print(f"[commands_missing] /autorole error: {_e}")
 
     # ── /embed group ──
     _embed_group = app_commands.Group(name="embed", description="Create and manage embed messages.")
@@ -1984,7 +2046,11 @@ def setup(bot: commands.Bot, dlog=None):
         except discord.Forbidden:
             await interaction.response.send_message("❌ I don't have permission to delete that message.", ephemeral=True)
 
-    bot.tree.add_command(_embed_group)
+    try:
+        bot.tree.add_command(_embed_group)
+    except Exception as _e:
+        if "already" in str(_e).lower(): print(f"[commands_missing] /embed already registered — skipping")
+        else: print(f"[commands_missing] /embed error: {_e}")
 
     # ── /ticket-panel ──
     @bot.tree.command(name="ticket-panel", description="Post a ticket panel with an Open Ticket button.")

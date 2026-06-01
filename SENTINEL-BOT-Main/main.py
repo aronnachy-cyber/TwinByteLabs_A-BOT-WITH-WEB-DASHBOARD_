@@ -3406,37 +3406,6 @@ async def slash_remind(interaction: discord.Interaction, when: str, reminder: st
     )
 
 
-# ---- Slowmode ----
-@bot.tree.command(name="slowmode", description="Set channel slowmode delay (0 = off, max 21600 seconds)")
-@app_commands.describe(seconds="Slowmode delay in seconds (0 to disable, max 21600)")
-async def slash_slowmode(interaction: discord.Interaction, seconds: int):
-    if not await _slash_guard_guild(interaction):
-        return
-    if not _is_bot_mod(interaction):
-        return await interaction.response.send_message(
-            "❌ **Access Denied** — You need a Moderator role or Manage Messages permission.", ephemeral=True
-        )
-    if not 0 <= seconds <= 21600:
-        return await interaction.response.send_message(
-            "❌ Slowmode must be between **0** (off) and **21600** seconds (6 hours).", ephemeral=True
-        )
-    try:
-        await interaction.channel.edit(slowmode_delay=seconds, reason=f"Slowmode set by {interaction.user}")
-    except discord.Forbidden:
-        return await interaction.response.send_message("❌ I don't have permission to edit this channel.", ephemeral=True)
-    except Exception as e:
-        return await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-    if seconds == 0:
-        msg = f"✅ Slowmode **disabled** in {interaction.channel.mention}."
-    elif seconds < 60:
-        msg = f"🐌 Slowmode set to **{seconds} second(s)** in {interaction.channel.mention}."
-    elif seconds < 3600:
-        msg = f"🐌 Slowmode set to **{seconds // 60} minute(s)** in {interaction.channel.mention}."
-    else:
-        msg = f"🐌 Slowmode set to **{seconds // 3600} hour(s)** in {interaction.channel.mention}."
-    await interaction.response.send_message(msg)
-    dlog("🐌 SLOWMODE", f"{interaction.user} set slowmode to {seconds}s in #{interaction.channel.name}", guild_id=interaction.guild_id)
 
 
 # ---- Setprefix ----
