@@ -1943,10 +1943,10 @@ footer{
     </button>
 
     <div class="wn-ed-footer">
-      <button class="wn-ed-save" id="wnSaveBtn" onclick="wnSave()">
+      <button type="button" class="wn-ed-save" id="wnSaveBtn" onclick="wnSave()">
         <i class="fas fa-cloud-arrow-up"></i> Save &amp; Publish
       </button>
-      <button class="wn-ed-preview" onclick="wnPreview()">
+      <button type="button" class="wn-ed-preview" onclick="wnPreview()">
         <i class="fas fa-eye"></i> Preview
       </button>
       <span class="wn-ed-msg" id="wnMsg"></span>
@@ -3405,6 +3405,7 @@ function wnPreview(){
     </div>`;
     const ask = document.getElementById('askOverlay');
     if (ask) ask.parentNode.insertBefore(newWrap, ask);
+    else document.body.insertBefore(newWrap, document.body.firstChild);
   }
   closeWhatsNewEditor();
 }

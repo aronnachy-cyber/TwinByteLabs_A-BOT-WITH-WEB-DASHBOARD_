@@ -3674,16 +3674,15 @@ def auth_discord_callback():
         except Exception:
             pass
 
-    # Clear any stale guild selection so the server picker is always shown
-    # on a fresh login rather than jumping straight to the last dashboard.
+    # Clear any stale guild selection so the server picker always shows fresh.
     session.pop('selected_guild_id', None)
     session.modified = True
 
-    # Honor a "return to" target set before login
+    # Honor a "return to" target set before login, otherwise go to main page.
     next_url = session.pop('post_login_redirect', None)
     if next_url:
         return redirect(next_url)
-    return redirect(url_for('server_select'))
+    return redirect(url_for('landing'))
 
 # ---- REMOVED: UID-based register/forgot-password (Discord-only auth) ----
 @app.route('/register')
