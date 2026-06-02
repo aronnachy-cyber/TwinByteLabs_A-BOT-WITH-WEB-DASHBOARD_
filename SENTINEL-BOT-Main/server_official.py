@@ -106,6 +106,8 @@ async def on_ready():
         _check_reminders.start()
     if not _sticky_watcher.is_running():
         _sticky_watcher.start()
+    if not _check_giveaways.is_running():
+        _check_giveaways.start()
 
 
 @bot.event
@@ -135,7 +137,26 @@ async def on_message(message: discord.Message):
     if message.author.bot or not message.guild:
         return
     _record_message(str(message.guild.id))
-    # Sticky message logic
+
+    # ── Custom commands ─────────────────────────────────────────────────────
+    content_lower = message.content.strip().lower()
+    cmds = list_custom_commands(str(message.guild.id))
+    for cc in cmds:
+        trigger = cc.get("trigger", "").strip().lower()
+        if trigger and content_lower == trigger:
+            result_text = cc.get("result") or cc.get("response") or ""
+            if result_text:
+                try:
+                    if cc.get("use_embed"):
+                        e = discord.Embed(description=result_text, color=0x5b8cff)
+                        await message.channel.send(embed=e)
+                    else:
+                        await message.channel.send(result_text)
+                except Exception:
+                    pass
+            break
+
+    # ── Sticky message logic ─────────────────────────────────────────────────
     stickies = _get("stickies") or {}
     cid = str(message.channel.id)
     if cid in stickies:
@@ -612,6 +633,528 @@ def get_server_logs(guild_id: Optional[str] = None) -> list:
 def get_bot_action_logs() -> list:
     """Return the most recent bot action log entries."""
     return list(reversed((_get("bot_actions") or [])[-100:]))
+
+
+# ── Custom commands ────────────────────────────────────────────────────────────
+def list_custom_commands(guild_id: str) -> list:
+    all_cc = _get("custom_commands") or {}
+    return all_cc.get(str(guild_id), [])
+
+def add_custom_command(guild_id: str, trigger: str, result: str,
+                       description: str = "", use_embed: bool = False) -> dict:
+    all_cc = _get("custom_commands") or {}
+    gid = str(guild_id)
+    cmds = all_cc.get(gid, [])
+    if any(c.get("trigger", "").lower() == trigger.lower() for c in cmds):
+        raise ValueError(f"Trigger '{trigger}' already exists.")
+    item = {
+        "id": str(uuid.uuid4()),
+        "guild_id": gid,
+        "trigger": trigger.lower(),
+        "result": result,
+        "description": description,
+        "use_embed": use_embed,
+        "created_at": _now_iso(),
+    }
+    cmds.append(item)
+    all_cc[gid] = cmds
+    _set("custom_commands", all_cc)
+    return item
+
+def remove_custom_command(guild_id: str, trigger: str) -> bool:
+    all_cc = _get("custom_commands") or {}
+    gid = str(guild_id)
+    cmds = all_cc.get(gid, [])
+    new = [c for c in cmds if c.get("trigger", "").lower() != trigger.lower()]
+    if len(new) == len(cmds):
+        return False
+    all_cc[gid] = new
+    _set("custom_commands", all_cc)
+    return True
+
+
+# ── Polls ──────────────────────────────────────────────────────────────────────
+def add_poll(guild_id: str, channel_id: str, question: str,
+             options: List[str], message_id: str = "") -> dict:
+    item = {
+        "id": str(uuid.uuid4()),
+        "guild_id": str(guild_id),
+        "channel_id": str(channel_id),
+        "message_id": str(message_id),
+        "question": question,
+        "options": options,
+        "ended": False,
+        "created_at": _now_iso(),
+    }
+    items = _get("polls") or []
+    items.append(item)
+    _set("polls", items)
+    return item
+
+def end_poll(poll_id: str) -> bool:
+    items = _get("polls") or []
+    for p in items:
+        if p.get("id") == poll_id:
+            p["ended"] = True
+            _set("polls", items)
+            return True
+    return False
+
+
+# ── Giveaways ──────────────────────────────────────────────────────────────────
+def add_giveaway(guild_id: str, channel_id: str, prize: str,
+                 winners: int, ends_at: str, host: str,
+                 message_id: str = "") -> dict:
+    item = {
+        "id": str(uuid.uuid4()),
+        "guild_id": str(guild_id),
+        "channel_id": str(channel_id),
+        "message_id": str(message_id),
+        "prize": prize,
+        "winners": winners,
+        "host": host,
+        "ends_at": ends_at,
+        "ended": False,
+        "created_at": _now_iso(),
+    }
+    items = _get("giveaways") or []
+    items.append(item)
+    _set("giveaways", items)
+    return item
+
+def end_giveaway(giveaway_id: str) -> bool:
+    items = _get("giveaways") or []
+    for g in items:
+        if g.get("id") == giveaway_id:
+            g["ended"] = True
+            _set("giveaways", items)
+            return True
+    return False
+
+
+# ── Reminders (user-facing add) ────────────────────────────────────────────────
+def add_reminder(channel_id: str, message: str, due_at: str,
+                 guild_id: str = "", user_id: str = "") -> dict:
+    item = {
+        "id": str(uuid.uuid4()),
+        "channel_id": str(channel_id),
+        "guild_id": str(guild_id),
+        "user_id": str(user_id),
+        "message": message,
+        "due_at": due_at,
+        "created_at": _now_iso(),
+    }
+    items = _get("reminders") or []
+    items.append(item)
+    _set("reminders", items)
+    return item
+
+
+# ── Incoming webhooks ──────────────────────────────────────────────────────────
+def list_incoming_webhooks(guild_id: Optional[str] = None) -> list:
+    items = _get("incoming_webhooks") or []
+    if guild_id:
+        items = [i for i in items if i.get("guild_id") == str(guild_id)]
+    return items
+
+def add_incoming_webhook(guild_id: str, name: str, channel_id: str) -> dict:
+    item = {
+        "id": str(uuid.uuid4()),
+        "guild_id": str(guild_id),
+        "name": name,
+        "channel_id": str(channel_id),
+        "token": str(uuid.uuid4()).replace("-", ""),
+        "created_at": _now_iso(),
+    }
+    items = _get("incoming_webhooks") or []
+    items.append(item)
+    _set("incoming_webhooks", items)
+    return item
+
+def delete_incoming_webhook(wid: str) -> bool:
+    items = _get("incoming_webhooks") or []
+    new = [i for i in items if i.get("id") != wid]
+    _set("incoming_webhooks", new)
+    return len(new) < len(items)
+
+
+# ---------------------------------------------------------------------------
+# Background task: giveaway auto-end
+# ---------------------------------------------------------------------------
+@tasks.loop(seconds=30)
+async def _check_giveaways():
+    """Automatically end giveaways when their time is up."""
+    giveaways = _get("giveaways") or []
+    now = datetime.now(timezone.utc)
+    changed = False
+    for gw in giveaways:
+        if gw.get("ended"):
+            continue
+        ends_at = _parse_iso(gw.get("ends_at", ""))
+        if not ends_at or now < ends_at:
+            continue
+        # Time's up — pick winners from reactions
+        try:
+            ch = bot.get_channel(int(gw["channel_id"])) or await bot.fetch_channel(int(gw["channel_id"]))
+            msg = await ch.fetch_message(int(gw["message_id"]))
+            reaction = discord.utils.get(msg.reactions, emoji="🎉")
+            entries = []
+            if reaction:
+                async for user in reaction.users():
+                    if not user.bot:
+                        entries.append(user)
+            import random
+            num_winners = min(gw.get("winners", 1), len(entries))
+            if num_winners > 0:
+                winners = random.sample(entries, num_winners)
+                winner_mentions = " ".join(w.mention for w in winners)
+                e = discord.Embed(
+                    title="🎊 Giveaway Ended!",
+                    description=f"🏆 **Prize:** {gw['prize']}\n🥇 **Winner(s):** {winner_mentions}\n🎗️ **Hosted by:** {gw['host']}",
+                    color=0x2ecc71,
+                )
+                e.set_footer(text="Server Official • Byte Labs")
+                await ch.send(embed=e)
+                await ch.send(f"🎉 Congratulations {winner_mentions}! You won **{gw['prize']}**!")
+            else:
+                await ch.send(embed=discord.Embed(
+                    title="😔 Giveaway Ended — No Winner",
+                    description=f"No valid entries for **{gw['prize']}**.",
+                    color=0x95a5a6,
+                ))
+        except Exception as ex:
+            print(f"[giveaway-end] error: {ex}")
+        gw["ended"] = True
+        changed = True
+    if changed:
+        _set("giveaways", giveaways)
+
+
+# ---------------------------------------------------------------------------
+# ALL DISCORD COMMANDS
+# ---------------------------------------------------------------------------
+
+_POLL_EMOJIS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+
+def _is_admin(member: discord.Member) -> bool:
+    return member.guild_permissions.administrator or member.guild_permissions.manage_guild
+
+
+# ── /ping ─────────────────────────────────────────────────────────────────────
+@bot.tree.command(name="ping", description="Check if Server Official is online and responding.")
+async def slash_ping(interaction: discord.Interaction):
+    latency = round(bot.latency * 1000)
+    e = discord.Embed(
+        title="🏓 Pong!",
+        description=f"Server Official is online.\n⚡ Latency: **{latency}ms**",
+        color=0x2ecc71,
+    )
+    e.set_footer(text="Server Official • Byte Labs")
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+
+# ── /help ─────────────────────────────────────────────────────────────────────
+@bot.tree.command(name="help", description="Show all available Server Official commands.")
+async def slash_help(interaction: discord.Interaction):
+    e = discord.Embed(
+        title="📖 Server Official — Commands",
+        description="All slash commands available in this server.",
+        color=0x5b8cff,
+    )
+    e.add_field(name="📣 Announcements", value="`/announce` — Post an announcement immediately", inline=False)
+    e.add_field(name="📊 Polls", value="`/poll` — Create a reaction poll (up to 10 options)", inline=False)
+    e.add_field(name="🎉 Giveaways", value="`/giveaway` — Start a giveaway with a timer", inline=False)
+    e.add_field(name="⏰ Reminders", value="`/remind` — Set a timed reminder in a channel", inline=False)
+    e.add_field(name="📌 Sticky Messages", value="`/sticky` — Pin a message to the bottom of a channel\n`/unsticky` — Remove the sticky from a channel", inline=False)
+    e.add_field(name="⚙️ Custom Commands", value="`/cc add` — Add a custom command\n`/cc remove` — Remove a custom command\n`/cc list` — List all custom commands", inline=False)
+    e.add_field(name="🛠️ Utilities", value="`/ping` — Check bot latency\n`/serverinfo` — Show server information", inline=False)
+    e.set_footer(text="Server Official • Byte Labs | Prefix: so!")
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+
+# ── /serverinfo ───────────────────────────────────────────────────────────────
+@bot.tree.command(name="serverinfo", description="Show information about this server.")
+async def slash_serverinfo(interaction: discord.Interaction):
+    g = interaction.guild
+    if not g:
+        await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+        return
+    bots  = sum(1 for m in g.members if m.bot)
+    humans = g.member_count - bots if g.member_count else 0
+    e = discord.Embed(title=f"📋 {g.name}", color=0x5b8cff)
+    if g.icon:
+        e.set_thumbnail(url=g.icon.url)
+    e.add_field(name="👑 Owner", value=f"<@{g.owner_id}>", inline=True)
+    e.add_field(name="👥 Members", value=f"{humans} humans • {bots} bots", inline=True)
+    e.add_field(name="📁 Channels", value=f"{len(g.text_channels)} text • {len(g.voice_channels)} voice", inline=True)
+    e.add_field(name="🏷️ Roles", value=str(len(g.roles)), inline=True)
+    e.add_field(name="😀 Emojis", value=str(len(g.emojis)), inline=True)
+    e.add_field(name="🔒 Verification", value=str(g.verification_level).title(), inline=True)
+    e.add_field(name="📅 Created", value=f"<t:{int(g.created_at.timestamp())}:D>", inline=True)
+    e.set_footer(text=f"Server ID: {g.id}  •  Server Official")
+    await interaction.response.send_message(embed=e)
+
+
+# ── /announce ─────────────────────────────────────────────────────────────────
+@bot.tree.command(name="announce", description="Post an announcement embed immediately.")
+@discord.app_commands.describe(
+    channel="Channel to post in",
+    title="Announcement title",
+    message="Announcement message",
+    color="Embed color hex (e.g. #ff0000). Default: blue",
+)
+async def slash_announce(
+    interaction: discord.Interaction,
+    channel: discord.TextChannel,
+    title: str,
+    message: str,
+    color: str = "#5b8cff",
+):
+    if not _is_admin(interaction.user):
+        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        return
+    try:
+        hex_color = int(color.lstrip("#"), 16)
+    except Exception:
+        hex_color = 0x5b8cff
+    e = discord.Embed(
+        title=title,
+        description=message,
+        color=hex_color,
+        timestamp=datetime.now(timezone.utc),
+    )
+    e.set_footer(text=f"Announced by {interaction.user}  •  Server Official")
+    await channel.send(embed=e)
+    add_bot_action("announce", f"Announcement posted to #{channel.name}: {title}", str(interaction.user))
+    await interaction.response.send_message(f"✅ Announcement posted in {channel.mention}!", ephemeral=True)
+
+
+# ── /poll ─────────────────────────────────────────────────────────────────────
+@bot.tree.command(name="poll", description="Create a reaction poll.")
+@discord.app_commands.describe(
+    question="The poll question",
+    options="Comma-separated options (e.g. Yes, No, Maybe). Up to 10.",
+    channel="Channel to post in (defaults to current channel)",
+)
+async def slash_poll(
+    interaction: discord.Interaction,
+    question: str,
+    options: str,
+    channel: Optional[discord.TextChannel] = None,
+):
+    ch = channel or interaction.channel
+    opts = [o.strip() for o in options.split(",") if o.strip()][:10]
+    if len(opts) < 2:
+        await interaction.response.send_message("❌ Provide at least 2 comma-separated options.", ephemeral=True)
+        return
+    desc = "\n".join(f"{_POLL_EMOJIS[i]}  {opt}" for i, opt in enumerate(opts))
+    e = discord.Embed(
+        title=f"📊 {question}",
+        description=desc,
+        color=0x5b8cff,
+        timestamp=datetime.now(timezone.utc),
+    )
+    e.set_footer(text=f"Poll by {interaction.user}  •  React to vote!")
+    await interaction.response.send_message("✅ Poll created!", ephemeral=True)
+    sent = await ch.send(embed=e)
+    for i in range(len(opts)):
+        try:
+            await sent.add_reaction(_POLL_EMOJIS[i])
+        except Exception:
+            pass
+    add_poll(str(interaction.guild_id), str(ch.id), question, opts, message_id=str(sent.id))
+    add_bot_action("poll", f"Poll created: {question}", str(interaction.user))
+
+
+# ── /giveaway ─────────────────────────────────────────────────────────────────
+@bot.tree.command(name="giveaway", description="Start a giveaway.")
+@discord.app_commands.describe(
+    prize="What are you giving away?",
+    duration="Duration in minutes",
+    winners="Number of winners (default 1)",
+    channel="Channel to host the giveaway in (defaults to current)",
+)
+async def slash_giveaway(
+    interaction: discord.Interaction,
+    prize: str,
+    duration: int,
+    winners: int = 1,
+    channel: Optional[discord.TextChannel] = None,
+):
+    if not _is_admin(interaction.user):
+        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        return
+    if duration < 1:
+        await interaction.response.send_message("❌ Duration must be at least 1 minute.", ephemeral=True)
+        return
+    ch = channel or interaction.channel
+    ends_dt = datetime.now(timezone.utc) + timedelta(minutes=duration)
+    ends_ts = int(ends_dt.timestamp())
+    e = discord.Embed(
+        title="🎉  G I V E A W A Y  🎉",
+        description=(
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🏆 **Prize:** {prize}\n"
+            f"👑 **Winners:** {winners}\n"
+            f"🎗️ **Hosted by:** {interaction.user.mention}\n"
+            f"⏰ **Ends:** <t:{ends_ts}:R>  (<t:{ends_ts}:F>)\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"React with 🎉 to enter! Good luck! 🍀"
+        ),
+        color=0xf5b400,
+        timestamp=ends_dt,
+    )
+    e.set_footer(text="Server Official • Giveaway — ends at")
+    await interaction.response.send_message("✅ Giveaway started!", ephemeral=True)
+    sent = await ch.send(embed=e)
+    await sent.add_reaction("🎉")
+    gw = add_giveaway(
+        str(interaction.guild_id), str(ch.id), prize, winners,
+        ends_dt.isoformat(), str(interaction.user), message_id=str(sent.id),
+    )
+    add_bot_action("giveaway", f"Giveaway started: {prize} ({duration}min)", str(interaction.user))
+
+
+# ── /remind ───────────────────────────────────────────────────────────────────
+@bot.tree.command(name="remind", description="Set a timed reminder in a channel.")
+@discord.app_commands.describe(
+    message="What to remind about",
+    minutes="How many minutes from now",
+    channel="Channel to send the reminder (defaults to current)",
+)
+async def slash_remind(
+    interaction: discord.Interaction,
+    message: str,
+    minutes: int,
+    channel: Optional[discord.TextChannel] = None,
+):
+    if minutes < 1:
+        await interaction.response.send_message("❌ Minutes must be at least 1.", ephemeral=True)
+        return
+    ch = channel or interaction.channel
+    due = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+    add_reminder(str(ch.id), message, due.isoformat(),
+                 guild_id=str(interaction.guild_id), user_id=str(interaction.user.id))
+    await interaction.response.send_message(
+        f"✅ Reminder set! I'll remind you in **{minutes} minute(s)** in {ch.mention}.", ephemeral=True
+    )
+    add_bot_action("reminder", f"Reminder set: {message} in {minutes}min", str(interaction.user))
+
+
+# ── /sticky ───────────────────────────────────────────────────────────────────
+@bot.tree.command(name="sticky", description="Set a sticky message in a channel (re-posts after every new message).")
+@discord.app_commands.describe(
+    message="Message to keep pinned at the bottom",
+    channel="Channel to apply sticky to (defaults to current)",
+)
+async def slash_sticky(
+    interaction: discord.Interaction,
+    message: str,
+    channel: Optional[discord.TextChannel] = None,
+):
+    if not _is_admin(interaction.user):
+        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        return
+    ch = channel or interaction.channel
+    set_sticky(str(ch.id), message, guild_id=str(interaction.guild_id))
+    await interaction.response.send_message(f"✅ Sticky message set in {ch.mention}.", ephemeral=True)
+    add_bot_action("sticky_set", f"Sticky set in #{ch.name}", str(interaction.user))
+
+
+@bot.tree.command(name="unsticky", description="Remove the sticky message from a channel.")
+@discord.app_commands.describe(channel="Channel to remove sticky from (defaults to current)")
+async def slash_unsticky(
+    interaction: discord.Interaction,
+    channel: Optional[discord.TextChannel] = None,
+):
+    if not _is_admin(interaction.user):
+        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        return
+    ch = channel or interaction.channel
+    removed = remove_sticky(str(ch.id))
+    if removed:
+        await interaction.response.send_message(f"✅ Sticky removed from {ch.mention}.", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"⚠️ No sticky found in {ch.mention}.", ephemeral=True)
+
+
+# ── /cc (custom commands) ─────────────────────────────────────────────────────
+cc_group = discord.app_commands.Group(name="cc", description="Manage custom commands for this server.")
+
+@cc_group.command(name="add", description="Add a custom command that triggers on an exact message.")
+@discord.app_commands.describe(trigger="The exact message that triggers this command", response="What the bot replies")
+async def cc_add(interaction: discord.Interaction, trigger: str, response: str):
+    if not _is_admin(interaction.user):
+        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        return
+    try:
+        add_custom_command(str(interaction.guild_id), trigger, result=response)
+        await interaction.response.send_message(
+            f"✅ Custom command added!\n**Trigger:** `{trigger}`\n**Response:** {response}", ephemeral=True
+        )
+    except ValueError as err:
+        await interaction.response.send_message(f"❌ {err}", ephemeral=True)
+
+@cc_group.command(name="remove", description="Remove a custom command by its trigger word.")
+@discord.app_commands.describe(trigger="The trigger of the command to remove")
+async def cc_remove(interaction: discord.Interaction, trigger: str):
+    if not _is_admin(interaction.user):
+        await interaction.response.send_message("❌ You need Manage Server permission.", ephemeral=True)
+        return
+    removed = remove_custom_command(str(interaction.guild_id), trigger)
+    if removed:
+        await interaction.response.send_message(f"✅ Removed custom command: `{trigger}`", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"⚠️ No custom command found with trigger `{trigger}`.", ephemeral=True)
+
+@cc_group.command(name="list", description="List all custom commands in this server.")
+async def cc_list(interaction: discord.Interaction):
+    cmds = list_custom_commands(str(interaction.guild_id))
+    if not cmds:
+        await interaction.response.send_message("No custom commands set up yet.", ephemeral=True)
+        return
+    lines = [f"`{c['trigger']}` → {c.get('result') or c.get('response', '')}" for c in cmds[:25]]
+    e = discord.Embed(title="⚙️ Custom Commands", description="\n".join(lines), color=0x5b8cff)
+    e.set_footer(text=f"{len(cmds)} command(s)  •  Server Official")
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+bot.tree.add_command(cc_group)
+
+
+# ── Prefix commands (so!) ─────────────────────────────────────────────────────
+
+@bot.command(name="ping")
+async def prefix_ping(ctx):
+    latency = round(bot.latency * 1000)
+    await ctx.send(embed=discord.Embed(
+        title="🏓 Pong!",
+        description=f"Server Official is online.\n⚡ Latency: **{latency}ms**",
+        color=0x2ecc71,
+    ))
+
+@bot.command(name="help")
+async def prefix_help(ctx):
+    e = discord.Embed(title="📖 Server Official — Commands", color=0x5b8cff)
+    e.add_field(name="Prefix", value="`so!`", inline=False)
+    e.add_field(name="Slash commands", value="`/ping` `/help` `/announce` `/poll` `/giveaway` `/remind` `/sticky` `/unsticky` `/cc` `/serverinfo`", inline=False)
+    e.add_field(name="Prefix commands", value="`so!ping` `so!help` `so!serverinfo`", inline=False)
+    e.set_footer(text="Server Official • Byte Labs")
+    await ctx.send(embed=e)
+
+@bot.command(name="serverinfo")
+async def prefix_serverinfo(ctx):
+    g = ctx.guild
+    bots  = sum(1 for m in g.members if m.bot)
+    humans = g.member_count - bots
+    e = discord.Embed(title=f"📋 {g.name}", color=0x5b8cff)
+    if g.icon:
+        e.set_thumbnail(url=g.icon.url)
+    e.add_field(name="👑 Owner", value=f"<@{g.owner_id}>", inline=True)
+    e.add_field(name="👥 Members", value=f"{humans} humans • {bots} bots", inline=True)
+    e.add_field(name="📁 Channels", value=f"{len(g.text_channels)} text • {len(g.voice_channels)} voice", inline=True)
+    e.add_field(name="📅 Created", value=f"<t:{int(g.created_at.timestamp())}:D>", inline=True)
+    e.set_footer(text=f"Server ID: {g.id}  •  Server Official")
+    await ctx.send(embed=e)
 
 
 # ---------------------------------------------------------------------------
