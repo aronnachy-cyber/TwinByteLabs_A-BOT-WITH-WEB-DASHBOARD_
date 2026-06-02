@@ -3,10 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>404 — Page Not Found · Byte Labs</title>
+<title>Wrong Way — Byte Labs</title>
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
@@ -17,6 +15,7 @@
   --accent:#5b8cff;
   --accent2:#8b5cf6;
   --accent3:#22d3ee;
+  --red:#ff4757;
   --text:#e8efff;
   --muted:#8a9bbf;
   --border:rgba(91,140,255,0.18);
@@ -32,73 +31,165 @@ body{
   min-height:100vh;
   position:relative;
 }
+
+/* background */
 .bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
-.orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.45;}
-.orb.o1{width:500px;height:500px;background:#5b8cff;top:-150px;left:-120px;animation:floatA 18s ease-in-out infinite;}
-.orb.o2{width:420px;height:420px;background:#8b5cf6;bottom:-100px;right:-100px;animation:floatB 22s ease-in-out infinite;}
-@keyframes floatA{0%,100%{transform:translate(0,0);}50%{transform:translate(60px,50px);}}
-@keyframes floatB{0%,100%{transform:translate(0,0);}50%{transform:translate(-50px,60px);}}
+.orb{position:absolute;border-radius:50%;filter:blur(110px);opacity:.35;}
+.orb.o1{width:550px;height:550px;background:#ff4757;top:-180px;left:-100px;animation:floatA 20s ease-in-out infinite;}
+.orb.o2{width:450px;height:450px;background:#5b8cff;bottom:-120px;right:-80px;animation:floatB 24s ease-in-out infinite;}
+.orb.o3{width:300px;height:300px;background:#8b5cf6;top:40%;left:55%;animation:floatA 16s ease-in-out infinite reverse;}
+@keyframes floatA{0%,100%{transform:translate(0,0);}50%{transform:translate(50px,40px);}}
+@keyframes floatB{0%,100%{transform:translate(0,0);}50%{transform:translate(-40px,55px);}}
 .bg-grid{
   position:fixed;inset:0;pointer-events:none;z-index:0;
-  background-image:linear-gradient(rgba(91,140,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(91,140,255,0.04) 1px,transparent 1px);
+  background-image:linear-gradient(rgba(91,140,255,0.04) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(91,140,255,0.04) 1px,transparent 1px);
   background-size:60px 60px;
   mask-image:radial-gradient(ellipse at center,black 30%,transparent 75%);
   -webkit-mask-image:radial-gradient(ellipse at center,black 30%,transparent 75%);
 }
+
+/* card */
 .container{
   position:relative;z-index:1;
   text-align:center;
-  padding:48px 32px;
-  max-width:520px;
+  padding:52px 36px;
+  max-width:560px;
+  width:100%;
 }
-.code{
-  font-size:clamp(100px,20vw,160px);
+
+/* wrong-way sign */
+.sign-wrap{
+  display:inline-flex;flex-direction:column;align-items:center;
+  margin-bottom:32px;
+  animation:signWobble 6s ease-in-out infinite;
+}
+@keyframes signWobble{0%,100%{transform:rotate(-2deg);}50%{transform:rotate(2deg);}}
+.sign{
+  background:var(--red);
+  border:4px solid #ff6b78;
+  border-radius:10px;
+  padding:10px 36px;
+  font-size:2rem;
   font-weight:900;
-  line-height:1;
-  background:linear-gradient(135deg,var(--accent),var(--accent2),var(--accent3));
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  background-clip:text;
-  letter-spacing:-4px;
-  margin-bottom:8px;
+  letter-spacing:4px;
+  color:#fff;
+  text-shadow:0 2px 8px rgba(0,0,0,.4);
+  box-shadow:0 6px 30px rgba(255,71,87,.45);
+  white-space:nowrap;
 }
-.icon{font-size:2rem;margin-bottom:20px;color:var(--muted);}
-h1{font-size:1.6rem;font-weight:800;margin-bottom:10px;}
-p{color:var(--muted);font-size:1rem;line-height:1.65;margin-bottom:36px;}
-.actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+.sign-post{
+  width:10px;height:48px;
+  background:linear-gradient(#c0a060,#8a7040);
+  border-radius:0 0 4px 4px;
+  box-shadow:0 4px 12px rgba(0,0,0,.3);
+}
+
+/* text */
+.tagline{
+  font-size:1.55rem;font-weight:800;
+  margin-bottom:10px;
+  background:linear-gradient(135deg,var(--text),var(--muted));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.sub{
+  font-size:.95rem;color:var(--muted);
+  line-height:1.65;margin-bottom:26px;
+}
+
+/* bad path pill */
+.bad-path{
+  display:inline-block;
+  background:rgba(255,71,87,.1);
+  border:1px solid rgba(255,71,87,.3);
+  border-radius:8px;
+  padding:7px 18px;
+  font-family:'Consolas','Fira Mono',monospace;
+  font-size:.88rem;
+  color:#ff8a94;
+  margin-bottom:30px;
+  word-break:break-all;
+  max-width:100%;
+}
+.bad-path i{margin-right:6px;opacity:.7;}
+
+/* try this */
+.try-label{
+  font-size:.75rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:1.5px;
+  margin-bottom:14px;
+}
+
+/* buttons */
+.actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
 .btn{
   display:inline-flex;align-items:center;gap:8px;
-  padding:12px 24px;
-  border-radius:10px;
-  font-size:.95rem;font-weight:600;
+  padding:13px 26px;border-radius:10px;
+  font-size:.92rem;font-weight:700;
   text-decoration:none;
   transition:transform .15s,box-shadow .15s,opacity .15s;
 }
-.btn:hover{transform:translateY(-2px);opacity:.9;}
+.btn:hover{transform:translateY(-2px);opacity:.92;}
 .btn-primary{
   background:linear-gradient(135deg,var(--accent),var(--accent2));
   color:#fff;
-  box-shadow:0 4px 20px rgba(91,140,255,.35);
+  box-shadow:0 4px 24px rgba(91,140,255,.4);
 }
 .btn-secondary{
   background:rgba(255,255,255,.05);
   border:1px solid var(--border);
   color:var(--text);
 }
+.btn-secondary:hover{background:rgba(255,255,255,.09);}
+
+/* divider */
+.divider{height:1px;background:var(--border);margin:28px 0;}
+
+/* footer hint */
+.hint{font-size:.76rem;color:var(--muted);opacity:.7;}
 </style>
 </head>
 <body>
-<div class="bg-orbs"><div class="orb o1"></div><div class="orb o2"></div></div>
+<div class="bg-orbs">
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+</div>
 <div class="bg-grid"></div>
+
 <div class="container">
-  <div class="code">404</div>
-  <div class="icon"><i class="fas fa-satellite-dish"></i></div>
-  <h1>Page not found</h1>
-  <p>The page you're looking for doesn't exist or has been moved. Let's get you back on track.</p>
-  <div class="actions">
-    <a href="/" class="btn btn-primary"><i class="fas fa-house"></i> Home</a>
-    <a href="/bots" class="btn btn-secondary"><i class="fas fa-robot"></i> Our Bots</a>
+
+  <div class="sign-wrap">
+    <div class="sign">WRONG WAY</div>
+    <div class="sign-post"></div>
   </div>
+
+  <div class="tagline">You took a wrong turn.</div>
+  <p class="sub">That page doesn't exist — but we saved you from the void.</p>
+
+  {% if bad_path and bad_path != '/' %}
+  <div class="bad-path">
+    <i class="fas fa-xmark"></i>twinbytelabs.com<strong>{{ bad_path }}</strong>
+  </div>
+  {% endif %}
+
+  <div class="try-label"><i class="fas fa-arrow-down" style="margin-right:5px;"></i> Try this instead</div>
+
+  <div class="actions">
+    <a href="{{ dashboard_link }}" class="btn btn-primary">
+      <i class="fas fa-gauge-high"></i> Go to Dashboard
+    </a>
+    <a href="/" class="btn btn-secondary">
+      <i class="fas fa-house"></i> Home
+    </a>
+  </div>
+
+  <div class="divider"></div>
+  <div class="hint">
+    <i class="fas fa-circle-info" style="margin-right:5px;"></i>
+    If you think this is a mistake, contact a Byte Labs admin.
+  </div>
+
 </div>
 </body>
 </html>

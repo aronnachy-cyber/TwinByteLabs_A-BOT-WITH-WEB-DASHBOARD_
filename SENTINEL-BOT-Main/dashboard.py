@@ -240,11 +240,15 @@ def _add_security_headers(response):
     return response
 
 
+DASHBOARD_LINK = "/dashboard"
+
 @app.errorhandler(404)
 def handle_not_found(error):
     if request.path.startswith("/api/") or request.path.startswith("/server-official/api/"):
         return jsonify({"ok": False, "error": "Not found"}), 404
-    return render_template("404.html"), 404
+    return render_template("404.html",
+        bad_path=request.path,
+        dashboard_link=DASHBOARD_LINK), 404
 
 
 @app.errorhandler(500)
