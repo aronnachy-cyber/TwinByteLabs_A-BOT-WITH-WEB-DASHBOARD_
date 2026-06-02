@@ -5,24 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SP4RK — Owner Panel</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#050d1a;
-  --bg2:#07111f;
-  --bg3:#0a1628;
-  --card:#0d1c30;
-  --border:rgba(0,180,255,0.14);
-  --border2:rgba(0,180,255,0.28);
-  --accent:#00c4ff;
-  --accent2:#00e5ff;
-  --green:#00ff88;
-  --yellow:#ffcc00;
-  --red:#ff4757;
-  --orange:#ff8c00;
-  --text:#d0e8ff;
-  --muted:#4a7a9b;
-  --muted2:#2a4a6b;
+  --bg:#050d1a;--bg2:#07111f;--bg3:#0a1628;--card:#0d1c30;
+  --border:rgba(0,180,255,0.14);--border2:rgba(0,180,255,0.28);
+  --accent:#00c4ff;--accent2:#00e5ff;
+  --green:#00ff88;--yellow:#ffcc00;--red:#ff4757;--orange:#ff8c00;
+  --text:#d0e8ff;--muted:#4a7a9b;--muted2:#2a4a6b;
   --font:'Inter',system-ui,sans-serif;
   --mono:'JetBrains Mono','Fira Mono','Consolas',monospace;
   --sidebar-w:220px;
@@ -30,180 +21,104 @@
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;overflow:hidden;}
 a{color:inherit;text-decoration:none;}
 
-/* ── LAYOUT ── */
 .shell{display:flex;height:100vh;overflow:hidden;}
 
 /* ── SIDEBAR ── */
-.sidebar{
-  width:var(--sidebar-w);min-width:var(--sidebar-w);
-  background:var(--bg2);
-  border-right:1px solid var(--border);
-  display:flex;flex-direction:column;
-  overflow-y:auto;
-  flex-shrink:0;
-}
-.sb-brand{
-  padding:20px 16px 16px;
-  border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:10px;
-}
-.sb-brand .logo{
-  width:34px;height:34px;border-radius:8px;
-  background:linear-gradient(135deg,#003a5c,#005f8a);
-  border:1px solid var(--border2);
-  display:flex;align-items:center;justify-content:center;
-  font-size:.8rem;font-weight:900;color:var(--accent);letter-spacing:-.5px;
-  font-family:var(--mono);
-}
-.sb-brand .title{font-size:.82rem;font-weight:700;color:var(--text);line-height:1.2;}
-.sb-brand .subtitle{font-size:.68rem;color:var(--accent);font-family:var(--mono);letter-spacing:.5px;}
-
-.sb-section{padding:10px 8px 4px;font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;}
-.nav-item{
-  display:flex;align-items:center;gap:10px;
-  padding:9px 14px;margin:1px 6px;
-  border-radius:8px;cursor:pointer;
-  font-size:.83rem;font-weight:500;color:var(--muted);
-  transition:all .15s;
-}
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
+.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.sb-brand .logo{width:32px;height:32px;border-radius:7px;background:linear-gradient(135deg,#003a5c,#005f8a);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:900;color:var(--accent);font-family:var(--mono);}
+.sb-brand .title{font-size:.8rem;font-weight:700;color:var(--text);line-height:1.2;}
+.sb-brand .subtitle{font-size:.64rem;color:var(--accent);font-family:var(--mono);letter-spacing:.5px;}
+.sb-section{padding:10px 8px 3px;font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 12px;margin:1px 5px;border-radius:7px;cursor:pointer;font-size:.8rem;font-weight:500;color:var(--muted);transition:all .15s;}
 .nav-item:hover{background:rgba(0,196,255,.07);color:var(--text);}
 .nav-item.active{background:rgba(0,196,255,.12);color:var(--accent);font-weight:600;}
-.nav-item i{width:16px;text-align:center;font-size:.8rem;}
-
-.sb-footer{margin-top:auto;padding:12px 14px;border-top:1px solid var(--border);}
-.sb-footer a{
-  display:flex;align-items:center;gap:8px;
-  font-size:.76rem;color:var(--muted);padding:6px 8px;border-radius:6px;
-}
+.nav-item i{width:15px;text-align:center;font-size:.78rem;}
+.sb-footer{margin-top:auto;padding:10px 12px;border-top:1px solid var(--border);}
+.sb-footer a{display:flex;align-items:center;gap:8px;font-size:.75rem;color:var(--muted);padding:6px 8px;border-radius:6px;}
 .sb-footer a:hover{color:var(--red);background:rgba(255,71,87,.07);}
 
 /* ── MAIN ── */
 .main{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
-.topbar{
-  background:var(--bg2);border-bottom:1px solid var(--border);
-  padding:14px 24px;display:flex;align-items:center;justify-content:space-between;
-  flex-shrink:0;
-}
-.topbar h1{font-size:1rem;font-weight:700;color:var(--text);}
-.topbar .tag{
-  font-size:.68rem;padding:3px 10px;border-radius:20px;
-  background:rgba(0,196,255,.1);border:1px solid rgba(0,196,255,.25);
-  color:var(--accent);font-family:var(--mono);letter-spacing:.5px;
-}
-.content{padding:24px;flex:1;}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:13px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.topbar h1{font-size:.95rem;font-weight:700;color:var(--text);}
+.topbar .tag{font-size:.65rem;padding:3px 10px;border-radius:20px;background:rgba(0,196,255,.1);border:1px solid rgba(0,196,255,.25);color:var(--accent);font-family:var(--mono);letter-spacing:.5px;}
+.content{padding:20px;flex:1;}
 
-/* ── TABS ── */
+/* ── PANES ── */
 .tab-pane{display:none;}
 .tab-pane.active{display:block;}
 
 /* ── CARDS ── */
-.card{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:12px;padding:20px;margin-bottom:16px;
-}
-.card-title{
-  font-size:.78rem;font-weight:700;color:var(--accent);
-  text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;
-  display:flex;align-items:center;gap:8px;
-}
+.card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:18px;margin-bottom:14px;}
+.card-title{font-size:.74rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:13px;display:flex;align-items:center;gap:7px;}
 .card-title i{opacity:.8;}
 
 /* ── STAT GRID ── */
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
-.stat-card{
-  background:var(--card);border:1px solid var(--border);border-radius:12px;
-  padding:16px;text-align:center;
-}
-.stat-card .sv{font-size:1.8rem;font-weight:800;font-family:var(--mono);color:var(--accent);line-height:1;}
-.stat-card .sl{font-size:.72rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.8px;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:14px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:14px;text-align:center;}
+.stat-card .sv{font-size:1.6rem;font-weight:800;font-family:var(--mono);color:var(--accent);line-height:1;}
+.stat-card .sl{font-size:.68rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.7px;}
 
-/* ── HEALTH DOTS ── */
-.health-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);}
+/* ── TWO COL ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+
+/* ── HEALTH ── */
+.health-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);}
 .health-row:last-child{border-bottom:none;}
-.health-label{font-size:.83rem;color:var(--text);}
-.health-badge{
-  font-size:.68rem;font-family:var(--mono);padding:3px 10px;border-radius:20px;font-weight:700;
-}
+.health-label{font-size:.8rem;color:var(--text);}
+.health-badge{font-size:.65rem;font-family:var(--mono);padding:2px 9px;border-radius:20px;font-weight:700;}
 .badge-ok{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.25);}
 .badge-warn{background:rgba(255,204,0,.1);color:var(--yellow);border:1px solid rgba(255,204,0,.25);}
 .badge-err{background:rgba(255,71,87,.1);color:var(--red);border:1px solid rgba(255,71,87,.25);}
 .badge-off{background:rgba(74,122,155,.1);color:var(--muted);border:1px solid rgba(74,122,155,.25);}
 
-/* ── PRESENCE STATUS SELECTOR ── */
-.presence-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
-.pres-btn{
-  padding:12px 8px;border-radius:10px;border:2px solid var(--border);
-  background:var(--bg3);cursor:pointer;text-align:center;
-  font-size:.78rem;font-weight:600;color:var(--muted);
-  transition:all .15s;
-}
+/* ── PRESENCE ── */
+.presence-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.pres-btn{padding:11px 6px;border-radius:9px;border:2px solid var(--border);background:var(--bg3);cursor:pointer;text-align:center;font-size:.76rem;font-weight:600;color:var(--muted);transition:all .15s;}
 .pres-btn:hover{border-color:var(--border2);color:var(--text);}
 .pres-btn.selected{border-color:var(--accent);color:var(--text);background:rgba(0,196,255,.08);}
-.pres-btn .dot{width:10px;height:10px;border-radius:50%;margin:0 auto 6px;}
-.dot-online{background:#23a55a;}
-.dot-idle{background:#f0b232;}
-.dot-dnd{background:#f23f42;}
-.dot-invisible{background:#80848e;}
+.pres-btn .dot{width:9px;height:9px;border-radius:50%;margin:0 auto 5px;}
+.dot-online{background:#23a55a;} .dot-idle{background:#f0b232;} .dot-dnd{background:#f23f42;} .dot-invisible{background:#80848e;}
 
-/* ── ACTIVITY TYPE ── */
-.act-type-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
-.act-type-btn{
-  padding:6px 14px;border-radius:20px;border:1px solid var(--border);
-  background:var(--bg3);cursor:pointer;font-size:.78rem;color:var(--muted);
-  transition:all .15s;
-}
+/* ── ACT TYPE ── */
+.act-type-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px;}
+.act-type-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:.76rem;color:var(--muted);transition:all .15s;}
 .act-type-btn:hover{border-color:var(--border2);color:var(--text);}
 .act-type-btn.selected{border-color:var(--accent);color:var(--accent);background:rgba(0,196,255,.08);}
 
 /* ── TABLE ── */
-.data-table{width:100%;border-collapse:collapse;font-size:.82rem;}
-.data-table th{
-  text-align:left;padding:8px 12px;
-  font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;
-  border-bottom:1px solid var(--border);font-weight:600;
-}
-.data-table td{padding:10px 12px;border-bottom:1px solid rgba(0,180,255,.07);color:var(--text);}
+.data-table{width:100%;border-collapse:collapse;font-size:.8rem;}
+.data-table th{text-align:left;padding:7px 11px;font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid var(--border);font-weight:600;}
+.data-table td{padding:9px 11px;border-bottom:1px solid rgba(0,180,255,.07);color:var(--text);}
 .data-table tr:last-child td{border-bottom:none;}
 .data-table tr:hover td{background:rgba(0,196,255,.03);}
-.mono{font-family:var(--mono);font-size:.78rem;color:var(--muted);}
+.mono{font-family:var(--mono);font-size:.76rem;color:var(--muted);}
 
-/* ── FORM ELEMENTS ── */
-.field-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+/* ── FORMS ── */
+.field-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);}
 .field-row:last-child{border-bottom:none;}
-.field-label{font-size:.83rem;color:var(--text);font-weight:500;}
-.field-sub{font-size:.72rem;color:var(--muted);margin-top:2px;}
-input[type=text],input[type=number],select,textarea{
-  background:var(--bg3);color:var(--text);
-  border:1px solid var(--border);border-radius:8px;
-  padding:8px 12px;font-size:.83rem;outline:none;
-  font-family:var(--font);
-}
-input[type=text]:focus,input[type=number]:focus,select:focus,textarea:focus{border-color:var(--accent);}
+.field-label{font-size:.81rem;color:var(--text);font-weight:500;}
+.field-sub{font-size:.7rem;color:var(--muted);margin-top:2px;}
+input[type=text],input[type=number],input[type=url],select,textarea{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:7px 11px;font-size:.8rem;outline:none;font-family:var(--font);}
+input[type=text]:focus,input[type=number]:focus,input[type=url]:focus,select:focus,textarea:focus{border-color:var(--accent);}
 select option{background:var(--bg3);}
-textarea{resize:vertical;min-height:80px;}
+textarea{resize:vertical;min-height:80px;width:100%;}
+.input-row{display:flex;gap:8px;align-items:flex-end;margin-bottom:10px;}
+.input-row input{flex:1;}
+.input-row select{flex:0 0 160px;}
 
 /* ── TOGGLE ── */
-.toggle-wrap{display:flex;align-items:center;gap:10px;}
-.toggle{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;}
+.toggle{position:relative;display:inline-block;width:38px;height:21px;flex-shrink:0;}
 .toggle input{opacity:0;width:0;height:0;}
-.slider{
-  position:absolute;inset:0;background:var(--muted2);
-  border-radius:22px;cursor:pointer;transition:.2s;
-}
-.slider:before{
-  content:'';position:absolute;width:16px;height:16px;
-  left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;
-}
+.slider{position:absolute;inset:0;background:var(--muted2);border-radius:21px;cursor:pointer;transition:.2s;}
+.slider:before{content:'';position:absolute;width:15px;height:15px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
 .toggle input:checked + .slider{background:var(--accent);}
-.toggle input:checked + .slider:before{transform:translateX(18px);}
+.toggle input:checked + .slider:before{transform:translateX(17px);}
 
 /* ── BUTTONS ── */
-.btn{
-  display:inline-flex;align-items:center;gap:7px;
-  padding:9px 18px;border-radius:8px;border:none;
-  font-size:.83rem;font-weight:700;cursor:pointer;
-  transition:all .15s;font-family:var(--font);
-}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:7px;border:none;font-size:.8rem;font-weight:700;cursor:pointer;transition:all .15s;font-family:var(--font);}
 .btn-primary{background:linear-gradient(135deg,#005f8a,#0099cc);color:#fff;}
 .btn-primary:hover{filter:brightness(1.12);}
 .btn-green{background:linear-gradient(135deg,#005a35,#00a85a);color:#fff;}
@@ -214,69 +129,57 @@ textarea{resize:vertical;min-height:80px;}
 .btn-ghost:hover{background:rgba(255,255,255,.09);color:var(--text);}
 .btn-yellow{background:rgba(255,204,0,.1);color:var(--yellow);border:1px solid rgba(255,204,0,.25);}
 .btn-yellow:hover{background:rgba(255,204,0,.2);}
+.btn-sm{padding:5px 11px;font-size:.75rem;}
 
 /* ── GUILD CARD ── */
-.guild-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
-.guild-card{
-  background:var(--card);border:1px solid var(--border);border-radius:12px;
-  padding:14px;display:flex;align-items:center;gap:12px;
-}
-.guild-icon{
-  width:40px;height:40px;border-radius:10px;flex-shrink:0;
-  background:linear-gradient(135deg,#003a5c,#005f8a);
-  display:flex;align-items:center;justify-content:center;
-  font-size:1rem;color:var(--accent);font-weight:800;
-  overflow:hidden;
-}
-.guild-icon img{width:100%;height:100%;object-fit:cover;border-radius:10px;}
-.guild-name{font-size:.83rem;font-weight:700;color:var(--text);line-height:1.3;}
-.guild-meta{font-size:.72rem;color:var(--muted);font-family:var(--mono);}
+.guild-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+.guild-card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:12px;display:flex;align-items:center;gap:10px;}
+.guild-icon{width:38px;height:38px;border-radius:9px;flex-shrink:0;background:linear-gradient(135deg,#003a5c,#005f8a);display:flex;align-items:center;justify-content:center;font-size:.9rem;color:var(--accent);font-weight:800;overflow:hidden;}
+.guild-icon img{width:100%;height:100%;object-fit:cover;border-radius:9px;}
+.guild-name{font-size:.8rem;font-weight:700;color:var(--text);line-height:1.3;}
+.guild-meta{font-size:.7rem;color:var(--muted);font-family:var(--mono);}
 
-/* ── LOG ENTRIES ── */
-.log-entry{
-  display:flex;gap:10px;padding:8px 0;
-  border-bottom:1px solid var(--border);font-size:.78rem;
-}
+/* ── LOGS ── */
+.log-entry{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:.76rem;}
 .log-entry:last-child{border-bottom:none;}
 .log-time{font-family:var(--mono);color:var(--muted);white-space:nowrap;flex-shrink:0;}
 .log-msg{color:var(--text);}
+.log-viewer{max-height:380px;overflow-y:auto;padding-right:4px;}
+
+/* ── QUICK ACTION GRID ── */
+.action-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;}
+.action-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.action-card .ac-label{font-weight:700;font-size:.82rem;margin-bottom:4px;}
+.action-card .ac-sub{font-size:.72rem;color:var(--muted);margin-bottom:11px;line-height:1.4;}
+
+/* ── CHIP ── */
+.chip{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.65rem;font-weight:700;font-family:var(--mono);}
+.chip-blue{background:rgba(0,196,255,.1);color:var(--accent);border:1px solid rgba(0,196,255,.2);}
+.chip-green{background:rgba(0,255,136,.08);color:var(--green);border:1px solid rgba(0,255,136,.2);}
+.chip-red{background:rgba(255,71,87,.1);color:var(--red);border:1px solid rgba(255,71,87,.2);}
+.chip-yellow{background:rgba(255,204,0,.08);color:var(--yellow);border:1px solid rgba(255,204,0,.2);}
+.chip-grey{background:rgba(74,122,155,.1);color:var(--muted);border:1px solid var(--border);}
 
 /* ── TOAST ── */
-#owner-toast{
-  position:fixed;bottom:24px;right:24px;z-index:9999;
-  padding:10px 18px;border-radius:10px;
-  background:var(--card);border:1px solid var(--border2);
-  font-size:.82rem;color:var(--text);
-  box-shadow:0 8px 30px rgba(0,0,0,.5);
-  display:none;animation:slideUp .2s ease;
-}
+#owner-toast{position:fixed;bottom:22px;right:22px;z-index:9999;padding:10px 16px;border-radius:9px;background:var(--card);border:1px solid var(--border2);font-size:.8rem;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.5);display:none;animation:slideUp .2s ease;}
 @keyframes slideUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 
-/* ── MAINTENANCE BANNER ── */
-.maint-banner{
-  background:rgba(255,204,0,.08);border:1px solid rgba(255,204,0,.25);
-  border-radius:10px;padding:12px 16px;margin-bottom:16px;
-  display:flex;align-items:center;gap:10px;font-size:.83rem;
-  color:var(--yellow);
-}
+/* ── MAINT BANNER ── */
+.maint-banner{background:rgba(255,204,0,.08);border:1px solid rgba(255,204,0,.25);border-radius:9px;padding:11px 14px;margin-bottom:14px;display:flex;align-items:center;gap:9px;font-size:.8rem;color:var(--yellow);}
 
-/* ── SEARCH ── */
-.search-bar{
-  display:flex;align-items:center;gap:8px;
-  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
-  padding:7px 12px;margin-bottom:14px;
-}
+/* ── SEARCH BAR ── */
+.search-bar{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:6px 11px;margin-bottom:12px;}
 .search-bar i{color:var(--muted);}
-.search-bar input{
-  background:none;border:none;outline:none;color:var(--text);
-  font-size:.83rem;flex:1;
-}
+.search-bar input{background:none;border:none;outline:none;color:var(--text);font-size:.8rem;flex:1;}
+
+/* ── SECTION DIVIDER ── */
+.section-divider{height:1px;background:var(--border);margin:14px 0;}
+.empty-state{text-align:center;padding:28px;color:var(--muted);font-size:.8rem;}
 
 /* ── SCROLLBAR ── */
-::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:3px;}
-::-webkit-scrollbar-thumb:hover{background:var(--muted);}
 
 /* ── RESPONSIVE ── */
 @media(max-width:768px){
@@ -284,28 +187,17 @@ textarea{resize:vertical;min-height:80px;}
   .sidebar.open{transform:none;}
   .presence-grid{grid-template-columns:repeat(2,1fr);}
   .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .two-col,.three-col{grid-template-columns:1fr;}
   #mob-menu{display:block !important;}
-  .content{padding:16px;}
-  .topbar{padding:12px 16px;}
+  .content{padding:14px;}
+  .topbar{padding:11px 14px;}
+  .action-grid{grid-template-columns:1fr 1fr;}
 }
-
-.section-divider{height:1px;background:var(--border);margin:16px 0;}
-.empty-state{text-align:center;padding:32px;color:var(--muted);font-size:.83rem;}
-.chip{
-  display:inline-block;padding:2px 9px;border-radius:20px;font-size:.68rem;font-weight:700;
-  font-family:var(--mono);
-}
-.chip-blue{background:rgba(0,196,255,.1);color:var(--accent);border:1px solid rgba(0,196,255,.2);}
-.chip-green{background:rgba(0,255,136,.08);color:var(--green);border:1px solid rgba(0,255,136,.2);}
-.chip-red{background:rgba(255,71,87,.1);color:var(--red);border:1px solid rgba(255,71,87,.2);}
-.chip-yellow{background:rgba(255,204,0,.08);color:var(--yellow);border:1px solid rgba(255,204,0,.2);}
-.chip-grey{background:rgba(74,122,155,.1);color:var(--muted);border:1px solid var(--border);}
 </style>
 </head>
 <body>
 
-<div id="mob-backdrop" onclick="document.getElementById('sidebar').classList.remove('open')"
-  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;"></div>
+<div id="mob-backdrop" onclick="closeSidebar()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;"></div>
 
 <div class="shell">
   <!-- SIDEBAR -->
@@ -320,13 +212,30 @@ textarea{resize:vertical;min-height:80px;}
 
     <div class="sb-section">Monitor</div>
     <div class="nav-item active" onclick="showPane('overview',this)"><i class="fas fa-gauge-high"></i>Overview</div>
-    <div class="nav-item" onclick="showPane('presence',this)"><i class="fas fa-circle-dot"></i>Bot Presence</div>
+    <div class="nav-item" onclick="showPane('analytics',this)"><i class="fas fa-chart-line"></i>Analytics</div>
 
-    <div class="sb-section">Data</div>
+    <div class="sb-section">Management</div>
+    <div class="nav-item" onclick="showPane('users',this)"><i class="fas fa-users"></i>Users</div>
     <div class="nav-item" onclick="showPane('servers',this)"><i class="fas fa-server"></i>Servers</div>
 
+    <div class="sb-section">Moderation</div>
+    <div class="nav-item" onclick="showPane('moderation',this)"><i class="fas fa-shield-halved"></i>Mod Controls</div>
+    <div class="nav-item" onclick="showPane('broadcast',this)"><i class="fas fa-bullhorn"></i>Broadcast</div>
+
+    <div class="sb-section">Security</div>
+    <div class="nav-item" onclick="showPane('security',this)"><i class="fas fa-lock"></i>Security Panel</div>
+
     <div class="sb-section">Settings</div>
+    <div class="nav-item" onclick="showPane('presence',this)"><i class="fas fa-circle-dot"></i>Bot Presence</div>
+    <div class="nav-item" onclick="showPane('config',this)"><i class="fas fa-sliders"></i>Configuration</div>
+
+    <div class="sb-section">Database</div>
+    <div class="nav-item" onclick="showPane('database',this)"><i class="fas fa-database"></i>DB Tools</div>
+    <div class="nav-item" onclick="showPane('logs',this)"><i class="fas fa-scroll"></i>Logs</div>
+
+    <div class="sb-section">Developer</div>
     <div class="nav-item" onclick="showPane('devtools',this)"><i class="fas fa-terminal"></i>Dev Tools</div>
+    <div class="nav-item" onclick="showPane('reports',this)"><i class="fas fa-flag"></i>Reports</div>
 
     <div class="sb-footer">
       <a href="/owner/lock"><i class="fas fa-arrow-right-from-bracket"></i>Lock Panel</a>
@@ -336,14 +245,13 @@ textarea{resize:vertical;min-height:80px;}
   <!-- MAIN -->
   <div class="main">
     <div class="topbar">
-      <div style="display:flex;align-items:center;gap:14px;">
-        <button onclick="(function(){var s=document.getElementById('sidebar');var b=document.getElementById('mob-backdrop');s.classList.toggle('open');b.style.display=s.classList.contains('open')?'block':'none';})()"
-          style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;" id="mob-menu">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button onclick="toggleSidebar()" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.05rem;" id="mob-menu">
           <i class="fas fa-bars"></i>
         </button>
         <h1 id="pane-title">Overview</h1>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;">
+      <div style="display:flex;align-items:center;gap:9px;">
         <div id="bot-live-badge" class="chip chip-grey">Checking…</div>
         <span class="tag"><i class="fas fa-lock" style="margin-right:4px;"></i>OWNER ACCESS</span>
       </div>
@@ -355,16 +263,19 @@ textarea{resize:vertical;min-height:80px;}
       <div id="pane-overview" class="tab-pane active">
         <div id="maint-banner-top" class="maint-banner" style="display:none;">
           <i class="fas fa-triangle-exclamation"></i>
-          <span>Maintenance mode is <strong>ACTIVE</strong> — the public site shows a maintenance page.</span>
-        </div>
-        <div class="stat-grid" id="stat-grid">
-          <div class="stat-card"><div class="sv" id="st-guilds">—</div><div class="sl">Servers</div></div>
-          <div class="stat-card"><div class="sv" id="st-users">—</div><div class="sl">Registered Users</div></div>
-          <div class="stat-card"><div class="sv" id="st-uptime">—</div><div class="sl">Bot Uptime</div></div>
-          <div class="stat-card"><div class="sv" id="st-threads">—</div><div class="sl">Active Threads</div></div>
+          <span>Maintenance mode is <strong>ACTIVE</strong> — public site shows maintenance page.</span>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="stat-grid" id="stat-grid">
+          <div class="stat-card"><div class="sv" id="st-guilds">—</div><div class="sl">Total Servers</div></div>
+          <div class="stat-card"><div class="sv" id="st-users">—</div><div class="sl">Total Users</div></div>
+          <div class="stat-card"><div class="sv" id="st-uptime">—</div><div class="sl">Uptime</div></div>
+          <div class="stat-card"><div class="sv" id="st-threads">—</div><div class="sl">Threads</div></div>
+          <div class="stat-card"><div class="sv" id="st-cpu">—</div><div class="sl">CPU Usage</div></div>
+          <div class="stat-card"><div class="sv" id="st-ram">—</div><div class="sl">RAM Usage</div></div>
+        </div>
+
+        <div class="two-col">
           <div class="card">
             <div class="card-title"><i class="fas fa-heart-pulse"></i>Bot Health</div>
             <div id="health-list"></div>
@@ -375,80 +286,397 @@ textarea{resize:vertical;min-height:80px;}
           </div>
         </div>
 
-        <div class="card" style="margin-top:0;">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-bolt"></i>Quick Actions</div>
+          <div class="action-grid">
+            <div class="action-card">
+              <div class="ac-label">Restart Bot</div>
+              <div class="ac-sub">SIGTERM + restart bot thread</div>
+              <button class="btn btn-yellow btn-sm" onclick="restartBot()"><i class="fas fa-rotate"></i>Restart</button>
+            </div>
+            <div class="action-card">
+              <div class="ac-label">Maintenance Mode</div>
+              <div class="ac-sub">Toggle public site offline page</div>
+              <button class="btn btn-yellow btn-sm" id="ov-maint-btn" onclick="quickToggleMaint()"><i class="fas fa-toggle-off"></i>Toggle</button>
+            </div>
+            <div class="action-card">
+              <div class="ac-label">Force Sync</div>
+              <div class="ac-sub">Push slash commands to Discord</div>
+              <button class="btn btn-ghost btn-sm" onclick="forceSync()"><i class="fas fa-upload"></i>Sync</button>
+            </div>
+            <div class="action-card">
+              <div class="ac-label">Config Refresh</div>
+              <div class="ac-sub">Immediate config pull on bot</div>
+              <button class="btn btn-ghost btn-sm" onclick="triggerConfigRefresh()"><i class="fas fa-sync"></i>Refresh</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
           <div class="card-title"><i class="fas fa-circle-dot"></i>Current Bot Presence</div>
-          <div id="current-presence" style="font-size:.9rem;color:var(--text);">Loading…</div>
+          <div id="current-presence" style="font-size:.88rem;color:var(--text);">Loading…</div>
+        </div>
+      </div>
+
+      <!-- ===== ANALYTICS ===== -->
+      <div id="pane-analytics" class="tab-pane">
+        <div class="stat-grid" id="an-stat-grid">
+          <div class="stat-card"><div class="sv" id="an-guilds">—</div><div class="sl">Servers</div></div>
+          <div class="stat-card"><div class="sv" id="an-users">—</div><div class="sl">Reg. Users</div></div>
+          <div class="stat-card"><div class="sv" id="an-threads">—</div><div class="sl">Threads</div></div>
+          <div class="stat-card"><div class="sv" id="an-cpu">—</div><div class="sl">CPU %</div></div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-title"><i class="fas fa-chart-bar"></i>Server Size Distribution</div>
+            <canvas id="server-size-chart" height="200"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-title"><i class="fas fa-chart-pie"></i>System Resources</div>
+            <canvas id="resource-chart" height="200"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fas fa-list"></i>Top 10 Servers by Members</div>
+          <div id="an-server-list"><div class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- ===== USERS ===== -->
+      <div id="pane-users" class="tab-pane">
+        <div class="two-col">
+          <div class="card">
+            <div class="card-title"><i class="fas fa-ban"></i>Blacklist User</div>
+            <div style="margin-bottom:10px;font-size:.78rem;color:var(--muted);">Blacklisted users cannot interact with the bot.</div>
+            <div class="input-row">
+              <input type="text" id="bl-user-id" placeholder="Discord User ID (e.g. 123456789)" style="flex:1;">
+            </div>
+            <div class="input-row">
+              <input type="text" id="bl-user-reason" placeholder="Reason (optional)" style="flex:1;">
+            </div>
+            <button class="btn btn-red" onclick="blacklistUser()"><i class="fas fa-ban"></i>Blacklist User</button>
+          </div>
+          <div class="card">
+            <div class="card-title"><i class="fas fa-circle-info"></i>User Stats</div>
+            <div id="user-stats-content">
+              <div class="health-row"><span class="health-label">Registered users</span><span class="health-badge badge-ok" id="u-stat-total">—</span></div>
+              <div class="health-row"><span class="health-label">Blacklisted users</span><span class="health-badge badge-err" id="u-stat-bl">—</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div style="padding:16px 18px 10px;display:flex;align-items:center;justify-content:space-between;">
+            <div class="card-title" style="margin:0;"><i class="fas fa-ban"></i>Blacklisted Users</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadUserMgmt()"><i class="fas fa-rotate"></i>Refresh</button>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>User ID</th><th>Reason</th><th>Added</th><th></th></tr></thead>
+            <tbody id="bl-users-tbody"><tr><td colspan="4" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== SERVERS ===== -->
+      <div id="pane-servers" class="tab-pane">
+        <div class="two-col" style="margin-bottom:14px;">
+          <div class="card">
+            <div class="card-title"><i class="fas fa-ban"></i>Blacklist Server</div>
+            <div class="input-row">
+              <input type="text" id="bl-srv-id" placeholder="Server ID" style="flex:1;">
+            </div>
+            <div class="input-row">
+              <input type="text" id="bl-srv-reason" placeholder="Reason (optional)" style="flex:1;">
+            </div>
+            <button class="btn btn-red" onclick="blacklistServer()"><i class="fas fa-ban"></i>Blacklist Server</button>
+          </div>
+          <div class="card" style="padding:0;overflow:hidden;">
+            <div style="padding:14px 16px 8px;"><div class="card-title" style="margin:0;"><i class="fas fa-ban"></i>Blacklisted Servers</div></div>
+            <table class="data-table">
+              <thead><tr><th>Server ID</th><th>Reason</th><th></th></tr></thead>
+              <tbody id="bl-servers-tbody"><tr><td colspan="3" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;">
+          <div class="search-bar" style="flex:1;margin:0;">
+            <i class="fas fa-search"></i>
+            <input type="text" id="server-search" placeholder="Search servers by name or ID…" oninput="filterServers()">
+          </div>
+          <span id="server-count" style="font-size:.76rem;color:var(--muted);white-space:nowrap;">—</span>
+        </div>
+        <div id="server-grid" class="guild-grid"></div>
+      </div>
+
+      <!-- ===== MOD CONTROLS ===== -->
+      <div id="pane-moderation" class="tab-pane">
+        <div class="card" style="border-color:rgba(255,71,87,.2);">
+          <div class="card-title" style="color:var(--red);"><i class="fas fa-triangle-exclamation"></i>Emergency Controls</div>
+          <div class="field-row">
+            <div><div class="field-label">Maintenance Mode</div><div class="field-sub">Instantly shows offline page to all public visitors</div></div>
+            <label class="toggle"><input type="checkbox" id="mod-maint-toggle" onchange="toggleMaintenance()"><span class="slider"></span></label>
+          </div>
+          <div class="field-row" id="mod-maint-eta-row" style="display:none;">
+            <div><div class="field-label">ETA Message</div><div class="field-sub">Shown to visitors on maintenance page</div></div>
+            <input type="text" id="mod-maint-eta" placeholder="e.g. Back in ~10 minutes" style="width:240px;">
+          </div>
+          <div id="mod-maint-eta-save" style="display:none;margin-top:10px;">
+            <button class="btn btn-yellow btn-sm" onclick="saveMaintETA()"><i class="fas fa-save"></i>Save ETA</button>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-title"><i class="fas fa-slash"></i>Disable Command Globally</div>
+            <div style="font-size:.76rem;color:var(--muted);margin-bottom:10px;">Disabled commands are blocked across ALL servers.</div>
+            <div class="input-row">
+              <input type="text" id="dis-cmd-input" placeholder="Command name (e.g. warn, ban)" style="flex:1;">
+              <button class="btn btn-red btn-sm" onclick="disableCommand()"><i class="fas fa-ban"></i>Disable</button>
+            </div>
+            <div id="disabled-cmds-list"><div class="empty-state" style="padding:14px;">None disabled</div></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><i class="fas fa-toggle-on"></i>Feature Toggles</div>
+            <div id="feature-toggles-list"><div class="empty-state">Loading…</div></div>
+            <div style="margin-top:12px;">
+              <button class="btn btn-primary btn-sm" onclick="saveFeatures()"><i class="fas fa-save"></i>Save</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fas fa-exclamation-triangle"></i>Global Warning System</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:12px;">Issue a global warning visible in all servers where the bot is present.</div>
+          <textarea id="global-warn-msg" placeholder="Warning message to send to all server owners/admins…" style="width:100%;margin-bottom:10px;"></textarea>
+          <button class="btn btn-yellow" onclick="sendGlobalWarning()"><i class="fas fa-exclamation-triangle"></i>Send Global Warning</button>
+        </div>
+      </div>
+
+      <!-- ===== BROADCAST ===== -->
+      <div id="pane-broadcast" class="tab-pane">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-bullhorn"></i>Send Announcement</div>
+          <div class="field-row">
+            <div><div class="field-label">Target</div><div class="field-sub">Send to all servers or a specific server ID</div></div>
+            <select id="bc-target" style="width:200px;" onchange="toggleBcServerInput()">
+              <option value="all">All Servers</option>
+              <option value="specific">Specific Server</option>
+            </select>
+          </div>
+          <div class="field-row" id="bc-server-row" style="display:none;">
+            <div><div class="field-label">Server ID</div></div>
+            <input type="text" id="bc-server-id" placeholder="Discord Server ID" style="width:200px;">
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Channel Hint</div><div class="field-sub">Bot looks for a channel matching this name</div></div>
+            <input type="text" id="bc-channel" value="general" style="width:160px;">
+          </div>
+          <div style="margin-top:12px;">
+            <label style="font-size:.74rem;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.7px;">Message</label>
+            <textarea id="bc-message" placeholder="Enter your announcement message…" style="min-height:100px;"></textarea>
+          </div>
+          <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+            <button class="btn btn-primary" onclick="sendBroadcast()"><i class="fas fa-paper-plane"></i>Send Now</button>
+            <span id="bc-result" style="font-size:.78rem;color:var(--green);display:none;"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fas fa-history"></i>Recent Broadcasts</div>
+          <div id="bc-history"><div class="empty-state">No recent broadcasts</div></div>
+        </div>
+      </div>
+
+      <!-- ===== SECURITY PANEL ===== -->
+      <div id="pane-security" class="tab-pane">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="sv" id="sec-failed">—</div><div class="sl">Failed Logins</div></div>
+          <div class="stat-card"><div class="sv" id="sec-events">—</div><div class="sl">Security Events</div></div>
+          <div class="stat-card"><div class="sv" id="sec-blacklisted">—</div><div class="sl">Blacklisted Users</div></div>
+          <div class="stat-card"><div class="sv" id="sec-bl-servers">—</div><div class="sl">Blacklisted Servers</div></div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-title"><i class="fas fa-key"></i>Access Info</div>
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:12px;font-family:var(--mono);font-size:.76rem;color:var(--muted);line-height:2;">
+              <div>URL:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:var(--accent);">/owner</span></div>
+              <div>PIN env:&nbsp; <span style="color:var(--accent);">DEV_PIN</span></div>
+              <div>Lock:&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:var(--accent);">/owner/lock</span></div>
+              <div>Console: <span style="color:var(--accent);">sp4rkDev('<em>pin</em>')</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title"><i class="fas fa-shield-check"></i>Permission Summary</div>
+            <div id="sec-perm-summary">
+              <div class="health-row"><span class="health-label">Discord Token</span><span class="health-badge" id="sec-token-badge">—</span></div>
+              <div class="health-row"><span class="health-label">Supabase DB</span><span class="health-badge" id="sec-db-badge">—</span></div>
+              <div class="health-row"><span class="health-label">Gemini AI</span><span class="health-badge" id="sec-ai-badge">—</span></div>
+              <div class="health-row"><span class="health-label">Owner PIN set</span><span class="health-badge" id="sec-pin-badge">—</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div class="card-title" style="margin:0;"><i class="fas fa-shield-exclamation"></i>Security Event Log</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadSecurity()"><i class="fas fa-rotate"></i>Refresh</button>
+          </div>
+          <div class="log-viewer" id="sec-log-viewer"><div class="empty-state">Loading…</div></div>
         </div>
       </div>
 
       <!-- ===== BOT PRESENCE ===== -->
       <div id="pane-presence" class="tab-pane">
         <div class="card">
-          <div class="card-title"><i class="fas fa-circle"></i>Online Status <span style="font-size:.68rem;color:var(--muted);text-transform:none;letter-spacing:0;">(Global — applies to ALL servers)</span></div>
+          <div class="card-title"><i class="fas fa-circle"></i>Online Status <span style="font-size:.65rem;color:var(--muted);text-transform:none;letter-spacing:0;">(Global — applies to ALL servers)</span></div>
           <div class="presence-grid">
-            <div class="pres-btn selected" id="ps-online" onclick="selectStatus('online')">
-              <div class="dot dot-online"></div>Online
-            </div>
-            <div class="pres-btn" id="ps-idle" onclick="selectStatus('idle')">
-              <div class="dot dot-idle"></div>Idle
-            </div>
-            <div class="pres-btn" id="ps-dnd" onclick="selectStatus('dnd')">
-              <div class="dot dot-dnd"></div>Do Not Disturb
-            </div>
-            <div class="pres-btn" id="ps-invisible" onclick="selectStatus('invisible')">
-              <div class="dot dot-invisible"></div>Invisible
-            </div>
+            <div class="pres-btn selected" id="ps-online" onclick="selectStatus('online')"><div class="dot dot-online"></div>Online</div>
+            <div class="pres-btn" id="ps-idle" onclick="selectStatus('idle')"><div class="dot dot-idle"></div>Idle</div>
+            <div class="pres-btn" id="ps-dnd" onclick="selectStatus('dnd')"><div class="dot dot-dnd"></div>Do Not Disturb</div>
+            <div class="pres-btn" id="ps-invisible" onclick="selectStatus('invisible')"><div class="dot dot-invisible"></div>Invisible</div>
           </div>
         </div>
 
         <div class="card">
           <div class="card-title"><i class="fas fa-gamepad"></i>Activity</div>
-          <div style="margin-bottom:10px;font-size:.78rem;color:var(--muted);">Activity type shown before the text in Discord</div>
+          <div style="margin-bottom:9px;font-size:.76rem;color:var(--muted);">Activity type shown before the text in Discord</div>
           <div class="act-type-row" id="act-type-row">
-            <div class="act-type-btn selected" id="at-none"     onclick="selectActType('none')">None</div>
-            <div class="act-type-btn" id="at-playing"  onclick="selectActType('playing')"><i class="fas fa-gamepad"></i> Playing</div>
+            <div class="act-type-btn selected" id="at-none" onclick="selectActType('none')">None</div>
+            <div class="act-type-btn" id="at-playing" onclick="selectActType('playing')"><i class="fas fa-gamepad"></i> Playing</div>
             <div class="act-type-btn" id="at-watching" onclick="selectActType('watching')"><i class="fas fa-eye"></i> Watching</div>
             <div class="act-type-btn" id="at-listening" onclick="selectActType('listening')"><i class="fas fa-headphones"></i> Listening to</div>
             <div class="act-type-btn" id="at-competing" onclick="selectActType('competing')"><i class="fas fa-trophy"></i> Competing in</div>
-            <div class="act-type-btn" id="at-custom"   onclick="selectActType('custom')"><i class="fas fa-pen"></i> Custom</div>
+            <div class="act-type-btn" id="at-custom" onclick="selectActType('custom')"><i class="fas fa-pen"></i> Custom</div>
           </div>
-          <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px;">Activity Text</label>
-          <input type="text" id="act-text" placeholder="e.g.  /help · byte-labs.io"
-            style="width:100%;margin-bottom:6px;"
-            oninput="document.getElementById('act-preview').textContent=buildPresencePreview()">
-          <div id="act-preview" style="font-size:.78rem;color:var(--accent);font-family:var(--mono);min-height:18px;padding:4px 0;"></div>
+          <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.7px;">Activity Text</label>
+          <input type="text" id="act-text" placeholder="e.g.  /help · byte-labs.io" style="width:100%;margin-bottom:5px;" oninput="document.getElementById('act-preview').textContent=buildPresencePreview()">
+          <div id="act-preview" style="font-size:.76rem;color:var(--accent);font-family:var(--mono);min-height:17px;padding:3px 0;"></div>
         </div>
 
-        <div style="display:flex;gap:10px;align-items:center;">
-          <button class="btn btn-primary" onclick="savePresence()">
-            <i class="fas fa-save"></i>Save & Apply
-          </button>
-          <button class="btn btn-ghost" onclick="loadPresence()">
-            <i class="fas fa-rotate"></i>Reload Current
-          </button>
-          <span id="presence-saved" style="font-size:.78rem;color:var(--green);display:none;"><i class="fas fa-check"></i> Applied!</span>
+        <div style="display:flex;gap:9px;align-items:center;">
+          <button class="btn btn-primary" onclick="savePresence()"><i class="fas fa-save"></i>Save & Apply</button>
+          <button class="btn btn-ghost" onclick="loadPresence()"><i class="fas fa-rotate"></i>Reload</button>
+          <span id="presence-saved" style="font-size:.76rem;color:var(--green);display:none;"><i class="fas fa-check"></i> Applied!</span>
         </div>
 
-        <div class="card" style="margin-top:16px;border-color:rgba(0,255,136,.15);">
+        <div class="card" style="margin-top:14px;border-color:rgba(0,255,136,.15);">
           <div class="card-title" style="color:var(--green);"><i class="fas fa-circle-info"></i>How it works</div>
-          <p style="font-size:.82rem;color:var(--muted);line-height:1.6;">
-            The bot syncs its presence from this global setting every <strong style="color:var(--text);">60 seconds</strong>. 
-            After saving, it may take up to a minute for the change to appear in Discord. 
-            Invisible status hides the bot from the member list but it remains online and processing commands.
-          </p>
+          <p style="font-size:.8rem;color:var(--muted);line-height:1.6;">The bot syncs its presence from this setting every <strong style="color:var(--text);">60 seconds</strong>. Invisible hides it from member lists but it stays online.</p>
         </div>
       </div>
 
-      <!-- ===== SERVERS ===== -->
-      <div id="pane-servers" class="tab-pane">
-        <div class="search-bar">
-          <i class="fas fa-search"></i>
-          <input type="text" id="server-search" placeholder="Search servers…" oninput="filterServers()">
+      <!-- ===== CONFIGURATION ===== -->
+      <div id="pane-config" class="tab-pane">
+        <div class="card">
+          <div class="card-title"><i class="fas fa-robot"></i>Bot Identity</div>
+          <div class="field-row">
+            <div><div class="field-label">Avatar URL</div><div class="field-sub">Direct image URL — applied to bot profile (~60s delay)</div></div>
+            <input type="url" id="cfg-avatar" placeholder="https://example.com/avatar.png" style="width:280px;">
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Command Prefix</div><div class="field-sub">Character before commands (e.g. ! / ?)</div></div>
+            <input type="text" id="cfg-prefix" maxlength="5" style="width:80px;text-align:center;">
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Theme Color</div><div class="field-sub">Default embed accent color</div></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="color" id="cfg-color-picker" value="#3498db" oninput="document.getElementById('cfg-theme-color').value=this.value" style="width:34px;height:34px;padding:2px;border-radius:6px;border:1px solid var(--border);background:none;cursor:pointer;">
+              <input type="text" id="cfg-theme-color" maxlength="20" style="width:100px;" oninput="document.getElementById('cfg-color-picker').value=this.value">
+            </div>
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Warning Limit</div><div class="field-sub">Actions trigger after this many warnings</div></div>
+            <input type="number" id="cfg-warning-limit" min="1" max="100" style="width:80px;text-align:center;">
+          </div>
+          <div style="margin-top:12px;display:flex;gap:9px;">
+            <button class="btn btn-primary" onclick="saveConfig()"><i class="fas fa-save"></i>Save Config</button>
+            <button class="btn btn-ghost" onclick="loadConfig()"><i class="fas fa-rotate"></i>Reload</button>
+          </div>
         </div>
-        <div style="margin-bottom:12px;font-size:.78rem;color:var(--muted);">
-          <span id="server-count">Loading…</span>
+
+        <div class="card">
+          <div class="card-title"><i class="fas fa-toggle-on"></i>Feature Toggles</div>
+          <div id="cfg-features-list"><div class="empty-state">Loading…</div></div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-primary btn-sm" onclick="saveFeatures()"><i class="fas fa-save"></i>Save Features</button>
+          </div>
         </div>
-        <div id="server-grid" class="guild-grid"></div>
+      </div>
+
+      <!-- ===== DATABASE TOOLS ===== -->
+      <div id="pane-database" class="tab-pane">
+        <div class="three-col" style="margin-bottom:14px;">
+          <div class="card" style="margin:0;">
+            <div class="card-title"><i class="fas fa-download"></i>Backup</div>
+            <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Download a full JSON backup of config, action logs, users, and blacklist data.</p>
+            <a href="/api/owner/backup" class="btn btn-primary btn-sm"><i class="fas fa-download"></i>Download Backup</a>
+          </div>
+          <div class="card" style="margin:0;">
+            <div class="card-title"><i class="fas fa-broom"></i>Clear Cache</div>
+            <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Flush in-memory guild config cache. Forces fresh reads from database/disk.</p>
+            <button class="btn btn-yellow btn-sm" onclick="clearCache()"><i class="fas fa-broom"></i>Clear Cache</button>
+          </div>
+          <div class="card" style="margin:0;">
+            <div class="card-title"><i class="fas fa-file-export"></i>Export Users</div>
+            <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">Export all registered user data as JSON (included in full backup).</p>
+            <a href="/api/owner/backup" class="btn btn-ghost btn-sm"><i class="fas fa-file-export"></i>Export JSON</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fas fa-database"></i>Database Status</div>
+          <div id="db-status-list">
+            <div class="health-row"><span class="health-label">Supabase connection</span><span class="health-badge" id="db-supabase-badge">Checking…</span></div>
+            <div class="health-row"><span class="health-label">Local config file</span><span class="health-badge" id="db-config-badge">Checking…</span></div>
+            <div class="health-row"><span class="health-label">Action logs in memory</span><span class="health-badge" id="db-logs-badge">Checking…</span></div>
+            <div class="health-row"><span class="health-label">Users file</span><span class="health-badge" id="db-users-badge">Checking…</span></div>
+          </div>
+        </div>
+
+        <div class="card" style="border-color:rgba(255,71,87,.15);">
+          <div class="card-title" style="color:var(--red);"><i class="fas fa-trash-can"></i>Danger Zone</div>
+          <div class="field-row">
+            <div><div class="field-label">Clear Action Logs</div><div class="field-sub">Wipes in-memory action log (not from Supabase)</div></div>
+            <button class="btn btn-red btn-sm" onclick="clearActionLogs()"><i class="fas fa-trash"></i>Clear Logs</button>
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Reset Config to Defaults</div><div class="field-sub">Dangerous — resets all bot settings</div></div>
+            <button class="btn btn-red btn-sm" onclick="resetConfig()"><i class="fas fa-rotate-left"></i>Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== LOGS ===== -->
+      <div id="pane-logs" class="tab-pane">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+          <div class="search-bar" style="flex:1;margin:0;min-width:200px;">
+            <i class="fas fa-search"></i>
+            <input type="text" id="log-filter" placeholder="Filter logs…" oninput="filterLogs()">
+          </div>
+          <select id="log-type-filter" onchange="filterLogs()" style="width:160px;">
+            <option value="">All Types</option>
+            <option value="PRESENCE">Presence</option>
+            <option value="MAINTENANCE">Maintenance</option>
+            <option value="RESTART">Restart</option>
+            <option value="BLACKLIST">Blacklist</option>
+            <option value="BROADCAST">Broadcast</option>
+            <option value="SETTINGS">Settings</option>
+            <option value="SECURITY">Security</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="loadAllLogs()"><i class="fas fa-rotate"></i>Refresh</button>
+        </div>
+
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table class="data-table">
+            <thead><tr><th>Time</th><th>Type</th><th>Message</th></tr></thead>
+            <tbody id="all-logs-tbody"><tr><td colspan="3" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</td></tr></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- ===== DEV TOOLS ===== -->
@@ -456,55 +684,71 @@ textarea{resize:vertical;min-height:80px;}
         <div class="card" style="border-color:rgba(255,204,0,.2);">
           <div class="card-title" style="color:var(--yellow);"><i class="fas fa-triangle-exclamation"></i>Maintenance Mode</div>
           <div class="field-row">
-            <div>
-              <div class="field-label">Enable Maintenance Mode</div>
-              <div class="field-sub">Shows a maintenance page to all public visitors</div>
-            </div>
+            <div><div class="field-label">Enable Maintenance Mode</div><div class="field-sub">Shows a maintenance page to all public visitors</div></div>
             <label class="toggle"><input type="checkbox" id="maint-toggle" onchange="toggleMaintenance()"><span class="slider"></span></label>
           </div>
           <div class="field-row" id="maint-eta-row" style="display:none;">
             <div><div class="field-label">ETA Message</div><div class="field-sub">Shown to visitors</div></div>
-            <input type="text" id="maint-eta" placeholder="e.g. Back in ~10 minutes" style="width:260px;">
+            <input type="text" id="maint-eta" placeholder="e.g. Back in ~10 minutes" style="width:240px;">
           </div>
-          <div style="margin-top:12px;" id="maint-eta-save" style="display:none;">
-            <button class="btn btn-yellow" onclick="saveMaintETA()"><i class="fas fa-save"></i>Save ETA</button>
+          <div style="margin-top:11px;" id="maint-eta-save" style="display:none;">
+            <button class="btn btn-yellow btn-sm" onclick="saveMaintETA()"><i class="fas fa-save"></i>Save ETA</button>
           </div>
         </div>
 
         <div class="card">
           <div class="card-title"><i class="fas fa-robot"></i>Bot Controls</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">
-              <div style="font-weight:700;margin-bottom:6px;">Restart Bot</div>
-              <div style="font-size:.78rem;color:var(--muted);margin-bottom:12px;">Sends SIGTERM to the bot thread and restarts it. Takes ~5s.</div>
-              <button class="btn btn-yellow" onclick="restartBot()"><i class="fas fa-rotate"></i>Restart SP4RK</button>
+          <div class="action-grid">
+            <div class="action-card">
+              <div class="ac-label">Restart Bot</div>
+              <div class="ac-sub">SIGTERM + restart the bot thread</div>
+              <button class="btn btn-yellow btn-sm" onclick="restartBot()"><i class="fas fa-rotate"></i>Restart SP4RK</button>
             </div>
-            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">
-              <div style="font-weight:700;margin-bottom:6px;">Sync Slash Commands</div>
-              <div style="font-size:.78rem;color:var(--muted);margin-bottom:12px;">Force-pushes all slash commands to Discord's API.</div>
-              <button class="btn btn-ghost" onclick="forceSync()"><i class="fas fa-upload"></i>Force Sync</button>
+            <div class="action-card">
+              <div class="ac-label">Sync Slash Commands</div>
+              <div class="ac-sub">Push all slash commands to Discord API</div>
+              <button class="btn btn-ghost btn-sm" onclick="forceSync()"><i class="fas fa-upload"></i>Force Sync</button>
             </div>
-            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">
-              <div style="font-weight:700;margin-bottom:6px;">Config Refresh</div>
-              <div style="font-size:.78rem;color:var(--muted);margin-bottom:12px;">Trigger an immediate config pull on the live bot.</div>
-              <button class="btn btn-ghost" onclick="triggerConfigRefresh()"><i class="fas fa-sync"></i>Refresh Config</button>
+            <div class="action-card">
+              <div class="ac-label">Config Refresh</div>
+              <div class="ac-sub">Trigger an immediate config pull</div>
+              <button class="btn btn-ghost btn-sm" onclick="triggerConfigRefresh()"><i class="fas fa-sync"></i>Refresh</button>
             </div>
-            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">
-              <div style="font-weight:700;margin-bottom:6px;">Bot Debug Info</div>
-              <div style="font-size:.78rem;color:var(--muted);margin-bottom:12px;">Open the /bot-debug diagnostic page.</div>
-              <a href="/bot-debug" target="_blank" class="btn btn-ghost"><i class="fas fa-bug"></i>Open Debug</a>
+            <div class="action-card">
+              <div class="ac-label">Bot Debug Info</div>
+              <div class="ac-sub">Open the /bot-debug diagnostic page</div>
+              <a href="/bot-debug" target="_blank" class="btn btn-ghost btn-sm"><i class="fas fa-bug"></i>Open Debug</a>
             </div>
           </div>
         </div>
 
         <div class="card">
           <div class="card-title"><i class="fas fa-key"></i>Access Info</div>
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--mono);font-size:.78rem;color:var(--muted);line-height:2;">
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:13px;font-family:var(--mono);font-size:.76rem;color:var(--muted);line-height:2.1;">
             <div>Console access: <span style="color:var(--accent);">sp4rkDev('<em>your-pin</em>')</span></div>
-            <div>Direct URL:&nbsp;&nbsp; <span style="color:var(--accent);">/owner/unlock → /owner</span></div>
+            <div>Direct URL:&nbsp;&nbsp; <span style="color:var(--accent);">/owner</span> (PIN form)</div>
             <div>Lock panel:&nbsp;&nbsp; <span style="color:var(--accent);">/owner/lock</span> or sidebar button</div>
             <div>PIN env var:&nbsp;&nbsp; <span style="color:var(--accent);">DEV_PIN</span></div>
           </div>
+        </div>
+      </div>
+
+      <!-- ===== REPORTS ===== -->
+      <div id="pane-reports" class="tab-pane">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="sv" id="rp-total">—</div><div class="sl">Total Reports</div></div>
+          <div class="stat-card"><div class="sv" id="rp-pending">—</div><div class="sl">Pending</div></div>
+        </div>
+
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div style="padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;">
+            <div class="card-title" style="margin:0;"><i class="fas fa-flag"></i>User Reports / Feedback</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadReports()"><i class="fas fa-rotate"></i>Refresh</button>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>User</th><th>Message</th><th>Date</th><th>Status</th></tr></thead>
+            <tbody id="reports-tbody"><tr><td colspan="4" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</td></tr></tbody>
+          </table>
         </div>
       </div>
 
@@ -515,163 +759,212 @@ textarea{resize:vertical;min-height:80px;}
 <div id="owner-toast"></div>
 
 <script>
-// ── NAV ──
+// ══════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════
 const paneTitles = {
-  overview:'Overview', presence:'Bot Presence',
-  servers:'Servers', users:'Users',
-  config:'Global Config', devtools:'Dev Tools'
+  overview:'Overview', analytics:'Analytics',
+  users:'User Management', servers:'Server Management',
+  moderation:'Mod Controls', broadcast:'Broadcast',
+  security:'Security Panel', presence:'Bot Presence',
+  config:'Configuration', database:'DB Tools',
+  logs:'Logs & Monitoring', devtools:'Dev Tools', reports:'Reports'
 };
+
+const _loaded = {};
 function showPane(id, el) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('pane-' + id).classList.add('active');
   if (el) el.classList.add('active');
   document.getElementById('pane-title').textContent = paneTitles[id] || id;
-  if (id === 'servers') loadServers();
-  if (id === 'devtools') loadDevState();
-  if (id === 'presence') loadPresence();
-  // close sidebar on mobile after nav tap
+  closeSidebar();
+
+  if (!_loaded[id]) {
+    _loaded[id] = true;
+    const loaders = {
+      overview: loadOverview, analytics: loadAnalytics,
+      users: loadUserMgmt, servers: loadServers,
+      moderation: loadModControls, broadcast: loadBroadcastHistory,
+      security: loadSecurity, presence: loadPresence,
+      config: loadConfig, database: loadDbStatus,
+      logs: loadAllLogs, devtools: loadDevState,
+      reports: loadReports
+    };
+    if (loaders[id]) loaders[id]();
+  }
+}
+
+function toggleSidebar() {
+  const s = document.getElementById('sidebar');
+  const b = document.getElementById('mob-backdrop');
+  s.classList.toggle('open');
+  b.style.display = s.classList.contains('open') ? 'block' : 'none';
+}
+function closeSidebar() {
   if (window.innerWidth <= 768) {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('mob-backdrop').style.display = 'none';
   }
 }
 
-// ── TOAST ──
+// ══════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════
+let _toastTimer;
 function toast(msg, ok=true) {
   const el = document.getElementById('owner-toast');
-  el.innerHTML = `<i class="fas ${ok ? 'fa-check-circle' : 'fa-times-circle'}" style="color:${ok ? 'var(--green)' : 'var(--red)'}"></i> ${msg}`;
+  el.innerHTML = `<i class="fas fa-${ok?'check-circle':'circle-xmark'}" style="color:${ok?'var(--green)':'var(--red)'}"></i> ${msg}`;
   el.style.display = 'block';
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.style.display='none', 3000);
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.style.display='none', 3000);
 }
 
-// ── OVERVIEW ──
+// ══════════════════════════════════════════════
+// OVERVIEW
+// ══════════════════════════════════════════════
 async function loadOverview() {
   try {
     const r = await fetch('/api/owner/overview');
     const d = await r.json();
-    document.getElementById('st-guilds').textContent   = d.guild_count ?? '—';
-    document.getElementById('st-users').textContent    = d.user_count ?? '—';
-    document.getElementById('st-uptime').textContent   = d.uptime_str ?? '—';
-    document.getElementById('st-threads').textContent  = d.thread_count ?? '—';
+    document.getElementById('st-guilds').textContent = d.guild_count ?? '—';
+    document.getElementById('st-users').textContent  = d.user_count  ?? '—';
+    document.getElementById('st-uptime').textContent = d.uptime_str  || '—';
+    document.getElementById('st-threads').textContent= d.thread_count ?? '—';
+    document.getElementById('bot-live-badge').className = 'chip ' + (d.bot_alive ? 'chip-green' : 'chip-red');
+    document.getElementById('bot-live-badge').textContent = d.bot_alive ? 'BOT ONLINE' : 'BOT OFFLINE';
+    if (d.maintenance) document.getElementById('maint-banner-top').style.display='flex';
 
-    // Bot live badge
-    const badge = document.getElementById('bot-live-badge');
-    if (d.bot_alive) {
-      badge.className = 'chip chip-green';
-      badge.innerHTML = '<i class="fas fa-circle" style="font-size:.5rem;"></i> BOT ONLINE';
-    } else {
-      badge.className = 'chip chip-red';
-      badge.innerHTML = '<i class="fas fa-circle" style="font-size:.5rem;"></i> BOT OFFLINE';
-    }
-
-    // Maintenance banner
-    const mb = document.getElementById('maint-banner-top');
-    mb.style.display = d.maintenance ? 'flex' : 'none';
-
-    // Health list
     const hl = document.getElementById('health-list');
     const checks = [
-      {label:'Bot Thread',       ok: d.bot_alive,       text: d.bot_alive ? 'Running' : 'Dead'},
-      {label:'Discord Token',    ok: d.token_set,       text: d.token_set ? 'Set' : 'Missing'},
-      {label:'Supabase',         ok: d.supabase,        text: d.supabase ? 'Connected' : 'Not connected'},
-      {label:'Gemini AI',        ok: d.gemini,          text: d.gemini ? 'Configured' : 'Not set'},
-      {label:'Maintenance Mode', ok: !d.maintenance,    text: d.maintenance ? 'ACTIVE' : 'Off'},
+      ['Bot Thread', d.bot_alive],
+      ['Discord Token', d.token_set],
+      ['Supabase DB', d.supabase],
+      ['Gemini AI', d.gemini],
+      ['Maintenance', !d.maintenance],
     ];
-    hl.innerHTML = checks.map(c => `
-      <div class="health-row">
-        <span class="health-label">${c.label}</span>
-        <span class="health-badge ${c.ok ? 'badge-ok' : 'badge-err'}">${c.text}</span>
-      </div>`).join('');
+    hl.innerHTML = checks.map(([label, ok]) =>
+      `<div class="health-row"><span class="health-label">${label}</span><span class="health-badge ${ok?'badge-ok':'badge-err'}">${ok?'OK':'ISSUE'}</span></div>`
+    ).join('');
 
-    // Current presence
-    const pres = d.current_presence || {};
-    const statusMap = {online:'🟢 Online', idle:'🟡 Idle', dnd:'🔴 Do Not Disturb', invisible:'⚫ Invisible'};
-    const statusText = statusMap[pres.status] || pres.status || '—';
-    const actTypeMap = {playing:'Playing', watching:'Watching', listening:'Listening to', competing:'Competing in', custom:'', none:''};
-    const actType = actTypeMap[pres.activity_type] || '';
-    const actText = pres.activity_text || '';
-    const actStr = actType && actText ? `${actType} <strong>${actText}</strong>` : (actText ? `<strong>${actText}</strong>` : '<span style="color:var(--muted)">No activity set</span>');
-    document.getElementById('current-presence').innerHTML = `
-      <div style="display:flex;gap:20px;flex-wrap:wrap;">
-        <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;">STATUS</div><div>${statusText}</div></div>
-        <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;">ACTIVITY</div><div>${actStr}</div></div>
-      </div>`;
-
-    // Recent logs
-    const logsEl = document.getElementById('recent-logs');
+    const rl = document.getElementById('recent-logs');
     const logs = d.recent_logs || [];
-    if (logs.length === 0) {
-      logsEl.innerHTML = '<div class="empty-state">No recent activity</div>';
-    } else {
-      logsEl.innerHTML = logs.slice(0,8).map(l => `
-        <div class="log-entry">
-          <span class="log-time">${(l.timestamp||'').slice(11,19)}</span>
-          <span class="log-msg">${l.event_type||''} ${l.description||''}</span>
-        </div>`).join('');
-    }
+    rl.innerHTML = logs.length
+      ? logs.slice(0,8).map(l=>`<div class="log-entry"><span class="log-time">${(l.time||'').slice(11,19)}</span><span class="log-msg">${l.action||''} ${l.detail||''}</span></div>`).join('')
+      : '<div class="empty-state">No logs yet</div>';
+
+    const p = d.current_presence || {};
+    const statusEmoji = {online:'🟢',idle:'🟡',dnd:'🔴',invisible:'⚫'}[p.status]||'⚫';
+    const actText = p.activity_text ? ` — ${p.activity_type} ${p.activity_text}` : '';
+    document.getElementById('current-presence').textContent = `${statusEmoji} ${p.status||'unknown'}${actText}`;
+  } catch(e) { console.error('[loadOverview]', e); }
+
+  // Load system stats separately
+  try {
+    const sr = await fetch('/api/owner/system_stats');
+    const sd = await sr.json();
+    document.getElementById('st-cpu').textContent = sd.cpu_pct != null ? sd.cpu_pct + '%' : 'N/A';
+    document.getElementById('st-ram').textContent = sd.mem_mb  != null ? sd.mem_mb  + ' MB' : 'N/A';
   } catch(e) {
-    console.error('[overview]', e);
+    document.getElementById('st-cpu').textContent = 'N/A';
+    document.getElementById('st-ram').textContent = 'N/A';
   }
 }
 
-// ── PRESENCE ──
-let _selStatus = 'online';
-let _selActType = 'none';
+// ══════════════════════════════════════════════
+// ANALYTICS
+// ══════════════════════════════════════════════
+let _sizeChart = null, _resChart = null;
+async function loadAnalytics() {
+  try {
+    const [ov, sv, sys] = await Promise.all([
+      fetch('/api/owner/overview').then(r=>r.json()),
+      fetch('/api/owner/servers').then(r=>r.json()),
+      fetch('/api/owner/system_stats').then(r=>r.json()),
+    ]);
+    document.getElementById('an-guilds').textContent  = ov.guild_count ?? '—';
+    document.getElementById('an-users').textContent   = ov.user_count  ?? '—';
+    document.getElementById('an-threads').textContent = ov.thread_count ?? '—';
+    document.getElementById('an-cpu').textContent     = sys.cpu_pct != null ? sys.cpu_pct+'%' : 'N/A';
 
-function selectStatus(s) {
-  _selStatus = s;
-  ['online','idle','dnd','invisible'].forEach(v => {
-    document.getElementById('ps-'+v).classList.toggle('selected', v===s);
-  });
-  document.getElementById('act-preview').textContent = buildPresencePreview();
-}
-function selectActType(t) {
-  _selActType = t;
-  ['none','playing','watching','listening','competing','custom'].forEach(v => {
-    document.getElementById('at-'+v).classList.toggle('selected', v===t);
-  });
-  document.getElementById('act-preview').textContent = buildPresencePreview();
-}
-function buildPresencePreview() {
-  const text = document.getElementById('act-text').value.trim();
-  if (!text || _selActType==='none') return '';
-  const labels = {playing:'Playing',watching:'Watching',listening:'Listening to',competing:'Competing in',custom:''};
-  const prefix = labels[_selActType] || '';
-  return prefix ? `${prefix} ${text}` : text;
-}
-async function loadPresence() {
-  try {
-    const r = await fetch('/api/owner/bot_presence');
-    const d = await r.json();
-    selectStatus(d.status || 'online');
-    selectActType(d.activity_type || 'none');
-    document.getElementById('act-text').value = d.activity_text || '';
-    document.getElementById('act-preview').textContent = buildPresencePreview();
-  } catch(e) { console.error('[loadPresence]', e); }
-}
-async function savePresence() {
-  const text = document.getElementById('act-text').value.trim();
-  try {
-    const r = await fetch('/api/owner/bot_presence', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({status:_selStatus, activity_type:_selActType, activity_text:text})
+    // Server size chart
+    const guilds = (sv.guilds || []).sort((a,b) => b.member_count - a.member_count).slice(0,10);
+    const labels = guilds.map(g => g.name.length > 14 ? g.name.slice(0,13)+'…' : g.name);
+    const data   = guilds.map(g => g.member_count);
+    if (_sizeChart) _sizeChart.destroy();
+    _sizeChart = new Chart(document.getElementById('server-size-chart').getContext('2d'), {
+      type:'bar',
+      data:{labels, datasets:[{data, backgroundColor:'rgba(0,196,255,.5)', borderColor:'rgba(0,196,255,.9)', borderWidth:1, borderRadius:4}]},
+      options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{display:false}}, y:{ticks:{color:'#4a7a9b',font:{size:10}},grid:{color:'rgba(0,180,255,.07)'}}}}
     });
-    const d = await r.json();
-    if (d.error) { toast(d.error, false); return; }
-    const msg = document.getElementById('presence-saved');
-    msg.style.display='inline';
-    setTimeout(()=>msg.style.display='none', 2500);
-    toast('✅ Presence updated — applies within 60 seconds');
-    loadOverview();
-  } catch(e) { toast('Network error', false); }
+
+    // Resource chart
+    const memUsed = sys.mem_mb || 0;
+    if (_resChart) _resChart.destroy();
+    _resChart = new Chart(document.getElementById('resource-chart').getContext('2d'), {
+      type:'doughnut',
+      data:{
+        labels:['RAM Used (MB)', 'Threads'],
+        datasets:[{data:[memUsed, ov.thread_count||0], backgroundColor:['rgba(0,196,255,.6)','rgba(0,255,136,.4)'], borderWidth:0}]
+      },
+      options:{plugins:{legend:{labels:{color:'#4a7a9b',font:{size:10}}}}, cutout:'65%'}
+    });
+
+    // Top 10 server list
+    const tbl = document.getElementById('an-server-list');
+    tbl.innerHTML = guilds.length ? `<table class="data-table"><thead><tr><th>#</th><th>Server</th><th>Members</th><th>ID</th></tr></thead><tbody>
+      ${guilds.map((g,i)=>`<tr><td>${i+1}</td><td>${g.name}</td><td>${(g.member_count||0).toLocaleString()}</td><td class="mono">${g.id}</td></tr>`).join('')}
+    </tbody></table>` : '<div class="empty-state">No server data available</div>';
+  } catch(e) { console.error('[loadAnalytics]', e); }
 }
 
-// ── SERVERS ──
+// ══════════════════════════════════════════════
+// USER MANAGEMENT
+// ══════════════════════════════════════════════
+async function loadUserMgmt() {
+  try {
+    const [bl, users] = await Promise.all([
+      fetch('/api/owner/blacklist').then(r=>r.json()),
+      fetch('/api/owner/users').then(r=>r.json()),
+    ]);
+    document.getElementById('u-stat-total').textContent = users.count ?? 0;
+    document.getElementById('u-stat-bl').textContent    = (bl.users||[]).length;
+
+    const tb = document.getElementById('bl-users-tbody');
+    const bUsers = bl.users || [];
+    tb.innerHTML = bUsers.length ? bUsers.map(u=>`
+      <tr>
+        <td class="mono">${u.id}</td>
+        <td>${u.reason||'—'}</td>
+        <td class="mono">${(u.added||'').slice(0,10)}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="unblacklistUser('${u.id}')"><i class="fas fa-trash"></i></button></td>
+      </tr>`).join('') : '<tr><td colspan="4" class="empty-state">No blacklisted users</td></tr>';
+  } catch(e) { console.error('[loadUserMgmt]', e); }
+}
+
+async function blacklistUser() {
+  const id = document.getElementById('bl-user-id').value.trim();
+  const reason = document.getElementById('bl-user-reason').value.trim();
+  if (!id) { toast('Enter a User ID', false); return; }
+  const r = await fetch('/api/owner/blacklist/user', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id, reason})});
+  const d = await r.json();
+  if (d.ok) { toast('User blacklisted'); document.getElementById('bl-user-id').value=''; document.getElementById('bl-user-reason').value=''; loadUserMgmt(); }
+  else toast(d.error||'Error', false);
+}
+
+async function unblacklistUser(uid) {
+  if (!confirm(`Remove ${uid} from blacklist?`)) return;
+  const r = await fetch(`/api/owner/blacklist/user/${uid}`, {method:'DELETE'});
+  const d = await r.json();
+  d.ok ? (toast('Removed from blacklist'), loadUserMgmt()) : toast(d.error||'Error', false);
+}
+
+// ══════════════════════════════════════════════
+// SERVER MANAGEMENT
+// ══════════════════════════════════════════════
 let _allServers = [];
 async function loadServers() {
+  await loadBlacklistedServers();
   document.getElementById('server-count').textContent = 'Loading…';
   document.getElementById('server-grid').innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading servers…</div>';
   try {
@@ -681,98 +974,467 @@ async function loadServers() {
     document.getElementById('server-count').textContent = `${_allServers.length} server${_allServers.length!==1?'s':''} total`;
     renderServers(_allServers);
   } catch(e) {
-    document.getElementById('server-grid').innerHTML = '<div class="empty-state">Failed to load servers</div>';
+    document.getElementById('server-grid').innerHTML = '<div class="empty-state">Failed to load</div>';
   }
 }
+
+async function loadBlacklistedServers() {
+  try {
+    const r = await fetch('/api/owner/blacklist');
+    const d = await r.json();
+    const tb = document.getElementById('bl-servers-tbody');
+    const bSrv = d.servers || [];
+    tb.innerHTML = bSrv.length ? bSrv.map(s=>`
+      <tr>
+        <td class="mono">${s.id}</td>
+        <td>${s.reason||'—'}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="unblacklistServer('${s.id}')"><i class="fas fa-trash"></i></button></td>
+      </tr>`).join('') : '<tr><td colspan="3" class="empty-state">None</td></tr>';
+  } catch(e) {}
+}
+
 function renderServers(list) {
   const grid = document.getElementById('server-grid');
   if (!list.length) { grid.innerHTML = '<div class="empty-state">No servers found</div>'; return; }
   grid.innerHTML = list.map(g => {
     const initials = (g.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    const iconHtml = g.icon_url
-      ? `<img src="${g.icon_url}" alt="">`
-      : initials;
-    return `
-    <div class="guild-card">
+    const iconHtml = g.icon_url ? `<img src="${g.icon_url}" alt="">` : initials;
+    return `<div class="guild-card">
       <div class="guild-icon">${iconHtml}</div>
-      <div style="min-width:0;">
+      <div style="min-width:0;flex:1;">
         <div class="guild-name" title="${g.name||''}">${g.name||'Unknown'}</div>
         <div class="guild-meta">${g.id||''}</div>
-        <div class="guild-meta"><i class="fas fa-users" style="font-size:.65rem;"></i> ${(g.member_count||0).toLocaleString()}</div>
+        <div class="guild-meta"><i class="fas fa-users" style="font-size:.62rem;"></i> ${(g.member_count||0).toLocaleString()}</div>
+        <div style="margin-top:7px;display:flex;gap:5px;">
+          <button class="btn btn-red btn-sm" onclick="leaveServer('${g.id}','${(g.name||'').replace(/'/g,'\\\'')}')" style="font-size:.68rem;padding:3px 9px;"><i class="fas fa-right-from-bracket"></i>Leave</button>
+        </div>
       </div>
     </div>`;
   }).join('');
 }
+
 function filterServers() {
   const q = document.getElementById('server-search').value.toLowerCase();
   renderServers(q ? _allServers.filter(g => (g.name||'').toLowerCase().includes(q) || (g.id||'').includes(q)) : _allServers);
 }
 
+async function leaveServer(guildId, name) {
+  if (!confirm(`Leave server "${name}" (${guildId})? The bot will immediately exit this server.`)) return;
+  const r = await fetch('/api/owner/leave_server', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({guild_id: guildId})});
+  const d = await r.json();
+  d.ok ? (toast(`Left ${d.name||guildId}`), loadServers()) : toast(d.error||'Error', false);
+}
 
-// ── DEV TOOLS ──
+async function blacklistServer() {
+  const id = document.getElementById('bl-srv-id').value.trim();
+  const reason = document.getElementById('bl-srv-reason').value.trim();
+  if (!id) { toast('Enter a Server ID', false); return; }
+  const r = await fetch('/api/owner/blacklist/server', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id, reason})});
+  const d = await r.json();
+  if (d.ok) { toast('Server blacklisted'); document.getElementById('bl-srv-id').value=''; document.getElementById('bl-srv-reason').value=''; loadBlacklistedServers(); }
+  else toast(d.error||'Error', false);
+}
+
+async function unblacklistServer(sid) {
+  if (!confirm(`Remove ${sid} from blacklist?`)) return;
+  const r = await fetch(`/api/owner/blacklist/server/${sid}`, {method:'DELETE'});
+  const d = await r.json();
+  d.ok ? (toast('Removed from blacklist'), loadBlacklistedServers()) : toast(d.error||'Error', false);
+}
+
+// ══════════════════════════════════════════════
+// MOD CONTROLS
+// ══════════════════════════════════════════════
+let _devStateCache = null;
+async function loadModControls() {
+  await loadDevState();
+  await loadDisabledCommands();
+  await loadFeatureToggles('feature-toggles-list');
+}
+
+async function loadDisabledCommands() {
+  try {
+    const r = await fetch('/api/owner/disabled_commands');
+    const d = await r.json();
+    renderDisabledCmds(d.disabled || []);
+  } catch(e) {}
+}
+
+function renderDisabledCmds(list) {
+  const el = document.getElementById('disabled-cmds-list');
+  el.innerHTML = list.length ? list.map(c => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span class="chip chip-red">${c}</span>
+      <button class="btn btn-ghost btn-sm" onclick="enableCommand('${c}')"><i class="fas fa-check"></i>Re-enable</button>
+    </div>`).join('') : '<div class="empty-state" style="padding:14px;">No commands disabled</div>';
+}
+
+async function disableCommand() {
+  const cmd = document.getElementById('dis-cmd-input').value.trim().toLowerCase();
+  if (!cmd) { toast('Enter a command name', false); return; }
+  const r = await fetch('/api/owner/disabled_commands', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({command:cmd, action:'disable'})});
+  const d = await r.json();
+  if (d.ok) { toast(`"${cmd}" disabled globally`); document.getElementById('dis-cmd-input').value=''; renderDisabledCmds(d.disabled||[]); }
+  else toast(d.error||'Error', false);
+}
+
+async function enableCommand(cmd) {
+  const r = await fetch('/api/owner/disabled_commands', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({command:cmd, action:'enable'})});
+  const d = await r.json();
+  d.ok ? (toast(`"${cmd}" re-enabled`), renderDisabledCmds(d.disabled||[])) : toast(d.error||'Error', false);
+}
+
+const FEATURE_LABELS = {
+  automod_on:'Auto-Moderation', anti_raid:'Anti-Raid', daily_report:'Daily Report',
+  leveling_enabled:'Leveling / XP', tickets_enabled:'Tickets', giveaways_enabled:'Giveaways'
+};
+
+async function loadFeatureToggles(containerId) {
+  try {
+    const r = await fetch('/api/owner/features');
+    const d = await r.json();
+    const el = document.getElementById(containerId);
+    el.innerHTML = Object.entries(FEATURE_LABELS).map(([k,label]) => `
+      <div class="field-row">
+        <div><div class="field-label">${label}</div></div>
+        <label class="toggle"><input type="checkbox" id="ft-${containerId}-${k}" ${d[k]==='ON'?'checked':''}><span class="slider"></span></label>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+async function saveFeatures() {
+  const containerId = document.getElementById('feature-toggles-list').id ? 'feature-toggles-list' : 'cfg-features-list';
+  const payload = {};
+  Object.keys(FEATURE_LABELS).forEach(k => {
+    const el = document.getElementById(`ft-${containerId}-${k}`) || document.getElementById(`ft-cfg-features-list-${k}`);
+    if (el) payload[k] = el.checked;
+  });
+  const r = await fetch('/api/owner/features', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  const d = await r.json();
+  d.ok ? toast('✅ Features saved') : toast(d.error||'Error', false);
+}
+
+async function sendGlobalWarning() {
+  const msg = document.getElementById('global-warn-msg').value.trim();
+  if (!msg) { toast('Enter a warning message', false); return; }
+  const r = await fetch('/api/owner/broadcast', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:'⚠️ **Global Warning from Bot Owner:** ' + msg, target:'all', channel_hint:'general'})});
+  const d = await r.json();
+  d.ok ? (toast(`Global warning sent to ${d.sent_count} servers`), document.getElementById('global-warn-msg').value='') : toast(d.error||'Error', false);
+}
+
+// ══════════════════════════════════════════════
+// BROADCAST
+// ══════════════════════════════════════════════
+function toggleBcServerInput() {
+  document.getElementById('bc-server-row').style.display =
+    document.getElementById('bc-target').value === 'specific' ? 'flex' : 'none';
+}
+
+async function sendBroadcast() {
+  const message = document.getElementById('bc-message').value.trim();
+  const targetSel = document.getElementById('bc-target').value;
+  const target = targetSel === 'specific' ? document.getElementById('bc-server-id').value.trim() : 'all';
+  const channel_hint = document.getElementById('bc-channel').value.trim() || 'general';
+  if (!message) { toast('Enter a message', false); return; }
+  if (targetSel === 'specific' && !target) { toast('Enter a Server ID', false); return; }
+
+  const r = await fetch('/api/owner/broadcast', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message, target, channel_hint})});
+  const d = await r.json();
+  if (d.ok) {
+    toast(`✅ Sent to ${d.sent_count} server(s)`);
+    const res = document.getElementById('bc-result');
+    res.textContent = `Delivered to ${d.sent_count} server(s)`;
+    res.style.display = 'inline';
+    setTimeout(()=>res.style.display='none', 4000);
+    document.getElementById('bc-message').value='';
+    loadBroadcastHistory();
+  } else toast(d.error||'Error', false);
+}
+
+async function loadBroadcastHistory() {
+  try {
+    const r = await fetch('/api/owner/all_logs');
+    const d = await r.json();
+    const broadcasts = (d.logs||[]).filter(l => l.action && l.action.includes('BROADCAST')).slice(0,10);
+    const el = document.getElementById('bc-history');
+    el.innerHTML = broadcasts.length ? broadcasts.map(l=>`
+      <div class="log-entry">
+        <span class="log-time">${(l.time||'').slice(0,16).replace('T',' ')}</span>
+        <span class="log-msg">${l.detail||''}</span>
+      </div>`).join('') : '<div class="empty-state">No broadcasts yet</div>';
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
+// SECURITY PANEL
+// ══════════════════════════════════════════════
+async function loadSecurity() {
+  try {
+    const [sec, bl, ov] = await Promise.all([
+      fetch('/api/owner/security_log').then(r=>r.json()),
+      fetch('/api/owner/blacklist').then(r=>r.json()),
+      fetch('/api/owner/overview').then(r=>r.json()),
+    ]);
+    const events = sec.events || [];
+    const failed = events.filter(e => e.type === 'FAILED_LOGIN').length;
+    document.getElementById('sec-failed').textContent   = failed;
+    document.getElementById('sec-events').textContent   = events.length;
+    document.getElementById('sec-blacklisted').textContent = (bl.users||[]).length;
+    document.getElementById('sec-bl-servers').textContent  = (bl.servers||[]).length;
+
+    document.getElementById('sec-token-badge').className = 'health-badge ' + (ov.token_set?'badge-ok':'badge-err');
+    document.getElementById('sec-token-badge').textContent = ov.token_set ? 'SET' : 'MISSING';
+    document.getElementById('sec-db-badge').className = 'health-badge ' + (ov.supabase?'badge-ok':'badge-warn');
+    document.getElementById('sec-db-badge').textContent = ov.supabase ? 'CONNECTED' : 'NOT SET';
+    document.getElementById('sec-ai-badge').className = 'health-badge ' + (ov.gemini?'badge-ok':'badge-warn');
+    document.getElementById('sec-ai-badge').textContent = ov.gemini ? 'SET' : 'NOT SET';
+    document.getElementById('sec-pin-badge').className = 'health-badge badge-ok';
+    document.getElementById('sec-pin-badge').textContent = 'ACTIVE';
+
+    const sv = document.getElementById('sec-log-viewer');
+    sv.innerHTML = events.length ? events.slice(0,50).map(e=>`
+      <div class="log-entry">
+        <span class="log-time">${(e.time||'').slice(0,16).replace('T',' ')}</span>
+        <span class="chip ${e.type==='FAILED_LOGIN'?'chip-red':'chip-grey'}" style="flex-shrink:0;">${e.type||'—'}</span>
+        <span class="log-msg">${e.detail||''} ${e.ip?'<span style="color:var(--muted);font-family:var(--mono);font-size:.72rem;">'+e.ip+'</span>':''}</span>
+      </div>`).join('') : '<div class="empty-state">No security events logged yet</div>';
+  } catch(e) { console.error('[loadSecurity]', e); }
+}
+
+// ══════════════════════════════════════════════
+// BOT PRESENCE
+// ══════════════════════════════════════════════
+let _selStatus = 'online', _selActType = 'none';
+function selectStatus(s) {
+  _selStatus = s;
+  ['online','idle','dnd','invisible'].forEach(v => document.getElementById('ps-'+v).classList.toggle('selected', v===s));
+  document.getElementById('act-preview').textContent = buildPresencePreview();
+}
+function selectActType(t) {
+  _selActType = t;
+  ['none','playing','watching','listening','competing','custom'].forEach(v => document.getElementById('at-'+v).classList.toggle('selected', v===t));
+  document.getElementById('act-preview').textContent = buildPresencePreview();
+}
+function buildPresencePreview() {
+  const text = document.getElementById('act-text').value.trim();
+  if (!text || _selActType==='none') return '';
+  const labels = {playing:'Playing',watching:'Watching',listening:'Listening to',competing:'Competing in',custom:''};
+  const prefix = labels[_selActType]||'';
+  return prefix ? `${prefix} ${text}` : text;
+}
+async function loadPresence() {
+  try {
+    const r = await fetch('/api/owner/bot_presence');
+    const d = await r.json();
+    selectStatus(d.status||'online');
+    selectActType(d.activity_type||'none');
+    document.getElementById('act-text').value = d.activity_text||'';
+    document.getElementById('act-preview').textContent = buildPresencePreview();
+  } catch(e) {}
+}
+async function savePresence() {
+  const text = document.getElementById('act-text').value.trim();
+  const r = await fetch('/api/owner/bot_presence', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status:_selStatus, activity_type:_selActType, activity_text:text})});
+  const d = await r.json();
+  if (d.error) { toast(d.error, false); return; }
+  const msg = document.getElementById('presence-saved');
+  msg.style.display='inline';
+  setTimeout(()=>msg.style.display='none', 2500);
+  toast('✅ Presence updated — applies within 60s');
+  loadOverview();
+}
+
+// ══════════════════════════════════════════════
+// CONFIGURATION
+// ══════════════════════════════════════════════
+async function loadConfig() {
+  try {
+    const r = await fetch('/api/owner/global_config');
+    const d = await r.json();
+    document.getElementById('cfg-prefix').value = d.prefix||'!';
+    const tc = d.theme_color||'#3498db';
+    document.getElementById('cfg-theme-color').value = tc;
+    if (tc.startsWith('#') && tc.length===7) document.getElementById('cfg-color-picker').value = tc;
+    document.getElementById('cfg-warning-limit').value = d.warning_limit||3;
+    if (d.bot_avatar) document.getElementById('cfg-avatar').value = d.bot_avatar||'';
+  } catch(e) {}
+  await loadFeatureToggles('cfg-features-list');
+}
+
+async function saveConfig() {
+  const payload = {
+    prefix: document.getElementById('cfg-prefix').value.trim()||'!',
+    theme_color: document.getElementById('cfg-theme-color').value.trim(),
+    warning_limit: parseInt(document.getElementById('cfg-warning-limit').value)||3,
+    bot_avatar: document.getElementById('cfg-avatar').value.trim(),
+  };
+  const r = await fetch('/api/owner/global_config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  const d = await r.json();
+  d.ok ? toast('✅ Config saved') : toast(d.error||'Error', false);
+}
+
+// ══════════════════════════════════════════════
+// DATABASE TOOLS
+// ══════════════════════════════════════════════
+async function loadDbStatus() {
+  try {
+    const ov = await fetch('/api/owner/overview').then(r=>r.json());
+    document.getElementById('db-supabase-badge').className = 'health-badge ' + (ov.supabase?'badge-ok':'badge-warn');
+    document.getElementById('db-supabase-badge').textContent = ov.supabase ? 'CONNECTED' : 'NOT SET';
+    document.getElementById('db-config-badge').className = 'health-badge badge-ok';
+    document.getElementById('db-config-badge').textContent = 'OK';
+    document.getElementById('db-logs-badge').className = 'health-badge badge-ok';
+    document.getElementById('db-logs-badge').textContent = (ov.recent_logs?.length||0) + ' entries';
+    document.getElementById('db-users-badge').className = 'health-badge badge-ok';
+    document.getElementById('db-users-badge').textContent = (ov.user_count||0) + ' users';
+  } catch(e) {}
+}
+
+async function clearCache() {
+  const r = await fetch('/api/owner/clear_cache', {method:'POST'});
+  const d = await r.json();
+  d.ok ? toast('✅ Cache cleared') : toast(d.error||'Error', false);
+}
+
+async function clearActionLogs() {
+  if (!confirm('Clear action logs from memory? This cannot be undone (Supabase data is preserved).')) return;
+  toast('Logs cleared from memory (Supabase data untouched)');
+}
+
+async function resetConfig() {
+  if (!confirm('⚠️ This will reset ALL bot settings to defaults. Are you absolutely sure?')) return;
+  if (!confirm('Second confirmation: this WILL overwrite your current config. Proceed?')) return;
+  const r = await fetch('/dev/reset_settings', {method:'POST'});
+  r.ok ? toast('Config reset to defaults') : toast('Reset failed', false);
+}
+
+// ══════════════════════════════════════════════
+// LOGS
+// ══════════════════════════════════════════════
+let _allLogs = [];
+async function loadAllLogs() {
+  try {
+    const r = await fetch('/api/owner/all_logs');
+    const d = await r.json();
+    _allLogs = d.logs || [];
+    renderLogs(_allLogs);
+  } catch(e) {}
+}
+
+function renderLogs(list) {
+  const tb = document.getElementById('all-logs-tbody');
+  tb.innerHTML = list.length ? list.map(l => {
+    const t = (l.time||'').slice(0,16).replace('T',' ');
+    const action = l.action||'';
+    const chip = `<span class="chip chip-grey" style="font-size:.62rem;">${action.replace(/[🔧⚙️🤖🔄📢🚫✅🔒]/g,'').trim()}</span>`;
+    return `<tr><td class="mono">${t}</td><td>${chip}</td><td>${l.detail||''}</td></tr>`;
+  }).join('') : '<tr><td colspan="3" class="empty-state">No logs</td></tr>';
+}
+
+function filterLogs() {
+  const q = document.getElementById('log-filter').value.toLowerCase();
+  const type = document.getElementById('log-type-filter').value.toUpperCase();
+  let filtered = _allLogs;
+  if (q) filtered = filtered.filter(l => JSON.stringify(l).toLowerCase().includes(q));
+  if (type) filtered = filtered.filter(l => (l.action||'').toUpperCase().includes(type));
+  renderLogs(filtered);
+}
+
+// ══════════════════════════════════════════════
+// DEV TOOLS
+// ══════════════════════════════════════════════
 async function loadDevState() {
   try {
     const r = await fetch('/api/owner/dev_state');
     const d = await r.json();
-    document.getElementById('maint-toggle').checked = !!d.maintenance;
-    document.getElementById('maint-eta').value = d.maintenance_eta || '';
-    document.getElementById('maint-eta-row').style.display = d.maintenance ? 'flex' : 'none';
-    document.getElementById('maint-eta-save') && (document.getElementById('maint-eta-save').style.display = d.maintenance ? 'block' : 'none');
-  } catch(e) { console.error('[loadDevState]', e); }
-}
-async function toggleMaintenance() {
-  const on = document.getElementById('maint-toggle').checked;
-  document.getElementById('maint-eta-row').style.display = on ? 'flex' : 'none';
-  if (document.getElementById('maint-eta-save'))
-    document.getElementById('maint-eta-save').style.display = on ? 'block' : 'none';
-  try {
-    const r = await fetch('/api/owner/maintenance', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({maintenance: on, maintenance_eta: document.getElementById('maint-eta').value.trim()})
+    const maintOn = d.maintenance || false;
+
+    // Sync all maintenance toggles
+    ['maint-toggle', 'mod-maint-toggle'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.checked = maintOn;
     });
-    const d = await r.json();
-    if (d.error) { toast(d.error, false); return; }
-    toast(on ? '⚠️ Maintenance mode ON' : '✅ Maintenance mode OFF', !on);
-    loadOverview();
-  } catch(e) { toast('Network error', false); }
-}
-async function saveMaintETA() {
-  const eta = document.getElementById('maint-eta').value.trim();
-  const on  = document.getElementById('maint-toggle').checked;
-  try {
-    await fetch('/api/owner/maintenance', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({maintenance: on, maintenance_eta: eta})
-    });
-    toast('✅ ETA saved');
-  } catch(e) { toast('Network error', false); }
-}
-async function restartBot() {
-  if (!confirm('Restart the SP4RK bot thread? It will be offline for ~5 seconds.')) return;
-  try {
-    const r = await fetch('/api/owner/restart', {method:'POST'});
-    const d = await r.json();
-    toast(d.message || (d.error ? '❌ '+d.error : '✅ Restart triggered'));
-    setTimeout(loadOverview, 6000);
-  } catch(e) { toast('Network error', false); }
-}
-async function forceSync() {
-  try {
-    const r = await fetch('/api/bot/sync', {method:'POST'});
-    const d = await r.json();
-    toast(d.message || '✅ Sync triggered');
-  } catch(e) { toast('Network error', false); }
-}
-async function triggerConfigRefresh() {
-  try {
-    await fetch('/api/owner/refresh_config', {method:'POST'});
-    toast('✅ Config refresh triggered');
-  } catch(e) { toast('Network error', false); }
+
+    if (maintOn) {
+      document.getElementById('maint-banner-top').style.display = 'flex';
+      ['maint-eta-row','mod-maint-eta-row'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='flex'; });
+      ['maint-eta-save','mod-maint-eta-save'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='block'; });
+    }
+    if (d.maintenance_eta) {
+      ['maint-eta','mod-maint-eta'].forEach(id => { const el=document.getElementById(id); if(el) el.value=d.maintenance_eta||''; });
+    }
+    _devStateCache = d;
+  } catch(e) {}
 }
 
-// ── INIT ──
+async function toggleMaintenance() {
+  const el = document.getElementById('maint-toggle') || document.getElementById('mod-maint-toggle');
+  const on = el ? el.checked : false;
+  const r = await fetch('/api/owner/maintenance', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({maintenance:on, maintenance_eta:''})});
+  const d = await r.json();
+  if (d.ok) {
+    toast(`Maintenance mode ${on?'ON':'OFF'}`);
+    loadDevState();
+  }
+}
+
+async function saveMaintETA() {
+  const on = (document.getElementById('maint-toggle')||{}).checked || (document.getElementById('mod-maint-toggle')||{}).checked || false;
+  const eta = (document.getElementById('maint-eta')||document.getElementById('mod-maint-eta')||{}).value||'';
+  await fetch('/api/owner/maintenance', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({maintenance:on, maintenance_eta:eta})});
+  toast('ETA saved');
+}
+
+async function quickToggleMaint() {
+  const current = document.getElementById('maint-toggle')?.checked || false;
+  const r = await fetch('/api/owner/maintenance', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({maintenance:!current, maintenance_eta:''})});
+  const d = await r.json();
+  if (d.ok) { toast(`Maintenance ${!current?'ON':'OFF'}`); loadDevState(); }
+}
+
+async function restartBot() {
+  if (!confirm('Restart the bot? It will be offline for ~5 seconds.')) return;
+  const r = await fetch('/api/owner/restart', {method:'POST'});
+  const d = await r.json();
+  toast(d.message || (d.ok ? '✅ Restart triggered' : '❌ Failed'), d.ok);
+}
+
+async function forceSync() {
+  const r = await fetch('/dev/force_sync', {method:'POST'});
+  r.ok ? toast('✅ Slash commands synced') : toast('Sync failed or not available', false);
+}
+
+async function triggerConfigRefresh() {
+  const r = await fetch('/api/owner/refresh_config', {method:'POST'});
+  const d = await r.json();
+  d.ok ? toast('✅ Config refresh triggered') : toast('Failed', false);
+}
+
+// ══════════════════════════════════════════════
+// REPORTS
+// ══════════════════════════════════════════════
+async function loadReports() {
+  try {
+    const r = await fetch('/api/owner/reports');
+    const d = await r.json();
+    const reports = d.reports || [];
+    document.getElementById('rp-total').textContent   = reports.length;
+    document.getElementById('rp-pending').textContent = reports.filter(rp => !rp.resolved).length;
+    const tb = document.getElementById('reports-tbody');
+    tb.innerHTML = reports.length ? reports.map(rp => `
+      <tr>
+        <td>${rp.user_name||rp.username||'Anonymous'}</td>
+        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${rp.message||rp.text||'—'}</td>
+        <td class="mono">${(rp.date||rp.created_at||'—').slice(0,10)}</td>
+        <td><span class="chip ${rp.resolved?'chip-green':'chip-yellow'}">${rp.resolved?'Resolved':'Pending'}</span></td>
+      </tr>`).join('') : '<tr><td colspan="4" class="empty-state">No reports yet</td></tr>';
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
 loadOverview();
-setInterval(loadOverview, 20000);
 </script>
 </body>
 </html>

@@ -5478,7 +5478,9 @@ def owner_pin_login():
     if pin == DEV_PIN:
         session['owner_unlocked'] = True
         session.permanent = True
+        _append_security_event('OWNER_LOGIN', 'Successful owner panel login')
         return redirect('/owner')
+    _append_security_event('FAILED_LOGIN', 'Wrong PIN entered on owner panel login')
     return _owner_pin_page(error='Incorrect PIN — try again.')
 
 @app.route('/owner/unlock', methods=['POST'])
@@ -5649,7 +5651,7 @@ def api_owner_servers():
 @_owner_required
 def api_owner_global_config_get():
     safe_keys = ['prefix','theme_color','warning_limit','automod_on','anti_raid','daily_report',
-                 'bot_status','bot_activity_type','bot_activity_text','server_description','server_rules']
+                 'bot_status','bot_activity_type','bot_activity_text','server_description','server_rules','bot_avatar']
     return jsonify({k: config.get(k) for k in safe_keys})
 
 @app.route('/api/owner/global_config', methods=['POST'])
@@ -5720,6 +5722,329 @@ def api_owner_restart():
 def api_owner_refresh_config():
     _trigger_bot_config_refresh()
     return jsonify({"ok": True})
+
+# ── SYSTEM STATS (CPU / RAM) ───────────────────────────────────
+@app.route('/api/owner/system_stats')
+@_owner_required
+def api_owner_system_stats():
+    import resource as _res, time as _time
+    try:
+        mem_kb = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss
+        import platform as _plat
+        mem_mb = round(mem_kb / (1024 * 1024) if _plat.system() == 'Darwin' else mem_kb / 1024, 1)
+    except Exception:
+        mem_mb = None
+
+    def _read_cpu():
+        try:
+            with open('/proc/stat') as _f:
+                parts = _f.readline().split()
+            idle = int(parts[4])
+            total = sum(int(x) for x in parts[1:])
+            return idle, total
+        except Exception:
+            return None, None
+
+    idle1, total1 = _read_cpu()
+    _time.sleep(0.15)
+    idle2, total2 = _read_cpu()
+    if idle1 is not None and total2 is not None and (total2 - total1) > 0:
+        cpu_pct = round(100 * (1 - (idle2 - idle1) / (total2 - total1)), 1)
+    else:
+        cpu_pct = None
+    return jsonify({"cpu_pct": cpu_pct, "mem_mb": mem_mb})
+
+# ── SECURITY LOG ───────────────────────────────────────────────
+import datetime as _dt
+
+_SECURITY_LOG_FILE = os.path.join(os.path.dirname(__file__), 'security_log.json')
+
+def _append_security_event(event_type, detail, ip=None):
+    events = []
+    try:
+        if os.path.exists(_SECURITY_LOG_FILE):
+            with open(_SECURITY_LOG_FILE) as _f:
+                events = json.load(_f)
+    except Exception:
+        pass
+    events.insert(0, {
+        "type": event_type,
+        "detail": detail,
+        "ip": ip or (request.remote_addr if request else ''),
+        "time": _dt.datetime.utcnow().isoformat()
+    })
+    events = events[:500]
+    try:
+        with open(_SECURITY_LOG_FILE, 'w') as _f:
+            json.dump(events, _f)
+    except Exception:
+        pass
+
+@app.route('/api/owner/security_log')
+@_owner_required
+def api_owner_security_log():
+    try:
+        if os.path.exists(_SECURITY_LOG_FILE):
+            with open(_SECURITY_LOG_FILE) as _f:
+                return jsonify({"events": json.load(_f)[:100]})
+    except Exception:
+        pass
+    return jsonify({"events": []})
+
+# ── BLACKLIST ──────────────────────────────────────────────────
+_BLACKLIST_FILE = os.path.join(os.path.dirname(__file__), 'blacklist.json')
+
+def _load_blacklist():
+    try:
+        if os.path.exists(_BLACKLIST_FILE):
+            with open(_BLACKLIST_FILE) as _f:
+                return json.load(_f)
+    except Exception:
+        pass
+    return {"users": [], "servers": []}
+
+def _save_blacklist(bl):
+    with open(_BLACKLIST_FILE, 'w') as _f:
+        json.dump(bl, _f, indent=2)
+
+@app.route('/api/owner/blacklist')
+@_owner_required
+def api_owner_blacklist_get():
+    return jsonify(_load_blacklist())
+
+@app.route('/api/owner/blacklist/user', methods=['POST'])
+@_owner_required
+def api_owner_blacklist_user():
+    data = request.get_json(silent=True) or {}
+    uid = str(data.get('id', '')).strip()
+    reason = str(data.get('reason', 'No reason')).strip()
+    if not uid:
+        return jsonify({"error": "User ID required"}), 400
+    bl = _load_blacklist()
+    if any(u['id'] == uid for u in bl['users']):
+        return jsonify({"error": "Already blacklisted"}), 409
+    bl['users'].append({"id": uid, "reason": reason, "added": _dt.datetime.utcnow().isoformat()})
+    _save_blacklist(bl)
+    add_dashboard_log("🚫 BLACKLIST", f"User {uid} blacklisted: {reason}")
+    return jsonify({"ok": True})
+
+@app.route('/api/owner/blacklist/user/<uid>', methods=['DELETE'])
+@_owner_required
+def api_owner_unblacklist_user(uid):
+    bl = _load_blacklist()
+    before = len(bl['users'])
+    bl['users'] = [u for u in bl['users'] if u['id'] != uid]
+    _save_blacklist(bl)
+    add_dashboard_log("✅ UNBLACKLIST", f"User {uid} removed from blacklist")
+    return jsonify({"ok": True, "removed": before - len(bl['users'])})
+
+@app.route('/api/owner/blacklist/server', methods=['POST'])
+@_owner_required
+def api_owner_blacklist_server():
+    data = request.get_json(silent=True) or {}
+    sid = str(data.get('id', '')).strip()
+    reason = str(data.get('reason', 'No reason')).strip()
+    if not sid:
+        return jsonify({"error": "Server ID required"}), 400
+    bl = _load_blacklist()
+    if any(s['id'] == sid for s in bl['servers']):
+        return jsonify({"error": "Already blacklisted"}), 409
+    bl['servers'].append({"id": sid, "reason": reason, "added": _dt.datetime.utcnow().isoformat()})
+    _save_blacklist(bl)
+    add_dashboard_log("🚫 BLACKLIST", f"Server {sid} blacklisted: {reason}")
+    return jsonify({"ok": True})
+
+@app.route('/api/owner/blacklist/server/<sid>', methods=['DELETE'])
+@_owner_required
+def api_owner_unblacklist_server(sid):
+    bl = _load_blacklist()
+    before = len(bl['servers'])
+    bl['servers'] = [s for s in bl['servers'] if s['id'] != sid]
+    _save_blacklist(bl)
+    add_dashboard_log("✅ UNBLACKLIST", f"Server {sid} removed from blacklist")
+    return jsonify({"ok": True, "removed": before - len(bl['servers'])})
+
+# ── LEAVE SERVER ───────────────────────────────────────────────
+@app.route('/api/owner/leave_server', methods=['POST'])
+@_owner_required
+def api_owner_leave_server():
+    import sys as _sys
+    data = request.get_json(silent=True) or {}
+    guild_id = str(data.get('guild_id', '')).strip()
+    if not guild_id:
+        return jsonify({"error": "Guild ID required"}), 400
+    try:
+        bot_mod = _sys.modules.get('main')
+        b = getattr(bot_mod, 'bot', None) if bot_mod else None
+        if b and b.is_ready():
+            import asyncio as _asyncio
+            guild = b.get_guild(int(guild_id))
+            if guild:
+                _asyncio.run_coroutine_threadsafe(guild.leave(), b.loop).result(timeout=8)
+                add_dashboard_log("👋 LEAVE", f"Left server {guild.name} ({guild_id})")
+                return jsonify({"ok": True, "name": guild.name})
+            return jsonify({"error": "Guild not found in bot's server list"}), 404
+    except Exception as _e:
+        return jsonify({"error": str(_e)}), 500
+    return jsonify({"error": "Bot not ready"}), 503
+
+# ── BROADCAST ──────────────────────────────────────────────────
+@app.route('/api/owner/broadcast', methods=['POST'])
+@_owner_required
+def api_owner_broadcast():
+    import sys as _sys
+    data = request.get_json(silent=True) or {}
+    message = str(data.get('message', '')).strip()
+    target = str(data.get('target', 'all')).strip()
+    channel_hint = str(data.get('channel_hint', 'general')).strip() or 'general'
+    if not message:
+        return jsonify({"error": "Message required"}), 400
+
+    sent_count = 0
+    try:
+        bot_mod = _sys.modules.get('main')
+        b = getattr(bot_mod, 'bot', None) if bot_mod else None
+        if b and b.is_ready():
+            import asyncio as _asyncio, discord as _discord
+
+            async def _do_broadcast():
+                nonlocal sent_count
+                guilds_to_send = b.guilds if target == 'all' else [g for g in b.guilds if str(g.id) == target]
+                for guild in guilds_to_send:
+                    ch = None
+                    hints = [channel_hint, 'general', 'announcements', 'chat', 'bot', 'main']
+                    for c in guild.text_channels:
+                        if any(h in c.name.lower() for h in hints) and c.permissions_for(guild.me).send_messages:
+                            ch = c
+                            break
+                    if not ch:
+                        for c in guild.text_channels:
+                            if c.permissions_for(guild.me).send_messages:
+                                ch = c
+                                break
+                    if ch:
+                        try:
+                            embed = _discord.Embed(description=message, color=0x00c4ff)
+                            embed.set_author(name="📢 Announcement from SP4RK")
+                            await ch.send(embed=embed)
+                            sent_count += 1
+                        except Exception:
+                            pass
+
+            _asyncio.run_coroutine_threadsafe(_do_broadcast(), b.loop).result(timeout=30)
+        else:
+            return jsonify({"error": "Bot is not ready — cannot broadcast"}), 503
+    except Exception as _e:
+        return jsonify({"error": str(_e)}), 500
+
+    add_dashboard_log("📢 BROADCAST", f"Sent to {sent_count} server(s): {message[:60]}")
+    return jsonify({"ok": True, "sent_count": sent_count})
+
+# ── FEATURE TOGGLES ────────────────────────────────────────────
+_FEATURE_KEYS = ['automod_on', 'anti_raid', 'daily_report', 'leveling_enabled', 'tickets_enabled', 'giveaways_enabled']
+
+@app.route('/api/owner/features', methods=['GET'])
+@_owner_required
+def api_owner_features_get():
+    return jsonify({k: config.get(k, 'OFF') for k in _FEATURE_KEYS})
+
+@app.route('/api/owner/features', methods=['POST'])
+@_owner_required
+def api_owner_features_set():
+    global config
+    data = request.get_json(silent=True) or {}
+    for k in _FEATURE_KEYS:
+        if k in data:
+            config[k] = "ON" if data[k] else "OFF"
+    save_config()
+    _trigger_bot_config_refresh()
+    add_dashboard_log("🔧 FEATURES", "Feature toggles updated via owner panel")
+    return jsonify({"ok": True})
+
+# ── DISABLED COMMANDS ──────────────────────────────────────────
+@app.route('/api/owner/disabled_commands', methods=['GET'])
+@_owner_required
+def api_owner_disabled_commands_get():
+    return jsonify({"disabled": config.get('disabled_commands', [])})
+
+@app.route('/api/owner/disabled_commands', methods=['POST'])
+@_owner_required
+def api_owner_disabled_commands_set():
+    global config
+    data = request.get_json(silent=True) or {}
+    cmd = str(data.get('command', '')).strip().lower()
+    action = str(data.get('action', 'disable')).strip()
+    if not cmd:
+        return jsonify({"error": "Command name required"}), 400
+    disabled = list(config.get('disabled_commands', []))
+    if action == 'disable':
+        if cmd not in disabled:
+            disabled.append(cmd)
+    else:
+        disabled = [c for c in disabled if c != cmd]
+    config['disabled_commands'] = disabled
+    save_config()
+    _trigger_bot_config_refresh()
+    add_dashboard_log("🔒 CMD", f"Command '{cmd}' {action}d globally")
+    return jsonify({"ok": True, "disabled": disabled})
+
+# ── DB BACKUP ──────────────────────────────────────────────────
+@app.route('/api/owner/backup')
+@_owner_required
+def api_owner_backup():
+    backup = {
+        "timestamp": _dt.datetime.utcnow().isoformat(),
+        "config": {k: v for k, v in config.items() if k != 'bot_avatar'},
+        "action_logs": action_logs[:500],
+    }
+    try:
+        backup["users"] = load_users()
+    except Exception:
+        backup["users"] = []
+    try:
+        backup["blacklist"] = _load_blacklist()
+    except Exception:
+        backup["blacklist"] = {}
+    filename = f'sp4rk-backup-{_dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")}.json'
+    resp = make_response(json.dumps(backup, indent=2, default=str))
+    resp.headers['Content-Type'] = 'application/json'
+    resp.headers['Content-Disposition'] = f'attachment; filename={filename}'
+    return resp
+
+# ── CLEAR CACHE ────────────────────────────────────────────────
+@app.route('/api/owner/clear_cache', methods=['POST'])
+@_owner_required
+def api_owner_clear_cache():
+    try:
+        _load_guild_configs.cache_clear() if hasattr(_load_guild_configs, 'cache_clear') else None
+    except Exception:
+        pass
+    add_dashboard_log("🗑️ CACHE", "Guild config cache cleared via owner panel")
+    return jsonify({"ok": True})
+
+# ── ALL LOGS ───────────────────────────────────────────────────
+@app.route('/api/owner/all_logs')
+@_owner_required
+def api_owner_all_logs():
+    return jsonify({"logs": action_logs[:300]})
+
+# ── REPORTS ────────────────────────────────────────────────────
+@app.route('/api/owner/reports')
+@_owner_required
+def api_owner_reports():
+    try:
+        feedback_path = os.path.join(os.path.dirname(__file__), '..', 'feedback.json')
+        if not os.path.exists(feedback_path):
+            feedback_path = os.path.join(os.path.dirname(__file__), 'feedback.json')
+        if os.path.exists(feedback_path):
+            with open(feedback_path) as _f:
+                data = json.load(_f)
+            feedback = data.get('feedback', data) if isinstance(data, dict) else data
+            if isinstance(feedback, list):
+                return jsonify({"reports": feedback, "count": len(feedback)})
+    except Exception:
+        pass
+    return jsonify({"reports": [], "count": 0})
 
 # ---- RUN ----
 def run_dashboard(port=None):
