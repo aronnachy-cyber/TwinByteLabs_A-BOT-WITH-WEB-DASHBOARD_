@@ -284,6 +284,9 @@ textarea{resize:vertical;min-height:80px;}
   .sidebar.open{transform:none;}
   .presence-grid{grid-template-columns:repeat(2,1fr);}
   .stat-grid{grid-template-columns:repeat(2,1fr);}
+  #mob-menu{display:block !important;}
+  .content{padding:16px;}
+  .topbar{padding:12px 16px;}
 }
 
 .section-divider{height:1px;background:var(--border);margin:16px 0;}
@@ -300,6 +303,9 @@ textarea{resize:vertical;min-height:80px;}
 </style>
 </head>
 <body>
+
+<div id="mob-backdrop" onclick="document.getElementById('sidebar').classList.remove('open')"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;"></div>
 
 <div class="shell">
   <!-- SIDEBAR -->
@@ -333,7 +339,7 @@ textarea{resize:vertical;min-height:80px;}
   <div class="main">
     <div class="topbar">
       <div style="display:flex;align-items:center;gap:14px;">
-        <button onclick="document.getElementById('sidebar').classList.toggle('open')"
+        <button onclick="(function(){var s=document.getElementById('sidebar');var b=document.getElementById('mob-backdrop');s.classList.toggle('open');b.style.display=s.classList.contains('open')?'block':'none';})()"
           style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;" id="mob-menu">
           <i class="fas fa-bars"></i>
         </button>
@@ -600,6 +606,11 @@ function showPane(id, el) {
   if (id === 'config')  loadGlobalConfig();
   if (id === 'devtools') loadDevState();
   if (id === 'presence') loadPresence();
+  // close sidebar on mobile after nav tap
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('mob-backdrop').style.display = 'none';
+  }
 }
 
 // ── TOAST ──

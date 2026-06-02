@@ -1,4 +1,4 @@
-modules = ["python-3.11", "web", "nix", "postgresql-16"]
+modules = ["web", "python-3.11", "nix"]
 [agent]
 expertMode = true
 stack = "FLASK_VANILLA_JS"
@@ -28,7 +28,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd SENTINEL-BOT-Main && ../.pythonlibs/bin/gunicorn --bind 0.0.0.0:5000 --reuse-port --workers 1 --timeout 120 wsgi:app"
+args = "cd SENTINEL-BOT-Main && /home/runner/workspace/.pythonlibs/bin/gunicorn --bind 0.0.0.0:5000 --reuse-port --workers 1 --timeout 120 wsgi:app"
 waitForPort = 5000
 
 [[ports]]
