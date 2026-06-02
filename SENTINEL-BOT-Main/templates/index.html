@@ -556,7 +556,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     <div style="display:flex;align-items:center;gap:8px;margin-left:8px;">
       <i class="fas fa-server" style="color:var(--muted);font-size:.85rem;"></i>
       <select id="guildPick" onchange="onGuildChange()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:5px 10px;font-size:.82rem;outline:none;cursor:pointer;max-width:200px;">
-        <option value="">— All / Global —</option>
+        <option value="" disabled selected style="color:var(--muted);">— Select a Server —</option>
         {% for g in live.guilds %}
         <option value="{{ g.id }}">{{ g.name }} ({{ g.member_count }})</option>
         {% endfor %}
@@ -603,6 +603,21 @@ html.bl-compact .page-header { margin-bottom: 18px; }
 {% endif %}
 
 <div class="main">
+
+<!-- ===================== NO SERVER SELECTED OVERLAY ===================== -->
+<div id="no-server-overlay" style="display:none;position:fixed;top:60px;left:260px;right:0;bottom:0;z-index:200;background:var(--bg,#07101f);align-items:center;justify-content:center;flex-direction:column;gap:18px;">
+  <div style="background:var(--card,#0f1d38);border:1px solid var(--border,rgba(58,143,255,.18));border-radius:18px;padding:48px 56px;text-align:center;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,.45);">
+    <div style="font-size:2.8rem;margin-bottom:16px;">🖥️</div>
+    <h2 style="margin:0 0 10px;font-size:1.35rem;font-weight:800;color:var(--text,#e8f0ff);">Select a Server</h2>
+    <p style="margin:0 0 24px;color:var(--muted,#8fa8c8);font-size:.95rem;line-height:1.6;">
+      You need to select a server before you can manage settings.<br>
+      Use the server picker in the top bar, or go back to the server list.
+    </p>
+    <a href="{{ url_for('server_select') }}" style="display:inline-flex;align-items:center;gap:8px;background:var(--accent,#3a8fff);color:#fff;border:none;border-radius:10px;padding:11px 26px;font-size:.92rem;font-weight:700;text-decoration:none;cursor:pointer;transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+      <i class="fas fa-server"></i> Choose a Server
+    </a>
+  </div>
+</div>
 
 <!-- ===================== GENERAL ===================== -->
 <div id="general" class="tab-content active">
@@ -3695,16 +3710,37 @@ async function restartBot() {
 // ---- SERVER PICKER ----
 var currentGuildId = '';
 
+function _showNoServerOverlay(show) {
+  var el = document.getElementById('no-server-overlay');
+  if (el) el.style.display = show ? 'flex' : 'none';
+}
+
 function onGuildChange() {
   const pick = document.getElementById('guildPick');
-  currentGuildId = pick ? pick.value : '';
-  loadGuildConfig();
+  const newGuild = pick ? pick.value : '';
+  currentGuildId = newGuild;
+  if (newGuild) {
+    // Persist selection in URL so reloads keep the chosen server
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('guild', newGuild);
+      history.replaceState({guild: newGuild}, '', url.toString());
+    } catch(e) {}
+    _showNoServerOverlay(false);
+    loadGuildConfig();
+  } else {
+    _showNoServerOverlay(true);
+  }
 }
 
 // Auto-select guild when arriving from the server picker (/servers page)
 (function(){
   var preselectId = (typeof window._PRESELECT_GUILD !== 'undefined') ? window._PRESELECT_GUILD : '';
-  if (!preselectId) return;
+  if (!preselectId) {
+    // No guild preselected — show the overlay once DOM is ready
+    document.addEventListener('DOMContentLoaded', function(){ _showNoServerOverlay(true); });
+    return;
+  }
   // Always set currentGuildId immediately so API calls use the right guild
   // even if the guildPick dropdown hasn't rendered yet (e.g. bot offline).
   currentGuildId = preselectId;
@@ -3718,14 +3754,19 @@ function onGuildChange() {
         }
       }
     }
+    _showNoServerOverlay(false);
     // Always load guild config regardless of whether the dropdown exists.
     loadGuildConfig();
   });
 })();
 
 async function loadGuildConfig() {
+  if (!currentGuildId) {
+    _showNoServerOverlay(true);
+    return;
+  }
   try {
-    const url = '/api/guild_config' + (currentGuildId ? '?guild_id=' + encodeURIComponent(currentGuildId) : '');
+    const url = '/api/guild_config?guild_id=' + encodeURIComponent(currentGuildId);
     const res = await fetch(url);
     if (!res.ok) return;
     const cfg = await res.json();
@@ -3739,9 +3780,8 @@ async function loadGuildConfig() {
       setTimeout(() => openOnboardingWizard(guildName), 300);
       return;
     }
-    const label = currentGuildId
-      ? (document.getElementById('guildPick').options[document.getElementById('guildPick').selectedIndex].text)
-      : 'Global';
+    const pick = document.getElementById('guildPick');
+    const label = (pick && pick.selectedIndex >= 0) ? pick.options[pick.selectedIndex].text : currentGuildId;
     showToast('🖥️ Loaded config for: ' + label);
   } catch(e) {
     showToast('❌ Failed to load server config', true);
@@ -3819,9 +3859,14 @@ function applyConfig(cfg) {
 }
 
 async function saveAll() {
+  if (!currentGuildId) {
+    showToast('⚠️ Select a server before saving settings.', true);
+    _showNoServerOverlay(true);
+    return;
+  }
   try {
     const payload = collectData();
-    if (currentGuildId) payload.guild_id = currentGuildId;
+    payload.guild_id = currentGuildId;
     const res = await fetch('/api/guild_config', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -3829,7 +3874,7 @@ async function saveAll() {
     });
     const data = await res.json();
     if (data.status === 'success') {
-      showToast('✅ Settings saved!' + (currentGuildId ? ' (server-specific)' : ' (global)'));
+      showToast('✅ Settings saved!');
       const tc = document.getElementById('theme_color');
       if (tc) document.documentElement.style.setProperty('--accent', tc.value);
     } else {
