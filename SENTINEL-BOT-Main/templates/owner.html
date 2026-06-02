@@ -324,10 +324,8 @@ textarea{resize:vertical;min-height:80px;}
 
     <div class="sb-section">Data</div>
     <div class="nav-item" onclick="showPane('servers',this)"><i class="fas fa-server"></i>Servers</div>
-    <div class="nav-item" onclick="showPane('users',this)"><i class="fas fa-users"></i>Users</div>
 
     <div class="sb-section">Settings</div>
-    <div class="nav-item" onclick="showPane('config',this)"><i class="fas fa-sliders"></i>Global Config</div>
     <div class="nav-item" onclick="showPane('devtools',this)"><i class="fas fa-terminal"></i>Dev Tools</div>
 
     <div class="sb-footer">
@@ -453,78 +451,6 @@ textarea{resize:vertical;min-height:80px;}
         <div id="server-grid" class="guild-grid"></div>
       </div>
 
-      <!-- ===== USERS ===== -->
-      <div id="pane-users" class="tab-pane">
-        <div class="search-bar">
-          <i class="fas fa-search"></i>
-          <input type="text" id="user-search" placeholder="Search users…" oninput="filterUsers()">
-        </div>
-        <div class="card" style="padding:0;overflow:hidden;">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Discord ID</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Joined</th>
-              </tr>
-            </thead>
-            <tbody id="users-tbody">
-              <tr><td colspan="5" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- ===== GLOBAL CONFIG ===== -->
-      <div id="pane-config" class="tab-pane">
-        <div class="card">
-          <div class="card-title"><i class="fas fa-sliders"></i>Bot Defaults</div>
-          <div class="field-row">
-            <div><div class="field-label">Command Prefix</div><div class="field-sub">Character before commands — e.g. ! or ?</div></div>
-            <input type="text" id="cfg-prefix" maxlength="5" style="width:80px;text-align:center;">
-          </div>
-          <div class="field-row">
-            <div><div class="field-label">Theme Color</div><div class="field-sub">Default embed/accent color</div></div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <input type="color" id="cfg-color-picker" value="#3498db" oninput="document.getElementById('cfg-theme-color').value=this.value"
-                style="width:36px;height:36px;padding:2px;border-radius:6px;border:1px solid var(--border);background:none;cursor:pointer;">
-              <input type="text" id="cfg-theme-color" maxlength="20" style="width:110px;" oninput="document.getElementById('cfg-color-picker').value=this.value">
-            </div>
-          </div>
-          <div class="field-row">
-            <div><div class="field-label">Warning Limit</div><div class="field-sub">Actions trigger after this many warnings</div></div>
-            <input type="number" id="cfg-warning-limit" min="1" max="100" style="width:80px;text-align:center;">
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title"><i class="fas fa-shield-halved"></i>Moderation Defaults</div>
-          <div class="field-row">
-            <div><div class="field-label">Auto-Moderation</div><div class="field-sub">Enable link/invite/mention filtering by default</div></div>
-            <label class="toggle"><input type="checkbox" id="cfg-automod"><span class="slider"></span></label>
-          </div>
-          <div class="field-row">
-            <div><div class="field-label">Anti-Raid</div><div class="field-sub">Auto-lockdown on join flood</div></div>
-            <label class="toggle"><input type="checkbox" id="cfg-antiraid"><span class="slider"></span></label>
-          </div>
-          <div class="field-row">
-            <div><div class="field-label">Daily Report</div><div class="field-sub">Post moderation summary every 24h</div></div>
-            <label class="toggle"><input type="checkbox" id="cfg-daily-report"><span class="slider"></span></label>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-primary" onclick="saveGlobalConfig()">
-            <i class="fas fa-save"></i>Save Global Config
-          </button>
-          <button class="btn btn-ghost" onclick="loadGlobalConfig()">
-            <i class="fas fa-rotate"></i>Reload
-          </button>
-        </div>
-      </div>
-
       <!-- ===== DEV TOOLS ===== -->
       <div id="pane-devtools" class="tab-pane">
         <div class="card" style="border-color:rgba(255,204,0,.2);">
@@ -602,8 +528,6 @@ function showPane(id, el) {
   if (el) el.classList.add('active');
   document.getElementById('pane-title').textContent = paneTitles[id] || id;
   if (id === 'servers') loadServers();
-  if (id === 'users')   loadUsers();
-  if (id === 'config')  loadGlobalConfig();
   if (id === 'devtools') loadDevState();
   if (id === 'presence') loadPresence();
   // close sidebar on mobile after nav tap
@@ -784,78 +708,6 @@ function filterServers() {
   renderServers(q ? _allServers.filter(g => (g.name||'').toLowerCase().includes(q) || (g.id||'').includes(q)) : _allServers);
 }
 
-// ── USERS ──
-let _allUsers = [];
-async function loadUsers() {
-  document.getElementById('users-tbody').innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fas fa-spinner fa-pulse"></i> Loading…</td></tr>';
-  try {
-    const r = await fetch('/api/owner/users');
-    const d = await r.json();
-    _allUsers = d.users || [];
-    renderUsers(_allUsers);
-  } catch(e) {
-    document.getElementById('users-tbody').innerHTML = '<tr><td colspan="5" class="empty-state">Failed to load</td></tr>';
-  }
-}
-function renderUsers(list) {
-  const tb = document.getElementById('users-tbody');
-  if (!list.length) { tb.innerHTML = '<tr><td colspan="5" class="empty-state">No users found</td></tr>'; return; }
-  tb.innerHTML = list.map(u => {
-    const roleChip = u.role === 'admin'
-      ? '<span class="chip chip-red">admin</span>'
-      : u.role === 'mod'
-      ? '<span class="chip chip-yellow">mod</span>'
-      : '<span class="chip chip-grey">user</span>';
-    const statusChip = u.status === 'active'
-      ? '<span class="chip chip-green">active</span>'
-      : '<span class="chip chip-grey">'+(u.status||'—')+'</span>';
-    return `<tr>
-      <td>${u.username||u.name||'—'}</td>
-      <td class="mono">${u.discord_id||u.discord||'—'}</td>
-      <td>${roleChip}</td>
-      <td>${statusChip}</td>
-      <td class="mono">${(u.created_at||u.joined_at||'—').slice(0,10)}</td>
-    </tr>`;
-  }).join('');
-}
-function filterUsers() {
-  const q = document.getElementById('user-search').value.toLowerCase();
-  renderUsers(q ? _allUsers.filter(u => JSON.stringify(u).toLowerCase().includes(q)) : _allUsers);
-}
-
-// ── GLOBAL CONFIG ──
-async function loadGlobalConfig() {
-  try {
-    const r = await fetch('/api/owner/global_config');
-    const d = await r.json();
-    document.getElementById('cfg-prefix').value     = d.prefix || '!';
-    const tc = d.theme_color || '#3498db';
-    document.getElementById('cfg-theme-color').value = tc;
-    document.getElementById('cfg-color-picker').value = tc.startsWith('#') && tc.length===7 ? tc : '#3498db';
-    document.getElementById('cfg-warning-limit').value = d.warning_limit || 3;
-    document.getElementById('cfg-automod').checked      = d.automod_on === 'ON';
-    document.getElementById('cfg-antiraid').checked     = d.anti_raid === 'ON';
-    document.getElementById('cfg-daily-report').checked = d.daily_report === 'ON';
-  } catch(e) { console.error('[loadGlobalConfig]', e); }
-}
-async function saveGlobalConfig() {
-  const payload = {
-    prefix:        document.getElementById('cfg-prefix').value.trim() || '!',
-    theme_color:   document.getElementById('cfg-theme-color').value.trim(),
-    warning_limit: parseInt(document.getElementById('cfg-warning-limit').value) || 3,
-    automod_on:    document.getElementById('cfg-automod').checked,
-    anti_raid:     document.getElementById('cfg-antiraid').checked,
-    daily_report:  document.getElementById('cfg-daily-report').checked,
-  };
-  try {
-    const r = await fetch('/api/owner/global_config', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
-    });
-    const d = await r.json();
-    if (d.error) { toast(d.error, false); return; }
-    toast('✅ Global config saved!');
-  } catch(e) { toast('Network error', false); }
-}
 
 // ── DEV TOOLS ──
 async function loadDevState() {
