@@ -1,0 +1,2 @@
+- [Owner Panel](owner-panel.md) — hidden dev panel at /owner, unlocked via sp4rkDev('pin') in console, protected by DEV_PIN env var.
+- [Bot Presence](bot-presence.md) — bot status is GLOBAL (not per-server); activity type/text now supported; owner panel is the only place to change it.

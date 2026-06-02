@@ -614,13 +614,16 @@ html.bl-compact .page-header { margin-bottom: 18px; }
         <div class="input-wrap"><input type="text" id="prefix" value="{{ config.get('prefix','!') }}" maxlength="5" placeholder="!"></div>
       </div>
       <div class="row">
-        <div class="row-label"><strong>Bot Status</strong>Shown under the bot's name</div>
+        <div class="row-label"><strong>Bot Status</strong><span style="color:var(--accent);font-size:.74rem;">Global — manage in Owner Panel</span></div>
         <div class="input-wrap">
-          <select id="bot_status">
-            <option value="online"  {% if config.get('bot_status')=='online'  %}selected{% endif %}>🟢 Online</option>
-            <option value="idle"    {% if config.get('bot_status')=='idle'    %}selected{% endif %}>🟡 Idle</option>
-            <option value="dnd"     {% if config.get('bot_status')=='dnd'     %}selected{% endif %}>🔴 Do Not Disturb</option>
-          </select>
+          {% set _bs = config.get('bot_status','online') %}
+          {% set _at = config.get('bot_activity_type','none') %}
+          {% set _atx = config.get('bot_activity_text','') %}
+          {% set _status_labels = {'online':'🟢 Online','idle':'🟡 Idle','dnd':'🔴 Do Not Disturb','invisible':'⚫ Invisible'} %}
+          <span style="font-size:.83rem;color:var(--text);padding:6px 12px;background:var(--input-bg,#0d1c30);border:1px solid var(--border);border-radius:8px;display:inline-block;">
+            {{ _status_labels.get(_bs, _bs) }}{% if _atx %} · {{ _at|replace('none','') }} {{ _atx }}{% endif %}
+          </span>
+          <a href="/owner" target="_blank" style="font-size:.72rem;color:var(--accent);margin-left:8px;">Edit in Owner Panel →</a>
         </div>
       </div>
       <div class="row">
@@ -3064,7 +3067,7 @@ function collectData() {
   const getCheck = id => { const el = document.getElementById(id); return el ? el.checked : false; };
 
   return {
-    prefix: getText('prefix'), bot_status: getText('bot_status'),
+    prefix: getText('prefix'),
     theme_color: getText('theme_color'), bot_avatar: getText('bot_avatar'),
     welcome_msg: getText('welcome_msg'),
     welcome_image: getText('welcome_image'),
@@ -3349,7 +3352,7 @@ function applyConfig(cfg) {
   // that server B hasn't configured yet.
   const setText  = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val !== undefined && val !== null) ? val : ''; };
   const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = (val === 'ON' || val === true); };
-  setText('prefix', cfg.prefix); setText('bot_status', cfg.bot_status);
+  setText('prefix', cfg.prefix);
   setText('theme_color', cfg.theme_color); setText('bot_avatar', cfg.bot_avatar);
   setText('welcome_msg', cfg.welcome_msg);
   setText('welcome_image', cfg.welcome_image);

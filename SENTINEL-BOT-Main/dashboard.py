@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response, abort
 import os
 import json
 import secrets
@@ -275,6 +275,8 @@ def _rate_limit(ip: str, max_calls: int = 10, window_secs: int = 3600) -> bool:
 DEFAULT_CONFIG = {
     "prefix": "!",
     "bot_status": "online",
+    "bot_activity_type": "none",
+    "bot_activity_text": "",
     "theme_color": "#3498db",
     "welcome_msg": "",
     "welcome_image": "",
@@ -5487,6 +5489,261 @@ def bot_diagnostics():
         lines.append("    Check your service logs for startup errors (invalid token, import error, etc).")
 
     return "\n".join(lines), 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
+# ═══════════════════════════════════════════════════════════════
+# OWNER / DEV PANEL
+# Access: POST /owner/unlock {"key": DEV_PIN}  →  GET /owner
+# Console helper (injected in landing): sp4rkDev('pin')
+# ═══════════════════════════════════════════════════════════════
+
+def _owner_required(f):
+    from functools import wraps
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get('owner_unlocked'):
+            return abort(404)
+        return f(*args, **kwargs)
+    return wrapper
+
+@app.route('/owner/unlock', methods=['POST'])
+def owner_unlock():
+    data = request.get_json(silent=True) or {}
+    key = str(data.get('key', '')).strip()
+    if key and key == DEV_PIN:
+        session['owner_unlocked'] = True
+        session.permanent = True
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Invalid PIN"}), 403
+
+@app.route('/owner/lock')
+def owner_lock():
+    session.pop('owner_unlocked', None)
+    return redirect('/')
+
+@app.route('/owner')
+@_owner_required
+def owner_panel():
+    return render_template('owner.html')
+
+# ── OVERVIEW ──────────────────────────────────────────────────
+@app.route('/api/owner/overview')
+@_owner_required
+def api_owner_overview():
+    import threading as _th
+    import sys as _sys
+
+    # Bot thread alive check
+    bot_alive = False
+    try:
+        bot_mod = _sys.modules.get('main')
+        if bot_mod:
+            t = getattr(bot_mod, '_bot_thread', None)
+            bot_alive = bool(t and t.is_alive())
+    except Exception:
+        pass
+
+    # Guild count (live)
+    guild_count = 0
+    try:
+        bot_mod = _sys.modules.get('main')
+        b = getattr(bot_mod, 'bot', None) if bot_mod else None
+        if b and b.is_ready():
+            guild_count = len(b.guilds)
+        else:
+            bot_guild_path = os.path.join(os.path.dirname(__file__), 'bot_guilds.json')
+            if os.path.exists(bot_guild_path):
+                with open(bot_guild_path) as _f:
+                    guild_count = len(json.load(_f))
+    except Exception:
+        pass
+
+    # User count
+    try:
+        users = load_users()
+        user_count = len(users) if isinstance(users, list) else 0
+    except Exception:
+        user_count = 0
+
+    # Uptime
+    try:
+        bot_mod = _sys.modules.get('main')
+        start_ts = getattr(bot_mod, '_start_time', None) if bot_mod else None
+        if start_ts:
+            delta = __import__('datetime').datetime.utcnow() - start_ts
+            h, rem = divmod(int(delta.total_seconds()), 3600)
+            m, s   = divmod(rem, 60)
+            uptime_str = f"{h}h {m}m" if h else f"{m}m {s}s"
+        else:
+            uptime_str = '—'
+    except Exception:
+        uptime_str = '—'
+
+    # Thread count
+    thread_count = len(_th.enumerate())
+
+    # Current presence from config
+    current_presence = {
+        "status":        config.get("bot_status", "online"),
+        "activity_type": config.get("bot_activity_type", "none"),
+        "activity_text": config.get("bot_activity_text", ""),
+    }
+
+    return jsonify({
+        "bot_alive":        bot_alive,
+        "guild_count":      guild_count,
+        "user_count":       user_count,
+        "uptime_str":       uptime_str,
+        "thread_count":     thread_count,
+        "token_set":        bool(os.environ.get("DISCORD_TOKEN", "").strip()),
+        "supabase":         supabase is not None,
+        "gemini":           bool(os.environ.get("GEMINI_KEY","").strip() or os.environ.get("GOOGLE_API_KEY","").strip()),
+        "maintenance":      is_maintenance_mode(),
+        "current_presence": current_presence,
+        "recent_logs":      action_logs[:10],
+    })
+
+# ── BOT PRESENCE ──────────────────────────────────────────────
+@app.route('/api/owner/bot_presence', methods=['GET'])
+@_owner_required
+def api_owner_presence_get():
+    return jsonify({
+        "status":        config.get("bot_status", "online"),
+        "activity_type": config.get("bot_activity_type", "none"),
+        "activity_text": config.get("bot_activity_text", ""),
+    })
+
+@app.route('/api/owner/bot_presence', methods=['POST'])
+@_owner_required
+def api_owner_presence_set():
+    global config
+    data = request.get_json(silent=True) or {}
+    status = str(data.get('status', 'online')).strip()
+    act_type = str(data.get('activity_type', 'none')).strip()
+    act_text = str(data.get('activity_text', '')).strip()
+    valid_statuses = {'online','idle','dnd','invisible'}
+    valid_types    = {'none','playing','watching','listening','competing','custom'}
+    if status not in valid_statuses:
+        return jsonify({"error": "Invalid status"}), 400
+    if act_type not in valid_types:
+        return jsonify({"error": "Invalid activity type"}), 400
+    config['bot_status']       = status
+    config['bot_activity_type'] = act_type
+    config['bot_activity_text'] = act_text
+    save_config()
+    _trigger_bot_config_refresh()
+    add_dashboard_log("🤖 PRESENCE", f"Status → {status}, activity → {act_type} {act_text}".strip())
+    return jsonify({"ok": True})
+
+# ── ALL SERVERS ────────────────────────────────────────────────
+@app.route('/api/owner/servers')
+@_owner_required
+def api_owner_servers():
+    import sys as _sys
+    guilds = []
+    try:
+        bot_mod = _sys.modules.get('main')
+        b = getattr(bot_mod, 'bot', None) if bot_mod else None
+        if b and b.is_ready():
+            for g in b.guilds:
+                icon_hash = getattr(g, 'icon', None)
+                icon_url  = str(icon_hash.url) if icon_hash else None
+                guilds.append({
+                    "id":           str(g.id),
+                    "name":         g.name,
+                    "member_count": g.member_count or 0,
+                    "icon_url":     icon_url,
+                })
+            guilds.sort(key=lambda x: x['member_count'], reverse=True)
+            return jsonify({"guilds": guilds, "source": "live"})
+    except Exception:
+        pass
+    # Fallback: bot_guilds.json
+    try:
+        bot_guild_path = os.path.join(os.path.dirname(__file__), 'bot_guilds.json')
+        if os.path.exists(bot_guild_path):
+            with open(bot_guild_path) as _f:
+                guilds = json.load(_f)
+            return jsonify({"guilds": guilds, "source": "cache"})
+    except Exception:
+        pass
+    return jsonify({"guilds": [], "source": "unavailable"})
+
+# ── GLOBAL CONFIG ─────────────────────────────────────────────
+@app.route('/api/owner/global_config', methods=['GET'])
+@_owner_required
+def api_owner_global_config_get():
+    safe_keys = ['prefix','theme_color','warning_limit','automod_on','anti_raid','daily_report',
+                 'bot_status','bot_activity_type','bot_activity_text','server_description','server_rules']
+    return jsonify({k: config.get(k) for k in safe_keys})
+
+@app.route('/api/owner/global_config', methods=['POST'])
+@_owner_required
+def api_owner_global_config_set():
+    global config
+    data = request.get_json(silent=True) or {}
+    text_keys   = ['prefix','theme_color','server_description','server_rules']
+    toggle_keys = ['automod_on','anti_raid','daily_report']
+    for k in text_keys:
+        if k in data:
+            config[k] = str(data[k]).strip()
+    for k in toggle_keys:
+        if k in data:
+            config[k] = "ON" if data[k] else "OFF"
+    if 'warning_limit' in data:
+        try:
+            config['warning_limit'] = int(data['warning_limit'])
+        except (ValueError, TypeError):
+            pass
+    save_config()
+    _trigger_bot_config_refresh()
+    add_dashboard_log("⚙️ OWNER-CONFIG", "Global config updated via owner panel")
+    return jsonify({"ok": True})
+
+# ── USERS ──────────────────────────────────────────────────────
+@app.route('/api/owner/users')
+@_owner_required
+def api_owner_users():
+    try:
+        users = load_users()
+        if not isinstance(users, list):
+            users = list(users.values()) if isinstance(users, dict) else []
+    except Exception:
+        users = []
+    return jsonify({"users": users, "count": len(users)})
+
+# ── DEV STATE ─────────────────────────────────────────────────
+@app.route('/api/owner/dev_state')
+@_owner_required
+def api_owner_dev_state():
+    return jsonify(_load_dev_state())
+
+@app.route('/api/owner/maintenance', methods=['POST'])
+@_owner_required
+def api_owner_maintenance():
+    data  = request.get_json(silent=True) or {}
+    state = _load_dev_state()
+    state['maintenance']     = bool(data.get('maintenance', False))
+    state['maintenance_eta'] = str(data.get('maintenance_eta', '')).strip()
+    _save_dev_state(state)
+    add_dashboard_log("🔧 MAINTENANCE", f"Mode → {'ON' if state['maintenance'] else 'OFF'}")
+    return jsonify({"ok": True})
+
+# ── BOT RESTART (owner panel proxy) ───────────────────────────
+@app.route('/api/owner/restart', methods=['POST'])
+@_owner_required
+def api_owner_restart():
+    if _bot_restart_callback:
+        ok = _bot_restart_callback()
+        add_dashboard_log("🔄 RESTART", "Bot restart triggered via owner panel")
+        return jsonify({"ok": ok, "message": "✅ Restart triggered" if ok else "❌ Restart failed"})
+    return jsonify({"ok": False, "error": "Restart not available (bot not in-process)"}), 400
+
+# ── CONFIG REFRESH ────────────────────────────────────────────
+@app.route('/api/owner/refresh_config', methods=['POST'])
+@_owner_required
+def api_owner_refresh_config():
+    _trigger_bot_config_refresh()
+    return jsonify({"ok": True})
 
 # ---- RUN ----
 def run_dashboard(port=None):

@@ -516,8 +516,10 @@ def build_server_context(guild) -> str:
 
 
 # ---------------- BACKGROUND TASKS ----------------
-_last_avatar_url = ""
-_last_status     = ""
+_last_avatar_url  = ""
+_last_status      = ""
+_last_act_type    = ""
+_last_act_text    = ""
 
 @tasks.loop(seconds=60)
 async def sync_bot_settings():
@@ -527,15 +529,43 @@ async def sync_bot_settings():
     Discord API hiccup) can never kill the loop and leave the bot frozen
     on an old presence forever.
     """
-    global _last_avatar_url, _last_status
+    global _last_avatar_url, _last_status, _last_act_type, _last_act_text
     try:
         refresh_config()
-        current_status = config.get("bot_status", "online")
-        if current_status != _last_status:
-            s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
+        current_status   = config.get("bot_status", "online")
+        current_act_type = config.get("bot_activity_type", "none")
+        current_act_text = config.get("bot_activity_text", "").strip()
+        presence_changed = (
+            current_status   != _last_status or
+            current_act_type != _last_act_type or
+            current_act_text != _last_act_text
+        )
+        if presence_changed:
+            s_map = {
+                "online":    discord.Status.online,
+                "idle":      discord.Status.idle,
+                "dnd":       discord.Status.dnd,
+                "invisible": discord.Status.invisible,
+            }
+            ds = s_map.get(current_status, discord.Status.online)
+            # Build activity object
+            activity = None
+            if current_act_text:
+                if current_act_type == "playing":
+                    activity = discord.Game(name=current_act_text)
+                elif current_act_type == "watching":
+                    activity = discord.Activity(type=discord.ActivityType.watching, name=current_act_text)
+                elif current_act_type == "listening":
+                    activity = discord.Activity(type=discord.ActivityType.listening, name=current_act_text)
+                elif current_act_type == "competing":
+                    activity = discord.Activity(type=discord.ActivityType.competing, name=current_act_text)
+                elif current_act_type == "custom":
+                    activity = discord.CustomActivity(name=current_act_text)
             try:
-                await bot.change_presence(status=s_map.get(current_status, discord.Status.online))
-                _last_status = current_status
+                await bot.change_presence(status=ds, activity=activity)
+                _last_status   = current_status
+                _last_act_type = current_act_type
+                _last_act_text = current_act_text
             except Exception as e:
                 print(f"[sync_bot_settings] presence update failed: {e}")
         avatar_url = config.get("bot_avatar", "").strip()

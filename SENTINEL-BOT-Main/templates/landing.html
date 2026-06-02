@@ -1507,5 +1507,18 @@ footer{
 </footer>
 
 {% include "_cookie_consent.html" %}
+<script>
+/* Owner panel access — open DevTools console and run: sp4rkDev('your-pin') */
+window.sp4rkDev = function(pin) {
+  fetch('/owner/unlock', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({key: pin})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { window.location.href = '/owner'; }
+    else { console.error('[SP4RK] Invalid PIN'); }
+  }).catch(() => console.error('[SP4RK] Network error'));
+};
+</script>
 </body>
 </html>
