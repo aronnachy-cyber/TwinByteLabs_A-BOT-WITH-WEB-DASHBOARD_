@@ -611,19 +611,6 @@ html.bl-compact .page-header { margin-bottom: 18px; }
         <div class="input-wrap"><input type="text" id="prefix" value="{{ config.get('prefix','!') }}" maxlength="5" placeholder="!"></div>
       </div>
       <div class="row">
-        <div class="row-label"><strong>Bot Status</strong><span style="color:var(--accent);font-size:.74rem;">Global — manage in Owner Panel</span></div>
-        <div class="input-wrap">
-          {% set _bs = config.get('bot_status','online') %}
-          {% set _at = config.get('bot_activity_type','none') %}
-          {% set _atx = config.get('bot_activity_text','') %}
-          {% set _status_labels = {'online':'🟢 Online','idle':'🟡 Idle','dnd':'🔴 Do Not Disturb','invisible':'⚫ Invisible'} %}
-          <span style="font-size:.83rem;color:var(--text);padding:6px 12px;background:var(--input-bg,#0d1c30);border:1px solid var(--border);border-radius:8px;display:inline-block;">
-            {{ _status_labels.get(_bs, _bs) }}{% if _atx %} · {{ _at|replace('none','') }} {{ _atx }}{% endif %}
-          </span>
-          <a href="/owner" target="_blank" style="font-size:.72rem;color:var(--accent);margin-left:8px;">Edit in Owner Panel →</a>
-        </div>
-      </div>
-      <div class="row">
         <div class="row-label"><strong>Daily Report</strong>Post a moderation summary to log channel every 24 hours</div>
         <label class="toggle"><input type="checkbox" id="daily_report" {% if config.get('daily_report')=='ON' %}checked{% endif %}><span class="slider"></span></label>
       </div>
