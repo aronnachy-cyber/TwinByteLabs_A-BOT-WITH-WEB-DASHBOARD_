@@ -5419,9 +5419,67 @@ def _owner_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         if not session.get('owner_unlocked'):
-            return abort(404)
+            return _owner_pin_page()
         return f(*args, **kwargs)
     return wrapper
+
+def _owner_pin_page(error=None):
+    err_html = f'<div style="color:#ff4757;font-size:.82rem;margin-top:10px;"><i class="fas fa-circle-xmark"></i> {error}</div>' if error else ''
+    return '''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Owner Panel — Authenticate</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#050d1a;color:#d0e8ff;font-family:'Inter',system-ui,sans-serif;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.card{background:#0d1c30;border:1px solid rgba(0,180,255,.2);border-radius:16px;
+  padding:36px 32px;width:100%;max-width:360px;text-align:center;}
+.logo{width:52px;height:52px;border-radius:12px;
+  background:linear-gradient(135deg,#003a5c,#005f8a);border:1px solid rgba(0,180,255,.3);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 18px;
+  font-size:.85rem;font-weight:900;color:#00c4ff;font-family:monospace;}
+h1{font-size:1.1rem;font-weight:700;margin-bottom:6px;}
+p{font-size:.8rem;color:#4a7a9b;margin-bottom:24px;}
+input{width:100%;background:#07111f;border:1px solid rgba(0,180,255,.2);border-radius:10px;
+  padding:13px 16px;font-size:1.1rem;color:#d0e8ff;text-align:center;letter-spacing:4px;
+  outline:none;font-family:monospace;margin-bottom:4px;}
+input:focus{border-color:#00c4ff;}
+button{width:100%;margin-top:14px;padding:13px;border-radius:10px;border:none;
+  background:linear-gradient(135deg,#005f8a,#0099cc);color:#fff;
+  font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;}
+button:hover{filter:brightness(1.12);}
+.err{color:#ff4757;font-size:.82rem;margin-top:10px;}
+.back{display:block;margin-top:18px;font-size:.78rem;color:#4a7a9b;text-decoration:none;}
+.back:hover{color:#00c4ff;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">OWN</div>
+  <h1>Owner Panel</h1>
+  <p>Enter your PIN to continue</p>
+  <form method="POST" action="/owner/pin-login">
+    <input type="password" name="pin" placeholder="••••••••" autofocus autocomplete="off" inputmode="numeric">
+    ''' + err_html + '''
+    <button type="submit"><i class="fas fa-unlock"></i> Unlock</button>
+  </form>
+  <a href="/" class="back"><i class="fas fa-arrow-left"></i> Back to home</a>
+</div>
+</body>
+</html>''', 200
+
+@app.route('/owner/pin-login', methods=['POST'])
+def owner_pin_login():
+    pin = str(request.form.get('pin', '')).strip()
+    if pin == DEV_PIN:
+        session['owner_unlocked'] = True
+        session.permanent = True
+        return redirect('/owner')
+    return _owner_pin_page(error='Incorrect PIN — try again.')
 
 @app.route('/owner/unlock', methods=['POST'])
 def owner_unlock():
