@@ -1572,11 +1572,69 @@ async def on_member_update(before, after):
     refresh_config()
     gcfg = get_config_for_guild(str(after.guild.id))
     await security.role_monitor_log(bot, gcfg, after, before, after, log_callback=dlog)
-    # Re-check 2FA enforcement whenever a member's roles change (e.g. new admin added).
     try:
         await security.check_security_2fa(bot, after.guild, gcfg, log_callback=dlog)
     except Exception as _e:
         print(f"[2FA] member_update check error: {_e}")
+
+    gid = str(after.guild.id)
+    log_ch = gcfg.get("log_channel", "").strip()
+    if not log_ch:
+        return
+
+    try:
+        # Nickname change
+        if before.nick != after.nick:
+            old_nick = before.nick or before.name
+            new_nick = after.nick or after.name
+            await logs.log_event(
+                bot, config,
+                "✏️ Nickname Changed",
+                f"**{after}** — `{old_nick}` → `{new_nick}`\n🆔 User ID: `{after.id}`",
+                color=0x3498db, guild_id=gid,
+            )
+            dlog("✏️ NICK-CHANGE", f"{after} changed nickname: {old_nick} → {new_nick}", guild_id=after.guild.id)
+
+        # Role changes
+        before_roles = set(before.roles)
+        after_roles  = set(after.roles)
+        added_roles   = after_roles - before_roles
+        removed_roles = before_roles - after_roles
+        for role in added_roles:
+            await logs.log_event(
+                bot, config,
+                "🏷️ Role Added",
+                f"**{after}** was given the **{role.name}** role\n🆔 User ID: `{after.id}`",
+                color=0x2ecc71, guild_id=gid,
+            )
+            dlog("🏷️ ROLE-ADD", f"{after} → +{role.name}", guild_id=after.guild.id)
+        for role in removed_roles:
+            await logs.log_event(
+                bot, config,
+                "🏷️ Role Removed",
+                f"**{after}** lost the **{role.name}** role\n🆔 User ID: `{after.id}`",
+                color=0xe67e22, guild_id=gid,
+            )
+            dlog("🏷️ ROLE-REMOVE", f"{after} → -{role.name}", guild_id=after.guild.id)
+
+        # Timeout applied/removed (distinct from moderation command — catches manual Discord UI action)
+        if before.timed_out_until != after.timed_out_until:
+            if after.timed_out_until:
+                await logs.log_event(
+                    bot, config,
+                    "⏱️ Member Timed Out",
+                    f"**{after}** has been timed out until <t:{int(after.timed_out_until.timestamp())}:F>\n🆔 User ID: `{after.id}`",
+                    color=0xf39c12, guild_id=gid,
+                )
+            else:
+                await logs.log_event(
+                    bot, config,
+                    "✅ Timeout Removed",
+                    f"**{after}**'s timeout was removed.\n🆔 User ID: `{after.id}`",
+                    color=0x2ecc71, guild_id=gid,
+                )
+    except Exception as _e:
+        print(f"[member_update log] {_e}")
 
 @bot.event
 async def on_member_ban(guild, user):
@@ -1624,7 +1682,7 @@ async def on_message_edit(before, after):
         return
     refresh_config()
     gcfg = get_config_for_guild(str(before.guild.id)) if before.guild else config
-    log_ch = gcfg.get("log_channel", "").strip()
+    log_ch = gcfg.get("message_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
     if not log_ch:
         return
     await logs.log_template(
@@ -1655,7 +1713,7 @@ async def on_message_delete(message):
         pass
     refresh_config()
     gcfg = get_config_for_guild(str(message.guild.id)) if message.guild else config
-    log_ch = gcfg.get("log_channel", "").strip()
+    log_ch = gcfg.get("message_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
     if not log_ch:
         return
     await logs.log_template(
@@ -1689,11 +1747,36 @@ async def on_voice_state_update(member, before, after):
         pass
 
     gcfg = get_config_for_guild(str(member.guild.id))
-    log_ch = gcfg.get("log_channel", "").strip()
+    log_ch = gcfg.get("voice_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
     if not log_ch:
         return
 
     if before.channel == after.channel:
+        # Channel didn't change — check for mute/deafen/stream state changes
+        try:
+            gid = str(member.guild.id)
+            if before.self_mute != after.self_mute:
+                state = "muted" if after.self_mute else "unmuted"
+                await logs.log_event(bot, config, "🔇 Voice Mute",
+                    f"**{member}** {state} themselves in **{after.channel.name if after.channel else 'VC'}**",
+                    color=0x95a5a6, guild_id=gid)
+            if before.self_deaf != after.self_deaf:
+                state = "deafened" if after.self_deaf else "undeafened"
+                await logs.log_event(bot, config, "🔕 Voice Deafen",
+                    f"**{member}** {state} themselves in **{after.channel.name if after.channel else 'VC'}**",
+                    color=0x95a5a6, guild_id=gid)
+            if before.mute != after.mute:
+                state = "server-muted" if after.mute else "server-unmuted"
+                await logs.log_event(bot, config, "🔇 Server Mute",
+                    f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**",
+                    color=0xe74c3c, guild_id=gid)
+            if before.deaf != after.deaf:
+                state = "server-deafened" if after.deaf else "server-undeafened"
+                await logs.log_event(bot, config, "🔕 Server Deafen",
+                    f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**",
+                    color=0xe74c3c, guild_id=gid)
+        except Exception as e:
+            print(f"Voice state change log error: {e}")
         return
 
     try:
@@ -1712,6 +1795,348 @@ async def on_voice_state_update(member, before, after):
             dlog("🔀 VC-MOVE", f"{member} moved: {before.channel.name} → {after.channel.name}", guild_id=member.guild.id)
     except Exception as e:
         print(f"Voice log error: {e}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  COMPREHENSIVE SERVER LOGGING — every server moment captured
+# ─────────────────────────────────────────────────────────────────────────────
+
+@bot.event
+async def on_member_unban(guild, user):
+    """Fires when any ban is lifted (manual or via !unban command)."""
+    refresh_config()
+    gid = str(guild.id)
+    await logs.log_event(
+        bot, config,
+        "✅ Member Unbanned",
+        f"**{user}** (`{user.id}`) has been unbanned from **{guild.name}**.",
+        color=0x2ecc71, guild_id=gid,
+    )
+    dlog("✅ UNBAN-EVENT", f"{user} unbanned from {guild.name}", guild_id=guild.id)
+
+
+@bot.event
+async def on_guild_role_create(role):
+    refresh_config()
+    gid = str(role.guild.id)
+    perms_val = role.permissions.value
+    await logs.log_event(
+        bot, config,
+        "🏷️ Role Created",
+        f"**{role.name}** was created.\n"
+        f"🎨 Colour: `{str(role.colour)}`\n"
+        f"📋 Permissions value: `{perms_val}`\n"
+        f"🔵 Mentionable: `{role.mentionable}` | Hoisted: `{role.hoist}`\n"
+        f"🆔 Role ID: `{role.id}`",
+        color=0x2ecc71, guild_id=gid,
+    )
+    dlog("🏷️ ROLE-CREATE", f"Role created: {role.name} ({role.id})", guild_id=role.guild.id)
+
+
+@bot.event
+async def on_guild_role_delete(role):
+    refresh_config()
+    gid = str(role.guild.id)
+    await logs.log_event(
+        bot, config,
+        "🗑️ Role Deleted",
+        f"**{role.name}** was permanently deleted.\n"
+        f"🆔 Role ID: `{role.id}`",
+        color=0xe74c3c, guild_id=gid,
+    )
+    dlog("🗑️ ROLE-DELETE", f"Role deleted: {role.name} ({role.id})", guild_id=role.guild.id)
+
+
+@bot.event
+async def on_guild_role_update(before, after):
+    refresh_config()
+    gid = str(after.guild.id)
+    changes = []
+    if before.name != after.name:
+        changes.append(f"📝 Name: `{before.name}` → `{after.name}`")
+    if before.colour != after.colour:
+        changes.append(f"🎨 Colour: `{before.colour}` → `{after.colour}`")
+    if before.hoist != after.hoist:
+        changes.append(f"📌 Hoisted: `{before.hoist}` → `{after.hoist}`")
+    if before.mentionable != after.mentionable:
+        changes.append(f"🔔 Mentionable: `{before.mentionable}` → `{after.mentionable}`")
+    if before.permissions != after.permissions:
+        changes.append(f"🔑 Permissions changed (value: `{before.permissions.value}` → `{after.permissions.value}`)")
+    if not changes:
+        return
+    await logs.log_event(
+        bot, config,
+        "✏️ Role Updated",
+        f"**{after.name}** (`{after.id}`) was modified:\n" + "\n".join(changes),
+        color=0x3498db, guild_id=gid,
+    )
+    dlog("✏️ ROLE-UPDATE", f"Role updated: {after.name}", guild_id=after.guild.id)
+
+
+@bot.event
+async def on_guild_channel_create(channel):
+    refresh_config()
+    gid = str(channel.guild.id)
+    ch_type = str(channel.type).replace("_", " ").title()
+    category = channel.category.name if channel.category else "No Category"
+    await logs.log_event(
+        bot, config,
+        "📁 Channel Created",
+        f"**#{channel.name}** was created.\n"
+        f"📂 Type: `{ch_type}`\n"
+        f"🗂️ Category: `{category}`\n"
+        f"🆔 Channel ID: `{channel.id}`",
+        color=0x2ecc71, guild_id=gid,
+    )
+    dlog("📁 CH-CREATE", f"Channel created: #{channel.name}", guild_id=channel.guild.id)
+
+
+@bot.event
+async def on_guild_channel_delete(channel):
+    refresh_config()
+    gid = str(channel.guild.id)
+    ch_type = str(channel.type).replace("_", " ").title()
+    category = channel.category.name if channel.category else "No Category"
+    await logs.log_event(
+        bot, config,
+        "🗑️ Channel Deleted",
+        f"**#{channel.name}** was permanently deleted.\n"
+        f"📂 Type: `{ch_type}`\n"
+        f"🗂️ Category: `{category}`\n"
+        f"🆔 Channel ID: `{channel.id}`",
+        color=0xe74c3c, guild_id=gid,
+    )
+    dlog("🗑️ CH-DELETE", f"Channel deleted: #{channel.name}", guild_id=channel.guild.id)
+
+
+@bot.event
+async def on_guild_channel_update(before, after):
+    refresh_config()
+    gid = str(after.guild.id)
+    changes = []
+    if before.name != after.name:
+        changes.append(f"📝 Name: `#{before.name}` → `#{after.name}`")
+    topic_before = getattr(before, "topic", None)
+    topic_after  = getattr(after, "topic", None)
+    if topic_before != topic_after:
+        changes.append(f"📋 Topic: `{topic_before or 'none'}` → `{topic_after or 'none'}`")
+    slowmode_before = getattr(before, "slowmode_delay", None)
+    slowmode_after  = getattr(after, "slowmode_delay", None)
+    if slowmode_before != slowmode_after:
+        changes.append(f"🐢 Slowmode: `{slowmode_before}s` → `{slowmode_after}s`")
+    nsfw_before = getattr(before, "nsfw", None)
+    nsfw_after  = getattr(after, "nsfw", None)
+    if nsfw_before != nsfw_after:
+        changes.append(f"🔞 NSFW: `{nsfw_before}` → `{nsfw_after}`")
+    cat_before = before.category.name if before.category else "None"
+    cat_after  = after.category.name if after.category else "None"
+    if cat_before != cat_after:
+        changes.append(f"🗂️ Category: `{cat_before}` → `{cat_after}`")
+    if not changes:
+        return
+    await logs.log_event(
+        bot, config,
+        "✏️ Channel Updated",
+        f"**#{after.name}** (`{after.id}`) was modified:\n" + "\n".join(changes),
+        color=0x3498db, guild_id=gid,
+    )
+    dlog("✏️ CH-UPDATE", f"Channel updated: #{after.name}", guild_id=after.guild.id)
+
+
+@bot.event
+async def on_guild_update(before, after):
+    refresh_config()
+    gid = str(after.id)
+    changes = []
+    if before.name != after.name:
+        changes.append(f"📝 Name: `{before.name}` → `{after.name}`")
+    if before.icon != after.icon:
+        changes.append("🖼️ Server icon was changed.")
+    if before.banner != after.banner:
+        changes.append("🖼️ Server banner was changed.")
+    if before.description != after.description:
+        changes.append(f"📋 Description updated.")
+    if before.verification_level != after.verification_level:
+        changes.append(f"🔒 Verification level: `{before.verification_level}` → `{after.verification_level}`")
+    if before.explicit_content_filter != after.explicit_content_filter:
+        changes.append(f"🔞 Explicit content filter: `{before.explicit_content_filter}` → `{after.explicit_content_filter}`")
+    if before.default_notifications != after.default_notifications:
+        changes.append(f"🔔 Default notifications: `{before.default_notifications}` → `{after.default_notifications}`")
+    if not changes:
+        return
+    await logs.log_event(
+        bot, config,
+        "⚙️ Server Updated",
+        f"**{after.name}** server settings were changed:\n" + "\n".join(changes),
+        color=0x9b59b6, guild_id=gid,
+    )
+    dlog("⚙️ SERVER-UPDATE", f"Server updated: {after.name}", guild_id=after.id)
+
+
+@bot.event
+async def on_raw_bulk_message_delete(payload: discord.RawBulkMessageDeleteEvent):
+    if not payload.guild_id:
+        return
+    refresh_config()
+    gid = str(payload.guild_id)
+    count = len(payload.message_ids)
+    channel = bot.get_channel(payload.channel_id)
+    ch_name = f"<#{payload.channel_id}>" if channel else f"Channel `{payload.channel_id}`"
+    await logs.log_event(
+        bot, config,
+        "🗑️ Bulk Messages Deleted",
+        f"**{count}** messages were bulk-deleted in {ch_name}.\n"
+        f"🆔 Channel ID: `{payload.channel_id}`",
+        color=0xe74c3c, guild_id=gid,
+    )
+    dlog("🗑️ BULK-DELETE", f"{count} messages bulk-deleted", guild_id=payload.guild_id)
+
+
+@bot.event
+async def on_invite_create(invite):
+    if not invite.guild:
+        return
+    refresh_config()
+    gid = str(invite.guild.id)
+    inviter = invite.inviter or "Unknown"
+    max_uses = invite.max_uses or "∞"
+    expires = (
+        f"<t:{int(invite.expires_at.timestamp())}:R>" if invite.expires_at else "Never"
+    )
+    await logs.log_event(
+        bot, config,
+        "📨 Invite Created",
+        f"**{inviter}** created an invite.\n"
+        f"🔗 Code: `{invite.code}`\n"
+        f"📊 Max uses: `{max_uses}`\n"
+        f"⏰ Expires: {expires}\n"
+        f"📁 Channel: <#{invite.channel.id if invite.channel else 0}>",
+        color=0x3498db, guild_id=gid,
+    )
+    dlog("📨 INVITE-CREATE", f"Invite {invite.code} created by {inviter}", guild_id=invite.guild.id)
+
+
+@bot.event
+async def on_invite_delete(invite):
+    if not invite.guild:
+        return
+    refresh_config()
+    gid = str(invite.guild.id)
+    await logs.log_event(
+        bot, config,
+        "❌ Invite Deleted",
+        f"Invite code `{invite.code}` was deleted.\n"
+        f"📁 Channel: <#{invite.channel.id if invite.channel else 0}>",
+        color=0xe67e22, guild_id=gid,
+    )
+    dlog("❌ INVITE-DELETE", f"Invite {invite.code} deleted", guild_id=invite.guild.id)
+
+
+@bot.event
+async def on_thread_create(thread):
+    refresh_config()
+    gid = str(thread.guild.id)
+    owner = thread.owner or "Unknown"
+    await logs.log_event(
+        bot, config,
+        "🧵 Thread Created",
+        f"**{thread.name}** was created in <#{thread.parent_id}>.\n"
+        f"👤 Created by: **{owner}**\n"
+        f"🆔 Thread ID: `{thread.id}`",
+        color=0x2ecc71, guild_id=gid,
+    )
+    dlog("🧵 THREAD-CREATE", f"Thread created: {thread.name}", guild_id=thread.guild.id)
+
+
+@bot.event
+async def on_thread_delete(thread):
+    refresh_config()
+    gid = str(thread.guild.id)
+    await logs.log_event(
+        bot, config,
+        "🗑️ Thread Deleted",
+        f"Thread **{thread.name}** was deleted.\n"
+        f"📁 Parent: <#{thread.parent_id}>\n"
+        f"🆔 Thread ID: `{thread.id}`",
+        color=0xe74c3c, guild_id=gid,
+    )
+    dlog("🗑️ THREAD-DELETE", f"Thread deleted: {thread.name}", guild_id=thread.guild.id)
+
+
+@bot.event
+async def on_thread_update(before, after):
+    refresh_config()
+    gid = str(after.guild.id)
+    if not before.archived and after.archived:
+        await logs.log_event(
+            bot, config,
+            "📦 Thread Archived",
+            f"Thread **{after.name}** was archived.\n"
+            f"📁 Parent: <#{after.parent_id}>\n"
+            f"🆔 Thread ID: `{after.id}`",
+            color=0x95a5a6, guild_id=gid,
+        )
+        dlog("📦 THREAD-ARCHIVE", f"Thread archived: {after.name}", guild_id=after.guild.id)
+    elif before.name != after.name:
+        await logs.log_event(
+            bot, config,
+            "✏️ Thread Renamed",
+            f"Thread renamed: `{before.name}` → `{after.name}`\n"
+            f"📁 Parent: <#{after.parent_id}>\n"
+            f"🆔 Thread ID: `{after.id}`",
+            color=0x3498db, guild_id=gid,
+        )
+
+
+@bot.event
+async def on_guild_emojis_update(guild, before, after):
+    refresh_config()
+    gid = str(guild.id)
+    before_ids = {e.id for e in before}
+    after_ids  = {e.id for e in after}
+    added   = [e for e in after if e.id not in before_ids]
+    removed = [e for e in before if e.id not in after_ids]
+    for emoji in added:
+        await logs.log_event(
+            bot, config,
+            "😀 Emoji Added",
+            f"New emoji **:{emoji.name}:** was added.\n"
+            f"🆔 Emoji ID: `{emoji.id}`",
+            color=0x2ecc71, guild_id=gid,
+        )
+    for emoji in removed:
+        await logs.log_event(
+            bot, config,
+            "🗑️ Emoji Removed",
+            f"Emoji **:{emoji.name}:** was removed.\n"
+            f"🆔 Emoji ID: `{emoji.id}`",
+            color=0xe74c3c, guild_id=gid,
+        )
+
+
+@bot.event
+async def on_guild_stickers_update(guild, before, after):
+    refresh_config()
+    gid = str(guild.id)
+    before_ids = {s.id for s in before}
+    after_ids  = {s.id for s in after}
+    added   = [s for s in after if s.id not in before_ids]
+    removed = [s for s in before if s.id not in after_ids]
+    for sticker in added:
+        await logs.log_event(
+            bot, config,
+            "🏷️ Sticker Added",
+            f"New sticker **{sticker.name}** was added.",
+            color=0x2ecc71, guild_id=gid,
+        )
+    for sticker in removed:
+        await logs.log_event(
+            bot, config,
+            "🗑️ Sticker Removed",
+            f"Sticker **{sticker.name}** was removed.",
+            color=0xe74c3c, guild_id=gid,
+        )
+
 
 _processed_msg_ids = set()
 
