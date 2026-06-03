@@ -559,6 +559,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
 {% if preselect_guild %}
 <script>
   window._PRESELECT_GUILD = "{{ preselect_guild | e }}";
+  window._PRESELECT_GUILD_NAME = "{{ preselect_guild_name | default('') | e }}";
 </script>
 {% endif %}
 
@@ -2796,7 +2797,8 @@ function onGuildChange() {
 
 // Auto-select guild when arriving from the server picker (/servers page)
 (function(){
-  var preselectId = (typeof window._PRESELECT_GUILD !== 'undefined') ? window._PRESELECT_GUILD : '';
+  var preselectId   = (typeof window._PRESELECT_GUILD      !== 'undefined') ? window._PRESELECT_GUILD      : '';
+  var preselectName = (typeof window._PRESELECT_GUILD_NAME !== 'undefined') ? window._PRESELECT_GUILD_NAME : '';
   if (!preselectId) {
     // No guild preselected — show the overlay once DOM is ready
     document.addEventListener('DOMContentLoaded', function(){ _showNoServerOverlay(true); });
@@ -2805,20 +2807,46 @@ function onGuildChange() {
   // Always set currentGuildId immediately so API calls use the right guild
   // even if the guildPick dropdown hasn't rendered yet (e.g. bot offline).
   currentGuildId = preselectId;
-  document.addEventListener('DOMContentLoaded', function(){
+
+  function _applyPreselect() {
     var pick = document.getElementById('guildPick');
     if (pick) {
+      var found = false;
       for (var i = 0; i < pick.options.length; i++) {
         if (pick.options[i].value === preselectId) {
           pick.selectedIndex = i;
+          found = true;
           break;
         }
+      }
+      // Guild not in the dropdown yet (bot offline / not yet in guild).
+      // Inject a temporary option so the dropdown shows the server name
+      // instead of the misleading "— Select a Server —" placeholder.
+      if (!found) {
+        var label = preselectName || preselectId;
+        var opt = document.createElement('option');
+        opt.value = preselectId;
+        opt.textContent = label;
+        // Insert after the disabled placeholder (index 0)
+        if (pick.options.length > 0) {
+          pick.insertBefore(opt, pick.options[1] || null);
+        } else {
+          pick.appendChild(opt);
+        }
+        pick.selectedIndex = 1;
       }
     }
     _showNoServerOverlay(false);
     // Always load guild config regardless of whether the dropdown exists.
     loadGuildConfig();
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _applyPreselect);
+  } else {
+    // DOM already parsed (script placed after body content) — run now.
+    _applyPreselect();
+  }
 })();
 
 async function loadGuildConfig() {
@@ -2832,6 +2860,8 @@ async function loadGuildConfig() {
     if (!res.ok) return;
     const cfg = await res.json();
     applyConfig(cfg);
+    // Config loaded — always ensure the overlay is hidden.
+    _showNoServerOverlay(false);
     // First-time setup: show onboarding wizard for unconfigured servers
     if (cfg._is_new && currentGuildId) {
       const pick = document.getElementById('guildPick');

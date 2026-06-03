@@ -630,10 +630,10 @@ def _sp4rk_live_state(user_guild_ids=None) -> dict:
     except Exception as e:
         app.logger.warning(f"[sp4rk_live_state] bot not ready: {e}")
 
-    # Fallback: intersect the session-cached admin guild list with the set of
-    # guilds the bot is known to be in (written to bot_guilds.json on startup).
-    # This ensures the server picker only shows servers where BOTH the user
-    # has admin rights AND the bot is present.
+    # Fallback: use the session-cached guild list from OAuth login.
+    # The bot_guilds.json registry is used only to enrich member counts;
+    # we no longer gate on it because stale registry data (from a previous
+    # hosting session) would silently drop valid guilds from the picker.
     try:
         import json as _j
         _bot_guild_path = os.path.join(os.path.dirname(__file__), "bot_guilds.json")
@@ -660,10 +660,9 @@ def _sp4rk_live_state(user_guild_ids=None) -> dict:
                 # Must be in user's admin guilds
                 if filter_ids is not None and gid_str not in filter_ids:
                     continue
-                # Must also be a guild the bot is in (when registry is available)
-                if bot_guild_map and gid_str not in bot_guild_map:
-                    continue
-                # Prefer member_count from live bot data if available
+                # Enrich with bot registry data when available (member count,
+                # canonical name) but never exclude a guild just because it
+                # isn't in the registry — the registry may be stale.
                 mc = bot_guild_map.get(gid_str, {}).get("member_count") or g.get("member_count", 0)
                 guilds.append({
                     "id":           gid_str,
@@ -3751,17 +3750,22 @@ def index():
         session.clear()
         return redirect(url_for('login'))
 
+    # Grab the guild param early so we can preserve it across redirects.
+    guild_from_url = request.args.get('guild', '').strip()
+
     # Force re-auth if guild list is absent (old session) so the server
     # picker is always scoped to only the user's admin servers.
+    # Preserve the ?guild= param so the user lands directly on their server
+    # after re-authenticating instead of being bounced back to /servers.
     if 'user_admin_guild_ids' not in session:
-        redirect_target = url_for('index')
+        redirect_target = (
+            url_for('index', guild=guild_from_url) if guild_from_url
+            else url_for('server_select')
+        )
         session.clear()
         session['post_login_redirect'] = redirect_target
         return redirect(url_for('login'))
 
-    # A guild must be explicitly passed in the URL — the session shortcut is
-    # intentionally removed so the server picker is always shown first.
-    guild_from_url = request.args.get('guild', '').strip()
     if guild_from_url:
         session['selected_guild_id'] = guild_from_url
         session.modified = True
@@ -3806,6 +3810,21 @@ def index():
     user_avatar = current_user.get('avatar_url', '') or session.get('user_avatar', '') or ''
     preselect_guild = request.args.get('guild', '') or session.get('selected_guild_id', '')
 
+    # Resolve the guild name so the frontend can display it even when the
+    # dropdown doesn't yet contain that server (e.g. bot not yet connected).
+    preselect_guild_name = ''
+    if preselect_guild:
+        # Check live guilds first (most accurate), then session OAuth guilds.
+        for g in (live.get('guilds') or []):
+            if str(g.get('id', '')) == str(preselect_guild):
+                preselect_guild_name = g.get('name', '')
+                break
+        if not preselect_guild_name:
+            for g in (session.get('user_guilds') or []):
+                if str(g.get('id', '')) == str(preselect_guild):
+                    preselect_guild_name = g.get('name', '')
+                    break
+
     try:
         return render_template(
             'index.html',
@@ -3823,6 +3842,7 @@ def index():
             live=live,
             user_avatar=user_avatar,
             preselect_guild=preselect_guild,
+            preselect_guild_name=preselect_guild_name,
         )
     except Exception as e:
         print(f"❌ Dashboard template render error: {e}")
