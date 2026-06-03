@@ -3849,6 +3849,10 @@ def index():
 
     live = _sp4rk_live_state(user_guild_ids=_user_admin_guild_ids())
 
+    # Fallback guild list for picker when bot is offline: use OAuth session guilds
+    _session_guilds = session.get('user_guilds') or []
+    session_guilds = _session_guilds if not (live and live.get('guilds')) else []
+
     user_avatar = current_user.get('avatar_url', '') or session.get('user_avatar', '') or ''
     preselect_guild = request.args.get('guild', '') or session.get('selected_guild_id', '')
 
@@ -3882,6 +3886,7 @@ def index():
             user_license_code=user_license_code or current_user.get('license_code', ''),
             is_premium=is_premium,
             live=live,
+            session_guilds=session_guilds,
             user_avatar=user_avatar,
             preselect_guild=preselect_guild,
             preselect_guild_name=preselect_guild_name,
@@ -4093,6 +4098,55 @@ def api_logs():
     else:
         filtered = action_logs
     return jsonify(filtered[:limit])
+
+
+# ---- API: PER-GUILD ANALYTICS ----
+@app.route('/api/analytics')
+def api_analytics():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = (request.args.get('guild_id') or session.get('selected_guild_id') or '').strip()
+    days = int(request.args.get('days', 30))
+    if not guild_id:
+        return jsonify({"error": "No guild selected"}), 400
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            totals = _ds.get_analytics_totals(guild_id, days=days)
+            daily  = _ds.get_analytics_daily(guild_id, days=days)
+            voice  = _ds.get_analytics_voice_top(guild_id, limit=10)
+            # Format daily rows for charting: oldest first
+            daily_asc = list(reversed(daily))
+            chart = {
+                "labels":   [r.get("date", "")[:10] if isinstance(r.get("date"), str) else str(r.get("date", "")) for r in daily_asc],
+                "messages": [r.get("messages", 0) for r in daily_asc],
+                "joins":    [r.get("joins", 0)    for r in daily_asc],
+                "leaves":   [r.get("leaves", 0)   for r in daily_asc],
+            }
+            # Also pull recent action logs for this guild
+            guild_logs = [l for l in action_logs if l.get('guild_id', '') in (guild_id, '')][:50]
+            return jsonify({
+                "ok": True,
+                "guild_id": guild_id,
+                "days": days,
+                "totals": totals,
+                "chart": chart,
+                "voice_top": voice,
+                "action_logs": guild_logs,
+            })
+    except Exception as _e:
+        print(f"[api_analytics] error: {_e}")
+    # Fallback when DB unavailable
+    guild_logs = [l for l in action_logs if l.get('guild_id', '') in (guild_id, '')][:50]
+    return jsonify({
+        "ok": True,
+        "guild_id": guild_id,
+        "days": days,
+        "totals": {"messages": 0, "joins": 0, "leaves": 0, "days": days},
+        "chart": {"labels": [], "messages": [], "joins": [], "leaves": []},
+        "voice_top": [],
+        "action_logs": guild_logs,
+    })
 
 @app.route('/api/add_log', methods=['POST'])
 def api_add_log():
@@ -5858,6 +5912,28 @@ def api_owner_security_log():
 _BLACKLIST_FILE = os.path.join(os.path.dirname(__file__), 'blacklist.json')
 
 def _load_blacklist():
+    """Load blacklist — Postgres primary, JSON file fallback."""
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            bl = _ds.get_blacklist()
+            if bl and (bl.get('users') or bl.get('servers')):
+                return bl
+            # Postgres available but empty — check if JSON has data to migrate
+            try:
+                if os.path.exists(_BLACKLIST_FILE):
+                    with open(_BLACKLIST_FILE) as _f:
+                        json_bl = json.load(_f)
+                    if isinstance(json_bl, dict) and (json_bl.get('users') or json_bl.get('servers')):
+                        _ds.save_blacklist(json_bl)
+                        print("✅ Blacklist migrated JSON → Postgres")
+                        return json_bl
+            except Exception:
+                pass
+            return {"users": [], "servers": []}
+    except Exception:
+        pass
+    # Fallback: JSON file
     try:
         if os.path.exists(_BLACKLIST_FILE):
             with open(_BLACKLIST_FILE) as _f:
@@ -5867,8 +5943,19 @@ def _load_blacklist():
     return {"users": [], "servers": []}
 
 def _save_blacklist(bl):
-    with open(_BLACKLIST_FILE, 'w') as _f:
-        json.dump(bl, _f, indent=2)
+    """Persist blacklist — Postgres primary, JSON file fallback."""
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.save_blacklist(bl)
+            return
+    except Exception:
+        pass
+    try:
+        with open(_BLACKLIST_FILE, 'w') as _f:
+            json.dump(bl, _f, indent=2)
+    except Exception as _e:
+        print(f"[blacklist] save to JSON failed: {_e}")
 
 @app.route('/api/owner/blacklist')
 @_owner_required

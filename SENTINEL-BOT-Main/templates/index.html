@@ -528,13 +528,14 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     </div>
     <span class="topbar-title" id="topbar-title">General Settings</span>
     <!-- Server picker -->
-    {% if live and live.guilds %}
+    {% set picker_guilds = live.guilds if (live and live.guilds) else session_guilds %}
+    {% if picker_guilds %}
     <div style="display:flex;align-items:center;gap:8px;margin-left:8px;">
       <i class="fas fa-server" style="color:var(--muted);font-size:.85rem;"></i>
       <select id="guildPick" onchange="onGuildChange()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:5px 10px;font-size:.82rem;outline:none;cursor:pointer;max-width:200px;">
         <option value="" disabled selected style="color:var(--muted);">— Select a Server —</option>
-        {% for g in live.guilds %}
-        <option value="{{ g.id }}">{{ g.name }} ({{ g.member_count }})</option>
+        {% for g in picker_guilds %}
+        <option value="{{ g.id }}">{{ g.name }}{% if g.get('member_count') %} ({{ g.member_count }}){% endif %}</option>
         {% endfor %}
       </select>
     </div>

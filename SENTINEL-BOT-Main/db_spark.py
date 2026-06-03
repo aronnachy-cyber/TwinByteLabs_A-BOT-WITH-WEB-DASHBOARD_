@@ -713,6 +713,163 @@ def get_notes(guild_id: str, member_id: str) -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Analytics — daily message/join/leave counters and voice minutes
+# ---------------------------------------------------------------------------
+def record_analytics_event(guild_id: str, event: str) -> bool:
+    """Increment a daily analytics counter. event = 'message' | 'join' | 'leave'."""
+    if not is_available():
+        return False
+    col_map = {"message": "messages", "join": "joins", "leave": "leaves"}
+    col = col_map.get(event)
+    if not col:
+        return False
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                    INSERT INTO spark_analytics_daily (guild_id, date, {col})
+                    VALUES (%s, CURRENT_DATE, 1)
+                    ON CONFLICT (guild_id, date) DO UPDATE
+                        SET {col} = spark_analytics_daily.{col} + 1
+                """, (str(guild_id),))
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[db_spark] record_analytics_event({event}): {e}")
+        return False
+
+
+def get_analytics_daily(guild_id: str, days: int = 30) -> List[Dict[str, Any]]:
+    """Return daily analytics for a guild, most-recent first."""
+    if not is_available():
+        return []
+    try:
+        with _conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT date, messages, joins, leaves
+                    FROM spark_analytics_daily
+                    WHERE guild_id = %s
+                    ORDER BY date DESC
+                    LIMIT %s
+                """, (str(guild_id), int(days)))
+                rows = cur.fetchall()
+        return [_ser_row(dict(r)) for r in rows]
+    except Exception as e:
+        print(f"[db_spark] get_analytics_daily: {e}")
+        return []
+
+
+def get_analytics_totals(guild_id: str, days: int = 30) -> Dict[str, Any]:
+    """Return total messages/joins/leaves for the last N days."""
+    if not is_available():
+        return {"messages": 0, "joins": 0, "leaves": 0, "days": days}
+    try:
+        with _conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT
+                        COALESCE(SUM(messages), 0) AS messages,
+                        COALESCE(SUM(joins), 0) AS joins,
+                        COALESCE(SUM(leaves), 0) AS leaves
+                    FROM spark_analytics_daily
+                    WHERE guild_id = %s
+                      AND date >= CURRENT_DATE - INTERVAL '%s days'
+                """, (str(guild_id), int(days)))
+                row = cur.fetchone()
+        if row:
+            return {"messages": int(row["messages"]), "joins": int(row["joins"]),
+                    "leaves": int(row["leaves"]), "days": days}
+    except Exception as e:
+        print(f"[db_spark] get_analytics_totals: {e}")
+    return {"messages": 0, "joins": 0, "leaves": 0, "days": days}
+
+
+def get_analytics_voice_top(guild_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Return top voice users for a guild by minutes spent."""
+    if not is_available():
+        return []
+    try:
+        with _conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT user_id, username, minutes
+                    FROM spark_analytics_voice
+                    WHERE guild_id = %s
+                    ORDER BY minutes DESC
+                    LIMIT %s
+                """, (str(guild_id), int(limit)))
+                rows = cur.fetchall()
+        return [_ser_row(dict(r)) for r in rows]
+    except Exception as e:
+        print(f"[db_spark] get_analytics_voice_top: {e}")
+        return []
+
+
+def upsert_analytics_voice(guild_id: str, user_id: str, username: str, minutes_delta: int) -> bool:
+    """Increment voice minutes for a user."""
+    if not is_available():
+        return False
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO spark_analytics_voice (guild_id, user_id, username, minutes, updated_at)
+                    VALUES (%s, %s, %s, %s, NOW())
+                    ON CONFLICT (guild_id, user_id) DO UPDATE
+                        SET minutes = spark_analytics_voice.minutes + EXCLUDED.minutes,
+                            username = EXCLUDED.username,
+                            updated_at = NOW()
+                """, (str(guild_id), str(user_id), str(username), int(minutes_delta)))
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[db_spark] upsert_analytics_voice: {e}")
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Blacklist (users + servers) — persistent Postgres store
+# ---------------------------------------------------------------------------
+def get_blacklist() -> Dict[str, Any]:
+    """Return {users: [...], servers: [...]} from spark_json_store."""
+    if not is_available():
+        return {"users": [], "servers": []}
+    try:
+        with _conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("SELECT data FROM spark_json_store WHERE scope='blacklist' AND key='global'")
+                row = cur.fetchone()
+        if row:
+            data = _parse_jsonb(row["data"])
+            if isinstance(data, dict):
+                return data
+    except Exception as e:
+        print(f"[db_spark] get_blacklist: {e}")
+    return {"users": [], "servers": []}
+
+
+def save_blacklist(data: Dict[str, Any]) -> bool:
+    """Persist blacklist to spark_json_store."""
+    if not is_available():
+        return False
+    try:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO spark_json_store (scope, key, data, updated_at)
+                    VALUES ('blacklist', 'global', %s::jsonb, NOW())
+                    ON CONFLICT (scope, key) DO UPDATE
+                        SET data = EXCLUDED.data, updated_at = NOW()
+                """, (json.dumps(data, default=str),))
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[db_spark] save_blacklist: {e}")
+        return False
+
+
+# ---------------------------------------------------------------------------
 # Warning history (individual events with reason + timestamp)
 # ---------------------------------------------------------------------------
 def add_warning_event(guild_id: str, member_id: str, username: str, reason: str) -> bool:

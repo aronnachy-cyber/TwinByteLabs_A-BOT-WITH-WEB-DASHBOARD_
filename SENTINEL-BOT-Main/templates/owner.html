@@ -777,13 +777,14 @@ let _sizeChart = null, _resChart = null;
 function showPane(id, el) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('pane-' + id).classList.add('active');
+  const pane = document.getElementById('pane-' + id);
+  if (!pane) { console.error('[showPane] No pane found for id:', id); return; }
+  pane.classList.add('active');
   if (el) el.classList.add('active');
   document.getElementById('pane-title').textContent = paneTitles[id] || id;
   closeSidebar();
 
   if (!_loaded[id]) {
-    _loaded[id] = true;
     const loaders = {
       overview: loadOverview, analytics: loadAnalytics,
       users: loadUserMgmt, servers: loadServers,
@@ -793,7 +794,13 @@ function showPane(id, el) {
       logs: loadAllLogs, devtools: loadDevState,
       reports: loadReports
     };
-    if (loaders[id]) loaders[id]();
+    if (loaders[id]) {
+      _loaded[id] = true;
+      Promise.resolve(loaders[id]()).catch(e => {
+        console.error('[showPane] loader failed for tab:', id, e);
+        _loaded[id] = false; // allow retry on next click
+      });
+    }
   }
 }
 
@@ -1157,12 +1164,12 @@ async function loadBroadcastHistory() {
   try {
     const r = await fetch('/api/owner/all_logs');
     const d = await r.json();
-    const broadcasts = (d.logs||[]).filter(l => l.action && l.action.includes('BROADCAST')).slice(0,10);
+    const broadcasts = (d.logs||[]).filter(l => (l.type||l.action||'').includes('BROADCAST')).slice(0,10);
     const el = document.getElementById('bc-history');
     el.innerHTML = broadcasts.length ? broadcasts.map(l=>`
       <div class="log-entry">
         <span class="log-time">${(l.time||'').slice(0,16).replace('T',' ')}</span>
-        <span class="log-msg">${l.detail||''}</span>
+        <span class="log-msg">${l.description||l.detail||''}</span>
       </div>`).join('') : '<div class="empty-state">No broadcasts yet</div>';
   } catch(e) {}
 }
@@ -1338,7 +1345,7 @@ function filterLogs() {
   const type = document.getElementById('log-type-filter').value.toUpperCase();
   let filtered = _allLogs;
   if (q) filtered = filtered.filter(l => JSON.stringify(l).toLowerCase().includes(q));
-  if (type) filtered = filtered.filter(l => (l.action||'').toUpperCase().includes(type));
+  if (type) filtered = filtered.filter(l => (l.type||l.action||'').toUpperCase().includes(type));
   renderLogs(filtered);
 }
 
