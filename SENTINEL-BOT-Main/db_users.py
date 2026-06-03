@@ -42,7 +42,7 @@ def _ensure_pool() -> Optional[SimpleConnectionPool]:
             return _POOL
         try:
             _POOL = SimpleConnectionPool(
-                minconn=1, maxconn=2, dsn=_DATABASE_URL,
+                minconn=1, maxconn=8, dsn=_DATABASE_URL,
                 # sslmode is set by the URL on managed PG; don't force it here.
             )
         except Exception as e:

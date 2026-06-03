@@ -367,7 +367,8 @@ config = {**DEFAULT_CONFIG}
 
 def load_config_from_supabase():
     global config
-    # 1) Postgres (preferred)
+    _settings_json = os.path.join(os.path.dirname(__file__), "settings.json")
+    # 1) Postgres (preferred — authoritative persistent store)
     try:
         import db_spark as _ds
         if _ds.is_available():
@@ -376,6 +377,18 @@ def load_config_from_supabase():
                 config.update(stored)
                 print("📁 Settings loaded from Postgres!")
                 return
+            # Postgres available but empty — bootstrap from JSON if it exists.
+            if os.path.exists(_settings_json):
+                try:
+                    with open(_settings_json, 'r') as _f:
+                        _json_cfg = json.load(_f)
+                    if isinstance(_json_cfg, dict) and _json_cfg:
+                        config.update(_json_cfg)
+                        _ds.save_settings(_json_cfg)
+                        print("📁 Settings bootstrapped JSON → Postgres!")
+                        return
+                except Exception as _je:
+                    print(f"⚠️ Settings JSON bootstrap error: {_je}")
     except Exception as _e:
         print(f"⚠️ db_spark get_settings error: {_e}")
     # 2) Supabase mirror
@@ -395,9 +408,9 @@ def load_config_from_supabase():
                 return
         except Exception as e:
             print(f"⚠️ Supabase config load error: {e}")
-    # 3) JSON fallback
-    if os.path.exists('settings.json'):
-        with open('settings.json', 'r') as f:
+    # 3) JSON fallback — use absolute path so it resolves correctly regardless of CWD
+    if os.path.exists(_settings_json):
+        with open(_settings_json, 'r') as f:
             try:
                 stored = json.load(f)
                 if isinstance(stored, dict):
@@ -409,22 +422,48 @@ def load_config_from_supabase():
 load_config_from_supabase()
 
 def _preload_guild_config_cache():
-    """Warm up the in-memory guild config cache at startup so the first Discord
-    message never needs to hit Postgres."""
+    """Warm up the in-memory guild config cache at startup.
+
+    Load order:
+      1. Postgres  — authoritative persistent store.
+      2. JSON file — used as warm-start fallback when Postgres is empty OR
+                     unavailable.  When JSON has data and Postgres is empty we
+                     also push the JSON data into Postgres so future restarts
+                     don't need the file.
+    """
     global _guild_config_cache
+    _json_path = os.path.join(os.path.dirname(__file__), "sp4rk_guild_configs.json")
     try:
         import db_spark as _ds
         if _ds.is_available():
             db_data = _ds.get_all_guild_configs()
-            if db_data is not None:
+            if db_data:          # Non-empty dict → Postgres has real data
                 _guild_config_cache = dict(db_data)
-                print(f"📦 Guild config cache loaded ({len(_guild_config_cache)} guilds)")
+                print(f"📦 Guild config cache loaded ({len(_guild_config_cache)} guilds from Postgres)")
                 return
+            # Postgres is available but empty — check if JSON has data we should migrate.
+            if os.path.exists(_json_path):
+                try:
+                    with open(_json_path, "r", encoding="utf-8") as f:
+                        loaded = json.load(f)
+                    if isinstance(loaded, dict) and loaded:
+                        _guild_config_cache = loaded
+                        print(f"📦 Bootstrapping Postgres from JSON ({len(loaded)} guilds)…")
+                        _ds.save_all_guild_configs(loaded)
+                        print("✅ Guild configs migrated JSON → Postgres")
+                        return
+                except Exception as _je:
+                    print(f"[guild_cfg] JSON bootstrap read error: {_je}")
+            # Postgres available, no data anywhere — start with empty cache.
+            _guild_config_cache = {}
+            print("📦 Guild config cache: empty (no guilds configured yet)")
+            return
     except Exception as e:
         print(f"[guild_cfg] preload from Postgres failed: {e}")
-    if os.path.exists(os.path.join(os.path.dirname(__file__), "sp4rk_guild_configs.json")):
+    # Postgres not available — fall back to JSON only.
+    if os.path.exists(_json_path):
         try:
-            with open(os.path.join(os.path.dirname(__file__), "sp4rk_guild_configs.json"), "r", encoding="utf-8") as f:
+            with open(_json_path, "r", encoding="utf-8") as f:
                 loaded = json.load(f)
                 if isinstance(loaded, dict):
                     _guild_config_cache = loaded
@@ -1010,7 +1049,9 @@ def supabase_list_feedback(limit=20):
 
 
 # ---- USERS MANAGEMENT (Discord-only, Supabase-backed with JSON fallback) ----
-USERS_FILE = 'users.json'
+# Use an absolute path so the file resolves correctly regardless of the CWD
+# (Gunicorn is launched from the repo root, but the file lives in SENTINEL-BOT-Main/).
+USERS_FILE = os.path.join(os.path.dirname(__file__), 'users.json')
 
 # The Supabase `sentinel_users` table schema is:
 #   discord_id text primary key, username text, avatar_url text,
@@ -1292,14 +1333,15 @@ def save_config():
                 supabase.table("sentinel_config").insert({"id": 1, "data": config}).execute()
         except Exception as e:
             print(f"⚠️ Supabase save_config error: {e}")
-    # 3) JSON hot copy
-    with open('settings.json', 'w') as f:
+    # 3) JSON hot copy — absolute path so it resolves correctly regardless of CWD
+    _settings_json = os.path.join(os.path.dirname(__file__), "settings.json")
+    with open(_settings_json, 'w') as f:
         json.dump(config, f, indent=4)
     print("💾 Settings saved to settings.json")
 
 # ---- DEV / MAINTENANCE STATE ----
 DEV_PIN = os.environ.get("DEV_PIN", "sp4rk2024")
-_DEV_STATE_FILE = "dev_state.json"
+_DEV_STATE_FILE = os.path.join(os.path.dirname(__file__), "dev_state.json")
 
 def _load_dev_state():
     # 1) Postgres
@@ -1326,8 +1368,8 @@ def _save_dev_state(state):
         import db_spark as _ds
         if _ds.is_available():
             _ds.save_dev_state(state)
-    except Exception:
-        pass
+    except Exception as _e:
+        print(f"[dev_state] Postgres save error: {_e}")
     # 2) JSON hot copy
     try:
         tmp = _DEV_STATE_FILE + ".tmp"

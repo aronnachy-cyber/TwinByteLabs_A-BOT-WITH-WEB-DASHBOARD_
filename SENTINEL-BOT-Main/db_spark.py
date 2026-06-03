@@ -209,7 +209,7 @@ def _ensure_pool() -> Optional[SimpleConnectionPool]:
         if _POOL is not None:
             return _POOL
         try:
-            _POOL = SimpleConnectionPool(minconn=1, maxconn=2, dsn=_DATABASE_URL)
+            _POOL = SimpleConnectionPool(minconn=1, maxconn=8, dsn=_DATABASE_URL)
         except Exception as e:
             print(f"[db_spark] pool init failed: {e}")
             _POOL = None
