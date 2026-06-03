@@ -1070,11 +1070,27 @@ html.bl-compact .page-header { margin-bottom: 18px; }
 
     <div class="card">
       <div class="card-title"><i class="fas fa-wrench"></i> Channel & Role Setup</div>
-      <div class="row"><div class="row-label"><strong>Log Channel ID</strong>Channel where bans, kicks, mutes, and warnings are posted</div></div>
+      <div class="row"><div class="row-label"><strong>Log Channel ID</strong>Channel where bans, kicks, mutes, and warnings are posted (also set via <code>!logs set #ch</code> or <code>/logs setup</code>)</div></div>
       <div class="input-wrap-full" style="margin-bottom:6px;">
         <input type="text" id="log_channel" value="{{ config.get('log_channel','') }}" placeholder="e.g. 1234567890123456789">
       </div>
       <p class="help-text" style="margin-bottom:14px;"><i class="fas fa-circle-info"></i> In Discord: enable Developer Mode (Settings → Advanced), right-click the channel → <em>Copy Channel ID</em>.</p>
+
+      <div class="row"><div class="row-label"><strong>Message Log Channel ID</strong>Channel for message edits and deletions (also set via <code>!logs message #ch</code> or <code>/logs message</code>)</div></div>
+      <div class="input-wrap-full" style="margin-bottom:14px;">
+        <input type="text" id="message_log_channel" value="{{ config.get('message_log_channel','') }}" placeholder="e.g. 1234567890123456789">
+      </div>
+
+      <div class="row"><div class="row-label"><strong>Join/Leave Log Channel ID</strong>Channel for member join and leave events (also set via <code>!logs join #ch</code> or <code>/logs join</code>)</div></div>
+      <div class="input-wrap-full" style="margin-bottom:14px;">
+        <input type="text" id="join_log_channel" value="{{ config.get('join_log_channel','') }}" placeholder="e.g. 1234567890123456789">
+      </div>
+
+      <div class="row"><div class="row-label"><strong>Voice Log Channel ID</strong>Channel for voice join/leave/move events (also set via <code>!logs voice #ch</code> or <code>/logs voice</code>)</div></div>
+      <div class="input-wrap-full" style="margin-bottom:6px;">
+        <input type="text" id="voice_log_channel" value="{{ config.get('voice_log_channel','') }}" placeholder="e.g. 1234567890123456789">
+      </div>
+      <p class="help-text" style="margin-bottom:14px;"><i class="fas fa-circle-info"></i> Leave any channel blank to fall back to the main Log Channel above.</p>
 
       <div class="row"><div class="row-label"><strong>Mute Role ID</strong>Role applied to muted users (must deny send/speak in your channels)</div></div>
       <div class="input-wrap-full" style="margin-bottom:6px;">
@@ -2570,9 +2586,13 @@ function collectData() {
     welcome_staff_msg:     getText('welcome_staff_msg'),
     welcome_staff_emoji:   getText('welcome_staff_emoji'),
     log_channel: getText('log_channel') || getText('log_channel_g'),
+    message_log_channel: getText('message_log_channel'),
+    join_log_channel: getText('join_log_channel'),
+    voice_log_channel: getText('voice_log_channel'),
     owner_dm_id: getText('owner_dm_id'),
     mod_block_links: getCheck('mod_block_links'), mod_block_mentions: getCheck('mod_block_mentions'),
     profanity_level: getText('profanity_level'), mute_role: getText('mute_role'), auto_role: getText('auto_role'),
+    bot_admin_role: getText('bot_admin_role'), bot_mod_role: getText('bot_mod_role'),
     auto_block_links: getCheck('auto_block_links'), auto_block_invites: getCheck('auto_block_invites'),
     auto_block_mentions: getCheck('auto_block_mentions'), auto_dm_warning: getCheck('auto_dm_warning'),
     auto_custom_blacklist: getText('auto_custom_blacklist'), auto_allowlist: getText('auto_allowlist'), webhook_log: getText('webhook_log'),
@@ -2865,9 +2885,13 @@ function applyConfig(cfg) {
     }
   }
   setText('log_channel', cfg.log_channel); setText('log_channel_g', cfg.log_channel);
+  setText('message_log_channel', cfg.message_log_channel);
+  setText('join_log_channel', cfg.join_log_channel);
+  setText('voice_log_channel', cfg.voice_log_channel);
   setText('owner_dm_id', cfg.owner_dm_id);
   setCheck('mod_block_links', cfg.mod_block_links); setCheck('mod_block_mentions', cfg.mod_block_mentions);
   setText('profanity_level', cfg.profanity_level); setText('mute_role', cfg.mute_role); setText('auto_role', cfg.auto_role);
+  setText('bot_admin_role', cfg.bot_admin_role); setText('bot_mod_role', cfg.bot_mod_role);
   setCheck('auto_block_links', cfg.auto_block_links); setCheck('auto_block_invites', cfg.auto_block_invites);
   setCheck('auto_block_mentions', cfg.auto_block_mentions); setCheck('auto_dm_warning', cfg.auto_dm_warning);
   setText('auto_custom_blacklist', cfg.auto_custom_blacklist); setText('auto_allowlist', cfg.auto_allowlist);
