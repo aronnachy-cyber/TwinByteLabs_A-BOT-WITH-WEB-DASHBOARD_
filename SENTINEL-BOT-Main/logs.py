@@ -88,13 +88,24 @@ async def _resolve_log_channel_id(config, guild_id=None, channel_key="log_channe
         return ""
 
 
+async def _get_channel(bot, channel_id: int):
+    """Return a channel object, fetching from the API if not in cache."""
+    channel = bot.get_channel(channel_id)
+    if channel is None:
+        try:
+            channel = await bot.fetch_channel(channel_id)
+        except Exception:
+            channel = None
+    return channel
+
+
 async def log_event(bot, config, title, description, color=0x3498db, guild_id=None):
     """Log a simple embed to the configured log channel for the given guild."""
     log_channel_id = await _resolve_log_channel_id(config, guild_id, "log_channel", bot=bot)
     if not log_channel_id:
         return
     try:
-        channel = bot.get_channel(int(log_channel_id))
+        channel = await _get_channel(bot, int(log_channel_id))
         if channel:
             embed = discord.Embed(title=title, description=description, color=color)
             await channel.send(embed=embed)
@@ -125,7 +136,7 @@ async def log_template(bot, config, key, guild_id=None, **vars):
     if not log_channel_id:
         return
     try:
-        channel = bot.get_channel(int(log_channel_id))
+        channel = await _get_channel(bot, int(log_channel_id))
         if not channel:
             return
         import embeds

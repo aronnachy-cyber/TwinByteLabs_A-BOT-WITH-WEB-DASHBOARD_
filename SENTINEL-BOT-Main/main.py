@@ -621,6 +621,11 @@ async def daily_report_task():
             return
 
         channel = bot.get_channel(int(log_channel_id))
+        if channel is None:
+            try:
+                channel = await bot.fetch_channel(int(log_channel_id))
+            except Exception:
+                channel = None
         if not channel:
             return
 

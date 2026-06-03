@@ -108,6 +108,11 @@ async def role_monitor_log(bot, config, member, before, after, log_callback=None
 
     try:
         channel = bot.get_channel(int(log_channel_id))
+        if channel is None:
+            try:
+                channel = await bot.fetch_channel(int(log_channel_id))
+            except Exception:
+                channel = None
         if channel:
             embed = discord.Embed(title="🔔 Role Update Detected", description=desc, color=0xf39c12)
             await channel.send(embed=embed)
@@ -135,6 +140,11 @@ async def check_security_2fa(bot, guild, config, log_callback=None):
         if log_channel_id:
             try:
                 channel = bot.get_channel(int(log_channel_id))
+                if channel is None:
+                    try:
+                        channel = await bot.fetch_channel(int(log_channel_id))
+                    except Exception:
+                        channel = None
                 if channel:
                     await channel.send(msg)
             except Exception as e:
