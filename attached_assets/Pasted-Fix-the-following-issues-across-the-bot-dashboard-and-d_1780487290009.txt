@@ -1,0 +1,66 @@
+Fix the following issues across the bot, dashboard, and database:
+
+1. Log Channel Sync Issue
+
+- When I run a command such as:
+  /set-log-channel #logs
+- The dashboard Log Channel field should automatically update with the same channel ID.
+- Any command that changes a setting must be wired to the dashboard and database so both stay synchronized.
+
+2. Server Selection Issue
+
+- After selecting a server (e.g., Silent Core), the dashboard still displays "Select a Server".
+- The dashboard must load the selected server's configuration, data, channels, analytics, and settings correctly.
+
+3. Database Persistence Issue
+
+- Settings are not being saved permanently.
+- After every deploy/restart, all saved data is wiped.
+- Configure persistent database storage.
+- Ensure all settings are written to and loaded from the database.
+- Empty fields after deploy indicate failed database reads/writes.
+
+4. Dashboard Data Loading
+
+- All saved configuration values become blank after refresh or redeploy.
+- Fix data retrieval and state hydration from the database.
+
+5. Spark Logs Issue
+
+- Spark logs are not visible.
+- Verify log collection, storage, and dashboard rendering.
+- Ensure logs are being written and displayed correctly.
+
+6. Action Logs Issue
+
+- No action logs appear in the dashboard.
+- No action logs appear in the owner panel.
+- Create proper logging for:
+  - Commands executed
+  - Settings changed
+  - User actions
+  - Dashboard actions
+
+7. Analytics Issue
+
+- Analytics section shows no data.
+- Verify event tracking, database storage, API responses, and frontend rendering.
+
+8. Owner Panel Issue
+
+- Tabs inside /owner page cannot be opened.
+- Check routing, tab state management, event handlers, and frontend errors.
+- All owner panel tabs should load correctly.
+
+9. Full Wiring Requirement
+
+- Every dashboard setting must:
+  Dashboard ↔ API ↔ Database ↔ Slash Commands
+- Changes from commands should instantly reflect in the dashboard.
+- Changes from the dashboard should instantly reflect in commands and stored data.
+
+10. Verification
+
+- Test after deployment.
+- Confirm data survives restart/redeploy.
+- Confirm logs, analytics, owner panel tabs, and server selection work correctly.
