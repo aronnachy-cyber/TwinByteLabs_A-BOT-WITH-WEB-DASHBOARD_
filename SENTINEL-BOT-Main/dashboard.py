@@ -4088,7 +4088,8 @@ def api_logs():
     limit    = int(request.args.get('limit', 100))
     guild_id = (request.args.get('guild_id') or '').strip()
     if guild_id:
-        filtered = [l for l in action_logs if l.get('guild_id', '') == guild_id]
+        # Include guild-specific events AND global events (guild_id == "")
+        filtered = [l for l in action_logs if l.get('guild_id', '') in (guild_id, '')]
     else:
         filtered = action_logs
     return jsonify(filtered[:limit])

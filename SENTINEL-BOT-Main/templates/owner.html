@@ -772,6 +772,8 @@ const paneTitles = {
 };
 
 const _loaded = {};
+let _sizeChart = null, _resChart = null;
+
 function showPane(id, el) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -850,7 +852,7 @@ async function loadOverview() {
     const rl = document.getElementById('recent-logs');
     const logs = d.recent_logs || [];
     rl.innerHTML = logs.length
-      ? logs.slice(0,8).map(l=>`<div class="log-entry"><span class="log-time">${(l.time||'').slice(11,19)}</span><span class="log-msg">${l.action||''} ${l.detail||''}</span></div>`).join('')
+      ? logs.slice(0,8).map(l=>`<div class="log-entry"><span class="log-time">${(l.time||'').slice(11,19)}</span><span class="log-msg">${l.type||''} ${l.description||''}</span></div>`).join('')
       : '<div class="empty-state">No logs yet</div>';
 
     const p = d.current_presence || {};
@@ -1318,16 +1320,16 @@ async function loadAllLogs() {
     const d = await r.json();
     _allLogs = d.logs || [];
     renderLogs(_allLogs);
-  } catch(e) {}
+  } catch(e) { console.error('[loadAllLogs]', e); }
 }
 
 function renderLogs(list) {
   const tb = document.getElementById('all-logs-tbody');
   tb.innerHTML = list.length ? list.map(l => {
     const t = (l.time||'').slice(0,16).replace('T',' ');
-    const action = l.action||'';
+    const action = l.type || l.action || '';
     const chip = `<span class="chip chip-grey" style="font-size:.62rem;">${action.replace(/[🔧⚙️🤖🔄📢🚫✅🔒]/g,'').trim()}</span>`;
-    return `<tr><td class="mono">${t}</td><td>${chip}</td><td>${l.detail||''}</td></tr>`;
+    return `<tr><td class="mono">${t}</td><td>${chip}</td><td>${l.description || l.detail || ''}</td></tr>`;
   }).join('') : '<tr><td colspan="3" class="empty-state">No logs</td></tr>';
 }
 
