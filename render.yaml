@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: sentinel-os
+    name: sp4rk
     runtime: python
     rootDir: SENTINEL-BOT-Main
     buildCommand: pip install -r requirements.txt
