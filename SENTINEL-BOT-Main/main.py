@@ -3909,6 +3909,162 @@ async def slash_setprefix(interaction: discord.Interaction, prefix: str):
     )
 
 # ============================================================
+# LOG CHANNEL SLASH COMMANDS
+# Dashboard ↔ API ↔ Database ↔ Slash Commands wiring
+# ============================================================
+
+@bot.tree.command(name="set-log-channel", description="Set the main log channel for this server")
+@app_commands.describe(channel="The channel to send logs to")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_set_log_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if not await _slash_guard_guild(interaction):
+        return
+    if not _is_bot_admin(interaction):
+        return await interaction.response.send_message(
+            "❌ **Access Denied** — You need Administrator permission.", ephemeral=True
+        )
+    try:
+        from dashboard import save_guild_config, get_guild_config as _ggc
+        gcfg = _ggc(str(interaction.guild.id))
+        gcfg["log_channel"] = str(channel.id)
+        save_guild_config(str(interaction.guild.id), gcfg)
+        refresh_config()
+        dlog("📋 LOG-CHANNEL", f"Log channel set to #{channel.name} ({channel.id}) by {interaction.user}", guild_id=interaction.guild_id)
+    except Exception as e:
+        return await interaction.response.send_message(f"❌ Failed to save log channel: `{e}`", ephemeral=True)
+    await interaction.response.send_message(
+        f"✅ **Log channel set!** Logs will be sent to {channel.mention}\n"
+        f"The dashboard has been updated automatically.",
+        ephemeral=True,
+    )
+
+@bot.tree.command(name="set-message-log-channel", description="Set the channel for message edit/delete logs")
+@app_commands.describe(channel="The channel to send message logs to")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_set_message_log_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if not await _slash_guard_guild(interaction):
+        return
+    if not _is_bot_admin(interaction):
+        return await interaction.response.send_message(
+            "❌ **Access Denied** — You need Administrator permission.", ephemeral=True
+        )
+    try:
+        from dashboard import save_guild_config, get_guild_config as _ggc
+        gcfg = _ggc(str(interaction.guild.id))
+        gcfg["message_log_channel"] = str(channel.id)
+        save_guild_config(str(interaction.guild.id), gcfg)
+        refresh_config()
+        dlog("📋 MSG-LOG-CH", f"Message log channel set to #{channel.name} by {interaction.user}", guild_id=interaction.guild_id)
+    except Exception as e:
+        return await interaction.response.send_message(f"❌ Failed to save: `{e}`", ephemeral=True)
+    await interaction.response.send_message(
+        f"✅ **Message log channel set!** Message logs → {channel.mention}", ephemeral=True
+    )
+
+@bot.tree.command(name="set-join-log-channel", description="Set the channel for member join/leave logs")
+@app_commands.describe(channel="The channel to send join/leave logs to")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_set_join_log_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if not await _slash_guard_guild(interaction):
+        return
+    if not _is_bot_admin(interaction):
+        return await interaction.response.send_message(
+            "❌ **Access Denied** — You need Administrator permission.", ephemeral=True
+        )
+    try:
+        from dashboard import save_guild_config, get_guild_config as _ggc
+        gcfg = _ggc(str(interaction.guild.id))
+        gcfg["join_log_channel"] = str(channel.id)
+        save_guild_config(str(interaction.guild.id), gcfg)
+        refresh_config()
+        dlog("📋 JOIN-LOG-CH", f"Join log channel set to #{channel.name} by {interaction.user}", guild_id=interaction.guild_id)
+    except Exception as e:
+        return await interaction.response.send_message(f"❌ Failed to save: `{e}`", ephemeral=True)
+    await interaction.response.send_message(
+        f"✅ **Join log channel set!** Join/leave logs → {channel.mention}", ephemeral=True
+    )
+
+@bot.tree.command(name="set-voice-log-channel", description="Set the channel for voice activity logs")
+@app_commands.describe(channel="The channel to send voice logs to")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_set_voice_log_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if not await _slash_guard_guild(interaction):
+        return
+    if not _is_bot_admin(interaction):
+        return await interaction.response.send_message(
+            "❌ **Access Denied** — You need Administrator permission.", ephemeral=True
+        )
+    try:
+        from dashboard import save_guild_config, get_guild_config as _ggc
+        gcfg = _ggc(str(interaction.guild.id))
+        gcfg["voice_log_channel"] = str(channel.id)
+        save_guild_config(str(interaction.guild.id), gcfg)
+        refresh_config()
+        dlog("📋 VOICE-LOG-CH", f"Voice log channel set to #{channel.name} by {interaction.user}", guild_id=interaction.guild_id)
+    except Exception as e:
+        return await interaction.response.send_message(f"❌ Failed to save: `{e}`", ephemeral=True)
+    await interaction.response.send_message(
+        f"✅ **Voice log channel set!** Voice logs → {channel.mention}", ephemeral=True
+    )
+
+@bot.tree.command(name="set-welcome-channel", description="Set the welcome message channel for this server")
+@app_commands.describe(channel="The channel to send welcome messages to")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_set_welcome_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if not await _slash_guard_guild(interaction):
+        return
+    if not _is_bot_admin(interaction):
+        return await interaction.response.send_message(
+            "❌ **Access Denied** — You need Administrator permission.", ephemeral=True
+        )
+    try:
+        from dashboard import save_guild_config, get_guild_config as _ggc
+        gcfg = _ggc(str(interaction.guild.id))
+        gcfg["welcome_channel"] = str(channel.id)
+        save_guild_config(str(interaction.guild.id), gcfg)
+        refresh_config()
+        dlog("👋 WELCOME-CH", f"Welcome channel set to #{channel.name} by {interaction.user}", guild_id=interaction.guild_id)
+    except Exception as e:
+        return await interaction.response.send_message(f"❌ Failed to save: `{e}`", ephemeral=True)
+    await interaction.response.send_message(
+        f"✅ **Welcome channel set!** New members will be greeted in {channel.mention}", ephemeral=True
+    )
+
+@bot.tree.command(name="settings", description="View current bot settings for this server")
+@app_commands.checks.has_permissions(administrator=True)
+async def slash_settings(interaction: discord.Interaction):
+    if not await _slash_guard_guild(interaction):
+        return
+    if not _is_bot_admin(interaction):
+        return await interaction.response.send_message(
+            "❌ **Access Denied** — You need Administrator permission.", ephemeral=True
+        )
+    gcfg = get_config_for_guild(str(interaction.guild.id))
+    log_ch = gcfg.get("log_channel", "") or "Not set"
+    msg_ch = gcfg.get("message_log_channel", "") or "Not set"
+    join_ch = gcfg.get("join_log_channel", "") or "Not set"
+    voice_ch = gcfg.get("voice_log_channel", "") or "Not set"
+    welcome_ch = gcfg.get("welcome_channel", "") or "Not set"
+
+    def fmt_ch(val):
+        if val and val != "Not set":
+            return f"<#{val}>"
+        return "Not set"
+
+    embed = discord.Embed(title="⚙️ Server Settings", color=0x00c4ff)
+    embed.add_field(name="📋 Log Channel", value=fmt_ch(log_ch), inline=True)
+    embed.add_field(name="💬 Message Logs", value=fmt_ch(msg_ch), inline=True)
+    embed.add_field(name="👤 Join/Leave Logs", value=fmt_ch(join_ch), inline=True)
+    embed.add_field(name="🔊 Voice Logs", value=fmt_ch(voice_ch), inline=True)
+    embed.add_field(name="👋 Welcome Channel", value=fmt_ch(welcome_ch), inline=True)
+    embed.add_field(name="🤖 Auto-Mod", value=gcfg.get("automod_on", "OFF"), inline=True)
+    embed.add_field(name="🛡️ Anti-Raid", value=gcfg.get("anti_raid", "OFF"), inline=True)
+    embed.add_field(name="⚠️ Warning Limit", value=str(gcfg.get("warning_limit", 30)), inline=True)
+    embed.set_footer(text="Use /set-log-channel, /set-message-log-channel, etc. to update channels")
+    dlog("⚙️ SETTINGS-VIEW", f"{interaction.user} viewed server settings", guild_id=interaction.guild_id)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# ============================================================
 # 🆕 NEW SLASH COMMANDS (replacing deleted prefix duplicates)
 # These cover commands that previously only existed as prefix
 # commands, giving them a proper Discord slash-command UI.

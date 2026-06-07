@@ -1257,6 +1257,20 @@ def _preload_action_logs():
 
 _threading.Thread(target=_preload_action_logs, daemon=True, name="preload-action-logs").start()
 
+def _add_startup_log():
+    """Add a startup entry to action_logs so there's always at least one entry."""
+    import time as _t
+    _t.sleep(2)  # wait for preload to finish
+    try:
+        import db_spark as _ds
+        db_status = "Postgres" if _ds.is_available() else "JSON fallback"
+    except Exception:
+        db_status = "unknown"
+    add_dashboard_log("🚀 STARTUP", f"SP4RK dashboard started — DB: {db_status}")
+
+_threading.Thread(target=_add_startup_log, daemon=True, name="startup-log").start()
+
+
 def add_dashboard_log(event_type, description, guild_id=None):
     action_logs.insert(0, {
         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -3849,8 +3863,12 @@ def index():
 
     live = _sp4rk_live_state(user_guild_ids=_user_admin_guild_ids())
 
-    # Fallback guild list for picker when bot is offline: use OAuth session guilds
+    # Fallback guild list for picker when bot is offline: use OAuth session guilds.
+    # Always make session guilds available — the template merges live + session guilds,
+    # so the picker is populated even when the bot is offline or not yet in any guild.
     _session_guilds = session.get('user_guilds') or []
+    # Use session guilds as fallback only when bot isn't providing live guilds.
+    # When live.guilds is populated (bot online), the template already uses live.guilds.
     session_guilds = _session_guilds if not (live and live.get('guilds')) else []
 
     user_avatar = current_user.get('avatar_url', '') or session.get('user_avatar', '') or ''
@@ -4090,10 +4108,19 @@ def api_refresh_guilds():
 def api_logs():
     if not session.get('logged_in'):
         return jsonify({"error": "Unauthorized"}), 401
-    limit    = int(request.args.get('limit', 100))
+    limit    = int(request.args.get('limit', 200))
     guild_id = (request.args.get('guild_id') or '').strip()
+    # Prefer DB logs (persistent across restarts) over in-memory only
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            db_logs = _ds.list_action_logs(limit=limit, guild_id=guild_id)
+            if db_logs:
+                return jsonify(db_logs)
+    except Exception as _le:
+        print(f"[api_logs] DB read failed: {_le}")
+    # Fallback: in-memory action_logs
     if guild_id:
-        # Include guild-specific events AND global events (guild_id == "")
         filtered = [l for l in action_logs if l.get('guild_id', '') in (guild_id, '')]
     else:
         filtered = action_logs
@@ -4151,8 +4178,31 @@ def api_analytics():
 @app.route('/api/add_log', methods=['POST'])
 def api_add_log():
     data = request.get_json() or {}
-    add_dashboard_log(data.get("type", "INFO"), data.get("description", ""))
+    guild_id = data.get("guild_id") or (session.get("selected_guild_id") if session.get("logged_in") else None)
+    add_dashboard_log(data.get("type", "INFO"), data.get("description", ""), guild_id=guild_id)
     return jsonify({"status": "success"})
+
+
+# ---- API: SPARK LOGS (full persistent action log from DB) ----
+@app.route('/api/spark_logs')
+def api_spark_logs():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = (request.args.get('guild_id') or session.get('selected_guild_id') or '').strip()
+    limit = int(request.args.get('limit', 200))
+    # 1) Try Postgres for persistent logs
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.list_action_logs(limit=limit)
+            if guild_id:
+                rows = [r for r in rows if r.get('guild_id', '') in (guild_id, '')]
+            return jsonify({"ok": True, "logs": rows, "source": "postgres", "count": len(rows)})
+    except Exception as _e:
+        print(f"[api_spark_logs] DB error: {_e}")
+    # 2) Fallback: in-memory action_logs
+    filtered = [l for l in action_logs if not guild_id or l.get('guild_id', '') in (guild_id, '')]
+    return jsonify({"ok": True, "logs": filtered[:limit], "source": "memory", "count": len(filtered[:limit])})
 
 # ---- API: USER FEEDBACK (star ratings) ----
 @app.route('/api/feedback', methods=['POST'])
