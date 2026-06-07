@@ -56,34 +56,51 @@ async def _notify_admin_unconfigured(bot, guild_id: str, missing_keys: list):
 async def _resolve_log_channel_id(config, guild_id=None, channel_key="log_channel", bot=None):
     """Return the effective log channel ID for a specific guild.
 
-    Uses `channel_key` to pick the right channel config field.
-    Falls back to "log_channel" if the specific channel isn't set.
-    Never falls through to another guild's channel.
+    Resolution order:
+      1. Guild-specific config (saved per-guild in Postgres / JSON)
+      2. Global config passed in as `config` param (covers single-server setups
+         where the user saved the channel without selecting a specific guild)
+      Falls back to "log_channel" if the specific channel key isn't set.
     If the channel is not configured and bot is provided, DMs the guild owner.
     """
-    if not guild_id:
-        return ""
     try:
-        from dashboard import get_guild_config
-        gcfg = get_guild_config(str(guild_id))
-        # Try the specific channel key first, then fall back to main log_channel
-        ch = gcfg.get(channel_key, "").strip()
-        if not ch and channel_key != "log_channel":
-            ch = gcfg.get("log_channel", "").strip()
+        if guild_id:
+            from dashboard import get_guild_config
+            gcfg = get_guild_config(str(guild_id))
+            # 1) Guild-specific: try specific channel key, fall back to main log_channel
+            ch = gcfg.get(channel_key, "").strip()
+            if not ch and channel_key != "log_channel":
+                ch = gcfg.get("log_channel", "").strip()
+            if ch:
+                return ch
 
-        # If still empty and we have bot access, notify the admin once
-        if not ch and bot is not None:
+        # 2) Global config fallback — covers single-server / unconfigured-guild cases
+        #    where the admin saved the channel ID without selecting a guild in the dashboard.
+        if isinstance(config, dict):
+            ch = config.get(channel_key, "").strip()
+            if not ch and channel_key != "log_channel":
+                ch = config.get("log_channel", "").strip()
+            if ch:
+                return ch
+
+        # Channel not found — notify admin once per session
+        if guild_id and bot is not None:
             missing = []
-            if not gcfg.get("log_channel", "").strip():
-                missing.append("log_channel")
-            if channel_key not in ("log_channel",) and not gcfg.get(channel_key, "").strip():
-                if channel_key not in missing:
-                    missing.append(channel_key)
+            try:
+                from dashboard import get_guild_config as _ggc
+                _gcfg = _ggc(str(guild_id))
+                if not _gcfg.get("log_channel", "").strip():
+                    missing.append("log_channel")
+                if channel_key not in ("log_channel",) and not _gcfg.get(channel_key, "").strip():
+                    if channel_key not in missing:
+                        missing.append(channel_key)
+            except Exception:
+                pass
             if missing:
                 import asyncio
                 asyncio.ensure_future(_notify_admin_unconfigured(bot, guild_id, missing))
 
-        return ch
+        return ""
     except Exception:
         return ""
 

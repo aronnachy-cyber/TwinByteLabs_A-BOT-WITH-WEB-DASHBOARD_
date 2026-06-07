@@ -4019,6 +4019,13 @@ def api_guild_config_save():
         return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     guild_id = str(data.pop('guild_id', '')).strip()
+
+    # If no guild_id in payload, fall back to the session's selected guild so
+    # that guild-only fields (log_channel, welcome_channel, etc.) are always
+    # saved per-guild and never silently swallowed into the global config.
+    if not guild_id:
+        guild_id = str(session.get('selected_guild_id', '') or '').strip()
+
     updates = {}
     for key in TEXT_KEYS:
         if key in data:
@@ -4031,6 +4038,7 @@ def api_guild_config_save():
             updates["warning_limit"] = int(data["warning_limit"])
         except (ValueError, TypeError):
             pass
+
     if guild_id:
         save_guild_config(guild_id, updates)
         add_dashboard_log("⚙️ GUILD-SETTINGS", f"Config updated for guild {guild_id}", guild_id=guild_id)

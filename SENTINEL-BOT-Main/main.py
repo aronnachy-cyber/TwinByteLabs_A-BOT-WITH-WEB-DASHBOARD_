@@ -1613,7 +1613,7 @@ async def on_member_update(before, after):
         print(f"[2FA] member_update check error: {_e}")
 
     gid = str(after.guild.id)
-    log_ch = gcfg.get("log_channel", "").strip()
+    log_ch = gcfg.get("log_channel", "").strip() or config.get("log_channel", "").strip()
     if not log_ch:
         return
 
@@ -1717,7 +1717,8 @@ async def on_message_edit(before, after):
         return
     refresh_config()
     gcfg = get_config_for_guild(str(before.guild.id)) if before.guild else config
-    log_ch = gcfg.get("message_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
+    log_ch = (gcfg.get("message_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
+              or config.get("message_log_channel", "").strip() or config.get("log_channel", "").strip())
     if not log_ch:
         return
     await logs.log_template(
@@ -1748,7 +1749,8 @@ async def on_message_delete(message):
         pass
     refresh_config()
     gcfg = get_config_for_guild(str(message.guild.id)) if message.guild else config
-    log_ch = gcfg.get("message_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
+    log_ch = (gcfg.get("message_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
+              or config.get("message_log_channel", "").strip() or config.get("log_channel", "").strip())
     if not log_ch:
         return
     await logs.log_template(
@@ -1782,7 +1784,8 @@ async def on_voice_state_update(member, before, after):
         pass
 
     gcfg = get_config_for_guild(str(member.guild.id))
-    log_ch = gcfg.get("voice_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
+    log_ch = (gcfg.get("voice_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
+              or config.get("voice_log_channel", "").strip() or config.get("log_channel", "").strip())
     if not log_ch:
         return
 
