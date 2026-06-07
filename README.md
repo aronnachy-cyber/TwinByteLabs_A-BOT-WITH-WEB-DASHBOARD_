@@ -1,4 +1,4 @@
-# SP4RK OS — Discord Bot + Web Dashboard
+# SP4RK — Discord Bot + Web Dashboard
 
 SP4RK OS is a full-featured Discord moderation bot with an admin web dashboard. It provides auto-moderation, role management, security, social alerts, AI-powered moderation, and a fully interactive web UI for managing your server.
 
