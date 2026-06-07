@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sp4rkdb
+      POSTGRES_USER: sp4rk
+      POSTGRES_PASSWORD: sp4rkpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sp4rk -d sp4rkdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://sp4rk:sp4rkpass@db:5432/sp4rkdb
+      START_BOT_IN_WEB: "true"
+      PORT: "5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./SENTINEL-BOT-Main:/app
+    develop:
+      watch:
+        - action: sync
+          path: ./SENTINEL-BOT-Main
+          target: /app
+
+volumes:
+  postgres_data:

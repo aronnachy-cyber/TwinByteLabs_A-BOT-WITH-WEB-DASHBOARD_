@@ -2,6 +2,22 @@ import threading
 import time
 import os
 import urllib.request
+
+# Load .env file for local development — must happen before any app imports
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=False)
+except ImportError:
+    pass
+
+# Print startup config summary and warn on missing required vars
+try:
+    from config_check import check_config, warn_dev_pin
+    check_config(print_optional=True)
+    warn_dev_pin()
+except Exception as _cc_err:
+    print(f"[WSGI] config_check skipped: {_cc_err}")
+
 from dashboard import app, set_bot_restart_callback, set_bot_config_refresh_callback
 
 _bot_main = None
@@ -48,11 +64,13 @@ def _self_ping():
     time.sleep(30)
     while True:
         try:
-            _replit_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
             _render_url    = os.environ.get("RENDER_EXTERNAL_URL", "")
+            _railway_url   = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
+            _replit_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
             base = (
                 os.environ.get("DASHBOARD_URL", "").rstrip("/")
                 or (_render_url.rstrip("/") if _render_url else "")
+                or (f"https://{_railway_url}" if _railway_url else "")
                 or (f"https://{_replit_domain}" if _replit_domain else "")
             )
             if not base:
@@ -77,7 +95,7 @@ if _token_present and not _disabled:
     threading.Thread(target=_bot_watchdog, daemon=True, name="bot-watchdog").start()
 elif not _token_present:
     print("[WSGI] DISCORD_TOKEN not set — Discord bot will not start. "
-          "Set DISCORD_TOKEN in Secrets to enable the bot.")
+          "Set DISCORD_TOKEN in your .env file (local) or host secrets (cloud) to enable the bot.")
 
 
 def _start_server_official():

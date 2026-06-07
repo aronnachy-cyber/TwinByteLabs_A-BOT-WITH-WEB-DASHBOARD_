@@ -9,6 +9,13 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 import threading as _threading
 import time as _time_module
+
+# Load .env file for local development (no-op when env vars are already set by the host)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=False)
+except ImportError:
+    pass
 try:
     from supabase import create_client, Client as SupabaseClient
 except Exception as _supabase_import_err:
@@ -81,8 +88,11 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 # On plain HTTP (local dev) it must be False or the browser won't send the cookie at all.
 _behind_https_proxy = bool(
     os.environ.get("RENDER") or
+    os.environ.get("FORCE_HTTPS_COOKIES") or
     os.environ.get("REPLIT_DEV_DOMAIN") or
-    os.environ.get("FORCE_HTTPS_COOKIES")
+    os.environ.get("RAILWAY_ENVIRONMENT") or
+    os.environ.get("HEROKU_APP_NAME") or
+    os.environ.get("FLY_APP_NAME")
 )
 app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
@@ -1354,7 +1364,7 @@ def save_config():
     print("💾 Settings saved to settings.json")
 
 # ---- DEV / MAINTENANCE STATE ----
-DEV_PIN = os.environ.get("DEV_PIN", "sp4rk2024")
+DEV_PIN = os.environ.get("DEV_PIN", "change-me-in-production")
 _DEV_STATE_FILE = os.path.join(os.path.dirname(__file__), "dev_state.json")
 
 def _load_dev_state():

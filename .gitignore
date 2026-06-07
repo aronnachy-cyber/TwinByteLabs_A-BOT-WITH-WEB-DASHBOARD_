@@ -1,2 +1,72 @@
-node_modules/
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ── Virtual environments ─────────────────────────────────────
+.venv
+env/
+venv/
+ENV/
+
+# ── Secrets & credentials ────────────────────────────────────
 .env
+.env.local
+.env.*.local
+*.pem
+*.key
+.flask_secret_key
+SENTINEL-BOT-Main/.flask_secret_key
+
+# ── Runtime / data files (regenerated at startup) ────────────
+SENTINEL-BOT-Main/warnings.json
+SENTINEL-BOT-Main/wave_rooms.json
+SENTINEL-BOT-Main/users.json
+SENTINEL-BOT-Main/bot_guilds.json
+SENTINEL-BOT-Main/sp4rk_guild_configs.json
+SENTINEL-BOT-Main/sp4rk_guild_configs.json.tmp
+SENTINEL-BOT-Main/feedback.json
+SENTINEL-BOT-Main/dev_state.json
+feedback.json
+dev_state.json
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+/tmp/
+
+# ── Database ─────────────────────────────────────────────────
+*.db
+*.sqlite3
+
+# ── OS / IDE ─────────────────────────────────────────────────
+.DS_Store
+._*
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Replit-specific (ignore when developing locally) ─────────
+.replit
+replit.nix
+.cache/
+.upm/
+node_modules/
+.local/

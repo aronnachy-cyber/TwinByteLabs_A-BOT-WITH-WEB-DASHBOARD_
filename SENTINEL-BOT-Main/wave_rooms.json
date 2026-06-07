@@ -1,14 +1,1 @@
-{
-  "Npr6kp6Yy6w": {
-    "title": "Test Stream",
-    "stream_url": "",
-    "stream_type": "none",
-    "playing": false,
-    "position": 0.0,
-    "position_ts": 1777894910.787915,
-    "host_token": "8d21e3223bd2b15606dc7aac7747022c645b6dbb",
-    "created_at": "2026-05-04T11:41:50.787917",
-    "chat": [],
-    "guild_id": ""
-  }
-}
+{}
