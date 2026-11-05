@@ -1,6 +1,6 @@
-# SP4RK — Discord Bot + Web Dashboard
+# SP4RK — Private Discord Bot + Web Dashboard
 
-SP4RK is a full-featured Discord moderation bot with an admin web dashboard. It provides auto-moderation, role management, security, social alerts, AI-powered moderation, and a fully interactive web UI for managing your server.
+SP4RK is a privately operated Discord moderation bot with an admin web dashboard. Public bot-directory listings and self-service invitation links are disabled; existing bot functionality remains available to the configured operator. It provides auto-moderation, role management, security, social alerts, AI-powered moderation, and a fully interactive web UI for managing your server.
 
 ---
 
@@ -12,7 +12,7 @@ SP4RK is a full-featured Discord moderation bot with an admin web dashboard. It 
 - **Security** — Anti-raid, role monitor, 2FA enforcement, mass-ban prevention
 - **Social Alerts** — YouTube, Discord, and Twitch notification integrations
 - **Web Dashboard** — Full admin UI at `http://localhost:5000`
-- **Multi-Guild** — Manage configurations per guild through the dashboard
+- **Private Operation** — Dashboard access is authenticated; public bot promotion and invitation pages are disabled
 - **Logging** — Action logs stored in PostgreSQL with live dashboard view
 - **Wave Rooms** — Watch-party / sync streaming rooms
 

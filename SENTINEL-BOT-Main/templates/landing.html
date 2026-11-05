@@ -863,7 +863,7 @@ footer{
     <span class="flame-word">SP4RK</span><span class="flame-emoji">🔥</span>
   </h1>
   <p class="lede">
-    SP4RK is an all-in-one Discord moderation, security and engagement bot — automod with AI, anti-raid,
+    SP4RK is a privately operated Discord moderation, security and engagement system — automod with AI, anti-raid,
     tickets, giveaways, reaction roles, social alerts and a full web dashboard to control every setting in real time.
   </p>
   <div class="hero-cta">
@@ -872,11 +872,7 @@ footer{
     {% else %}
       <a class="btn-getstarted" href="{{ url_for('login') }}">Get Started</a>
     {% endif %}
-    {% if invite_url %}
-    <a class="btn-discord" href="{{ invite_url }}" target="_blank" rel="noopener">
-      <i class="fab fa-discord"></i> Add to Discord
-    </a>
-    {% endif %}
+
     <a class="btn-ghost" href="#features">See Features</a>
   </div>
 </section>
@@ -1421,31 +1417,7 @@ footer{
   </div>
 </section>
 
-<!-- ===== INVITE BANNER ===== -->
-<section id="invite" class="invite-banner">
-  <div class="invite-card">
-    <div class="invite-glow" aria-hidden="true"></div>
-    <div class="invite-icon"><i class="fab fa-discord"></i></div>
-    <div class="invite-text">
-      <div class="invite-eyebrow">One-click setup</div>
-      <h2>Invite SP4RK to your server</h2>
-      <p>Authorise SP4RK with Discord and it will join your server in seconds — automod, anti-raid, tickets, giveaways and reaction roles ready out of the box.</p>
-    </div>
-    <div class="invite-cta">
-      {% if invite_url %}
-        <a class="btn-discord btn-discord-xl" href="{{ invite_url }}" target="_blank" rel="noopener">
-          <i class="fab fa-discord"></i> Add SP4RK to Discord
-        </a>
-        <span class="invite-help"><i class="fas fa-shield-halved"></i> Recommended permissions pre-selected · You stay in control</span>
-      {% else %}
-        <button type="button" class="btn-discord btn-discord-xl" disabled style="opacity:.55;cursor:not-allowed;">
-          <i class="fas fa-hourglass-half"></i> Setup In Progress
-        </button>
-        <span class="invite-help"><i class="fas fa-circle-info"></i> Public invites coming soon — set <code>DISCORD_CLIENT_ID</code> to enable.</span>
-      {% endif %}
-    </div>
-  </div>
-</section>
+<!-- Public bot invitation banner removed: SP4RK is operated as a private instance. -->
 
 <style>
 .invite-banner{padding:60px 24px;display:flex;justify-content:center;}

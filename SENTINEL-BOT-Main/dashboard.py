@@ -1618,18 +1618,10 @@ def landing():
 
 @app.route('/bots')
 def bots_showcase():
-    """Card-style interface listing all Byte Labs bots."""
-    if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
-
-    return render_template(
-        'bots.html',
-        dev_unlocked=is_dev_session(),
-        maintenance_on=is_maintenance_mode(),
-        server_official=get_server_official(),
-        discord_configured=bool(DISCORD_CLIENT_ID),
-        **_current_user_summary(),
-    )
+    """Public bot directory is disabled; bot features remain available in the private dashboard."""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    return redirect(url_for('index'))
 
 
 @app.route('/dev/server-official', methods=['GET'])
@@ -1750,29 +1742,13 @@ def _so_live_state(guild_id: str = "", user_guild_ids=None):
 
 @app.route('/server-official')
 def server_official_landing():
-    """Public landing page for the Server Official bot.
-
-    Pulls live state + a feature overview so the landing page can show
-    real numbers ("managing N servers, M members") and feel alive
-    instead of being a static brochure.
-    """
+    """Private information page for the Server Official instance."""
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
     so = _so_module()
 
-    # Build the "Add to Discord" invite URL. Prefer a Server-Official
-    # specific OAuth app if one is configured; fall back to the shared
-    # DISCORD_CLIENT_ID so a single-OAuth-app deployment still works.
-    so_client_id = os.environ.get("SERVER_OFFICIAL_CLIENT_ID") or DISCORD_CLIENT_ID
-    bot_perms = os.environ.get("SERVER_OFFICIAL_PERMISSIONS", "8")
-    invite_url = ""
-    if so_client_id:
-        invite_url = (
-            f"https://discord.com/oauth2/authorize"
-            f"?client_id={so_client_id}"
-            f"&scope=bot+applications.commands"
-            f"&permissions={bot_perms}"
-        )
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
 
     # Live counts (best-effort — these fall back to zeros if the bot
     # isn't running yet).
@@ -1790,7 +1766,6 @@ def server_official_landing():
         bot_running=bool(so and so.is_running()),
         live=live,
         overview=overview,
-        invite_url=invite_url,
     )
 
 
@@ -3065,23 +3040,14 @@ def so_api_post_embed():
 
 @app.route('/sp4rk')
 def sp4rk_landing():
-    """The original SP4RK landing page (now lives under /sp4rk)."""
+    """Private SP4RK information page; public bot invitations are disabled."""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
     if is_maintenance_mode() and not is_dev_session():
         return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
 
-    # Recommended permissions for the bot (Administrator). Override with DISCORD_BOT_PERMISSIONS env var.
-    bot_permissions = os.environ.get("DISCORD_BOT_PERMISSIONS", "8")
-    invite_url = ""
-    if DISCORD_CLIENT_ID:
-        invite_url = (
-            f"https://discord.com/oauth2/authorize"
-            f"?client_id={DISCORD_CLIENT_ID}"
-            f"&scope=bot+applications.commands"
-            f"&permissions={bot_permissions}"
-        )
     return render_template(
         'landing.html',
-        invite_url=invite_url,
         dev_unlocked=is_dev_session(),
         maintenance_on=is_maintenance_mode(),
         logged_in=bool(session.get('logged_in')),

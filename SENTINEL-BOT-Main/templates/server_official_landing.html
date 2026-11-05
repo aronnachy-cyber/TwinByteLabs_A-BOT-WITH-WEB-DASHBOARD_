@@ -623,15 +623,9 @@ footer{
     <div class="nav-logo-mark"><i class="fas fa-shield-halved"></i></div>
     <div class="nav-logo-name">Server<span>Official</span></div>
   </a>
-  <a href="{{ url_for('bots_showcase') }}" class="btn-ghost">
-    <i class="fas fa-arrow-left"></i> Our Bots
-  </a>
+
   <div class="nav-right">
-    {% if invite_url %}
-    <a class="btn-discord" href="{{ invite_url }}" target="_blank" rel="noopener">
-      <i class="fab fa-discord"></i> Add to Server
-    </a>
-    {% endif %}
+
     <a class="btn-primary" href="{{ url_for('server_official_dashboard') }}">
       <i class="fas fa-gauge-high"></i> Open Dashboard
     </a>
@@ -650,11 +644,7 @@ footer{
       <a class="btn-primary" href="{{ url_for('server_official_dashboard') }}">
         <i class="fas fa-gauge-high"></i> Open Dashboard
       </a>
-      {% if invite_url %}
-      <a class="btn-discord" href="{{ invite_url }}" target="_blank" rel="noopener">
-        <i class="fab fa-discord"></i> Add to Discord
-      </a>
-      {% endif %}
+
       <a class="btn-ghost" href="#features">See Features</a>
     </div>
     <div class="status-row">
@@ -666,7 +656,7 @@ footer{
       {% if bot_running and live and live.guilds_count %}
         <span class="live-mini">
           <i class="fas fa-server" style="color:#10d9a3;"></i>
-          Managing <b>{{ live.guilds_count }}</b> server{{ '' if live.guilds_count == 1 else 's' }}
+          Private instance active
           {% if live.members_count %} · <b>{{ "{:,}".format(live.members_count) }}</b> members{% endif %}
         </span>
       {% endif %}
@@ -898,31 +888,7 @@ footer{
   </div>
 </section>
 
-<!-- ===== INVITE BANNER ===== -->
-<section id="invite" class="so-invite-banner">
-  <div class="so-invite-card">
-    <div class="so-invite-glow" aria-hidden="true"></div>
-    <div class="so-invite-icon"><i class="fab fa-discord"></i></div>
-    <div class="so-invite-text">
-      <div class="so-invite-eyebrow">One-click setup</div>
-      <h2>Add Server Official to your server</h2>
-      <p>Authorise the bot with Discord and it will join your server in seconds — scheduled announcements, giveaways, polls, embeds and invite tracking ready out of the box.</p>
-    </div>
-    <div class="so-invite-cta">
-      {% if invite_url %}
-        <a class="btn-discord btn-discord-xl" href="{{ invite_url }}" target="_blank" rel="noopener">
-          <i class="fab fa-discord"></i> Add to Discord
-        </a>
-        <span class="so-invite-help"><i class="fas fa-shield-halved"></i> Recommended permissions pre-selected · You stay in control</span>
-      {% else %}
-        <button type="button" class="btn-discord btn-discord-xl" disabled style="opacity:.55;cursor:not-allowed;">
-          <i class="fas fa-hourglass-half"></i> Setup In Progress
-        </button>
-        <span class="so-invite-help"><i class="fas fa-circle-info"></i> Public invites coming soon — set <code>SERVER_OFFICIAL_CLIENT_ID</code> to enable.</span>
-      {% endif %}
-    </div>
-  </div>
-</section>
+<!-- Public bot invitation banner removed: this instance is privately operated. -->
 
 <style>
 .so-invite-banner{padding:60px 24px;display:flex;justify-content:center;}
