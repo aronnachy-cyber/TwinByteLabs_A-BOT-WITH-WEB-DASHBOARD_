@@ -3537,10 +3537,14 @@ def logout():
 # ---- DISCORD OAUTH2 ----
 def _login_error(msg):
     """Helper: render login page with an error."""
+    if not session.get('passkey_csrf'):
+        session['passkey_csrf'] = secrets.token_urlsafe(24)
     return render_template(
         'login.html',
         error=msg,
         discord_configured=bool(DISCORD_CLIENT_ID),
+        passkey_enabled=bool(os.environ.get('SP4RK_PASSKEY') and os.environ.get('SP4RK_TEST_GUILD_ID')),
+        csrf_token=session.get('passkey_csrf'),
     )
 
 @app.route('/auth/discord')
