@@ -3748,8 +3748,8 @@ async def slash_botinfo(interaction: discord.Interaction):
     embed.add_field(name="⚙️ Library", value="**discord.py 2.x**", inline=True)
     embed.add_field(name="🐍 Python", value="**3.11**", inline=True)
     embed.add_field(
-        name="🔗 Links",
-        value=f"[Dashboard](/dashboard)  •  [Invite](https://discord.com/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot%20applications.commands)  •  [Support](https://discord.gg/)",
+        name="🔒 Instance",
+        value="Privately operated • Dashboard access is restricted",
         inline=False,
     )
     if bot.user and bot.user.display_avatar:
