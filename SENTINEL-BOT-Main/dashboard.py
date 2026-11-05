@@ -49,12 +49,11 @@ def _get_or_create_secret_key() -> str:
     """Return a stable secret key that survives process restarts.
 
     Priority:
-      1. FLASK_SECRET_KEY env var (set by the operator / Replit secrets)
-      2. SESSION_SECRET env var (legacy name)
+      FLASK_SECRET_KEY env var (set by the operator)
       3. A key persisted in .flask_secret_key beside this file — generated
          once and reused on every subsequent restart so sessions stay valid.
     """
-    key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SESSION_SECRET")
+    key = os.environ.get("FLASK_SECRET_KEY")
     if key:
         return key
     key_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".flask_secret_key")
@@ -4012,7 +4011,7 @@ def connection_status():
     email_ok  = bool(smtp_login_user and smtp_password)
     smtp_host = os.environ.get("SMTP_HOST", "")
 
-    session_ok = bool(os.environ.get("FLASK_SECRET_KEY", "").strip() or os.environ.get("SESSION_SECRET", "").strip())
+    session_ok = bool(os.environ.get("FLASK_SECRET_KEY", "").strip())
 
     redirect_uri = os.environ.get("DISCORD_REDIRECT_URI", "").strip()
 
