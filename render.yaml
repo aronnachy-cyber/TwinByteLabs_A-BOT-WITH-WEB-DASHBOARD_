@@ -56,7 +56,6 @@ services:
         sync: false
       - key: DEV_PIN
         sync: false
-        sync: false
       - key: GOOGLE_API_KEY
         sync: false
       - key: FORCE_HTTPS_COOKIES
@@ -68,7 +67,6 @@ services:
       - key: TESTCORD_TOKEN
         sync: false
       - key: TEST_GUILD_ID
-        sync: false
         sync: false
       - key: GMAIL_USER
         sync: false
