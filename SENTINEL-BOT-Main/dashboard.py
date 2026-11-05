@@ -3385,6 +3385,7 @@ def login():
     password_ok = hmac.compare_digest(supplied_password.encode('utf-8'), expected_password.encode('utf-8'))
     if not (username_ok and password_ok):
         return _login_error("Incorrect username or password.")
+    next_url = session.get('post_login_redirect')
     live_guilds = _sp4rk_live_state().get('guilds', [])
     session.clear()
     session.permanent = True
@@ -3397,7 +3398,6 @@ def login():
     session['user_avatar'] = ''
     session.modified = True
     add_dashboard_log("✅ LOGIN", "SP4RK admin logged in with username/password")
-    next_url = session.pop('post_login_redirect', None)
     if next_url and next_url.startswith('/') and not next_url.startswith('//'):
         return redirect(next_url)
     return redirect(url_for('server_select'))
