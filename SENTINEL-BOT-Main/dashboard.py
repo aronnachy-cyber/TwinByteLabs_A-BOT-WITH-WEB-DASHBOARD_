@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import os
 import json
 import secrets
+import hmac
 import requests as http_requests
 import traceback
 from html import escape as html_escape
@@ -228,6 +229,9 @@ def _refresh_discord_profile():
 
 @app.before_request
 def _make_session_permanent():
+    if session.get('passkey_login') and _time_module.time() > float(session.get('passkey_expires_at', 0)):
+        session.clear()
+        return redirect(url_for('login'))
     session.permanent = True
     # Refresh real Discord profile data on every non-API, non-static page load.
     if not request.path.startswith('/api/') \
@@ -3486,14 +3490,42 @@ def dev_licenses_revoke():
     return jsonify({"ok": ok})
 
 
-# ---- AUTH: LOGIN (Discord-only) ----
-@app.route('/login')
+# ---- AUTH: LOGIN (temporary, test-server passkey) ----
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    return render_template(
-        'login.html',
-        error=None,
-        discord_configured=bool(DISCORD_CLIENT_ID),
-    )
+    if request.method == 'GET':
+        if not session.get('passkey_csrf'):
+            session['passkey_csrf'] = secrets.token_urlsafe(24)
+        return render_template(
+            'login.html',
+            error=None,
+            discord_configured=bool(DISCORD_CLIENT_ID),
+            passkey_enabled=bool(os.environ.get('SP4RK_PASSKEY') and os.environ.get('SP4RK_TEST_GUILD_ID')),
+            csrf_token=session.get('passkey_csrf'),
+        )
+
+    expected = os.environ.get('SP4RK_PASSKEY', '')
+    test_guild_id = os.environ.get('SP4RK_TEST_GUILD_ID', '').strip()
+    supplied_csrf = request.form.get('csrf_token', '')
+    saved_csrf = session.get('passkey_csrf', '')
+    if not expected or not test_guild_id or not saved_csrf or not hmac.compare_digest(supplied_csrf, saved_csrf):
+        return _login_error("Temporary passkey login is not configured. Contact the project owner.")
+    if not _rate_limit(request.remote_addr or 'unknown', max_calls=5, window_secs=900):
+        return _login_error("Too many attempts. Please wait 15 minutes and try again.")
+    supplied = request.form.get('passkey', '')
+    if not hmac.compare_digest(supplied.encode('utf-8'), expected.encode('utf-8')):
+        return _login_error("Incorrect passkey.")
+    session.clear()
+    session.permanent = True
+    session['logged_in'] = True
+    session['passkey_login'] = True
+    session['passkey_expires_at'] = _time_module.time() + 1800
+    session['discord_id'] = 'sp4rk-temporary-passkey'
+    session['user_name'] = 'SP4RK Test Admin'
+    session['user_admin_guild_ids'] = [test_guild_id]
+    session['user_guilds'] = [{'id': test_guild_id, 'name': 'Configured Test Server', 'icon_url': None}]
+    session.modified = True
+    return redirect(url_for('server_select'))
 
 @app.route('/logout')
 def logout():
