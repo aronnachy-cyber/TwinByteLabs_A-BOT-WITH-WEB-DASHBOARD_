@@ -3369,21 +3369,17 @@ def login():
         if not session.get('login_csrf'):
             session['login_csrf'] = secrets.token_urlsafe(32)
         return render_template('login.html', error=None, csrf_token=session.get('login_csrf'))
-    expected_username = os.environ.get('SP4RK_ADMIN_USERNAME', '')
-    expected_password = os.environ.get('SP4RK_ADMIN_PASSWORD', '')
+    expected_passkey = os.environ.get('SP4RK_PASSKEY', '').strip()
     supplied_csrf = request.form.get('csrf_token', '')
     saved_csrf = session.get('login_csrf', '')
-    if (not expected_username or not expected_password or not saved_csrf
+    if (not expected_passkey or not saved_csrf
             or not hmac.compare_digest(supplied_csrf, saved_csrf)):
         return _login_error("Admin login is not configured. Contact the project owner.")
     if not _rate_limit(request.remote_addr or 'unknown', max_calls=5, window_secs=900):
         return _login_error("Too many attempts. Please wait 15 minutes and try again.")
-    supplied_username = request.form.get('username', '').strip()
-    supplied_password = request.form.get('password', '')
-    username_ok = hmac.compare_digest(supplied_username.encode('utf-8'), expected_username.encode('utf-8'))
-    password_ok = hmac.compare_digest(supplied_password.encode('utf-8'), expected_password.encode('utf-8'))
-    if not (username_ok and password_ok):
-        return _login_error("Incorrect username or password.")
+    supplied_passkey = request.form.get('passkey', '')
+    if not hmac.compare_digest(supplied_passkey.encode('utf-8'), expected_passkey.encode('utf-8')):
+        return _login_error("Invalid passkey.")
     next_url = session.get('post_login_redirect')
     live_guilds = _sp4rk_live_state().get('guilds', [])
     session.clear()
@@ -3391,12 +3387,12 @@ def login():
     session['logged_in'] = True
     session['is_sp4rk_admin'] = True
     session['discord_id'] = 'sp4rk-admin'
-    session['user_name'] = expected_username
+    session['user_name'] = 'SP4RK Admin'
     session['user_admin_guild_ids'] = [str(g.get('id')) for g in live_guilds if g.get('id')]
     session['user_guilds'] = live_guilds
     session['user_avatar'] = ''
     session.modified = True
-    add_dashboard_log("✅ LOGIN", "SP4RK admin logged in with username/password")
+    add_dashboard_log("✅ LOGIN", "SP4RK admin authenticated with passkey")
     if next_url and next_url.startswith('/') and not next_url.startswith('//'):
         return redirect(next_url)
     return redirect(url_for('server_select'))
