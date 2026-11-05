@@ -14,8 +14,6 @@ services:
         value: "true"
       - key: FLASK_SECRET_KEY
         sync: false
-      - key: SESSION_SECRET
-        sync: false
       - key: DISCORD_TOKEN
         sync: false
       - key: SERVER_TOKEN
