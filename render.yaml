@@ -52,3 +52,31 @@ services:
         sync: false
       - key: TWITCH_CLIENT_SECRET
         sync: false
+      - key: ADMIN_DISCORD_ID
+        sync: false
+      - key: DEV_PIN
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: FORCE_HTTPS_COOKIES
+        value: "true"
+      - key: SERVER_OFFICIAL_CLIENT_ID
+        sync: false
+      - key: SERVER_OFFICIAL_PERMISSIONS
+        value: "8"
+      - key: TESTCORD_TOKEN
+        sync: false
+      - key: TEST_GUILD_ID
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: SMTP_EMAIL
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
