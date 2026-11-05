@@ -247,7 +247,7 @@
     <div class="pill"><span class="dot"></span> Private SP4RK Access</div>
 
     <h1>Welcome back</h1>
-    <p class="lead">Sign in to your private SP4RK control center.</p>
+    <p class="lead">Enter your private access key to continue to the SP4RK control center.</p>
 
     {% if error %}
       <div class="alert"><i class="fas fa-exclamation-circle"></i> <span>{{ error }}</span></div>
@@ -255,8 +255,7 @@
 
     <form method="POST" action="/login" autocomplete="on">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input class="passkey-input" type="text" name="username" placeholder="Username" autocomplete="username" autocapitalize="none" required>
-      <input class="passkey-input" type="password" name="password" placeholder="Password" autocomplete="current-password" required>
+      <input class="passkey-input" type="password" name="passkey" placeholder="Enter your SP4RK passkey" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
       <button class="btn-discord passkey-submit" type="submit"><i class="fas fa-lock"></i> Sign in</button>
     </form>
 
