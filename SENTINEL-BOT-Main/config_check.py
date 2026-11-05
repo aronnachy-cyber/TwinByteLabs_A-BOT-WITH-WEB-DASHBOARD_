@@ -23,8 +23,6 @@ _OPTIONAL = [
     ("SUPABASE_KEY",         "Supabase anon/service key"),
     ("GEMINI_KEY",           "Google Gemini API key — for AI auto-moderation"),
     ("SERVER_TOKEN",         "Server Official bot token — for the second bot"),
-    ("RESEND_API_KEY",       "Resend API key — for email notifications"),
-    ("SMTP_USER",            "SMTP username — for email via Gmail/SMTP"),
     ("DEV_PIN",              "Dev panel PIN — defaults to 'change-me-in-production'"),
     ("DASHBOARD_URL",        "Public URL — used by keepalive ping"),
 ]
