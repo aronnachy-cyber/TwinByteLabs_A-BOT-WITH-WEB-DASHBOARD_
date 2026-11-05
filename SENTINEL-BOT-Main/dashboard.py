@@ -7,7 +7,6 @@ import requests as http_requests
 import traceback
 from html import escape as html_escape
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlencode
 import threading as _threading
 import time as _time_module
 
@@ -25,11 +24,6 @@ except Exception as _supabase_import_err:
     SupabaseClient = None
 from werkzeug.middleware.proxy_fix import ProxyFix
 import license_manager as _lm
-
-DISCORD_CLIENT_ID     = os.environ.get("DISCORD_CLIENT_ID", "")
-DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
-DISCORD_REDIRECT_URI  = os.environ.get("DISCORD_REDIRECT_URI", "")
-DISCORD_API_BASE      = "https://discord.com/api/v10"
 
 # ---- SUPABASE ----
 _sb_url = os.environ.get("SUPABASE_URL", "")
@@ -111,135 +105,12 @@ import time as _time_mod
 _DISCORD_REFRESH_INTERVAL = 300  # 5 minutes
 
 
-def _refresh_discord_profile():
-    """Re-fetch the logged-in user's real Discord profile and guild list.
-
-    Called on every page load (non-API, non-static) but rate-limited by
-    _DISCORD_REFRESH_INTERVAL so it only calls Discord once every 5 minutes.
-
-    Both Discord API calls run in parallel (ThreadPoolExecutor) so the total
-    wall-clock wait is max(t_profile, t_guilds) instead of their sum.
-    Timeouts are kept tight (3 s each) so a slow Discord response never
-    blocks the Flask worker for more than ~3 seconds.
-    """
-    if not session.get('logged_in'):
-        return
-    access_token = session.get('discord_access_token', '')
-    if not access_token:
-        return
-
-    now = _time_mod.time()
-    last = session.get('_discord_refresh_ts', 0)
-    if now - last < _DISCORD_REFRESH_INTERVAL:
-        return  # still fresh — skip
-
-    headers = {'Authorization': f'Bearer {access_token}'}
-
-    def _fetch_profile():
-        return http_requests.get(
-            f"{DISCORD_API_BASE}/users/@me", headers=headers, timeout=3)
-
-    def _fetch_guilds():
-        return http_requests.get(
-            f"{DISCORD_API_BASE}/users/@me/guilds", headers=headers, timeout=3)
-
-    try:
-        import concurrent.futures as _cf
-        with _cf.ThreadPoolExecutor(max_workers=2) as _pool:
-            _f_profile = _pool.submit(_fetch_profile)
-            _f_guilds  = _pool.submit(_fetch_guilds)
-            try:
-                user_res = _f_profile.result(timeout=4)
-            except Exception:
-                user_res = None
-            try:
-                guilds_res = _f_guilds.result(timeout=4)
-            except Exception:
-                guilds_res = None
-
-        # ── 1. Process user profile ────────────────────────────────────────
-        if user_res is not None:
-            if user_res.status_code == 401:
-                session.pop('discord_access_token', None)
-                session.pop('_discord_refresh_ts', None)
-                session.modified = True
-                return
-            if user_res.status_code == 200:
-                discord_user     = user_res.json()
-                discord_id       = str(discord_user.get('id', '') or '')
-                discord_username = discord_user.get('username', '') or ''
-                discord_global   = discord_user.get('global_name') or discord_username
-                discord_avatar   = discord_user.get('avatar') or ''
-                avatar_url = (
-                    f"https://cdn.discordapp.com/avatars/{discord_id}/{discord_avatar}.png"
-                    if discord_avatar and discord_id else ''
-                )
-                if discord_global:
-                    session['user_name'] = discord_global
-                if avatar_url:
-                    session['user_avatar'] = avatar_url
-                if discord_id:
-                    try:
-                        u = find_user_by_discord_id(discord_id)
-                        if u:
-                            if discord_global:
-                                u['name'] = discord_global
-                                u['discord_username'] = discord_username
-                            if avatar_url:
-                                u['avatar_url'] = avatar_url
-                            save_single_user(u)
-                    except Exception:
-                        pass
-
-        # ── 2. Process guild list ──────────────────────────────────────────
-        if guilds_res is not None and guilds_res.status_code == 200:
-            MANAGE_GUILD = 0x20
-            ADMINISTRATOR = 0x8
-            user_admin_guild_ids = []
-            user_admin_guilds    = []
-            for g in (guilds_res.json() or []):
-                try:
-                    perms = int(g.get('permissions', 0))
-                except (TypeError, ValueError):
-                    perms = 0
-                if g.get('owner') or (perms & (MANAGE_GUILD | ADMINISTRATOR)):
-                    gid = str(g.get('id', '')).strip()
-                    if gid:
-                        user_admin_guild_ids.append(gid)
-                        icon_hash = g.get('icon') or ''
-                        icon_url = (
-                            f"https://cdn.discordapp.com/icons/{gid}/{icon_hash}.png?size=128"
-                            if icon_hash else None
-                        )
-                        user_admin_guilds.append({
-                            'id':       gid,
-                            'name':     g.get('name', 'Unknown Server'),
-                            'icon_url': icon_url,
-                        })
-            session['user_admin_guild_ids'] = user_admin_guild_ids
-            session['user_guilds']          = user_admin_guilds
-
-        session['_discord_refresh_ts'] = now
-        session.modified = True
-
-    except Exception as _e:
-        # Network hiccup — don't crash the page, just keep the cached data.
-        print(f"[discord-refresh] {_e}")
-
-
 @app.before_request
 def _make_session_permanent():
     if session.get('passkey_login') and _time_module.time() > float(session.get('passkey_expires_at', 0)):
         session.clear()
         return redirect(url_for('login'))
     session.permanent = True
-    # Refresh real Discord profile data on every non-API, non-static page load.
-    if not request.path.startswith('/api/') \
-            and not request.path.startswith('/server-official/api/') \
-            and not request.path.startswith('/static/') \
-            and not request.path.startswith('/health') \
-            and request.method == 'GET':
-        _refresh_discord_profile()
 
 
 @app.after_request
@@ -1229,7 +1100,7 @@ def handle_internal_error(error):
     return render_template(
         'login.html',
         error="The dashboard hit a server error. Please try logging in again.",
-        discord_configured=bool(DISCORD_CLIENT_ID),
+        discord_configured=False,
     ), 200
 
 # ---- BOT RESTART CALLBACK ----
@@ -3311,7 +3182,7 @@ def dev_forms_page():
         # the page exists. Devs see the full inbox.
         return render_template('login.html',
                                error="Page not found.",
-                               discord_configured=bool(DISCORD_CLIENT_ID)), 404
+                               discord_configured=False), 404
     storage = "Postgres" if _db_forms.is_available() else "Local JSON file"
     return render_template(
         'dev_forms.html',
@@ -3350,7 +3221,7 @@ def dev_testcord_page():
     if not is_dev_session():
         return render_template('login.html',
                                error="Page not found.",
-                               discord_configured=bool(DISCORD_CLIENT_ID)), 404
+                               discord_configured=False), 404
     token_set  = bool(os.environ.get("TESTCORD_TOKEN", "").strip())
     guild_set  = bool(os.environ.get("TEST_GUILD_ID",  "").strip())
     guild_id   = os.environ.get("TEST_GUILD_ID", "").strip() or "—"
@@ -3490,264 +3361,66 @@ def dev_licenses_revoke():
     return jsonify({"ok": ok})
 
 
-# ---- AUTH: LOGIN (temporary, test-server passkey) ----
+# ---- AUTH: PRIVATE ADMIN LOGIN ----
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
-        if not session.get('passkey_csrf'):
-            session['passkey_csrf'] = secrets.token_urlsafe(24)
-        return render_template(
-            'login.html',
-            error=None,
-            discord_configured=bool(DISCORD_CLIENT_ID),
-            passkey_enabled=bool(os.environ.get('SP4RK_PASSKEY') and os.environ.get('SP4RK_TEST_GUILD_ID')),
-            csrf_token=session.get('passkey_csrf'),
-        )
-
-    expected = os.environ.get('SP4RK_PASSKEY', '')
-    test_guild_id = os.environ.get('SP4RK_TEST_GUILD_ID', '').strip()
+        if session.get('logged_in') and session.get('is_sp4rk_admin'):
+            return redirect(url_for('server_select'))
+        if not session.get('login_csrf'):
+            session['login_csrf'] = secrets.token_urlsafe(32)
+        return render_template('login.html', error=None, csrf_token=session.get('login_csrf'))
+    expected_username = os.environ.get('SP4RK_ADMIN_USERNAME', '')
+    expected_password = os.environ.get('SP4RK_ADMIN_PASSWORD', '')
     supplied_csrf = request.form.get('csrf_token', '')
-    saved_csrf = session.get('passkey_csrf', '')
-    if not expected or not test_guild_id or not saved_csrf or not hmac.compare_digest(supplied_csrf, saved_csrf):
-        return _login_error("Temporary passkey login is not configured. Contact the project owner.")
+    saved_csrf = session.get('login_csrf', '')
+    if (not expected_username or not expected_password or not saved_csrf
+            or not hmac.compare_digest(supplied_csrf, saved_csrf)):
+        return _login_error("Admin login is not configured. Contact the project owner.")
     if not _rate_limit(request.remote_addr or 'unknown', max_calls=5, window_secs=900):
         return _login_error("Too many attempts. Please wait 15 minutes and try again.")
-    supplied = request.form.get('passkey', '')
-    if not hmac.compare_digest(supplied.encode('utf-8'), expected.encode('utf-8')):
-        return _login_error("Incorrect passkey.")
+    supplied_username = request.form.get('username', '').strip()
+    supplied_password = request.form.get('password', '')
+    username_ok = hmac.compare_digest(supplied_username.encode('utf-8'), expected_username.encode('utf-8'))
+    password_ok = hmac.compare_digest(supplied_password.encode('utf-8'), expected_password.encode('utf-8'))
+    if not (username_ok and password_ok):
+        return _login_error("Incorrect username or password.")
+    live_guilds = _sp4rk_live_state().get('guilds', [])
     session.clear()
     session.permanent = True
     session['logged_in'] = True
-    session['passkey_login'] = True
-    session['passkey_expires_at'] = _time_module.time() + 1800
-    session['discord_id'] = 'sp4rk-temporary-passkey'
-    session['user_name'] = 'SP4RK Test Admin'
-    session['user_admin_guild_ids'] = [test_guild_id]
-    session['user_guilds'] = [{'id': test_guild_id, 'name': 'Configured Test Server', 'icon_url': None}]
+    session['is_sp4rk_admin'] = True
+    session['discord_id'] = 'sp4rk-admin'
+    session['user_name'] = expected_username
+    session['user_admin_guild_ids'] = [str(g.get('id')) for g in live_guilds if g.get('id')]
+    session['user_guilds'] = live_guilds
+    session['user_avatar'] = ''
     session.modified = True
+    add_dashboard_log("✅ LOGIN", "SP4RK admin logged in with username/password")
+    next_url = session.pop('post_login_redirect', None)
+    if next_url and next_url.startswith('/') and not next_url.startswith('//'):
+        return redirect(next_url)
     return redirect(url_for('server_select'))
 
-@app.route('/logout')
+def _login_error(msg):
+    if not session.get('login_csrf'):
+        session['login_csrf'] = secrets.token_urlsafe(32)
+    return render_template('login.html', error=msg, csrf_token=session.get('login_csrf'))
+
+@app.route('/logout', methods=['GET', 'POST'])
 def logout():
-    name = session.get('user_name', 'User')
+    name = session.get('user_name', 'Admin')
     add_dashboard_log("🚪 LOGOUT", f"{name} logged out")
     session.clear()
     return redirect(url_for('login'))
 
-# ---- DISCORD OAUTH2 ----
-def _login_error(msg):
-    """Helper: render login page with an error."""
-    if not session.get('passkey_csrf'):
-        session['passkey_csrf'] = secrets.token_urlsafe(24)
-    return render_template(
-        'login.html',
-        error=msg,
-        discord_configured=bool(DISCORD_CLIENT_ID),
-        passkey_enabled=bool(os.environ.get('SP4RK_PASSKEY') and os.environ.get('SP4RK_TEST_GUILD_ID')),
-        csrf_token=session.get('passkey_csrf'),
-    )
-
-@app.route('/auth/discord')
-def auth_discord():
-    if not DISCORD_CLIENT_ID:
-        return _login_error("Discord login is not configured. Contact the administrator.")
-
-    redirect_uri = (DISCORD_REDIRECT_URI or url_for('auth_discord_callback', _external=True)).strip()
-    state = secrets.token_urlsafe(16)
-    session.permanent = True
-    session['oauth_state'] = state
-    session.modified = True
-
-    # Build the authorize URL with proper percent-encoding so Discord
-    # doesn't reject `redirect_uri` as "Not a well formed URL."
-    params = {
-        "client_id":     DISCORD_CLIENT_ID,
-        "redirect_uri":  redirect_uri,
-        "response_type": "code",
-        # `guilds` lets us read the user's server list so the Server Official
-        # dashboard can show only the servers THEY have access to (instead of
-        # every guild the bot is in).
-        "scope":         "identify guilds",
-        "state":         state,
-    }
-    oauth_url = "https://discord.com/api/oauth2/authorize?" + urlencode(params)
-    return redirect(oauth_url)
-
-@app.route('/auth/discord/callback')
-def auth_discord_callback():
-    error = request.args.get('error')
-    if error:
-        return _login_error("Discord authorization was denied.")
-
-    code  = request.args.get('code', '')
-    state = request.args.get('state', '')
-
-    if not code or state != session.get('oauth_state'):
-        return _login_error("Invalid OAuth state. Please try again.")
-
-    session.pop('oauth_state', None)
-
-    redirect_uri = DISCORD_REDIRECT_URI or url_for('auth_discord_callback', _external=True)
-
-    try:
-        token_res = http_requests.post(
-            f"{DISCORD_API_BASE}/oauth2/token",
-            data={
-                'client_id':     DISCORD_CLIENT_ID,
-                'client_secret': DISCORD_CLIENT_SECRET,
-                'grant_type':    'authorization_code',
-                'code':          code,
-                'redirect_uri':  redirect_uri,
-            },
-            headers={'Content-Type': 'application/x-www-form-urlencoded'},
-            timeout=10
-        )
-        token_data = token_res.json()
-    except Exception as e:
-        return _login_error(f"Discord token exchange failed: {e}")
-
-    access_token = token_data.get('access_token')
-    if not access_token:
-        return _login_error("Could not get Discord access token. Try again.")
-
-    try:
-        user_res = http_requests.get(
-            f"{DISCORD_API_BASE}/users/@me",
-            headers={'Authorization': f'Bearer {access_token}'},
-            timeout=10
-        )
-        discord_user = user_res.json()
-    except Exception as e:
-        return _login_error(f"Could not fetch Discord profile: {e}")
-
-    # Fetch the user's guild list so we can scope dashboards (e.g. Server
-    # Official) to only the servers this user actually has access to.
-    # We keep guilds where the user is the owner OR has Manage Server (0x20).
-    # Best-effort: failures here MUST NOT block login.
-    user_admin_guild_ids = []
-    user_admin_guilds = []   # full metadata: [{id, name, icon_url}]
-    try:
-        guilds_res = http_requests.get(
-            f"{DISCORD_API_BASE}/users/@me/guilds",
-            headers={'Authorization': f'Bearer {access_token}'},
-            timeout=10
-        )
-        guilds_payload = guilds_res.json() if guilds_res.status_code == 200 else []
-        if isinstance(guilds_payload, list):
-            MANAGE_GUILD = 0x20
-            ADMINISTRATOR = 0x8
-            for g in guilds_payload:
-                try:
-                    perms = int(g.get('permissions', 0))
-                except (TypeError, ValueError):
-                    perms = 0
-                if g.get('owner') or (perms & (MANAGE_GUILD | ADMINISTRATOR)):
-                    gid = str(g.get('id', '')).strip()
-                    if gid:
-                        user_admin_guild_ids.append(gid)
-                        icon_hash = g.get('icon') or ''
-                        icon_url = (
-                            f"https://cdn.discordapp.com/icons/{gid}/{icon_hash}.png?size=128"
-                            if icon_hash else None
-                        )
-                        user_admin_guilds.append({
-                            'id':       gid,
-                            'name':     g.get('name', 'Unknown Server'),
-                            'icon_url': icon_url,
-                        })
-    except Exception as e:
-        app.logger.warning(f"[oauth] could not fetch user guilds: {e}")
-
-    discord_id       = str(discord_user.get('id', ''))
-    discord_username = discord_user.get('username', 'Unknown')
-    discord_global   = discord_user.get('global_name') or discord_username
-    discord_avatar   = discord_user.get('avatar') or ''
-    avatar_url = (
-        f"https://cdn.discordapp.com/avatars/{discord_id}/{discord_avatar}.png"
-        if discord_avatar else ''
-    )
-    discord_email    = discord_user.get('email') or ''
-
-    if not discord_id:
-        return _login_error("Could not read Discord profile. Try again.")
-
-    user = find_user_by_discord_id(discord_id)
-    is_new = user is None
-    if is_new:
-        user = {
-            'discord_id':       discord_id,
-            'discord_username': discord_username,
-            'name':             discord_global,
-            'avatar_url':       avatar_url,
-            'email':            discord_email,
-            'created_at':       datetime.now().strftime('%Y-%m-%d'),
-        }
-    else:
-        user['discord_username'] = discord_username
-        user['name'] = discord_global
-        if avatar_url:
-            user['avatar_url'] = avatar_url
-        if discord_email:
-            user['email'] = discord_email
-    save_single_user(user)
-    if is_new:
-        add_dashboard_log("📝 DISCORD-REGISTER", f"New Discord login: {discord_global} ({discord_id})")
-
-    session.permanent = True
-    session['logged_in'] = True
-    session['discord_id'] = discord_id
-    session['user_name'] = discord_global
-    session['discord_access_token'] = access_token
-    # Cache the user's admin/owner guild ids on the session so per-user
-    # dashboards (Server Official, etc.) can scope correctly without an extra
-    # Discord API call on every request.
-    session['user_admin_guild_ids'] = user_admin_guild_ids
-    session['user_guilds']          = user_admin_guilds
-    session['user_avatar']          = avatar_url
-    session.modified = True
-    add_dashboard_log("✅ LOGIN", f"{discord_global} logged in via Discord")
-
-    # Auto-detect and apply tier — no manual code entry needed.
-    # Check the license manager (Discord-ID keyed) for an assigned tier.
-    # Admins always get premium automatically.
-    _admin_discord_id = os.environ.get("ADMIN_DISCORD_ID", "").strip()
-    _is_admin_user = (
-        (user or {}).get("is_admin")
-        or (discord_id and _admin_discord_id and discord_id == _admin_discord_id)
-    )
-    if _is_admin_user:
-        _auto_tier = "premium"
-    else:
-        _auto_tier = _lm.get_user_tier(discord_id)
-
-    # Persist tier on user record so the dashboard reads it consistently
-    if user.get("tier") != _auto_tier:
-        user["tier"] = _auto_tier
-        try:
-            save_single_user(user)
-        except Exception:
-            pass
-
-    # Clear any stale guild selection so the server picker always shows fresh.
-    session.pop('selected_guild_id', None)
-    session.modified = True
-
-    # Honor a "return to" target set before login, otherwise go to main page.
-    next_url = session.pop('post_login_redirect', None)
-    if next_url:
-        return redirect(next_url)
-    return redirect(url_for('landing'))
-
-# ---- REMOVED: UID-based register/forgot-password (Discord-only auth) ----
 @app.route('/register')
 @app.route('/forgot-password')
 def _legacy_auth_redirect():
     return redirect(url_for('login'))
 
-# ---- LICENSE ACTIVATION (legacy redirect — no longer needed) ----
 @app.route('/activate-license', methods=['GET', 'POST'])
 def activate_license():
-    # Tiers are now automatically applied on login — no manual code entry needed.
     return redirect(url_for('landing'))
 
 
@@ -3758,18 +3431,14 @@ def server_select():
     if not session.get('logged_in'):
         session['post_login_redirect'] = url_for('server_select')
         return redirect(url_for('login'))
-    user_guilds  = session.get('user_guilds', [])
-    user_avatar  = session.get('user_avatar', '') or ''
-    discord_id   = session.get('discord_id', '')
-    if not user_avatar and discord_id:
-        u = find_user_by_discord_id(discord_id)
-        user_avatar = (u or {}).get('avatar_url', '') or ''
+    user_guilds = session.get('user_guilds', [])
+    user_avatar = session.get('user_avatar', '') or ''
     return render_template(
         'server_select.html',
         user_guilds=user_guilds,
         user_avatar=user_avatar,
         user_name=session.get('user_name', 'User'),
-        discord_configured=bool(DISCORD_CLIENT_ID),
+        discord_configured=False,
     )
 
 
@@ -3782,16 +3451,12 @@ def so_server_select():
         return redirect(url_for('login'))
     user_guilds = session.get('user_guilds', [])
     user_avatar = session.get('user_avatar', '') or ''
-    discord_id  = session.get('discord_id', '')
-    if not user_avatar and discord_id:
-        u = find_user_by_discord_id(discord_id)
-        user_avatar = (u or {}).get('avatar_url', '') or ''
     return render_template(
         'server_official_select.html',
         user_guilds=user_guilds,
         user_avatar=user_avatar,
         user_name=session.get('user_name', 'User'),
-        discord_configured=bool(DISCORD_CLIENT_ID),
+        discord_configured=False,
     )
 
 
@@ -3830,23 +3495,15 @@ def index():
     else:
         return redirect(url_for('server_select'))
 
-    current_user = find_user_by_discord_id(discord_id)
-    if not current_user:
-        # The OAuth callback already authenticated this user and stored their
-        # identity in the session. If the persisted record can't be read back
-        # (ephemeral filesystem on Render, transient Supabase error, etc.),
-        # rebuild it from the session instead of silently logging the user out.
-        session_name = session.get('user_name', 'User')
-        current_user = {
-            'discord_id':       discord_id,
-            'discord_username': session_name,
-            'name':             session_name,
-            'created_at':       datetime.now().strftime('%Y-%m-%d'),
-        }
-        try:
-            save_single_user(current_user)
-        except Exception as e:
-            print(f"⚠️ Re-saving user from session failed: {e}")
+    if session.get('is_sp4rk_admin'):
+        current_user = {'discord_id': discord_id, 'discord_username': session.get('user_name', 'admin'),
+                        'name': session.get('user_name', 'admin'), 'is_admin': True,
+                        'created_at': datetime.now().strftime('%Y-%m-%d')}
+    else:
+        current_user = find_user_by_discord_id(discord_id)
+        if not current_user:
+            session.clear()
+            return redirect(url_for('login'))
     session['user_name'] = current_user.get('name', 'User')
 
     # ── Tier: check license manager first, fall back to user record ──
@@ -4061,57 +3718,13 @@ def api_bot_config_guild(guild_id):
 # ---- API: LOGS ----
 @app.route('/api/refresh_guilds', methods=['POST'])
 def api_refresh_guilds():
-    """Re-fetch the user's Discord guild list and update the session in-place.
-    Called when the user joins or leaves a server and wants the server picker
-    to reflect the change without having to log out and back in.
-    """
-    if not session.get('logged_in'):
-        return jsonify({'ok': False, 'error': 'Not logged in'}), 401
-    access_token = session.get('discord_access_token')
-    if not access_token:
-        return jsonify({'ok': False, 'error': 'no_token',
-                        'message': 'Session token expired — please re-login to refresh your server list.'}), 200
-    try:
-        guilds_res = http_requests.get(
-            f"{DISCORD_API_BASE}/users/@me/guilds",
-            headers={'Authorization': f'Bearer {access_token}'},
-            timeout=10
-        )
-        if guilds_res.status_code == 401:
-            return jsonify({'ok': False, 'error': 'token_expired',
-                            'message': 'Discord token expired — please re-login.'}), 200
-        guilds_payload = guilds_res.json() if guilds_res.status_code == 200 else []
-        if not isinstance(guilds_payload, list):
-            return jsonify({'ok': False, 'error': 'Discord API error'}), 500
-        MANAGE_GUILD = 0x20
-        ADMINISTRATOR = 0x8
-        user_admin_guild_ids = []
-        user_admin_guilds = []
-        for g in guilds_payload:
-            try:
-                perms = int(g.get('permissions', 0))
-            except (TypeError, ValueError):
-                perms = 0
-            if g.get('owner') or (perms & (MANAGE_GUILD | ADMINISTRATOR)):
-                gid = str(g.get('id', '')).strip()
-                if gid:
-                    user_admin_guild_ids.append(gid)
-                    icon_hash = g.get('icon') or ''
-                    icon_url = (
-                        f"https://cdn.discordapp.com/icons/{gid}/{icon_hash}.png?size=128"
-                        if icon_hash else None
-                    )
-                    user_admin_guilds.append({
-                        'id':       gid,
-                        'name':     g.get('name', 'Unknown Server'),
-                        'icon_url': icon_url,
-                    })
-        session['user_admin_guild_ids'] = user_admin_guild_ids
-        session['user_guilds']          = user_admin_guilds
-        session.modified = True
-        return jsonify({'ok': True, 'guilds': user_admin_guilds, 'count': len(user_admin_guilds)})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    if not session.get('logged_in') or not session.get('is_sp4rk_admin'):
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    guilds = _sp4rk_live_state().get('guilds', [])
+    session['user_guilds'] = guilds
+    session['user_admin_guild_ids'] = [str(g.get('id')) for g in guilds if g.get('id')]
+    session.modified = True
+    return jsonify({'ok': True, 'guilds': guilds, 'count': len(guilds)})
 
 
 @app.route('/api/logs')
@@ -4380,8 +3993,8 @@ def connection_status():
         return jsonify({"error": "Unauthorized"}), 401
 
     discord_token  = bool(os.environ.get("DISCORD_TOKEN", "").strip())
-    client_id      = bool(os.environ.get("DISCORD_CLIENT_ID", "").strip())
-    client_secret  = bool(os.environ.get("DISCORD_CLIENT_SECRET", "").strip())
+    client_id      = False
+    client_secret  = False
     supabase_ok    = supabase is not None
     gemini_ok      = bool(os.environ.get("GEMINI_KEY", "").strip() or os.environ.get("GOOGLE_API_KEY", "").strip())
 
