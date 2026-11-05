@@ -3795,11 +3795,6 @@ def so_server_select():
     )
 
 
-# ---- READ-ONLY DASHBOARD UI PREVIEW ----
-@app.route('/preview')
-def dashboard_preview():
-    """Public, read-only visual preview; never creates an authenticated session."""
-    return render_template('dashboard_preview.html')
 
 
 # ---- MAIN DASHBOARD ----
