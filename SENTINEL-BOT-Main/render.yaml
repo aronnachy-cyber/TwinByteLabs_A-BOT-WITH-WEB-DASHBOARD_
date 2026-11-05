@@ -38,16 +38,6 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
-      - key: RESEND_API_KEY
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        sync: false
       - key: TWITCH_CLIENT_ID
         sync: false
       - key: TWITCH_CLIENT_SECRET
