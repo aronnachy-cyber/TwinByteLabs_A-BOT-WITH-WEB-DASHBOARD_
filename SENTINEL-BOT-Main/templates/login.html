@@ -247,25 +247,18 @@
     <div class="pill"><span class="dot"></span> Private SP4RK Access</div>
 
     <h1>Welcome back</h1>
-    <p class="lead">Enter your private access passkey to open the SP4RK control center.</p>
+    <p class="lead">Sign in to your private SP4RK control center.</p>
 
     {% if error %}
       <div class="alert"><i class="fas fa-exclamation-circle"></i> <span>{{ error }}</span></div>
     {% endif %}
 
-    {% if passkey_enabled %}
-      <form method="POST" action="/login" autocomplete="on">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input class="passkey-input" type="password" name="passkey" placeholder="Enter passkey" autocomplete="current-password" required>
-        <button class="btn-discord passkey-submit" type="submit"><i class="fas fa-lock"></i> Unlock SP4RK</button>
-      </form>
-      <p class="lead" style="margin:14px auto 0;font-size:.78rem;">Temporary test access · expires after 30 minutes · limited to the configured test server</p>
-    {% else %}
-      <div class="alert">
-        <i class="fas fa-circle-info"></i>
-        <span>Temporary passkey access is not configured. Set SP4RK_PASSKEY and SP4RK_TEST_GUILD_ID in the Render environment.</span>
-      </div>
-    {% endif %}
+    <form method="POST" action="/login" autocomplete="on">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input class="passkey-input" type="text" name="username" placeholder="Username" autocomplete="username" autocapitalize="none" required>
+      <input class="passkey-input" type="password" name="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn-discord passkey-submit" type="submit"><i class="fas fa-lock"></i> Sign in</button>
+    </form>
 
     <div class="footer">
       <a class="home-link" href="/"><i class="fas fa-arrow-left"></i> Back to SP4RK</a>
