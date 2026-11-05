@@ -246,7 +246,7 @@ def _add_security_headers(response):
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     response.headers.setdefault("X-XSS-Protection", "1; mode=block")
     # Hide gunicorn version
-    response.headers["Server"] = "ByteLabs"
+    response.headers["Server"] = "SP4RK"
     return response
 
 
@@ -1445,21 +1445,21 @@ SITE_SETTINGS_DEFAULTS = {
     "color_accent3": "#22d3ee",
     "color_text":    "#e8f0ff",
     # Hero / brand text
-    "brand_name":      "Byte Labs",
+    "brand_name":      "SP4RK",
     "hero_badge":      "Building the future of community automation",
     "hero_title_pre":  "We build",
     "hero_title_grad": "intelligent bots",
     "hero_title_post": "that power modern communities.",
     "hero_lede": (
-        "Byte Labs designs and ships AI-driven bots, dashboards, and automation tools "
+        "SP4RK designs and ships AI-driven bots, dashboards, and automation tools "
         "that help Discord servers, communities, and creators run smoother — without "
         "the busywork."
     ),
     # Section title under "What We Build"
-    "section_title": "Every Byte Labs bot follows the same principles.",
+    "section_title": "Every SP4RK bot follows the same principles.",
     "section_lede":  "Beautiful dashboards, intelligent automation, rock-solid uptime, and full control in your hands.",
     # CTA strip
-    "cta_title": "Ready to add a Byte Labs bot to your server?",
+    "cta_title": "Ready to add a SP4RK bot to your server?",
     "cta_lede":  "Browse our growing lineup of bots and find the one that fits your community.",
     # Footer tag
     "footer_tag": "Crafted with care for communities.",
@@ -2037,7 +2037,7 @@ def so_api_broadcast():
                 import discord
                 e = discord.Embed(title=title, description=message, color=0x5b8cff,
                                   timestamp=datetime.now(timezone.utc))
-                e.set_footer(text="Server Official • Byte Labs")
+                e.set_footer(text="Server Official • SP4RK")
                 await ch.send(embed=e)
                 posted += 1
             except Exception as ex:
@@ -2855,7 +2855,7 @@ def so_api_rules_post():
             title=f'📜 {guild.name} — Server Rules',
             description=text, color=0x5b8cff,
             timestamp=datetime.now(_tz.utc))
-        e.set_footer(text='Server Official • Byte Labs')
+        e.set_footer(text='Server Official • SP4RK')
         await ch.send(embed=e)
     try:
         fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
@@ -3016,7 +3016,7 @@ def so_api_post_embed():
         e = discord.Embed(title=title, description=message[:4000],
                           color=int(color) if color else 0x5b8cff,
                           timestamp=datetime.now(timezone.utc))
-        e.set_footer(text="Server Official • Byte Labs")
+        e.set_footer(text="Server Official • SP4RK")
         await ch.send(embed=e)
 
     fut = asyncio.run_coroutine_threadsafe(_send(), bot.loop)
