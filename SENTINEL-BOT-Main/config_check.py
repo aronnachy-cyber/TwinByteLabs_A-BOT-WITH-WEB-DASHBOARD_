@@ -11,12 +11,10 @@ import sys
 _REQUIRED = [
     ("DISCORD_TOKEN",        "Bot token from Discord Developer Portal"),
     ("FLASK_SECRET_KEY",     "Random 32-byte hex string for session signing"),
+    ("SP4RK_PASSKEY",        "Single secret used to authenticate the private SP4RK dashboard"),
 ]
 
 _OPTIONAL = [
-    ("DISCORD_CLIENT_ID",    "OAuth2 Client ID — required for /login (Discord OAuth)"),
-    ("DISCORD_CLIENT_SECRET","OAuth2 Client Secret — required for /login (Discord OAuth)"),
-    ("DISCORD_REDIRECT_URI", "OAuth2 redirect URL — must match Discord app settings"),
     ("ADMIN_DISCORD_ID",     "Your Discord user ID — grants access to /owner panel"),
     ("DATABASE_URL",         "PostgreSQL URL — for persistent storage across restarts"),
     ("SUPABASE_URL",         "Supabase project URL — alternative to raw PostgreSQL"),
