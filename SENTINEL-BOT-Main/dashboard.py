@@ -1597,23 +1597,8 @@ def _current_user_summary():
 
 @app.route('/')
 def landing():
-    """Byte Labs parent landing page (the new public homepage).
-
-    Maintenance mode: show a "coming soon" page to everyone EXCEPT the dev.
-    Returns HTTP 200 so external uptime/cron pingers keep the service healthy.
-    """
-    if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
-
-    return render_template(
-        'bytelabs_landing.html',
-        dev_unlocked=is_dev_session(),
-        maintenance_on=is_maintenance_mode(),
-        discord_configured=bool(DISCORD_CLIENT_ID),
-        site=get_site_settings(),
-        whats_new=_load_dev_state().get('whats_new', {}),
-        **_current_user_summary(),
-    )
+    """Private bot entry point: send visitors directly to the authenticated dashboard."""
+    return redirect(url_for('index'))
 
 
 @app.route('/bots')
