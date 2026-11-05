@@ -10,7 +10,7 @@ import sys
 
 _REQUIRED = [
     ("DISCORD_TOKEN",        "Bot token from Discord Developer Portal"),
-    ("FLASK_SECRET_KEY",     "Random 32-byte hex string for session signing (or SESSION_SECRET)"),
+    ("FLASK_SECRET_KEY",     "Random 32-byte hex string for session signing"),
 ]
 
 _OPTIONAL = [
@@ -38,11 +38,7 @@ def check_config(print_optional: bool = False) -> bool:
     Check required and optional environment variables.
     Returns True if all required vars are present.
     """
-    # Accept either FLASK_SECRET_KEY or SESSION_SECRET
-    has_secret = bool(
-        os.environ.get("FLASK_SECRET_KEY", "").strip()
-        or os.environ.get("SESSION_SECRET", "").strip()
-    )
+    has_secret = bool(os.environ.get("FLASK_SECRET_KEY", "").strip())
 
     missing_required = []
     print(f"\n{_BOLD}{'='*60}")
