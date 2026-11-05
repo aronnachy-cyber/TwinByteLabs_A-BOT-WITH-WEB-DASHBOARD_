@@ -45,9 +45,9 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: SMTP_HOST
-        sync: false
+        value: "smtp.gmail.com"
       - key: SMTP_PORT
-        sync: false
+        value: "587"
       - key: TWITCH_CLIENT_ID
         sync: false
       - key: TWITCH_CLIENT_SECRET
@@ -56,7 +56,6 @@ services:
         sync: false
       - key: DEV_PIN
         sync: false
-      - key: SESSION_SECRET
         sync: false
       - key: GOOGLE_API_KEY
         sync: false
@@ -70,7 +69,6 @@ services:
         sync: false
       - key: TEST_GUILD_ID
         sync: false
-      - key: GOOGLE_API_KEY
         sync: false
       - key: GMAIL_USER
         sync: false
