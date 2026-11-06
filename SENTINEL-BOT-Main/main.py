@@ -104,7 +104,7 @@ DEFAULT_CONFIG = {
     # Master Automod auto-action toggle (5/10/20/30 escalation chart).
     # OFF preserves the current behaviour exactly.
     "automod_on": "OFF",
-    # --- SP4RK Server Knowledge (used when the bot is @mentioned) ---
+    # --- NVD Official Server Knowledge (used when the bot is @mentioned) ---
     "server_description": "",
     "server_rules": "",
     # --- Staff role overrides ---
@@ -136,7 +136,7 @@ def _member_has_role_id(member: discord.Member, role_id_str: str) -> bool:
 
 
 def _is_bot_admin(interaction: discord.Interaction) -> bool:
-    """True if the user passes the admin permission bar for SP4RK commands.
+    """True if the user passes the admin permission bar for NVD Official commands.
 
     Passes when the user has Discord's Administrator or Manage Server permission,
     OR when they hold the role configured as `bot_admin_role` in the dashboard.
@@ -154,7 +154,7 @@ def _is_bot_admin(interaction: discord.Interaction) -> bool:
 
 
 def _is_bot_mod(interaction: discord.Interaction) -> bool:
-    """True if the user passes the mod permission bar for SP4RK commands.
+    """True if the user passes the mod permission bar for NVD Official commands.
 
     Passes when the user has any standard moderation permission, OR holds the
     `bot_admin_role` or `bot_mod_role` configured in the dashboard.
@@ -321,7 +321,7 @@ async def dm_owner(action, target, reason, moderator):
     if not get_owner_ids():
         return
     msg = (
-        f"🔔 **SP4RK — Action Performed**\n"
+        f"🔔 **NVD Official — Action Performed**\n"
         f"**Action:** {action.upper()}\n"
         f"**Target:** {target}\n"
         f"**Reason:** {reason}\n"
@@ -354,7 +354,7 @@ async def notify_owners_warning(member, count):
     }
 
     msg = (
-        f"⚠️ **SP4RK — Approval Required**\n"
+        f"⚠️ **NVD Official — Approval Required**\n"
         f"**Server:** {member.guild.name}\n"
         f"**Member:** {member} (`{member.id}`)\n"
         f"**Warnings:** {count} (limit reached!)\n\n"
@@ -505,7 +505,7 @@ def build_server_context(guild) -> str:
     if roles:
         lines.append(f"ROLES: {', '.join(roles)}")
 
-    # SP4RK config hints that are useful context
+    # NVD Official config hints that are useful context
     prefix = gcfg.get("prefix", "!")
     lines.append(f"BOT COMMAND PREFIX: {prefix}")
     welcome = gcfg.get("welcome_msg", "").strip()
@@ -688,7 +688,7 @@ async def daily_report_task():
         # ── Build embed ────────────────────────────────────────────────────────
         server_name = channel.guild.name if channel.guild else "your server"
         embed = discord.Embed(
-            title=f"📊 SP4RK — {period}",
+            title=f"📊 NVD Official — {period}",
             description=(
                 f"**Automated Moderation Report**\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -733,7 +733,7 @@ async def daily_report_task():
             embed.set_image(url="attachment://daily_report.png")
 
         embed.set_footer(
-            text=f"SP4RK  ·  Byte Labs  ·  Reports every 8 h  ·  {date_str}"
+            text=f"NVD Official  ·  Byte Labs  ·  Reports every 8 h  ·  {date_str}"
         )
 
         if img_file:
@@ -748,7 +748,7 @@ async def daily_report_task():
 # ---------------- SLASH COMMANDS ----------------
 def build_help_embed(prefix):
     embed = discord.Embed(
-        title="🛡️ SP4RK — Command Reference",
+        title="🛡️ NVD Official — Command Reference",
         description=(
             f"**Prefix:** `{prefix}`  ·  **Version:** V2.5.0\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -818,14 +818,14 @@ def build_help_embed(prefix):
         f"`{prefix}refresh` — reload dashboard config\n"
         f"`{prefix}help` — show this menu  (alias `!commands`, `!cmds`)\n"
         "`/commands` — slash version of this menu\n"
-        "`/about` — who made SP4RK & its official birthday\n"
+        "`/about` — who made NVD Official & its official birthday\n"
         "`/bot` — bot stats\n"
         "`/dashboard` — admin dashboard link"
     ))
-    embed.set_footer(text=f"SP4RK V2.5.0  •  Tip: change the prefix & custom commands in the web dashboard")
+    embed.set_footer(text=f"NVD Official V2.5.0  •  Tip: change the prefix & custom commands in the web dashboard")
     return embed
 
-@bot.tree.command(name="commands", description="List all SP4RK commands")
+@bot.tree.command(name="commands", description="List all NVD Official commands")
 async def slash_commands(interaction: discord.Interaction):
     refresh_config()
     gcfg = get_config_for_guild(str(interaction.guild.id) if interaction.guild else '0')
@@ -839,7 +839,7 @@ async def slash_commands(interaction: discord.Interaction):
 
 def _build_manual_pages() -> list:
     """Return a list of discord.Embed objects — one per manual page."""
-    C = 0x4f8ef7  # SP4RK brand blue
+    C = 0x4f8ef7  # NVD Official brand blue
 
     def page(title, description, fields):
         e = discord.Embed(title=title, description=description, color=C)
@@ -850,7 +850,7 @@ def _build_manual_pages() -> list:
     pages = []
     # ── Page 1: Overview ──────────────────────────────────────────────────
     pages.append(page(
-        "📖 SP4RK Manual",
+        "📖 NVD Official Manual",
         "Use **‹** and **›** to navigate.  Syntax: `<required>` · `[optional]`",
         [
             ("📋 Pages", (
@@ -962,8 +962,8 @@ def _build_manual_pages() -> list:
                 "`/serverinfo` — Server stats\n"
                 "`/avatar [@member]` — Full-size avatar\n"
                 "`/roleinfo @role` — Role details\n"
-                "`/botinfo` — SP4RK stats\n"
-                "`/about` — Who made SP4RK & its birthday\n"
+                "`/botinfo` — NVD Official stats\n"
+                "`/about` — Who made NVD Official & its birthday\n"
                 "`/remind <duration> <msg>` — Set a DM reminder\n"
                 "`/setprefix <p>` — Change server prefix *(Admin)*\n"
                 "`/dashboard` — Get your dashboard link *(Admin)*"
@@ -988,11 +988,11 @@ def _build_manual_pages() -> list:
     # ── Page 6: Permissions & Roles ───────────────────────────────────────
     pages.append(page(
         "🔑 Permissions & Roles",
-        "Control who can use SP4RK's moderation commands.",
+        "Control who can use NVD Official's moderation commands.",
         [
             ("Bot Admin Role", (
                 "Set a **Bot Admin Role** in the dashboard — members with this role can\n"
-                "use all SP4RK admin commands without needing Discord's Manage Server perm."
+                "use all NVD Official admin commands without needing Discord's Manage Server perm."
             ), False),
             ("Bot Mod Role", (
                 "Set a **Bot Mod Role** in the dashboard — members with this role can\n"
@@ -1097,7 +1097,7 @@ def _build_manual_pages() -> list:
                 "`/stats export` — Download 60-day analytics + mood snapshot as a JSON file"
             ), False),
             ("Server Mood System", (
-                "SP4RK tracks live server atmosphere from messages and reactions:\n\n"
+                "NVD Official tracks live server atmosphere from messages and reactions:\n\n"
                 "😇 **Golden Server** (+40 to +50) — Peak positivity\n"
                 "😊 **Chill & Friendly** (+20 to +39) — Good vibes\n"
                 "😐 **Normal Activity** (−10 to +19) — Business as usual\n"
@@ -1140,7 +1140,7 @@ def _build_manual_pages() -> list:
     # ── Page 12: Premium & God Panel ──────────────────────────────────────
     pages.append(page(
         "💎 Premium & God Panel",
-        "SP4RK Elite Mode features and the admin God Panel overview command.",
+        "NVD Official Elite Mode features and the admin God Panel overview command.",
         [
             ("God Panel — /godpanel", (
                 "`/godpanel` — One-command full server overview *(Admin only)*\n\n"
@@ -1153,15 +1153,15 @@ def _build_manual_pages() -> list:
                 "• Tag count, AutoMod status, logging status\n"
                 "• Boost tier, role count, RR panel count"
             ), False),
-            ("SP4RK Elite — /sparkelite", (
-                "`/sparkelite enable` — Activate SP4RK Premium mode for this server\n"
+            ("NVD Official Elite — /sparkelite", (
+                "`/sparkelite enable` — Activate NVD Official Premium mode for this server\n"
                 "  Unlocks: advanced logs · smart AutoMod AI · full analytics · automation engine\n\n"
                 "`/sparkelite elitemode` — Toggle Elite Mode\n"
                 "  Maximum power mode: context detection · severity scoring · auto-escalation\n\n"
                 "`/sparkelite status` — View current Premium / Elite tier status"
             ), False),
             ("Premium Feature Summary", (
-                "All premium commands are available to any server with SP4RK:\n\n"
+                "All premium commands are available to any server with NVD Official:\n\n"
                 "📖 **p.6** `/rr` — Advanced RR Panels (buttons + dropdowns)\n"
                 "📖 **p.7** `/logs` + `/automod` — Logging & AutoMod slash config\n"
                 "📖 **p.8** `/tag` — Tag system with variable substitution\n"
@@ -1175,7 +1175,7 @@ def _build_manual_pages() -> list:
     # stamp each page with its number
     total = len(pages)
     for i, e in enumerate(pages):
-        e.set_footer(text=f"SP4RK Manual  •  Page {i+1}/{total}  •  Use ‹ › to navigate")
+        e.set_footer(text=f"NVD Official Manual  •  Page {i+1}/{total}  •  Use ‹ › to navigate")
 
     return pages
 
@@ -1224,7 +1224,7 @@ class ManualView(discord.ui.View):
             item.disabled = True
 
 
-@bot.tree.command(name="manual", description="Browse the full SP4RK bot manual with ‹ › page navigation")
+@bot.tree.command(name="manual", description="Browse the full NVD Official bot manual with ‹ › page navigation")
 async def slash_manual(interaction: discord.Interaction):
     pages = _build_manual_pages()
     view  = ManualView(pages, author_id=interaction.user.id)
@@ -1235,7 +1235,7 @@ async def slash_manual(interaction: discord.Interaction):
 # 📋 RICH /serverinfo  (big, informative embed)
 # ============================================================
 def _build_serverinfo_embed(guild: discord.Guild, requester: discord.abc.User) -> discord.Embed:
-    """Build a large, detailed server info embed for SP4RK."""
+    """Build a large, detailed server info embed for NVD Official."""
     # --- Member breakdown -----------------------------------------------
     humans = sum(1 for m in guild.members if not m.bot) if guild.members else 0
     bots   = sum(1 for m in guild.members if m.bot) if guild.members else 0
@@ -1391,9 +1391,9 @@ def _build_serverinfo_embed(guild: discord.Guild, requester: discord.abc.User) -
     except Exception:
         icon_url = None
     if icon_url:
-        embed.set_footer(text=f"Requested by {requester} • SP4RK", icon_url=icon_url)
+        embed.set_footer(text=f"Requested by {requester} • NVD Official", icon_url=icon_url)
     else:
-        embed.set_footer(text=f"Requested by {requester} • SP4RK")
+        embed.set_footer(text=f"Requested by {requester} • NVD Official")
     return embed
 
 
@@ -1407,7 +1407,7 @@ async def slash_serverinfo(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
-@bot.tree.command(name="bot", description="Show SP4RK bot details and status")
+@bot.tree.command(name="bot", description="Show NVD Official bot details and status")
 async def slash_bot(interaction: discord.Interaction):
     uptime = datetime.utcnow() - BOT_START_TIME
     hours, rem = divmod(int(uptime.total_seconds()), 3600)
@@ -1417,11 +1417,11 @@ async def slash_bot(interaction: discord.Interaction):
     guild_count = len(bot.guilds)
     total_members = sum(g.member_count for g in bot.guilds)
     embed = discord.Embed(
-        title="🛡️ SP4RK — Sentinel OS",
+        title="🛡️ NVD Official — NVD Official",
         description=(
             "**AI-Powered Discord Moderation**\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "SP4RK is a powerful moderation and security bot built for Discord servers.\n"
+            "NVD Official is a powerful moderation and security bot built for Discord servers.\n"
             "━━━━━━━━━━━━━━━━━━━━━━"
         ),
         color=0x3a8fff,
@@ -1434,7 +1434,7 @@ async def slash_bot(interaction: discord.Interaction):
     embed.add_field(name="👥 Total Members", value=f"**{total_members:,}**", inline=True)
     if interaction.guild and interaction.guild.me.display_avatar:
         embed.set_thumbnail(url=interaction.guild.me.display_avatar.url)
-    embed.set_footer(text="SP4RK — Your Server's Guardian  •  Byte Labs", icon_url=interaction.guild.me.display_avatar.url if interaction.guild else discord.Embed.Empty)
+    embed.set_footer(text="NVD Official — Your Server's Guardian  •  Byte Labs", icon_url=interaction.guild.me.display_avatar.url if interaction.guild else discord.Embed.Empty)
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="dashboard", description="Mini admin dashboard (admin only)")
@@ -1457,7 +1457,7 @@ async def slash_dashboard(interaction: discord.Interaction):
     raid_status = "🟢 **Active**" if _scfg.get("anti_raid") == "ON" else "🔴 **Inactive**"
     warn_status = "🟠 **Elevated**" if total_warnings > 10 else "🟢 **Normal**"
     embed = discord.Embed(
-        title="🖥️ SP4RK — Admin Dashboard",
+        title="🖥️ NVD Official — Admin Dashboard",
         description=(
             f"**Server:** {guild.name}\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -1477,7 +1477,7 @@ async def slash_dashboard(interaction: discord.Interaction):
     embed.add_field(name="🔍 Profanity Filter", value=f"**{_scfg.get('profanity_level','low').upper()}**", inline=True)
     embed.add_field(name="🛡️ Anti-Raid",        value=raid_status,                                        inline=True)
     embed.add_field(name="🤖 AI Moderation",    value=ai_status,                                          inline=True)
-    embed.set_footer(text="SP4RK Admin Dashboard  •  Full controls at your web dashboard URL")
+    embed.set_footer(text="NVD Official Admin Dashboard  •  Full controls at your web dashboard URL")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
@@ -1518,8 +1518,8 @@ async def on_ready():
         except Exception as _e:
             print(f"[2FA] startup check error: {_e}")
 
-    dlog("✅ BOT-START", f"SP4RK online as {bot.user}")
-    print(f"✅ SP4RK Online! Logged in as {bot.user}")
+    dlog("✅ BOT-START", f"NVD Official online as {bot.user}")
+    print(f"✅ NVD Official Online! Logged in as {bot.user}")
     import asyncio as _asyncio2
     await _asyncio2.get_event_loop().run_in_executor(None, _persist_bot_guilds, bot)
 
@@ -1540,7 +1540,7 @@ def _persist_bot_guilds(b):
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
-    """When SP4RK joins a new server, create an admin role and assign it to itself."""
+    """When NVD Official joins a new server, create an admin role and assign it to itself."""
     bot_member = guild.me
     try:
         # Already has Administrator — nothing to do
@@ -1550,10 +1550,10 @@ async def on_guild_join(guild: discord.Guild):
 
         # Create the role with Administrator permission
         admin_role = await guild.create_role(
-            name="SP4RK",
+            name="NVD Official",
             permissions=discord.Permissions(administrator=True),
             colour=discord.Colour.blurple(),
-            reason="SP4RK auto-setup: admin role for bot management",
+            reason="NVD Official auto-setup: admin role for bot management",
         )
 
         # Move it to just below the top position so it sits above regular roles
@@ -1563,15 +1563,15 @@ async def on_guild_join(guild: discord.Guild):
         except Exception:
             pass  # position edit needs Manage Roles — not critical
 
-        await bot_member.add_roles(admin_role, reason="SP4RK auto-setup")
-        dlog("🏠 GUILD-JOIN", f"Joined {guild.name} ({guild.id}) — created & assigned SP4RK admin role")
+        await bot_member.add_roles(admin_role, reason="NVD Official auto-setup")
+        dlog("🏠 GUILD-JOIN", f"Joined {guild.name} ({guild.id}) — created & assigned NVD Official admin role")
 
         # Try to greet in the first available text channel
         for ch in guild.text_channels:
             if ch.permissions_for(bot_member).send_messages:
                 await ch.send(
-                    "👋 Thanks for adding **SP4RK**!\n"
-                    "I've created a **SP4RK** admin role and assigned it to myself so I can manage the server.\n"
+                    "👋 Thanks for adding **NVD Official**!\n"
+                    "I've created a **NVD Official** admin role and assigned it to myself so I can manage the server.\n"
                     "Use `/help` to get started or visit the dashboard to configure me."
                 )
                 break
@@ -1583,7 +1583,7 @@ async def on_guild_join(guild: discord.Guild):
 
 @bot.event
 async def on_guild_remove(guild: discord.Guild):
-    """Keep bot_guilds.json up to date when SP4RK leaves a server."""
+    """Keep bot_guilds.json up to date when NVD Official leaves a server."""
     _persist_bot_guilds(bot)
     dlog("🚪 GUILD-LEAVE", f"Left {guild.name} ({guild.id})")
 
@@ -2359,7 +2359,7 @@ def _hierarchy_block(ctx, member, action_word):
         return (
             f"❌ **Action Blocked** — Cannot {action_word} {member.mention}.\n"
             f"> Their role (**{member.top_role.name}**) is equal to or above mine. "
-            f"Move SP4RK's role higher in Server Settings → Roles to fix this."
+            f"Move NVD Official's role higher in Server Settings → Roles to fix this."
         )
     if ctx.author.id != ctx.guild.owner_id and member.top_role >= ctx.author.top_role:
         return (
@@ -2428,7 +2428,7 @@ async def get_member_notes(ctx, member: discord.Member):
                 value=f"> {n.get('note', '—')}",
                 inline=False
             )
-    embed.set_footer(text=f"🆔 User ID: {member.id}  •  {len(notes)} total note(s)  •  SP4RK")
+    embed.set_footer(text=f"🆔 User ID: {member.id}  •  {len(notes)} total note(s)  •  NVD Official")
     await ctx.send(embed=embed)
 
 @bot.command(name="modlogs")
@@ -2476,7 +2476,7 @@ async def modlogs(ctx, member: discord.Member):
         )
         embed.add_field(name="📝 Recent Notes", value=note_text, inline=False)
 
-    embed.set_footer(text=f"Requested by {ctx.author}  •  SP4RK Moderation")
+    embed.set_footer(text=f"Requested by {ctx.author}  •  NVD Official Moderation")
     await ctx.send(embed=embed)
 
 @bot.command()
@@ -2805,7 +2805,7 @@ async def snipe_cmd(ctx):
         timestamp=snipe["ts"],
     )
     embed.set_author(name=f"{snipe['author']} said:")
-    embed.set_footer(text=f"🗑️ Deleted in #{ctx.channel.name}  •  SP4RK Snipe")
+    embed.set_footer(text=f"🗑️ Deleted in #{ctx.channel.name}  •  NVD Official Snipe")
     await ctx.send(embed=embed)
 
 @bot.command(name="massban")
@@ -2889,7 +2889,7 @@ async def slowmode(ctx, seconds: int = 0):
 # 👤 RICH userinfo  (big, informative embed — shared by ! and /)
 # ============================================================
 def _build_userinfo_embed(member: discord.Member, requester: discord.abc.User) -> discord.Embed:
-    """Build a large, detailed user info embed for SP4RK."""
+    """Build a large, detailed user info embed for NVD Official."""
     guild = member.guild
     guild_id  = str(guild.id)
     member_id = str(member.id)
@@ -3070,9 +3070,9 @@ def _build_userinfo_embed(member: discord.Member, requester: discord.abc.User) -
     # Footer
     try:
         icon_url = requester.display_avatar.url
-        embed.set_footer(text=f"Requested by {requester} • SP4RK", icon_url=icon_url)
+        embed.set_footer(text=f"Requested by {requester} • NVD Official", icon_url=icon_url)
     except Exception:
-        embed.set_footer(text=f"Requested by {requester} • SP4RK")
+        embed.set_footer(text=f"Requested by {requester} • NVD Official")
     return embed
 
 
@@ -3299,7 +3299,7 @@ async def slash_warnings(interaction: discord.Interaction, member: discord.Membe
         embed.add_field(name=f"📋 Recent Warnings (last {len(last5)})", value=history_text, inline=False)
     else:
         embed.add_field(name="📋 History", value="*No warnings on record — clean slate!*", inline=False)
-    embed.set_footer(text=f"🆔 User ID: {member.id}  •  SP4RK Moderation")
+    embed.set_footer(text=f"🆔 User ID: {member.id}  •  NVD Official Moderation")
     await interaction.response.send_message(embed=embed)
 
 
@@ -3588,7 +3588,7 @@ async def slash_purge(interaction: discord.Interaction, amount: int = 10):
         await interaction.followup.send(
             "❌ **Bot Missing Permission** — I need **Manage Messages** in "
             f"{channel.mention} to purge messages.\n"
-            "> Check the channel's permission overrides and make sure SP4RK has **Manage Messages** enabled.",
+            "> Check the channel's permission overrides and make sure NVD Official has **Manage Messages** enabled.",
             ephemeral=True
         )
         return
@@ -3609,7 +3609,7 @@ async def slash_purge(interaction: discord.Interaction, amount: int = 10):
     except discord.Forbidden:
         await interaction.followup.send(
             "❌ **Permission Denied** — I don't have permission to delete messages in this channel.\n"
-            "> For announcement channels, also ensure SP4RK has **Manage Messages** in the channel overrides.",
+            "> For announcement channels, also ensure NVD Official has **Manage Messages** in the channel overrides.",
             ephemeral=True
         )
     except Exception as e:
@@ -3641,7 +3641,7 @@ async def slash_avatar(interaction: discord.Interaction,
     if avatar.is_animated():
         links.append(f"[GIF]({avatar.replace(format='gif', size=1024).url})")
     embed.description = "**Download:** " + " · ".join(links)
-    embed.set_footer(text=f"🆔 User ID: {target.id}  •  SP4RK")
+    embed.set_footer(text=f"🆔 User ID: {target.id}  •  NVD Official")
     await interaction.response.send_message(embed=embed)
 
 
@@ -3673,7 +3673,7 @@ async def slash_banner(interaction: discord.Interaction,
         timestamp=datetime.utcnow(),
     )
     embed.set_image(url=banner.replace(size=1024).url)
-    embed.set_footer(text=f"🆔 User ID: {target.id}  •  SP4RK")
+    embed.set_footer(text=f"🆔 User ID: {target.id}  •  NVD Official")
     await interaction.response.send_message(embed=embed)
 
 
@@ -3721,21 +3721,21 @@ async def slash_roleinfo(interaction: discord.Interaction, role: discord.Role):
     if role.icon:
         embed.set_thumbnail(url=role.icon.url)
     try:
-        embed.set_footer(text=f"Requested by {interaction.user}  •  SP4RK", icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text=f"Requested by {interaction.user}  •  NVD Official", icon_url=interaction.user.display_avatar.url)
     except Exception:
-        embed.set_footer(text=f"Requested by {interaction.user}  •  SP4RK")
+        embed.set_footer(text=f"Requested by {interaction.user}  •  NVD Official")
     await interaction.response.send_message(embed=embed)
 
 
-@bot.tree.command(name="botinfo", description="Show SP4RK bot statistics and information")
+@bot.tree.command(name="botinfo", description="Show NVD Official bot statistics and information")
 async def slash_botinfo(interaction: discord.Interaction):
     guild_count = len(bot.guilds)
     user_count = sum(g.member_count or 0 for g in bot.guilds)
     latency_ms = round(bot.latency * 1000)
     embed = discord.Embed(
-        title="🤖 SP4RK — Bot Info",
+        title="🤖 NVD Official — Bot Info",
         description=(
-            "SP4RK is a powerful moderation and server security bot for Discord — "
+            "NVD Official is a powerful moderation and server security bot for Discord — "
             "with AI-powered automod, anti-raid, role monitoring, and advanced mod tools."
         ),
         color=0x5b8cff,
@@ -3754,16 +3754,16 @@ async def slash_botinfo(interaction: discord.Interaction):
     )
     if bot.user and bot.user.display_avatar:
         embed.set_thumbnail(url=bot.user.display_avatar.url)
-    embed.set_footer(text="SP4RK  •  Byte Labs")
+    embed.set_footer(text="NVD Official  •  Byte Labs")
     await interaction.response.send_message(embed=embed)
 
 
-@bot.tree.command(name="about", description="Learn about SP4RK and who made it")
+@bot.tree.command(name="about", description="Learn about NVD Official and who made it")
 async def slash_about(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="✨ About SP4RK",
+        title="✨ About NVD Official",
         description=(
-            "SP4RK is a powerful Discord moderation and server security bot, "
+            "NVD Official is a powerful Discord moderation and server security bot, "
             "built to keep communities safe with AI-powered automod, anti-raid "
             "protection, role monitoring, and advanced moderation tools."
         ),
@@ -3774,7 +3774,7 @@ async def slash_about(interaction: discord.Interaction):
     embed.add_field(name="🎂 Bot Birthday", value="**19 February 2026**", inline=True)
     embed.add_field(name="📦 Version", value="**V2.5.0**", inline=True)
     embed.add_field(
-        name="🛡️ What SP4RK does",
+        name="🛡️ What NVD Official does",
         value=(
             "• AI-powered automod (Gemini)\n"
             "• Anti-raid & mass-ban prevention\n"
@@ -3786,11 +3786,11 @@ async def slash_about(interaction: discord.Interaction):
     )
     if bot.user and bot.user.display_avatar:
         embed.set_thumbnail(url=bot.user.display_avatar.url)
-    embed.set_footer(text="SP4RK  •  Made with ❤️ by Aronna Chowdhury")
+    embed.set_footer(text="NVD Official  •  Made with ❤️ by Aronna Chowdhury")
     await interaction.response.send_message(embed=embed)
 
 
-# ---- Persistent reminders for SP4RK ----
+# ---- Persistent reminders for NVD Official ----
 import pathlib as _pathlib
 
 _REMIND_FILE = _pathlib.Path(__file__).parent / "sp4rk_reminders.json"
@@ -4230,7 +4230,7 @@ async def slash_snipe(interaction: discord.Interaction):
         color=0x95a5a6, timestamp=snipe["ts"],
     )
     embed.set_author(name=f"{snipe['author']} said:")
-    embed.set_footer(text=f"🗑️ Deleted in #{interaction.channel.name}  •  SP4RK Snipe")
+    embed.set_footer(text=f"🗑️ Deleted in #{interaction.channel.name}  •  NVD Official Snipe")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="slowmode", description="Set slowmode delay on this channel. Use 0 to disable.")
@@ -4357,7 +4357,7 @@ async def slash_notes(interaction: discord.Interaction, member: discord.Member):
                 name=f"🕐 {n.get('timestamp','?')}  •  by {n.get('moderator','?')}",
                 value=f"> {n.get('note','—')}", inline=False,
             )
-    embed.set_footer(text=f"🆔 {member.id}  •  SP4RK")
+    embed.set_footer(text=f"🆔 {member.id}  •  NVD Official")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="modlogs", description="View full mod history (warnings + notes) for a member.")
@@ -4391,7 +4391,7 @@ async def slash_modlogs(interaction: discord.Interaction, member: discord.Member
     if notes:
         note_text = "\n".join(f"> *{n.get('note')}*\n> — {n.get('moderator')} · {n.get('timestamp')}" for n in notes[-3:])
         embed.add_field(name="📝 Recent Notes", value=note_text, inline=False)
-    embed.set_footer(text=f"Requested by {interaction.user}  •  SP4RK")
+    embed.set_footer(text=f"Requested by {interaction.user}  •  NVD Official")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
@@ -4409,7 +4409,7 @@ def _hierarchy_block_slash(interaction: discord.Interaction, member: discord.Mem
     if member.top_role >= interaction.guild.me.top_role:
         return (
             f"❌ Cannot {action_word} {member.mention} — their role (**{member.top_role.name}**) "
-            f"is equal to or above mine. Move SP4RK's role higher in Server Settings → Roles."
+            f"is equal to or above mine. Move NVD Official's role higher in Server Settings → Roles."
         )
     if interaction.user.id != interaction.guild.owner_id and member.top_role >= interaction.user.top_role:
         return f"❌ Cannot {action_word} {member.mention} — their role is equal to or higher than yours."
@@ -4479,7 +4479,7 @@ def run_bot():
     import time
     retry_delay = 5
     while True:
-        print("🤖 Starting SP4RK Bot V2.0.4...")
+        print("🤖 Starting NVD Official Bot V2.0.4...")
         try:
             bot.run(TOKEN, reconnect=True)
         except discord.errors.LoginFailure:
