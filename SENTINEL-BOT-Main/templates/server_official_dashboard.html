@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Server Official — SP4RK</title>
+<title>NVD Official — SP4RK</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
@@ -335,7 +335,7 @@ html.bl-compact .main{padding:20px;}
 <!-- SPLASH -->
 <div id="bl-splash" role="status" aria-live="polite">
   <div class="bl-spinner"></div>
-  <div class="bl-splash-logo"><span>Server Official</span></div>
+  <div class="bl-splash-logo"><span>NVD Official</span></div>
   <div id="bl-tip-text">Loading dashboard…</div>
 </div>
 
@@ -390,7 +390,7 @@ html.bl-compact .main{padding:20px;}
       <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Menu"><i class="fas fa-bars"></i></button>
       <div>
         <h1 id="pageTitle">Overview</h1>
-        <div class="crumb"><a href="/bots">All Bots</a> / <span>Server Official</span></div>
+        <div class="crumb"><a href="/bots">All Bots</a> / <span>NVD Official</span></div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -515,7 +515,7 @@ html.bl-compact .main{padding:20px;}
     <div class="grid grid-2">
       <div class="card">
         <h2><i class="fas fa-image"></i> Per-Server Bot Avatar</h2>
-        <p class="help">Set a custom avatar for Server Official <strong>only in this server</strong> — other servers keep their own avatar. Discord applies it via its per-guild bot profile API (2023+).</p>
+        <p class="help">Set a custom avatar for NVD Official <strong>only in this server</strong> — other servers keep their own avatar. Discord applies it via its per-guild bot profile API (2023+).</p>
         <div id="avatarPermBanner" class="help" style="margin-bottom:11px;"></div>
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
           <img id="avatarPreview" alt="Avatar" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--border);"/>
@@ -545,7 +545,7 @@ html.bl-compact .main{padding:20px;}
     <div class="card">
       <h2><i class="fas fa-sliders"></i> Server Config</h2>
       <div class="row">
-        <div class="field"><label>Display Name</label><input id="cfgDisplayName" placeholder="Server Official"/></div>
+        <div class="field"><label>Display Name</label><input id="cfgDisplayName" placeholder="NVD Official"/></div>
         <div class="field"><label>Welcome Channel ID</label><input id="cfgWelcomeChan" placeholder="123…"/></div>
         <div class="field"><label>Welcome Role ID</label><input id="cfgWelcomeRole" placeholder="123…"/></div>
         <div class="field"><label>Log Channel ID</label><input id="cfgLogChan" placeholder="123…"/></div>
@@ -829,7 +829,7 @@ html.bl-compact .main{padding:20px;}
   <!-- EMBED EDITOR -->
   <!-- ============================================================ -->
   <section class="section" data-section="embeds">
-    <p class="help" style="margin-bottom:14px;">Customize the title, description, color, and footer of every embed Server Official sends. Pick a scope — server-specific edits override the global default.</p>
+    <p class="help" style="margin-bottom:14px;">Customize the title, description, color, and footer of every embed NVD Official sends. Pick a scope — server-specific edits override the global default.</p>
     <div class="card" style="padding:13px 15px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:13px;align-items:center;">
       <i class="fas fa-bullseye" style="color:#7eb1ff;"></i>
       <strong style="font-size:.92rem;">Apply to:</strong>
@@ -1331,7 +1331,7 @@ async function loadGuildConfig(){
   applyDisplayName(r.data.display_name||'');
 }
 function applyDisplayName(name){
-  const real = name&&name.trim()?name.trim():'Server Official';
+  const real = name&&name.trim()?name.trim():'NVD Official';
   document.title = real+' — Dashboard';
   const b=document.querySelector('.sb-brand-name'); if(b) b.innerHTML=real.length>14?real.replace(/\s+/,'<br>'):real;
 }
@@ -1349,7 +1349,7 @@ async function resetDisplayName(){
   $('#cfgDisplayName').value='';
   const r=await api('POST','/server-official/api/config',{guild_id:currentGuildId,display_name:''});
   if(r&&r.discord_status) toast(r.discord_status,r.ok===false?'err':'ok');
-  else if(r&&r.ok!==false) toast('Reset to Server Official');
+  else if(r&&r.ok!==false) toast('Reset to NVD Official');
   applyDisplayName('');
 }
 async function saveGuildConfig(){
@@ -2080,7 +2080,7 @@ loadTemplates();
     <div style="font-size:.68rem;color:#5b8cff;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:11px;"><i class="fas fa-circle-info"></i> System Info</div>
     <div id="bl-dev-sysinfo" style="display:flex;flex-direction:column;gap:5px;font-size:.76rem;"></div>
   </div>
-  <div style="padding:12px 19px;font-size:.68rem;color:var(--muted);text-align:center;opacity:.65;letter-spacing:.6px;">Server Official · SP4RK · dev mode</div>
+  <div style="padding:12px 19px;font-size:.68rem;color:var(--muted);text-align:center;opacity:.65;letter-spacing:.6px;">NVD Official · SP4RK · dev mode</div>
 </aside>
 
 <script>
