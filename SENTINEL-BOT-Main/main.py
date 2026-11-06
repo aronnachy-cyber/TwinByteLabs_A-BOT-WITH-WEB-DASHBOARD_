@@ -1494,16 +1494,16 @@ async def on_ready():
     s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
     await bot.change_presence(status=s_map.get(config.get("bot_status", "online"), discord.Status.online))
     try:
-        # Guild-level sync first — propagates INSTANTLY (no 1-hour wait)
+        # Remove legacy guild-scoped copies to prevent every command appearing twice.
+        # Keep the command set global-only; Discord may take time to propagate updates.
         for _guild in bot.guilds:
             try:
-                bot.tree.copy_global_to(guild=_guild)
+                bot.tree.clear_commands(guild=_guild)
                 await bot.tree.sync(guild=_guild)
-            except Exception:
-                pass
-        # Global sync for new guilds the bot joins later
+            except Exception as _guild_sync_error:
+                print(f"[SYNC] Could not clear guild commands for {_guild.id}: {_guild_sync_error}")
         synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} global slash command(s) + guild-level instant sync done")
+        print(f"✅ Synced {len(synced)} global slash command(s); cleared guild-specific duplicates.")
     except Exception as e:
         print(f"Slash command sync error: {e}")
     sync_bot_settings.start()
