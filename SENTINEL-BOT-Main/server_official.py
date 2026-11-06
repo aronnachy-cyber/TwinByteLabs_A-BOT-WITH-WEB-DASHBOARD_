@@ -1,5 +1,5 @@
 """
-server_official.py — Server Official Discord bot + data layer.
+server_official.py — NVD Official Discord bot + data layer.
 
 Started as a daemon thread by wsgi.py when SERVER_TOKEN is set.
 The dashboard (dashboard.py) imports this module and calls its public
@@ -93,13 +93,13 @@ _loop: Optional[asyncio.AbstractEventLoop] = None
 async def on_ready():
     global _loop
     _loop = asyncio.get_event_loop()
-    print(f"[Server Official] Logged in as {bot.user} ({bot.user.id})")
-    print(f"[Server Official] Connected to {len(bot.guilds)} guild(s)")
+    print(f"[NVD Official] Logged in as {bot.user} ({bot.user.id})")
+    print(f"[NVD Official] Connected to {len(bot.guilds)} guild(s)")
     try:
         await bot.tree.sync()
-        print("[Server Official] Slash commands synced.")
+        print("[NVD Official] Slash commands synced.")
     except Exception as e:
-        print(f"[Server Official] Slash sync error: {e}")
+        print(f"[NVD Official] Slash sync error: {e}")
     if not _check_announcements.is_running():
         _check_announcements.start()
     if not _check_reminders.is_running():
@@ -202,14 +202,14 @@ async def _check_announcements():
                 )
                 if ann.get("image_url"):
                     e.set_image(url=ann["image_url"])
-                e.set_footer(text="Server Official • Byte Labs")
+                e.set_footer(text="NVD Official • ")
                 await ch.send(embed=e)
                 ann["posted"] = True
                 ann["posted_at"] = _now_iso()
                 changed = True
-                print(f"[Server Official] Posted announcement {ann['id']} to channel {ann['channel_id']}")
+                print(f"[NVD Official] Posted announcement {ann['id']} to channel {ann['channel_id']}")
             except Exception as ex:
-                print(f"[Server Official] Announcement send error: {ex}")
+                print(f"[NVD Official] Announcement send error: {ex}")
     if changed:
         _set("announcements", announcements)
 
@@ -813,7 +813,7 @@ async def _check_giveaways():
                     description=f"🏆 **Prize:** {gw['prize']}\n🥇 **Winner(s):** {winner_mentions}\n🎗️ **Hosted by:** {gw['host']}",
                     color=0x2ecc71,
                 )
-                e.set_footer(text="Server Official • Byte Labs")
+                e.set_footer(text="NVD Official • ")
                 await ch.send(embed=e)
                 await ch.send(f"🎉 Congratulations {winner_mentions}! You won **{gw['prize']}**!")
             else:
@@ -841,23 +841,23 @@ def _is_admin(member: discord.Member) -> bool:
 
 
 # ── /ping ─────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="ping", description="Check if Server Official is online and responding.")
+@bot.tree.command(name="ping", description="Check if NVD Official is online and responding.")
 async def slash_ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
     e = discord.Embed(
         title="🏓 Pong!",
-        description=f"Server Official is online.\n⚡ Latency: **{latency}ms**",
+        description=f"NVD Official is online.\n⚡ Latency: **{latency}ms**",
         color=0x2ecc71,
     )
-    e.set_footer(text="Server Official • Byte Labs")
+    e.set_footer(text="NVD Official • ")
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
 # ── /help ─────────────────────────────────────────────────────────────────────
-@bot.tree.command(name="help", description="Show all available Server Official commands.")
+@bot.tree.command(name="help", description="Show all available NVD Official commands.")
 async def slash_help(interaction: discord.Interaction):
     e = discord.Embed(
-        title="📖 Server Official — Commands",
+        title="📖 NVD Official — Commands",
         description="All slash commands available in this server.",
         color=0x5b8cff,
     )
@@ -868,7 +868,7 @@ async def slash_help(interaction: discord.Interaction):
     e.add_field(name="📌 Sticky Messages", value="`/sticky` — Pin a message to the bottom of a channel\n`/unsticky` — Remove the sticky from a channel", inline=False)
     e.add_field(name="⚙️ Custom Commands", value="`/cc add` — Add a custom command\n`/cc remove` — Remove a custom command\n`/cc list` — List all custom commands", inline=False)
     e.add_field(name="🛠️ Utilities", value="`/ping` — Check bot latency\n`/serverinfo` — Show server information", inline=False)
-    e.set_footer(text="Server Official • Byte Labs | Prefix: so!")
+    e.set_footer(text="NVD Official •  | Prefix: so!")
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
@@ -891,7 +891,7 @@ async def slash_serverinfo(interaction: discord.Interaction):
     e.add_field(name="😀 Emojis", value=str(len(g.emojis)), inline=True)
     e.add_field(name="🔒 Verification", value=str(g.verification_level).title(), inline=True)
     e.add_field(name="📅 Created", value=f"<t:{int(g.created_at.timestamp())}:D>", inline=True)
-    e.set_footer(text=f"Server ID: {g.id}  •  Server Official")
+    e.set_footer(text=f"Server ID: {g.id}  •  NVD Official")
     await interaction.response.send_message(embed=e)
 
 
@@ -923,7 +923,7 @@ async def slash_announce(
         color=hex_color,
         timestamp=datetime.now(timezone.utc),
     )
-    e.set_footer(text=f"Announced by {interaction.user}  •  Server Official")
+    e.set_footer(text=f"Announced by {interaction.user}  •  NVD Official")
     await channel.send(embed=e)
     add_bot_action("announce", f"Announcement posted to #{channel.name}: {title}", str(interaction.user))
     await interaction.response.send_message(f"✅ Announcement posted in {channel.mention}!", ephemeral=True)
@@ -1004,7 +1004,7 @@ async def slash_giveaway(
         color=0xf5b400,
         timestamp=ends_dt,
     )
-    e.set_footer(text="Server Official • Giveaway — ends at")
+    e.set_footer(text="NVD Official • Giveaway — ends at")
     await interaction.response.send_message("✅ Giveaway started!", ephemeral=True)
     sent = await ch.send(embed=e)
     await sent.add_reaction("🎉")
@@ -1115,7 +1115,7 @@ async def cc_list(interaction: discord.Interaction):
         return
     lines = [f"`{c['trigger']}` → {c.get('result') or c.get('response', '')}" for c in cmds[:25]]
     e = discord.Embed(title="⚙️ Custom Commands", description="\n".join(lines), color=0x5b8cff)
-    e.set_footer(text=f"{len(cmds)} command(s)  •  Server Official")
+    e.set_footer(text=f"{len(cmds)} command(s)  •  NVD Official")
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 bot.tree.add_command(cc_group)
@@ -1128,17 +1128,17 @@ async def prefix_ping(ctx):
     latency = round(bot.latency * 1000)
     await ctx.send(embed=discord.Embed(
         title="🏓 Pong!",
-        description=f"Server Official is online.\n⚡ Latency: **{latency}ms**",
+        description=f"NVD Official is online.\n⚡ Latency: **{latency}ms**",
         color=0x2ecc71,
     ))
 
 @bot.command(name="help")
 async def prefix_help(ctx):
-    e = discord.Embed(title="📖 Server Official — Commands", color=0x5b8cff)
+    e = discord.Embed(title="📖 NVD Official — Commands", color=0x5b8cff)
     e.add_field(name="Prefix", value="`so!`", inline=False)
     e.add_field(name="Slash commands", value="`/ping` `/help` `/announce` `/poll` `/giveaway` `/remind` `/sticky` `/unsticky` `/cc` `/serverinfo`", inline=False)
     e.add_field(name="Prefix commands", value="`so!ping` `so!help` `so!serverinfo`", inline=False)
-    e.set_footer(text="Server Official • Byte Labs")
+    e.set_footer(text="NVD Official • ")
     await ctx.send(embed=e)
 
 @bot.command(name="serverinfo")
@@ -1153,7 +1153,7 @@ async def prefix_serverinfo(ctx):
     e.add_field(name="👥 Members", value=f"{humans} humans • {bots} bots", inline=True)
     e.add_field(name="📁 Channels", value=f"{len(g.text_channels)} text • {len(g.voice_channels)} voice", inline=True)
     e.add_field(name="📅 Created", value=f"<t:{int(g.created_at.timestamp())}:D>", inline=True)
-    e.set_footer(text=f"Server ID: {g.id}  •  Server Official")
+    e.set_footer(text=f"Server ID: {g.id}  •  NVD Official")
     await ctx.send(embed=e)
 
 
@@ -1162,25 +1162,25 @@ async def prefix_serverinfo(ctx):
 # ---------------------------------------------------------------------------
 def run_bot():
     if not TOKEN:
-        print("[Server Official] SERVER_TOKEN not set — bot will not start.")
+        print("[NVD Official] SERVER_TOKEN not set — bot will not start.")
         return
     retry_delay = 5
     while True:
-        print("[Server Official] Connecting to Discord...")
+        print("[NVD Official] Connecting to Discord...")
         try:
             bot.run(TOKEN, reconnect=True)
         except discord.errors.LoginFailure:
-            print("[Server Official] ❌ Invalid SERVER_TOKEN.")
+            print("[NVD Official] ❌ Invalid SERVER_TOKEN.")
             break
         except discord.errors.HTTPException as e:
             if e.status == 429:
-                print("[Server Official] Rate limited — retrying in 60s")
+                print("[NVD Official] Rate limited — retrying in 60s")
                 time.sleep(60)
             else:
-                print(f"[Server Official] HTTP error: {e} — retrying in {retry_delay}s")
+                print(f"[NVD Official] HTTP error: {e} — retrying in {retry_delay}s")
                 time.sleep(retry_delay)
         except Exception as e:
-            print(f"[Server Official] Crashed: {e} — retrying in {retry_delay}s")
+            print(f"[NVD Official] Crashed: {e} — retrying in {retry_delay}s")
             time.sleep(retry_delay)
 
 
@@ -1192,5 +1192,5 @@ def start_bot_thread() -> bool:
         return False
     _bot_thread = threading.Thread(target=run_bot, daemon=True, name="server-official-bot")
     _bot_thread.start()
-    print("[Server Official] Bot thread started.")
+    print("[NVD Official] Bot thread started.")
     return True
