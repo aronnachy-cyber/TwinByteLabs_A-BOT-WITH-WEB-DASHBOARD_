@@ -1,6 +1,6 @@
-# SP4RK — Private Discord Bot + Web Dashboard
+# NVD Official — Private Discord Bot + Web Dashboard
 
-SP4RK is a privately operated Discord moderation bot with an admin web dashboard. Public bot-directory listings and self-service invitation links are disabled; existing bot functionality remains available to the configured operator. It provides auto-moderation, role management, security, social alerts, AI-powered moderation, and a fully interactive web UI for managing your server.
+NVD Official is a privately operated Discord moderation bot with an admin web dashboard. Public bot-directory listings and self-service invitation links are disabled; existing bot functionality remains available to the configured operator. It provides auto-moderation, role management, security, social alerts, AI-powered moderation, and a fully interactive web UI for managing your server.
 
 ---
 
