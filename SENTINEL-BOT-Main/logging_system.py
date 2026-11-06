@@ -262,7 +262,7 @@ async def setup(bot):
         for guild in bot.guilds:
             if guild.get_member(after.id):
                 for event,title,detail in events:
-                    await emit(bot,guild,event,title,"User: "+str(after)+" ("+str(after.id)+")\\n"+detail,
+                    await emit(bot,guild,event,title,"User: "+str(after)+" ("+str(after.id)+")\n"+detail,
                         actor=after,dedupe_id=str(after.id)+":"+event+":"+str(after.avatar)+":"+after.name+":"+str(after.global_name))
 
     @bot.listen("on_voice_state_update")
