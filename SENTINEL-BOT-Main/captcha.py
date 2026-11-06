@@ -5,8 +5,8 @@ The selected Verified role remains entirely administrator-managed.
 """
 from __future__ import annotations
 
+import asyncio
 import random
-import string
 import time
 
 import discord
@@ -32,14 +32,14 @@ def _guild_config(guild_id: int) -> dict:
 
 
 class CaptchaModal(discord.ui.Modal):
-    def __init__(self, code: str):
+    def __init__(self, question: str, answer: int):
         super().__init__(title="Human verification")
-        self.expected_code = code
+        self.expected_answer = str(answer)
         self.answer = discord.ui.TextInput(
-            label=f"Enter this code: {code}",
-            placeholder="Type the 5-character code",
-            min_length=5,
-            max_length=5,
+            label=f"Solve: {question}",
+            placeholder="Enter the number",
+            min_length=1,
+            max_length=3,
             required=True,
         )
         self.add_item(self.answer)
@@ -61,7 +61,7 @@ class CaptchaModal(discord.ui.Modal):
                 f"Too many attempts. Try again in about {seconds} seconds.", ephemeral=True
             )
 
-        if str(self.answer.value).strip().upper() != self.expected_code:
+        if str(self.answer.value).strip() != self.expected_answer:
             count += 1
             if count >= _MAX_ATTEMPTS:
                 _attempts[key] = (0, now + _LOCKOUT_SECONDS)
@@ -162,9 +162,15 @@ class CaptchaView(discord.ui.View):
                 f"Too many attempts. Try again in about {seconds} seconds.", ephemeral=True
             )
 
-        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-        code = "".join(random.SystemRandom().choice(alphabet) for _ in range(5))
-        await interaction.response.send_modal(CaptchaModal(code))
+        # A short arithmetic challenge is self-contained and needs no external CAPTCHA key.
+        first = random.SystemRandom().randint(12, 39)
+        second = random.SystemRandom().randint(4, 19)
+        if random.SystemRandom().choice((True, False)):
+            question, answer = f"{first} + {second}", first + second
+        else:
+            larger, smaller = max(first, second), min(first, second)
+            question, answer = f"{larger} - {smaller}", larger - smaller
+        await interaction.response.send_modal(CaptchaModal(question, answer))
 
 
 def register_persistent_view(bot):
@@ -177,15 +183,18 @@ def register_persistent_view(bot):
 async def _trusted_bot_inviter(guild: discord.Guild, member: discord.Member) -> bool:
     """Only bypass verification for bots whose inviter is owner/admin."""
     try:
-        await discord.utils.sleep_until(discord.utils.utcnow() + __import__("datetime").timedelta(seconds=1))
+        await asyncio.sleep(1)
         cutoff = discord.utils.utcnow() - __import__("datetime").timedelta(seconds=30)
-        async for entry in guild.audit_logs(limit=15, action=discord.AuditLogAction.bot_add, after=cutoff):
-            if getattr(entry.target, "id", None) != member.id or entry.user is None:
-                continue
-            inviter = guild.get_member(entry.user.id)
-            return entry.user.id == guild.owner_id or bool(
-                inviter and inviter.guild_permissions.administrator
-            )
+        for attempt in range(3):
+            async for entry in guild.audit_logs(limit=20, action=discord.AuditLogAction.bot_add, after=cutoff):
+                if getattr(entry.target, "id", None) != member.id or entry.user is None:
+                    continue
+                inviter = guild.get_member(entry.user.id)
+                return entry.user.id == guild.owner_id or bool(
+                    inviter and inviter.guild_permissions.administrator
+                )
+            if attempt < 2:
+                await asyncio.sleep(1)
     except discord.Forbidden:
         print(f"[CAPTCHA] Cannot inspect bot inviter in {guild.id}; bot remains unverified.")
     except Exception as exc:
