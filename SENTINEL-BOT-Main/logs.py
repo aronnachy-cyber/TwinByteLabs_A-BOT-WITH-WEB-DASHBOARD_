@@ -50,6 +50,7 @@ async def log_event(bot, config, title, description, color=0x3498db, guild_id=No
                 target_id = int(match.group(1))
         action_names = {
             "member_unban":"unban", "member_timeout":"member_update", "timeout_removed":"member_update", "nickname_change":"member_update",
+            "voice_server_mute":"member_update", "voice_server_unmute":"member_update", "voice_server_deafen":"member_update", "voice_server_undeafen":"member_update",
             "role_add":"member_role_update", "role_remove":"member_role_update",
             "role_rename":"role_update", "role_color_change":"role_update", "role_permissions_change":"role_update", "role_position_change":"role_update", "role_hoist_change":"role_update", "role_mentionable_change":"role_update",
             "role_create":"role_create", "role_delete":"role_delete", "role_update":"role_update",
