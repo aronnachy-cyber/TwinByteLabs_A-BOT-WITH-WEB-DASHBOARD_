@@ -56,7 +56,7 @@ async def log_event(bot, config, title, description, color=0x3498db, guild_id=No
             "role_create":"role_create", "role_delete":"role_delete", "role_update":"role_update",
             "channel_create":"channel_create", "channel_delete":"channel_delete", "channel_update":"channel_update",
             "channel_rename":"channel_update", "channel_topic_change":"channel_update", "channel_permissions_change":"channel_update", "channel_category_change":"channel_update", "channel_position_change":"channel_update", "channel_type_change":"channel_update", "channel_slowmode_change":"channel_update", "channel_nsfw_change":"channel_update",
-            "server_update":"guild_update", "server_name_change":"guild_update", "server_icon_change":"guild_update", "server_banner_change":"guild_update", "server_description_change":"guild_update", "server_settings_change":"guild_update", "invite_create":"invite_create", "invite_delete":"invite_delete",
+            "server_update":"guild_update", "server_name_change":"guild_update", "server_icon_change":"guild_update", "server_banner_change":"guild_update", "server_description_change":"guild_update", "server_settings_change":"guild_update", "emoji_create":"emoji_create", "emoji_delete":"emoji_delete", "emoji_update":"emoji_update", "sticker_create":"sticker_create", "sticker_delete":"sticker_delete", "sticker_update":"sticker_update", "invite_create":"invite_create", "invite_delete":"invite_delete",
         }
         action_name = action_names.get(event)
         if action_name:
