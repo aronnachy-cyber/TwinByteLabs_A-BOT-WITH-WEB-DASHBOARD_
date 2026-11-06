@@ -189,6 +189,8 @@ async def send_existing(bot,guild_id,category,event,embed,actor_id=None,channel_
             embed.timestamp=None
         else:
             embed.timestamp=embed.timestamp or discord.utils.utcnow()
+        if cfg.get("logging_format","detailed") == "compact":
+            embed.remove_author()
         raw_color=cfg.get("logging_embed_color",0x3498DB)
         if isinstance(raw_color,str):
             raw_color=int(raw_color.strip().lstrip("#"),16)
