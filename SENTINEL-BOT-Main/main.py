@@ -391,7 +391,7 @@ async def check_warning_limit(member, count):
     except Exception:
         pass
 
-async def add_warning(member, reason="Violation"):
+async def add_warning(member, reason="Violation", moderator=None):
     guild_id  = str(member.guild.id)
     member_id = str(member.id)
     entry = _get_member_entry(guild_id, member_id)
@@ -403,10 +403,15 @@ async def add_warning(member, reason="Violation"):
     supabase_save_warning(guild_id, member_id, str(member), count, reason, ts)
     _increment_report_action()
     dlog("⚠️ WARNING", f"{member} now has {count} warning(s) — {reason}", guild_id=member.guild.id)
+    history_text = "\n".join(
+        f"{item.get('time','Unknown')}: {item.get('reason','No reason')}"
+        for item in entry["history"][-5:]
+    ) or "No previous infractions recorded"
     await logs.log_event(
         bot, config, "⚠️ Warning Issued",
-        f"**Member:** {member} (ID: {member.id})\n**Warnings:** {count}\n**Reason:** {reason}\n**Moderator:** Unavailable from warning event context",
-        color=0xf39c12, guild_id=member.guild.id,
+        f"**Member:** {member} (ID: {member.id})\n**Warnings:** {count}\n**Reason:** {reason}\n"
+        f"**Moderator:** {moderator or 'Automatic system / unavailable'}\n**Recent infraction history:**\n{history_text}",
+        color=0xf39c12, guild_id=member.guild.id, actor=moderator,
     )
     print(f"⚠️ Warning added to {member}: {count} total | Reason: {reason}")
     await check_warning_limit(member, count)
@@ -3301,7 +3306,7 @@ async def slash_warn(interaction: discord.Interaction,
             ephemeral=True,
         )
     await interaction.response.defer()
-    await add_warning(member, reason)
+    await add_warning(member, reason, moderator=interaction.user)
     entry = _get_member_entry(str(interaction.guild.id), str(member.id))
     count = entry["count"]
     await interaction.followup.send(
@@ -3309,11 +3314,6 @@ async def slash_warn(interaction: discord.Interaction,
         f"> 📊 **Total Warnings:** {count}\n"
         f"> 📝 **Reason:** {reason}\n"
         f"> 🛡️ **Warned by:** {interaction.user.mention}"
-    )
-    await logs.log_event(
-        bot, config, "⚠️ Warning Issued",
-        f"{member} warned by {auth} | Reason: {reason}", color=0xf39c12,
-        guild_id=interaction.guild_id if interaction.guild else None,
     )
 
 
@@ -3369,6 +3369,10 @@ async def slash_clearwarnings(interaction: discord.Interaction, member: discord.
     if not await _slash_guard_guild(interaction):
         return
     guild_id, member_id = str(interaction.guild.id), str(member.id)
+    previous = warnings_db.get(guild_id, {}).get(member_id, {"count": 0, "history": []})
+    cleared_count = previous.get("count", 0)
+    cleared_history = previous.get("history", [])[-5:]
+    history_text = "\n".join(f"{h.get('time','Unknown')}: {h.get('reason','No reason')}" for h in cleared_history) or "No stored history"
     if guild_id in warnings_db and member_id in warnings_db[guild_id]:
         warnings_db[guild_id][member_id] = {"count": 0, "history": []}
         save_warnings()
@@ -3376,8 +3380,9 @@ async def slash_clearwarnings(interaction: discord.Interaction, member: discord.
     dlog("🧹 CLEAR-WARN", f"Warnings cleared for {member} by {interaction.user}", guild_id=interaction.guild_id)
     await logs.log_event(
         bot, config, "🧹 Warnings Cleared",
-        f"{member}'s warnings cleared by {interaction.user}", color=0x2ecc71,
-        guild_id=interaction.guild_id if interaction.guild else None,
+        f"**Member:** {member} (ID: {member.id})\n**Cleared by:** {interaction.user}\n"
+        f"**Warnings removed:** {cleared_count}\n**Recent infraction history:**\n{history_text}",
+        color=0x2ecc71, guild_id=interaction.guild_id if interaction.guild else None, actor=interaction.user,
     )
     await interaction.response.send_message(
         f"✅ **Warnings Cleared** — All warnings have been removed for {member.mention}.\n"
