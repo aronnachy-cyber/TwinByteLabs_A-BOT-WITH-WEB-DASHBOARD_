@@ -220,9 +220,14 @@ async def audit_actor(guild,action,target_id=None):
         pass
     return None,None
 
+async def refresh_invite_cache(bot):
+    await refresh_invite_cache(bot)
+
 async def setup(bot):
     global _registered
-    if _registered: return
+    if _registered:
+        await refresh_invite_cache(bot)
+        return
     _registered=True
 
     @bot.listen("on_raw_message_delete")
