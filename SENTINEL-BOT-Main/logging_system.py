@@ -221,7 +221,12 @@ async def audit_actor(guild,action,target_id=None):
     return None,None
 
 async def refresh_invite_cache(bot):
-    await refresh_invite_cache(bot)
+    for guild in bot.guilds:
+        try:
+            invites=await guild.invites()
+            _invite_cache[guild.id]={i.code:(i.uses or 0) for i in invites}
+        except Exception:
+            _invite_cache.pop(guild.id,None)
 
 async def setup(bot):
     global _registered
@@ -341,12 +346,7 @@ async def setup(bot):
             "\nChannel: "+str(channel or "Unavailable"),actor=member,channel=channel,
             dedupe_id=getattr(execution,"id",None))
 
-    for guild in bot.guilds:
-        try:
-            invites=await guild.invites()
-            _invite_cache[guild.id]={i.code:(i.uses or 0) for i in invites}
-        except Exception:
-            _invite_cache.pop(guild.id,None)
+    await refresh_invite_cache(bot)
 
 async def create_log_channels(guild,save_cfg,setup_member=None):
     me=guild.me
