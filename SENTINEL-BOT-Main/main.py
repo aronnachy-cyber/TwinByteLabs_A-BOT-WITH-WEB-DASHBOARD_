@@ -18,7 +18,7 @@ from dashboard import (
     supabase_load_all_warnings,
     get_guild_config as _get_guild_config,
 )
-import moderation, automod, roles, logs, security
+import moderation, automod, roles, logs, security, captcha
 
 BOT_START_TIME = datetime.utcnow()
 
@@ -1493,6 +1493,7 @@ async def on_ready():
     set_bot_config_refresh_callback(refresh_config)
     s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
     await bot.change_presence(status=s_map.get(config.get("bot_status", "online"), discord.Status.online))
+    captcha.register_persistent_view(bot)
     try:
         # Remove legacy guild-scoped copies to prevent every command appearing twice.
         # Keep the command set global-only; Discord may take time to propagate updates.
@@ -1594,11 +1595,15 @@ async def on_member_join(member):
     removed_by_guard = await security.check_join_protections(member, gcfg, bot=bot, log_callback=dlog)
     if removed_by_guard:
         return
-    await roles.assign_auto_role(member, gcfg)
-    await moderation.handle_auto_role(member, gcfg)
     await security.anti_raid_check(member, gcfg, dm_callback=dm_all_owners, log_callback=dlog)
+    captcha_pending = await captcha.handle_member_join(member, gcfg, bot=bot)
+    if not captcha_pending:
+        await roles.assign_auto_role(member, gcfg)
+        await moderation.handle_auto_role(member, gcfg)
     await logs.log_template(bot, config, "sp4rk.welcome", user=member, server=member.guild)
     dlog("👋 JOIN", f"{member} joined {member.guild.name}", guild_id=member.guild.id)
+    if captcha_pending:
+        dlog("🔐 CAPTCHA-PENDING", f"{member} is awaiting verification", guild_id=member.guild.id)
     try:
         import db_spark as _dbs
         _dbs.analytics_record_join(str(member.guild.id))
