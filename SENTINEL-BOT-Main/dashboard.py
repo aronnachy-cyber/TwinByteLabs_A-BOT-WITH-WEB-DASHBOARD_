@@ -452,7 +452,12 @@ def _load_guild_configs() -> dict:
                 return dict(_guild_config_cache)
     except Exception:
         pass
-    # 3) JSON fallback
+    # 3) Supabase persistent fallback
+    sb_data = _load_supabase_guild_configs()
+    if sb_data:
+        _guild_config_cache = dict(sb_data)
+        return dict(_guild_config_cache)
+    # 4) JSON fallback
     if os.path.exists(_GUILD_CONFIGS_FILE):
         try:
             with open(_GUILD_CONFIGS_FILE, "r", encoding="utf-8") as f:
@@ -474,8 +479,10 @@ def _save_guild_configs(data: dict) -> None:
         import db_spark as _ds
         if _ds.is_available():
             _ds.save_all_guild_configs(data)
+        else:
+            _save_supabase_guild_configs(data)
     except Exception:
-        pass
+        _save_supabase_guild_configs(data)
     # 2) JSON (keep as hot copy)
     with _guild_cfg_lock:
         tmp = _GUILD_CONFIGS_FILE + ".tmp"
@@ -566,12 +573,16 @@ def save_guild_config(guild_id: str, updates: dict) -> None:
             _guild_config_cache[guild_id] = existing
 
         # 1) Postgres — direct per-guild upsert (atomic, no stale-cache risk).
+        _db_saved = False
         try:
             import db_spark as _ds
             if _ds.is_available():
                 _ds.upsert_guild_config(guild_id, existing)
+                _db_saved = True
         except Exception as _e:
             print(f"[guild_cfg] Postgres upsert error: {_e}")
+        if not _db_saved:
+            _save_supabase_guild_configs(dict(_guild_config_cache) if _guild_config_cache else {guild_id: existing})
 
         # 2) JSON hot copy — rebuild from updated cache.
         try:
