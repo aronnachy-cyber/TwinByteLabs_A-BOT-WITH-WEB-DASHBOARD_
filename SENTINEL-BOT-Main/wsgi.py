@@ -92,21 +92,5 @@ elif not _token_present:
           "Set DISCORD_TOKEN in Render Environment to enable the bot.")
 
 
-def _start_server_official():
-    """Start the optional Server Official bot if SERVER_TOKEN is configured."""
-    so_token = os.environ.get("SERVER_TOKEN", "").strip()
-    if not so_token:
-        print("[WSGI] SERVER_TOKEN not set — optional Server Official bot will not start.")
-        return
-    try:
-        import server_official as so
-        so.start_bot_thread()
-        print("[WSGI] Server Official bot thread started.")
-    except Exception as e:
-        import traceback
-        print(f"[WSGI] Server Official start error: {e}")
-        traceback.print_exc()
-
-
-threading.Thread(target=_start_server_official, daemon=True, name="so-bot-starter").start()
+threading.Thread(target=_self_ping, daemon=True, name="self-keepalive").start()
 threading.Thread(target=_self_ping, daemon=True, name="self-keepalive").start()
