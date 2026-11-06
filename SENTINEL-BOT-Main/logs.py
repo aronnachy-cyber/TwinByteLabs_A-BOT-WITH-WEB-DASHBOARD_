@@ -49,11 +49,11 @@ async def log_event(bot, config, title, description, color=0x3498db, guild_id=No
             if match:
                 target_id = int(match.group(1))
         action_names = {
-            "member_unban":"unban", "member_timeout":"member_update", "timeout_removed":"member_update",
-            "role_add":"member_role_update", "role_remove":"member_role_update",
+            "member_unban":"unban", "member_timeout":"member_update", "timeout_removed":"member_update", "nickname_change":"member_update",
+            "role_add":"member_role_update", "role_remove":"member_role_update",\n            "role_rename":"role_update", "role_color_change":"role_update", "role_permissions_change":"role_update", "role_position_change":"role_update", "role_hoist_change":"role_update", "role_mentionable_change":"role_update",
             "role_create":"role_create", "role_delete":"role_delete", "role_update":"role_update",
-            "channel_create":"channel_create", "channel_delete":"channel_delete", "channel_update":"channel_update",
-            "server_update":"guild_update", "invite_create":"invite_create", "invite_delete":"invite_delete",
+            "channel_create":"channel_create", "channel_delete":"channel_delete", "channel_update":"channel_update",\n            "channel_rename":"channel_update", "channel_topic_change":"channel_update", "channel_permissions_change":"channel_update", "channel_category_change":"channel_update", "channel_position_change":"channel_update", "channel_type_change":"channel_update", "channel_slowmode_change":"channel_update", "channel_nsfw_change":"channel_update",
+            "server_update":"guild_update", "server_name_change":"guild_update", "server_icon_change":"guild_update", "server_banner_change":"guild_update", "server_description_change":"guild_update", "server_settings_change":"guild_update", "invite_create":"invite_create", "invite_delete":"invite_delete",
         }
         action_name = action_names.get(event)
         if action_name:
