@@ -589,5 +589,6 @@ def register_commands(bot,guard,get_cfg,save_cfg):
 
     try:
         bot.tree.add_command(group)
+        print("[LOGS] Registered comprehensive /logs command group.")
     except Exception as exc:
-        if "already" not in str(exc).lower(): print("[LOGS] /logs registration failed: "+str(exc))
+        print("[LOGS] /logs registration failed: "+str(exc))
