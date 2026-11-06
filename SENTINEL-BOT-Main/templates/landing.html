@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SP4RK — Discord Bot Dashboard</title>
+<title>NVD Official — Discord Bot Dashboard</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
@@ -798,7 +798,7 @@ footer{
         fill="#0d2245" stroke="#3a8fff" stroke-width="1.8"/>
       <text x="20" y="31" text-anchor="middle" fill="#3a8fff" font-size="18" font-weight="bold">S</text>
     </svg>
-    <span class="nav-logo-name">SP4RK</span>
+    <span class="nav-logo-name">NVD Official</span>
   </a>
   <a href="{{ url_for('bots_showcase') }}" class="btn-ghost" style="margin-left:auto;margin-right:12px;">
     <i class="fas fa-arrow-left"></i> Our Bots
@@ -812,7 +812,7 @@ footer{
     {% endif %}
 
     <!-- Dev-only kebab menu. Hidden until unlocked via secret gesture
-         (tap the SP4RK logo 7 times within 3 seconds, OR long-press it
+         (tap the NVD Official logo 7 times within 3 seconds, OR long-press it
          for ~1.5 seconds). State persists in localStorage. -->
     <div class="dev-menu" id="devMenu" {% if not dev_unlocked %}hidden{% endif %}>
       <button type="button" class="dev-kebab" id="devKebabBtn"
@@ -860,10 +860,10 @@ footer{
 
   <h1>
     Flame up your server with
-    <span class="flame-word">SP4RK</span><span class="flame-emoji">🔥</span>
+    <span class="flame-word">NVD Official</span><span class="flame-emoji">🔥</span>
   </h1>
   <p class="lede">
-    SP4RK is a privately operated Discord moderation, security and engagement system — automod with AI, anti-raid,
+    NVD Official is a privately operated Discord moderation, security and engagement system — automod with AI, anti-raid,
     tickets, giveaways, reaction roles, social alerts and a full web dashboard to control every setting in real time.
   </p>
   <div class="hero-cta">
@@ -1239,7 +1239,7 @@ footer{
     <div class="feature-card">
       <div class="feature-icon"><i class="fas fa-circle-info"></i></div>
       <h3>/about &amp; Bot Info</h3>
-      <p>Use <code>/about</code> anytime to see who built SP4RK, its official birthday, and a summary of everything it can do.</p>
+      <p>Use <code>/about</code> anytime to see who built NVD Official, its official birthday, and a summary of everything it can do.</p>
     </div>
 
     <div class="feature-card">
@@ -1367,13 +1367,13 @@ footer{
 </style>
 
 <section class="plans" id="plans">
-  <h2>Pick the SP4RK that fits your server.</h2>
+  <h2>Pick the NVD Official that fits your server.</h2>
   <p class="subtitle">Three tiers, one bot. Start small, upgrade anytime.</p>
 
   <div class="plans-grid">
 
     <div class="plan-card">
-      <h3 class="plan-name">SP4RK miniO</h3>
+      <h3 class="plan-name">NVD Official miniO</h3>
       <p class="plan-target">For small &amp; private servers</p>
       <p class="plan-price">Free</p>
       <ul class="plan-features">
@@ -1387,7 +1387,7 @@ footer{
     </div>
 
     <div class="plan-card">
-      <h3 class="plan-name">SP4RK Simple</h3>
+      <h3 class="plan-name">NVD Official Simple</h3>
       <p class="plan-target">For big &amp; growing servers</p>
       <p class="plan-price">Free</p>
       <ul class="plan-features">
@@ -1401,7 +1401,7 @@ footer{
 
     <div class="plan-card featured">
       <span class="plan-tag">Free for now</span>
-      <h3 class="plan-name">SP4RK Advance</h3>
+      <h3 class="plan-name">NVD Official Advance</h3>
       <p class="plan-target">Premium tier · paid plan coming soon</p>
       <p class="plan-price">$0 <span style="font-size:.8rem;color:#9fb1cc;font-weight:400;">/ early access</span></p>
       <ul class="plan-features">
@@ -1417,7 +1417,7 @@ footer{
   </div>
 </section>
 
-<!-- Public bot invitation banner removed: SP4RK is operated as a private instance. -->
+<!-- Public bot invitation banner removed: NVD Official is operated as a private instance. -->
 
 <style>
 .invite-banner{padding:60px 24px;display:flex;justify-content:center;}
@@ -1474,7 +1474,7 @@ footer{
   </div>
 
   <div class="footer-copy">
-    &copy; 2024 SP4RK Controls Inc. &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:600;">Bot v26.6</span>
+    &copy; 2024 NVD Official Controls Inc. &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:600;">Bot v26.6</span>
   </div>
 </footer>
 
@@ -1488,8 +1488,8 @@ window.sp4rkDev = function(pin) {
     body: JSON.stringify({key: pin})
   }).then(r => r.json()).then(d => {
     if (d.ok) { window.location.href = '/owner'; }
-    else { console.error('[SP4RK] Invalid PIN'); }
-  }).catch(() => console.error('[SP4RK] Network error'));
+    else { console.error('[NVD Official] Invalid PIN'); }
+  }).catch(() => console.error('[NVD Official] Network error'));
 };
 </script>
 </body>
