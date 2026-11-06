@@ -182,6 +182,9 @@ intents.members         = True   # join / leave / update events
 intents.moderation      = True   # ban / unban events
 intents.reactions       = True   # reaction add/remove (raw handlers)
 intents.voice_states    = True   # voice channel tracking
+intents.invites         = True   # invite create/delete events and invite-use tracking
+if hasattr(intents, "auto_moderation_execution"):
+    intents.auto_moderation_execution = True  # Discord AutoMod execution events
 intents.messages        = True   # message events in guilds
 intents.message_content = True   # read message text for automod/AI
 intents.dm_messages     = True   # DM commands / warnings
