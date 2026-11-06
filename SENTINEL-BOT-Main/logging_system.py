@@ -1,0 +1,421 @@
+"""NVD Official configurable Discord logging system."""
+from __future__ import annotations
+import re
+import time
+import discord
+
+CATEGORIES = {
+    "messages": "message-logs", "members": "member-logs",
+    "join_leave": "join-leave-logs", "server": "server-logs",
+    "voice": "voice-logs", "moderation": "moderation-logs",
+    "roles": "role-logs", "channels": "channel-logs",
+    "emoji": "emoji-logs", "invites": "invite-logs",
+}
+LEGACY = {
+    "messages": "message_log_channel", "members": "join_log_channel",
+    "join_leave": "join_log_channel", "voice": "voice_log_channel",
+}
+EVENT_CATEGORY = {
+    "message_delete":"messages","message_edit":"messages","message_bulk_delete":"messages",
+    "member_join":"join_leave","member_leave":"join_leave","member_kick":"moderation",
+    "member_ban":"moderation","member_unban":"moderation","username_change":"members",
+    "nickname_change":"members","avatar_change":"members","profile_update":"members",
+    "account_created":"join_leave","role_create":"roles","role_delete":"roles",
+    "role_update":"roles","role_add":"roles","role_remove":"roles","role_position":"roles",
+    "channel_create":"channels","channel_delete":"channels","channel_update":"channels",
+    "channel_permissions":"channels","channel_category":"channels","channel_position":"channels",
+    "voice_join":"voice","voice_leave":"voice","voice_move":"voice",
+    "voice_self_mute":"voice","voice_self_unmute":"voice","voice_self_deafen":"voice",
+    "voice_self_undeafen":"voice","voice_server_mute":"voice","voice_server_unmute":"voice",
+    "voice_server_deafen":"voice","voice_server_undeafen":"voice",
+    "voice_stream_start":"voice","voice_stream_stop":"voice",
+    "voice_video_start":"voice","voice_video_stop":"voice",
+    "server_update":"server","emoji_create":"emoji","emoji_delete":"emoji",
+    "emoji_update":"emoji","sticker_create":"emoji","sticker_delete":"emoji","sticker_update":"emoji",
+    "invite_detected":"invites","invite_create":"invites","invite_delete":"invites","invite_used":"invites",
+    "member_timeout":"moderation","timeout_removed":"moderation",
+    "warning_issued":"moderation","warning_removed":"moderation","automod_action":"moderation",
+}
+_seen = {}
+_invite_cache = {}
+_registered = False
+
+def _cfg(guild_id):
+    try:
+        import main
+        return main.get_config_for_guild(str(guild_id))
+    except Exception:
+        try:
+            from dashboard import get_guild_config
+            return get_guild_config(str(guild_id))
+        except Exception:
+            return {}
+
+def infer_event(title, description=""):
+    text = (str(title) + " " + str(description[:120])).lower()
+    checks = [
+        (("message edited","msg-edit"),"message_edit"),
+        (("message deleted","msg-delete"),"message_delete"),
+        (("bulk messages deleted","bulk-delete"),"message_bulk_delete"),
+        (("nickname changed","nick-change"),"nickname_change"),
+        (("role added","role-add"),"role_add"),(("role removed","role-remove"),"role_remove"),
+        (("member unbanned","unban"),"member_unban"),(("member banned","ban"),"member_ban"),
+        (("member timed out","timeout"),"member_timeout"),(("timeout removed",),"timeout_removed"),
+        (("role created","role-create"),"role_create"),(("role deleted","role-delete"),"role_delete"),
+        (("role updated","role-update"),"role_update"),(("channel created","ch-create"),"channel_create"),
+        (("channel deleted","ch-delete"),"channel_delete"),(("channel updated","ch-update"),"channel_update"),
+        (("server updated","server-update"),"server_update"),(("invite created","invite-create"),"invite_create"),
+        (("invite deleted","invite-delete"),"invite_delete"),(("voice mute",),"voice_self_mute"),
+        (("voice deafen",),"voice_self_deafen"),(("emoji added",),"emoji_create"),
+        (("emoji removed",),"emoji_delete"),(("sticker added",),"sticker_create"),
+        (("sticker removed",),"sticker_delete"),
+    ]
+    for needles, event in checks:
+        if any(n in text for n in needles):
+            return event
+    return "server_update"
+
+def _ignored(cfg, actor_id=None, channel_id=None, is_bot=False):
+    if cfg.get("logging_ignore_bots") in (True,"ON","on","true") and is_bot:
+        return True
+    users = {str(x) for x in (cfg.get("logging_ignore_users") or [])}
+    channels = {str(x) for x in (cfg.get("logging_ignore_channels") or [])}
+    return (actor_id is not None and str(actor_id) in users) or (channel_id is not None and str(channel_id) in channels)
+
+def _target(bot, guild, cfg, category):
+    mapping = cfg.get("logging_channels") or {}
+    raw = mapping.get(category) if isinstance(mapping,dict) else None
+    if not raw:
+        raw = cfg.get(LEGACY.get(category,"log_channel")) or cfg.get("log_channel")
+    try:
+        ident = int(raw)
+    except (TypeError,ValueError):
+        return None
+    return guild.get_channel(ident) or bot.get_channel(ident)
+
+async def emit(bot, guild, event, title, description, *, color=None, actor=None, channel=None, dedupe_id=None, fields=None):
+    if guild is None:
+        return False
+    category = EVENT_CATEGORY.get(event,"server")
+    cfg = _cfg(guild.id)
+    if "logging_enabled" in cfg and str(cfg.get("logging_enabled")).upper() in ("OFF","FALSE","0"):
+        return False
+    if (cfg.get("logging_categories") or {}).get(category, True) is False:
+        return False
+    if (cfg.get("logging_events") or {}).get(event, True) is False:
+        return False
+    if _ignored(cfg,getattr(actor,"id",None),getattr(channel,"id",None),getattr(actor,"bot",False)):
+        return False
+    now = time.monotonic()
+    if dedupe_id is not None:
+        key=(guild.id,event,str(dedupe_id))
+        if key in _seen and now-_seen[key] < 8:
+            return False
+        _seen[key]=now
+    if len(_seen)>4000:
+        for k,v in list(_seen.items()):
+            if now-v>30: _seen.pop(k,None)
+    target=_target(bot,guild,cfg,category)
+    if target is None or not hasattr(target,"send"):
+        return False
+    try:
+        me=guild.me
+        if me:
+            p=target.permissions_for(me)
+            if not (p.view_channel and p.send_messages and p.embed_links):
+                print("[LOGS] Missing View Channel, Send Messages, or Embed Links for "+category)
+                return False
+        raw=color if color is not None else cfg.get("logging_embed_color",0x3498DB)
+        if isinstance(raw,str): raw=int(raw.strip().lstrip("#"),16)
+        embed=discord.Embed(title=str(title)[:256],description=str(description)[:4000],color=int(raw))
+        if cfg.get("logging_timestamps",True) not in (False,"OFF","off","false"):
+            embed.timestamp=discord.utils.utcnow()
+        if actor:
+            embed.set_author(name=str(actor)+" | "+str(actor.id),icon_url=getattr(getattr(actor,"display_avatar",None),"url",None))
+        for name,value,inline in (fields or [])[:20]:
+            embed.add_field(name=str(name)[:256],value=str(value)[:1024] or "—",inline=bool(inline))
+        await target.send(embed=embed,allowed_mentions=discord.AllowedMentions.none())
+        return True
+    except discord.NotFound:
+        print("[LOGS] Destination for "+category+" was deleted; run /logs setup.")
+    except discord.Forbidden:
+        print("[LOGS] Discord denied sending "+category+" log.")
+    except Exception as exc:
+        print("[LOGS] "+event+" failed: "+str(exc))
+    return False
+
+async def send_existing(bot,guild_id,category,event,embed,actor_id=None,channel_id=None,is_bot=False):
+    guild=bot.get_guild(int(guild_id)) if guild_id else None
+    if not guild: return False
+    cfg=_cfg(guild.id)
+    if "logging_enabled" in cfg and str(cfg.get("logging_enabled")).upper() in ("OFF","FALSE","0"): return False
+    if (cfg.get("logging_categories") or {}).get(category,True) is False: return False
+    if (cfg.get("logging_events") or {}).get(event,True) is False: return False
+    if _ignored(cfg,actor_id,channel_id,is_bot): return False
+    target=_target(bot,guild,cfg,category)
+    if target is None: return False
+    try:
+        if cfg.get("logging_timestamps",True) in (False,"OFF","off","false"): embed.timestamp=None
+        await target.send(embed=embed,allowed_mentions=discord.AllowedMentions.none())
+        return True
+    except (discord.NotFound,discord.Forbidden) as exc:
+        print("[LOGS] Could not send "+category+" embed: "+str(exc))
+    except Exception as exc: print("[LOGS] "+str(exc))
+    return False
+
+async def audit_actor(guild,action,target_id=None):
+    try:
+        from datetime import timedelta
+        cutoff=discord.utils.utcnow()-timedelta(seconds=10)
+        async for entry in guild.audit_logs(limit=10,action=action,after=cutoff):
+            if target_id is None or getattr(entry.target,"id",None)==target_id:
+                return entry.user,entry.reason
+    except Exception:
+        pass
+    return None,None
+
+async def setup(bot):
+    global _registered
+    if _registered: return
+    _registered=True
+
+    @bot.listen("on_message")
+    async def _invite_message(message):
+        if not message.guild or message.author.bot: return
+        links=re.findall(r"(?:https?://)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com/invite)/[A-Za-z0-9-]+",message.content or "",re.I)
+        if links:
+            await emit(bot,message.guild,"invite_detected","🔗 Discord Invite Link Detected",
+                "Message: "+message.jump_url+"\nChannel: "+message.channel.mention+"\nLinks:\n"+"\n".join(links[:5]),
+                actor=message.author,channel=message.channel,dedupe_id=message.id)
+
+    @bot.listen("on_member_join")
+    async def _invite_usage(member):
+        guild=member.guild
+        previous=_invite_cache.get(guild.id,{})
+        try:
+            invites=await guild.invites()
+            current={i.code:(i.uses or 0) for i in invites}
+            used=[i for i in invites if (i.uses or 0)>previous.get(i.code,0)]
+            _invite_cache[guild.id]=current
+            if used:
+                invite=max(used,key=lambda i:i.uses or 0)
+                await emit(bot,guild,"invite_used","📨 Invite Used",
+                    "Member: "+str(member)+" ("+str(member.id)+")\nInvite: "+invite.code+
+                    "\nInviter: "+str(invite.inviter or "Unavailable")+"\nUses: "+str(invite.uses),
+                    actor=member,dedupe_id=str(member.id)+":"+invite.code)
+        except Exception:
+            return
+
+    @bot.listen("on_user_update")
+    async def _profile_update(before,after):
+        changes=[]
+        if before.name!=after.name: changes.append("Username: "+before.name+" → "+after.name)
+        if before.global_name!=after.global_name: changes.append("Display name: "+str(before.global_name)+" → "+str(after.global_name))
+        if before.avatar!=after.avatar: changes.append("Avatar changed (Discord profile update event)")
+        if not changes: return
+        for guild in bot.guilds:
+            if guild.get_member(after.id):
+                await emit(bot,guild,"profile_update","👤 Discord Profile Updated",
+                    "User ID: "+str(after.id)+"\n"+"\n".join(changes),actor=after,
+                    dedupe_id=str(after.id)+":"+str(after.avatar)+":"+after.name+":"+str(after.global_name))
+
+    @bot.listen("on_member_remove")
+    async def _kick_attribution(member):
+        actor,reason=await audit_actor(member.guild,discord.AuditLogAction.kick,member.id)
+        if actor:
+            await emit(bot,member.guild,"member_kick","👢 Member Kicked",
+                "Target: "+str(member)+" ("+str(member.id)+")\nModerator: "+str(actor)+
+                "\nReason: "+str(reason or "Not supplied"),actor=actor,dedupe_id="kick:"+str(member.id))
+
+    @bot.listen("on_member_ban")
+    async def _ban_attribution(guild,user):
+        actor,reason=await audit_actor(guild,discord.AuditLogAction.ban,user.id)
+        await emit(bot,guild,"member_ban","⛔ Member Banned",
+            "Target: "+str(user)+" ("+str(user.id)+")\nModerator: "+str(actor or "Unavailable")+
+            "\nReason: "+str(reason or "Unavailable"),actor=actor,dedupe_id="ban:"+str(user.id))
+
+    @bot.listen("on_member_unban")
+    async def _unban_attribution(guild,user):
+        actor,reason=await audit_actor(guild,discord.AuditLogAction.unban,user.id)
+        await emit(bot,guild,"member_unban","✅ Member Unbanned",
+            "Target: "+str(user)+" ("+str(user.id)+")\nModerator: "+str(actor or "Unavailable")+
+            "\nReason: "+str(reason or "Unavailable"),actor=actor,dedupe_id="unban:"+str(user.id))
+
+    @bot.listen("on_voice_state_update")
+    async def _voice_extras(member,before,after):
+        if before.channel!=after.channel: return
+        for attr,on_event,off_event,on_text,off_text in [
+            ("self_stream","voice_stream_start","voice_stream_stop","Started streaming","Stopped streaming"),
+            ("self_video","voice_video_start","voice_video_stop","Started camera video","Stopped camera video")]:
+            old,new=getattr(before,attr,False),getattr(after,attr,False)
+            if old!=new:
+                await emit(bot,member.guild,on_event if new else off_event,"🎥 Voice Activity",
+                    "Member: "+str(member)+" ("+str(member.id)+")\nChannel: "+
+                    (after.channel.mention if after.channel else "Unknown")+"\nAction: "+(on_text if new else off_text),
+                    actor=member,channel=after.channel,dedupe_id=str(member.id)+":"+attr+":"+str(new)+":"+str(int(time.time()//3)))
+
+    @bot.listen("on_guild_emojis_update")
+    async def _emoji_renames(guild,before,after):
+        old={x.id:x for x in before}; new={x.id:x for x in after}
+        for ident in old.keys() & new.keys():
+            if old[ident].name!=new[ident].name:
+                await emit(bot,guild,"emoji_update","😀 Emoji Updated",
+                    ":"+old[ident].name+": → :"+new[ident].name+":\nEmoji ID: "+str(ident),
+                    dedupe_id="emoji:"+str(ident)+":"+new[ident].name)
+
+    @bot.listen("on_guild_stickers_update")
+    async def _sticker_edits(guild,before,after):
+        old={x.id:x for x in before}; new={x.id:x for x in after}
+        for ident in old.keys() & new.keys():
+            if old[ident].name!=new[ident].name or old[ident].description!=new[ident].description:
+                await emit(bot,guild,"sticker_update","🏷️ Sticker Updated",
+                    "Sticker ID: "+str(ident)+"\nName: "+old[ident].name+" → "+new[ident].name+
+                    "\nDescription: "+str(old[ident].description)+" → "+str(new[ident].description),
+                    dedupe_id="sticker:"+str(ident)+":"+new[ident].name)
+
+    @bot.listen("on_automod_action")
+    async def _automod_log(execution):
+        guild=getattr(execution,"guild",None)
+        if not guild: return
+        member=getattr(execution,"member",None); channel=getattr(execution,"channel",None)
+        rule=getattr(getattr(execution,"rule",None),"name","Unknown")
+        await emit(bot,guild,"automod_action","🤖 AutoMod Action",
+            "Member: "+str(member or "Unavailable")+"\nRule: "+str(rule)+
+            "\nAction: "+str(getattr(execution,"action","Unknown"))+
+            "\nChannel: "+str(channel or "Unavailable"),actor=member,channel=channel,
+            dedupe_id=getattr(execution,"id",None))
+
+    for guild in bot.guilds:
+        try:
+            invites=await guild.invites()
+            _invite_cache[guild.id]={i.code:(i.uses or 0) for i in invites}
+        except Exception:
+            _invite_cache[guild.id]={}
+
+async def create_log_channels(guild,save_cfg):
+    me=guild.me
+    if not me or not me.guild_permissions.manage_channels:
+        raise PermissionError("Manage Channels permission is required.")
+    category=discord.utils.get(guild.categories,name="SERVER LOGS")
+    if category is None:
+        category=await guild.create_category("SERVER LOGS",reason="NVD Official logging setup")
+    mapping={}
+    for key,name in CATEGORIES.items():
+        channel=discord.utils.get(guild.text_channels,name=name)
+        if channel is None or channel.category_id!=category.id:
+            channel=await guild.create_text_channel(name,category=category,reason="NVD Official logging setup")
+        mapping[key]=str(channel.id)
+    save_cfg(str(guild.id),{
+        "logging_enabled":True,"logging_channels":mapping,
+        "logging_events":{key:True for key in EVENT_CATEGORY},
+        "logging_categories":{key:True for key in CATEGORIES},
+        "logging_ignore_users":[],"logging_ignore_channels":[],
+        "logging_ignore_bots":False,"logging_embed_color":0x3498DB,"logging_timestamps":True})
+    return category,mapping
+
+def register_commands(bot,guard,get_cfg,save_cfg):
+    group=discord.app_commands.Group(name="logs",description="Configure NVD's complete logging system.")
+    cats=list(CATEGORIES)
+    evts=list(EVENT_CATEGORY)
+
+    @group.command(name="setup",description="Create SERVER LOGS and all ten log channels.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def setup_cmd(interaction):
+        if not await guard(interaction): return
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        try:
+            _,mapping=await create_log_channels(interaction.guild,save_cfg)
+            rows=[key.replace("_"," ").title()+" → <#"+value+">" for key,value in mapping.items()]
+            await interaction.followup.send("✅ Logging enabled.\n"+"\n".join(rows),ephemeral=True)
+        except Exception as exc:
+            await interaction.followup.send("❌ Setup failed: "+str(exc)[:250],ephemeral=True)
+
+    @group.command(name="enable",description="Enable or disable all logging.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def enable_cmd(interaction,enabled:bool):
+        if not await guard(interaction): return
+        save_cfg(interaction.guild.id,{"logging_enabled":enabled})
+        await interaction.response.send_message("Logging is now "+("ON" if enabled else "OFF")+".",ephemeral=True)
+
+    @group.command(name="category",description="Toggle a complete log category.")
+    @discord.app_commands.choices(category=[discord.app_commands.Choice(name=x.replace("_"," ").title(),value=x) for x in cats])
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def category_cmd(interaction,category:str,enabled:bool):
+        if not await guard(interaction): return
+        states=dict(get_cfg(interaction.guild.id).get("logging_categories") or {})
+        states[category]=enabled
+        save_cfg(interaction.guild.id,{"logging_categories":states})
+        await interaction.response.send_message(category+" category: "+("ON" if enabled else "OFF"),ephemeral=True)
+
+    @group.command(name="event",description="Toggle one individual event.")
+    @discord.app_commands.choices(event=[discord.app_commands.Choice(name=x.replace("_"," ").title(),value=x) for x in evts])
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def event_cmd(interaction,event:str,enabled:bool):
+        if not await guard(interaction): return
+        states=dict(get_cfg(interaction.guild.id).get("logging_events") or {})
+        states[event]=enabled
+        save_cfg(interaction.guild.id,{"logging_events":states})
+        await interaction.response.send_message(event+": "+("ON" if enabled else "OFF"),ephemeral=True)
+
+    @group.command(name="ignore-user",description="Ignore a user in logs.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def ignore_user(interaction,user:discord.User):
+        if not await guard(interaction): return
+        ids=list(get_cfg(interaction.guild.id).get("logging_ignore_users") or [])
+        if str(user.id) not in [str(x) for x in ids]: ids.append(str(user.id))
+        save_cfg(interaction.guild.id,{"logging_ignore_users":ids})
+        await interaction.response.send_message("Now ignoring "+str(user)+".",ephemeral=True)
+
+    @group.command(name="ignore-channel",description="Ignore events from a channel.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def ignore_channel(interaction,channel:discord.TextChannel):
+        if not await guard(interaction): return
+        ids=list(get_cfg(interaction.guild.id).get("logging_ignore_channels") or [])
+        if str(channel.id) not in [str(x) for x in ids]: ids.append(str(channel.id))
+        save_cfg(interaction.guild.id,{"logging_ignore_channels":ids})
+        await interaction.response.send_message("Now ignoring "+channel.mention+".",ephemeral=True)
+
+    @group.command(name="ignore-bots",description="Choose whether bot accounts are ignored.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def ignore_bots(interaction,enabled:bool):
+        if not await guard(interaction): return
+        save_cfg(interaction.guild.id,{"logging_ignore_bots":enabled})
+        await interaction.response.send_message("Ignore bots: "+("ON" if enabled else "OFF"),ephemeral=True)
+
+    @group.command(name="color",description="Set embed color using six-digit hex.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def color_cmd(interaction,hex_color:str):
+        if not await guard(interaction): return
+        raw=hex_color.strip().lstrip("#")
+        try:
+            if len(raw)!=6: raise ValueError()
+            value=int(raw,16)
+        except ValueError:
+            return await interaction.response.send_message("Use a color such as #3498DB.",ephemeral=True)
+        save_cfg(interaction.guild.id,{"logging_embed_color":value})
+        await interaction.response.send_message("Embed color saved: #"+raw.upper(),ephemeral=True)
+
+    @group.command(name="timestamps",description="Enable or disable timestamps.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def timestamps(interaction,enabled:bool):
+        if not await guard(interaction): return
+        save_cfg(interaction.guild.id,{"logging_timestamps":enabled})
+        await interaction.response.send_message("Timestamps: "+("ON" if enabled else "OFF"),ephemeral=True)
+
+    @group.command(name="status",description="Show logging status and destinations.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def status(interaction):
+        if not await guard(interaction): return
+        cfg=get_cfg(interaction.guild.id); mapping=cfg.get("logging_channels") or {}
+        states=cfg.get("logging_categories") or {}
+        rows=["Master: "+("ON" if cfg.get("logging_enabled") else "OFF")]
+        for key in cats:
+            raw=mapping.get(key,"")
+            ch=interaction.guild.get_channel(int(raw)) if str(raw).isdigit() else None
+            rows.append(key.replace("_"," ").title()+": "+("ON" if states.get(key,True) else "OFF")+" — "+(ch.mention if ch else "Not configured"))
+        await interaction.response.send_message(embed=discord.Embed(title="NVD Logging Status",description="\n".join(rows)[:4000],color=0x3498DB),ephemeral=True)
+
+    try:
+        bot.tree.add_command(group)
+    except Exception as exc:
+        if "already" not in str(exc).lower(): print("[LOGS] /logs registration failed: "+str(exc))
