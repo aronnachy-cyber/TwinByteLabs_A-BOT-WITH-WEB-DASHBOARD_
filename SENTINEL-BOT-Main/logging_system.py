@@ -224,17 +224,21 @@ async def setup(bot):
 
     @bot.listen("on_user_update")
     async def _profile_update(before,after):
-        changes=[]
-        if before.name!=after.name: changes.append("Username: "+before.name+" → "+after.name)
-        if before.global_name!=after.global_name: changes.append("Display name: "+str(before.global_name)+" → "+str(after.global_name))
-        if before.avatar!=after.avatar: changes.append("Avatar changed (Discord profile update event)")
-        if getattr(before,"banner",None)!=getattr(after,"banner",None): changes.append("Profile banner changed (where exposed by Discord)")
-        if not changes: return
+        events=[]
+        if before.name!=after.name:
+            events.append(("username_change","📝 Username Changed","Username: "+before.name+" → "+after.name))
+        if before.global_name!=after.global_name:
+            events.append(("profile_update","👤 Display Name Changed","Display name: "+str(before.global_name)+" → "+str(after.global_name)))
+        if before.avatar!=after.avatar:
+            events.append(("avatar_change","🖼️ Avatar Changed","Avatar changed (Discord profile update event)."))
+        if getattr(before,"banner",None)!=getattr(after,"banner",None):
+            events.append(("profile_update","🖼️ Profile Banner Changed","Profile banner changed (where exposed by Discord)."))
+        if not events: return
         for guild in bot.guilds:
             if guild.get_member(after.id):
-                await emit(bot,guild,"profile_update","👤 Discord Profile Updated",
-                    "User ID: "+str(after.id)+"\n"+"\n".join(changes),actor=after,
-                    dedupe_id=str(after.id)+":"+str(after.avatar)+":"+after.name+":"+str(after.global_name))
+                for event,title,detail in events:
+                    await emit(bot,guild,event,title,"User: "+str(after)+" ("+str(after.id)+")\\n"+detail,
+                        actor=after,dedupe_id=str(after.id)+":"+event+":"+str(after.avatar)+":"+after.name+":"+str(after.global_name))
 
     @bot.listen("on_member_remove")
     async def _kick_attribution(member):
@@ -295,7 +299,7 @@ async def setup(bot):
         except Exception:
             _invite_cache[guild.id]={}
 
-async def create_log_channels(guild,save_cfg):
+async def create_log_channels(guild,save_cfg,setup_member=None):
     me=guild.me
     if not me or not me.guild_permissions.manage_channels:
         raise PermissionError("Manage Channels permission is required.")
@@ -305,6 +309,8 @@ async def create_log_channels(guild,save_cfg):
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             me: discord.PermissionOverwrite(view_channel=True, send_messages=True, embed_links=True, read_message_history=True),
         }
+        if setup_member is not None:
+            overwrites[setup_member] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
         category=await guild.create_category("SERVER LOGS",overwrites=overwrites,reason="NVD Official logging setup")
     mapping={}
     for key,name in CATEGORIES.items():
@@ -331,7 +337,7 @@ def register_commands(bot,guard,get_cfg,save_cfg):
         if not await guard(interaction): return
         await interaction.response.defer(ephemeral=True,thinking=True)
         try:
-            _,mapping=await create_log_channels(interaction.guild,save_cfg)
+            _,mapping=await create_log_channels(interaction.guild,save_cfg,interaction.user)
             rows=[key.replace("_"," ").title()+" → <#"+value+">" for key,value in mapping.items()]
             await interaction.followup.send("✅ Logging enabled.\n"+"\n".join(rows),ephemeral=True)
         except Exception as exc:
