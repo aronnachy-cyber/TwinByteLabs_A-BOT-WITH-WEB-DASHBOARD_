@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SP4RK — Sign In</title>
+<title>NVD Official — Sign In</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
@@ -39,7 +39,7 @@
     position:relative;
   }
 
-  /* === Floating gradient orbs (matches SP4RK landing) === */
+  /* === Floating gradient orbs (matches NVD Official landing) === */
   .bg-orbs{position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none;}
   .orb{
     position:absolute;border-radius:50%;
@@ -241,13 +241,13 @@
   <div class="card">
     <div class="brand">
       <div class="brand-mark">B/L</div>
-      <div class="brand-name">SP4RK</div>
+      <div class="brand-name">NVD Official</div>
     </div>
 
-    <div class="pill"><span class="dot"></span> Private SP4RK Access</div>
+    <div class="pill"><span class="dot"></span> Private NVD Official Access</div>
 
     <h1>Welcome back</h1>
-    <p class="lead">Enter your private access key to continue to the SP4RK control center.</p>
+    <p class="lead">Enter your private access key to continue to the NVD Official control center.</p>
 
     {% if error %}
       <div class="alert"><i class="fas fa-exclamation-circle"></i> <span>{{ error }}</span></div>
@@ -255,12 +255,12 @@
 
     <form method="POST" action="/login" autocomplete="on">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input class="passkey-input" type="password" name="passkey" placeholder="Enter your SP4RK passkey" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
+      <input class="passkey-input" type="password" name="passkey" placeholder="Enter your NVD Official passkey" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
       <button class="btn-discord passkey-submit" type="submit"><i class="fas fa-lock"></i> Sign in</button>
     </form>
 
     <div class="footer">
-      <a class="home-link" href="/"><i class="fas fa-arrow-left"></i> Back to SP4RK</a>
+      <a class="home-link" href="/"><i class="fas fa-arrow-left"></i> Back to NVD Official</a>
       <span class="secured"><i class="fas fa-lock"></i> Secured</span>
     </div>
   </div>
