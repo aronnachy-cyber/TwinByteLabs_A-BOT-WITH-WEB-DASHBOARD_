@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Select a Server — SP4RK Dashboard</title>
+<title>Select a Server — NVD Official Dashboard</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -245,12 +245,12 @@ html,body{
 <div class="picker">
 
   <div class="picker-header">
-    <div class="bot-badge"><i class="fas fa-bolt"></i> SP4RK Bot</div>
+    <div class="bot-badge"><i class="fas fa-bolt"></i> NVD Official Bot</div>
     <div class="picker-logo"><i class="fas fa-bolt" style="font-size:.9rem;"></i></div>
     <div class="picker-title">
       Hey <span>{{ user_name }}</span>, pick a server
     </div>
-    <div class="picker-sub">Select the server you want to manage with SP4RK</div>
+    <div class="picker-sub">Select the server you want to manage with NVD Official</div>
   </div>
 
   {% if user_guilds %}
@@ -272,17 +272,17 @@ html,body{
   </div>
 
   <div class="so-link-bar">
-    <p>Want to manage <strong>Server Official</strong> instead?</p>
+    <p>Want to manage <strong>NVD Official</strong> instead?</p>
     <a href="{{ url_for('so_server_select') }}" class="so-link">
-      <i class="fas fa-server"></i> Server Official Dashboard
+      <i class="fas fa-server"></i> NVD Official Dashboard
     </a>
   </div>
 
   {% else %}
   <div class="empty">
     <i class="fas fa-server"></i>
-    <p>No servers found where you have admin or owner permissions. Add SP4RK to a server first.</p>
-    <a href="{{ url_for('landing') }}" class="btn-invite"><i class="fas fa-arrow-left"></i> Back to SP4RK</a>
+    <p>No servers found where you have admin or owner permissions. Add NVD Official to a server first.</p>
+    <a href="{{ url_for('landing') }}" class="btn-invite"><i class="fas fa-arrow-left"></i> Back to NVD Official</a>
   </div>
   {% endif %}
 
