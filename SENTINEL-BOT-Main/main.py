@@ -1936,9 +1936,13 @@ async def on_guild_role_update(before, after):
         await logs.log_event(bot, config, "↕️ Role Position Changed",
             f"Role: {after.name} (ID: `{after.id}`)\nBefore position: {before.position}\nAfter position: {after.position}",
             color=0x3498db, guild_id=gid)
-    if before.hoist != after.hoist or before.mentionable != after.mentionable:
-        await logs.log_event(bot, config, "✏️ Role Updated",
-            f"Role: {after.name} (ID: `{after.id}`)\nHoisted: {before.hoist} → {after.hoist}\nMentionable: {before.mentionable} → {after.mentionable}",
+    if before.hoist != after.hoist:
+        await logs.log_event(bot, config, "📌 Role Hoist Changed",
+            f"Role: {after.name} (ID: `{after.id}`)\nBefore: {before.hoist}\nAfter: {after.hoist}",
+            color=0x3498db, guild_id=gid)
+    if before.mentionable != after.mentionable:
+        await logs.log_event(bot, config, "🔔 Role Mentionable Changed",
+            f"Role: {after.name} (ID: `{after.id}`)\nBefore: {before.mentionable}\nAfter: {after.mentionable}",
             color=0x3498db, guild_id=gid)
     dlog("✏️ ROLE-UPDATE", f"Role updated: {after.name}", guild_id=after.guild.id)
 
