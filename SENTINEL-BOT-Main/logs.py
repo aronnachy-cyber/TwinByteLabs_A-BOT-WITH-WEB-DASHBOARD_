@@ -32,7 +32,7 @@ async def _get_channel(bot, channel_id: int):
         except Exception: channel = None
     return channel
 
-async def log_event(bot, config, title, description, color=0x3498db, guild_id=None):
+async def log_event(bot, config, title, description, color=0x3498db, guild_id=None, actor=None, channel=None, dedupe_id=None):
     if guild_id is None:
         return False
     guild = bot.get_guild(int(guild_id))
@@ -53,7 +53,7 @@ async def log_event(bot, config, title, description, color=0x3498db, guild_id=No
             extra = f"\\n**Moderator:** {actor or 'Unavailable from audit log'}\\n**Reason:** {reason or 'Unavailable'}"
     except Exception:
         pass
-    return await logging_system.emit(bot, guild, event, title, str(description) + extra, color=color, actor=actor)
+    return await logging_system.emit(bot, guild, event, title, str(description) + extra, color=color, actor=actor or None, channel=channel, dedupe_id=dedupe_id)
 
 async def log_template(bot, config, key, guild_id=None, **vars):
     if not guild_id:
