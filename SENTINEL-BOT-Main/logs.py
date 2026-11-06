@@ -68,7 +68,7 @@ async def log_event(bot, config, title, description, color=0x3498db, guild_id=No
                     actor = moderator
     except Exception:
         pass
-    subject = guild.get_member(target_id) if guild is not None and target_id else None
+    subject = (guild.get_member(target_id) or bot.get_user(target_id)) if guild is not None and target_id else None
     return await logging_system.emit(bot, guild, event, title, str(description) + extra,
                                      color=color, actor=actor, subject=subject, channel=channel, dedupe_id=dedupe_id)
 
