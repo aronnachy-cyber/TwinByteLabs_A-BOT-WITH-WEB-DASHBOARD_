@@ -37,7 +37,23 @@ async def log_event(bot, config, title, description, color=0x3498db, guild_id=No
         return False
     guild = bot.get_guild(int(guild_id))
     event = logging_system.infer_event(title, description)
-    return await logging_system.emit(bot, guild, event, title, description, color=color)
+    extra = ""
+    actor = None
+    try:
+        if event == "member_unban":
+            actor, reason = await logging_system.audit_actor(guild, discord.AuditLogAction.unban, None)
+            extra = f"\\n**Moderator:** {actor or 'Unavailable from audit log'}\\n**Reason:** {reason or 'Unavailable'}"
+        elif event in ("member_timeout", "timeout_removed"):
+            target_id = None
+            import re
+            match = re.search(r"ID: (\\d+)", str(description))
+            if match:
+                target_id = int(match.group(1))
+            actor, reason = await logging_system.audit_actor(guild, discord.AuditLogAction.member_update, target_id)
+            extra = f"\\n**Moderator:** {actor or 'Unavailable from audit log'}\\n**Reason:** {reason or 'Unavailable'}"
+    except Exception:
+        pass
+    return await logging_system.emit(bot, guild, event, title, str(description) + extra, color=color, actor=actor)
 
 async def log_template(bot, config, key, guild_id=None, **vars):
     if not guild_id:
