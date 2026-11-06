@@ -46,12 +46,17 @@ _threading.Thread(target=_init_supabase, daemon=True, name="supabase-init").star
 # The Supabase sentinel_config row is the persistent fallback for per-guild
 # configuration when Render has no DATABASE_URL / managed Postgres.
 _SUPABASE_GUILD_CFG_LOCK = _threading.RLock()
+_SUPABASE_CONFIG_TABLE_AVAILABLE = None
+_SUPABASE_GUILD_CFG_BUCKET = "nvd-guild-configs"
+_SUPABASE_GUILD_CFG_OBJECT = "guild-configs.json"
 
 def _read_sentinel_config_data():
-    if supabase is None:
+    global _SUPABASE_CONFIG_TABLE_AVAILABLE
+    if supabase is None or _SUPABASE_CONFIG_TABLE_AVAILABLE is False:
         return None
     try:
         result = supabase.table("sentinel_config").select("data").eq("id", 1).limit(1).execute()
+        _SUPABASE_CONFIG_TABLE_AVAILABLE = True
         rows = result.data or []
         if not rows:
             return {}
@@ -60,31 +65,73 @@ def _read_sentinel_config_data():
             data = json.loads(data)
         return data if isinstance(data, dict) else {}
     except Exception as exc:
-        print(f"[guild_cfg] Supabase config read error: {exc}")
+        _SUPABASE_CONFIG_TABLE_AVAILABLE = False
+        print(f"[guild_cfg] Supabase config table unavailable; using Storage fallback: {exc}")
         return None
+
+def _load_supabase_guild_configs_storage():
+    if supabase is None:
+        return None
+    try:
+        raw = supabase.storage.from_(_SUPABASE_GUILD_CFG_BUCKET).download(_SUPABASE_GUILD_CFG_OBJECT)
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        data = json.loads(raw) if isinstance(raw, str) else raw
+        return dict(data) if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+def _save_supabase_guild_configs_storage(data):
+    if supabase is None:
+        return False
+    payload = json.dumps(dict(data or {}), ensure_ascii=False).encode("utf-8")
+    try:
+        supabase.storage.from_(_SUPABASE_GUILD_CFG_BUCKET).upload(
+            _SUPABASE_GUILD_CFG_OBJECT, payload,
+            file_options={"content-type": "application/json", "upsert": "true"}
+        )
+        return True
+    except Exception:
+        try:
+            supabase.storage.create_bucket(_SUPABASE_GUILD_CFG_BUCKET, options={"public": False})
+        except Exception:
+            pass
+        try:
+            supabase.storage.from_(_SUPABASE_GUILD_CFG_BUCKET).upload(
+                _SUPABASE_GUILD_CFG_OBJECT, payload,
+                file_options={"content-type": "application/json", "upsert": "true"}
+            )
+            print("[guild_cfg] Persistent guild config saved to Supabase Storage.")
+            return True
+        except Exception as exc:
+            print(f"[guild_cfg] Supabase Storage save failed: {exc}")
+            return False
 
 def _load_supabase_guild_configs():
     with _SUPABASE_GUILD_CFG_LOCK:
         root = _read_sentinel_config_data()
-        if root is None:
-            return None
-        stored = root.get("_guild_config_store", {})
-        return dict(stored) if isinstance(stored, dict) else {}
+        if root is not None:
+            stored = root.get("_guild_config_store", {})
+            if isinstance(stored, dict) and stored:
+                return dict(stored)
+        storage_data = _load_supabase_guild_configs_storage()
+        if storage_data is not None:
+            return storage_data
+        return {} if root is not None else None
 
 def _save_supabase_guild_configs(data):
     if supabase is None:
         return False
     with _SUPABASE_GUILD_CFG_LOCK:
         root = _read_sentinel_config_data()
-        if root is None:
-            return False
-        root["_guild_config_store"] = dict(data or {})
-        try:
-            supabase.table("sentinel_config").upsert({"id": 1, "data": root}).execute()
-            return True
-        except Exception as exc:
-            print(f"[guild_cfg] Supabase config save error: {exc}")
-            return False
+        if root is not None:
+            root["_guild_config_store"] = dict(data or {})
+            try:
+                supabase.table("sentinel_config").upsert({"id": 1, "data": root}).execute()
+                return True
+            except Exception as exc:
+                print(f"[guild_cfg] Supabase config save error; trying Storage: {exc}")
+        return _save_supabase_guild_configs_storage(data)
 
 
 app = Flask(__name__)
