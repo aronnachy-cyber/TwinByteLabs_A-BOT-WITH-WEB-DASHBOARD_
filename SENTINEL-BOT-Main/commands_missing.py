@@ -651,7 +651,7 @@ def setup(bot: commands.Bot, dlog=None):
     async def prefix_logs_setup(ctx):
         import logging_system
         try:
-            _, mapping = await logging_system.create_log_channels(ctx.guild, _save_gcfg)
+            _, mapping = await logging_system.create_log_channels(ctx.guild, _save_gcfg, ctx.author)
             lines = [f"• **{key.replace('_',' ').title()}** → <#{value}>" for key,value in mapping.items()]
             await ctx.send("✅ **NVD logging enabled.**\n" + "\n".join(lines))
         except Exception as exc:
