@@ -15,13 +15,11 @@ _REQUIRED = [
 ]
 
 _OPTIONAL = [
-    ("ADMIN_DISCORD_ID",     "Your Discord user ID — grants access to /owner panel"),
     ("DATABASE_URL",         "PostgreSQL URL — for persistent storage across restarts"),
     ("SUPABASE_URL",         "Supabase project URL — alternative to raw PostgreSQL"),
     ("SUPABASE_KEY",         "Supabase anon/service key"),
     ("GEMINI_KEY",           "Google Gemini API key — for AI auto-moderation"),
     ("SERVER_TOKEN",         "Server Official bot token — for the second bot"),
-    ("DEV_PIN",              "Dev panel PIN — defaults to 'change-me-in-production'"),
     ("DASHBOARD_URL",        "Public URL — used by keepalive ping"),
 ]
 
@@ -76,10 +74,3 @@ def check_config(print_optional: bool = False) -> bool:
         return False
     return True
 
-
-def warn_dev_pin():
-    """Warn if DEV_PIN is still the default value."""
-    pin = os.environ.get("DEV_PIN", "")
-    if pin in ("sp4rk2024", "change-me-in-production", ""):
-        print(f"{_YELLOW}[config] WARNING: DEV_PIN is not set or uses the default value. "
-              f"Set a strong DEV_PIN in production to protect the /dev panel.{_RESET}")
