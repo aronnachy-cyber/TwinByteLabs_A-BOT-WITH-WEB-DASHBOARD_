@@ -1,5 +1,5 @@
 """
-Centralized embed system for SP4RK + Server Official.
+Centralized embed system for NVD Official + Server Official.
 
 - Defines a registry of every user-facing embed both bots send.
 - Lets admins customize each one (title / description / color / footer /
@@ -52,7 +52,7 @@ _LOCK = threading.Lock()
 # (`{user_avatar}`, `{server_icon}`).
 #
 EMBED_REGISTRY: dict[str, dict[str, Any]] = {
-    # ── SP4RK ────────────────────────────────────────────────────────────
+    # ── NVD Official ────────────────────────────────────────────────────────────
     "sp4rk.welcome": {
         "bot": "sp4rk", "category": "Welcome / Leave",
         "label": "👋 Member Joined",
@@ -66,7 +66,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "📅 Account created: {account_age}\n\n"
                            "You are member **#{member_count}**. Welcome aboard, {user_mention}!",
             "color": 0x4f8ef7,
-            "footer": "🆔 User ID: {user_id}  •  SP4RK Sentinel",
+            "footer": "🆔 User ID: {user_id}  •  NVD Official Sentinel",
             "thumbnail": "{user_avatar}",
             "image": "", "author_name": "New Member Joined", "author_icon": "",
         },
@@ -83,7 +83,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "The server now has **{member_count}** members.\n"
                            "We hope to see them again someday. 👋",
             "color": 0xe67e22,
-            "footer": "🆔 User ID: {user_id}  •  SP4RK Sentinel",
+            "footer": "🆔 User ID: {user_id}  •  NVD Official Sentinel",
             "thumbnail": "{user_avatar}",
             "image": "", "author_name": "Member Left", "author_icon": "",
         },
@@ -98,7 +98,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
             "description": "**{user_name}** was banned from **{server_name}**.\n\n"
                            "This action was detected by Discord's audit log.",
             "color": 0xe74c3c,
-            "footer": "🆔 User ID: {user_id}  •  SP4RK Sentinel",
+            "footer": "🆔 User ID: {user_id}  •  NVD Official Sentinel",
             "thumbnail": "", "image": "", "author_name": "Ban Detected", "author_icon": "",
         },
     },
@@ -115,7 +115,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "📝 **Reason:** {reason}\n"
                            "🔢 **Total Warnings:** {warn_count}",
             "color": 0xf39c12,
-            "footer": "SP4RK Moderation  •  Repeated violations may result in a ban",
+            "footer": "NVD Official Moderation  •  Repeated violations may result in a ban",
             "thumbnail": "", "image": "",
             "author_name": "Moderation Action — Warning", "author_icon": "",
         },
@@ -132,7 +132,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "📝 **Reason:** {reason}\n\n"
                            "They may rejoin with an active invite link.",
             "color": 0xe67e22,
-            "footer": "SP4RK Moderation  •  Kick logged",
+            "footer": "NVD Official Moderation  •  Kick logged",
             "thumbnail": "", "image": "",
             "author_name": "Moderation Action — Kick", "author_icon": "",
         },
@@ -149,7 +149,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "📝 **Reason:** {reason}\n\n"
                            "Use `!unban <user_id>` to reverse this action.",
             "color": 0xe74c3c,
-            "footer": "SP4RK Moderation  •  Ban logged",
+            "footer": "NVD Official Moderation  •  Ban logged",
             "thumbnail": "", "image": "",
             "author_name": "Moderation Action — Ban", "author_icon": "",
         },
@@ -167,7 +167,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "📝 **Reason:** {reason}\n\n"
                            "They will be able to participate again when the timeout expires.",
             "color": 0xf39c12,
-            "footer": "SP4RK Moderation  •  Timeout logged",
+            "footer": "NVD Official Moderation  •  Timeout logged",
             "thumbnail": "", "image": "",
             "author_name": "Moderation Action — Timeout", "author_icon": "",
         },
@@ -184,7 +184,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "📝 **Reason:** {reason}\n\n"
                            "They may now rejoin the server with an invite link.",
             "color": 0x2ecc71,
-            "footer": "SP4RK Moderation  •  Unban logged",
+            "footer": "NVD Official Moderation  •  Unban logged",
             "thumbnail": "", "image": "",
             "author_name": "Moderation Action — Unban", "author_icon": "",
         },
@@ -203,7 +203,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "📝 **After:**\n```{after}```\n\n"
                            "🔗 [Jump to message]({jump_url})",
             "color": 0x3498db,
-            "footer": "🆔 User ID: {user_id}  •  SP4RK Logging",
+            "footer": "🆔 User ID: {user_id}  •  NVD Official Logging",
             "thumbnail": "", "image": "", "author_name": "Message Edited", "author_icon": "",
         },
     },
@@ -218,7 +218,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "👤 **Author:** {user_mention} — `{user_name}`\n\n"
                            "📄 **Content:**\n```{content}```",
             "color": 0xe74c3c,
-            "footer": "🆔 User ID: {user_id}  •  SP4RK Logging",
+            "footer": "🆔 User ID: {user_id}  •  NVD Official Logging",
             "thumbnail": "", "image": "", "author_name": "Message Deleted", "author_icon": "",
         },
     },
@@ -233,7 +233,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "📡 **Channel:** {channel}\n"
                            "👤 **Member:** {user_mention}",
             "color": 0x2ecc71,
-            "footer": "SP4RK Voice Logging",
+            "footer": "NVD Official Voice Logging",
             "thumbnail": "", "image": "",
             "author_name": "Voice Activity", "author_icon": "",
         },
@@ -250,7 +250,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "👤 **Member:** {user_mention}\n"
                            "⏱️ **Session:** {duration}",
             "color": 0x95a5a6,
-            "footer": "SP4RK Voice Logging",
+            "footer": "NVD Official Voice Logging",
             "thumbnail": "", "image": "",
             "author_name": "Voice Activity", "author_icon": "",
         },
@@ -271,8 +271,8 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
                            "🔒 Press **Close Ticket** or use `/ticket-close` when resolved.",
             "color": 0x3a8fff,
-            "footer": "SP4RK Ticket System  •  Do not share sensitive information",
-            "thumbnail": "", "image": "", "author_name": "SP4RK Support", "author_icon": "",
+            "footer": "NVD Official Ticket System  •  Do not share sensitive information",
+            "thumbnail": "", "image": "", "author_name": "NVD Official Support", "author_icon": "",
         },
     },
     "sp4rk.ticket_close": {
@@ -287,7 +287,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "Thank you for reaching out to our support team.\n"
                            "This channel will be deleted in **5 seconds**.",
             "color": 0xe74c3c,
-            "footer": "SP4RK Ticket System  •  Transcript may be saved",
+            "footer": "NVD Official Ticket System  •  Transcript may be saved",
             "thumbnail": "", "image": "",
             "author_name": "Ticket Resolved", "author_icon": "",
         },
@@ -308,8 +308,8 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "React with 🎉 below to enter!\n"
                            "One entry per person. Good luck everyone! 🍀",
             "color": 0xf5b400,
-            "footer": "⏰ Ends at {ends_at_absolute}  •  SP4RK Giveaways",
-            "thumbnail": "", "image": "", "author_name": "SP4RK Giveaway", "author_icon": "",
+            "footer": "⏰ Ends at {ends_at_absolute}  •  NVD Official Giveaways",
+            "thumbnail": "", "image": "", "author_name": "NVD Official Giveaway", "author_icon": "",
         },
     },
     "sp4rk.giveaway_ended": {
@@ -325,7 +325,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "🎗️ **Hosted by:** {host}\n\n"
                            "Thank you to everyone who participated! 🎉",
             "color": 0x2ecc71,
-            "footer": "SP4RK Giveaways  •  Congratulations!",
+            "footer": "NVD Official Giveaways  •  Congratulations!",
             "thumbnail": "", "image": "",
             "author_name": "Giveaway Complete", "author_icon": "",
         },
@@ -342,7 +342,7 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
                            "No valid reactions were detected before the deadline.\n"
                            "The host may choose to restart the giveaway.",
             "color": 0x95a5a6,
-            "footer": "SP4RK Giveaways  •  Better luck next time!",
+            "footer": "NVD Official Giveaways  •  Better luck next time!",
             "thumbnail": "", "image": "",
             "author_name": "Giveaway Concluded", "author_icon": "",
         },
