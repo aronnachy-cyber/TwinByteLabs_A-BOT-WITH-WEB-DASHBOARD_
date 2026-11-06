@@ -334,12 +334,26 @@ async def create_log_channels(guild,save_cfg,setup_member=None):
         if channel is None or channel.category_id!=category.id:
             channel=await guild.create_text_channel(name,category=category,reason="NVD Official logging setup")
         mapping[key]=str(channel.id)
-    save_cfg(str(guild.id),{
-        "logging_enabled":True,"logging_channels":mapping,
-        "logging_events":{key:True for key in EVENT_CATEGORY},
-        "logging_categories":{key:True for key in CATEGORIES},
-        "logging_ignore_users":[],"logging_ignore_channels":[],
-        "logging_ignore_bots":False,"logging_embed_color":0x3498DB,"logging_timestamps":True,"logging_format":"detailed"})
+    current = _cfg(guild.id)
+    events = dict(current.get("logging_events") or {})
+    categories = dict(current.get("logging_categories") or {})
+    for key in EVENT_CATEGORY:
+        events.setdefault(key, True)
+    for key in CATEGORIES:
+        categories.setdefault(key, True)
+    updates = {
+        "logging_enabled": True,
+        "logging_channels": mapping,
+        "logging_events": events,
+        "logging_categories": categories,
+    }
+    updates.setdefault("logging_ignore_users", current.get("logging_ignore_users") or [])
+    updates.setdefault("logging_ignore_channels", current.get("logging_ignore_channels") or [])
+    updates.setdefault("logging_ignore_bots", current.get("logging_ignore_bots", False))
+    updates.setdefault("logging_embed_color", current.get("logging_embed_color", 0x3498DB))
+    updates.setdefault("logging_timestamps", current.get("logging_timestamps", True))
+    updates.setdefault("logging_format", current.get("logging_format", "detailed"))
+    save_cfg(str(guild.id), updates)
     return category,mapping
 
 def register_commands(bot,guard,get_cfg,save_cfg):
