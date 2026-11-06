@@ -405,7 +405,7 @@ async def add_warning(member, reason="Violation"):
     dlog("⚠️ WARNING", f"{member} now has {count} warning(s) — {reason}", guild_id=member.guild.id)
     await logs.log_event(
         bot, config, "⚠️ Warning Issued",
-        f"**Member:** {member} (ID: {member.id})\\n**Warnings:** {count}\\n**Reason:** {reason}\\n**Moderator:** Unavailable from warning event context",
+        f"**Member:** {member} (ID: {member.id})\n**Warnings:** {count}\n**Reason:** {reason}\n**Moderator:** Unavailable from warning event context",
         color=0xf39c12, guild_id=member.guild.id,
     )
     print(f"⚠️ Warning added to {member}: {count} total | Reason: {reason}")
@@ -1630,10 +1630,6 @@ async def on_member_update(before, after):
         print(f"[2FA] member_update check error: {_e}")
 
     gid = str(after.guild.id)
-    log_ch = gcfg.get("log_channel", "").strip() or config.get("log_channel", "").strip()
-    if not log_ch:
-        return
-
     try:
         # Nickname change
         if before.nick != after.nick:
