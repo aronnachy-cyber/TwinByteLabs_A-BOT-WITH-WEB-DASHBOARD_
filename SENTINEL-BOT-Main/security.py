@@ -282,9 +282,11 @@ async def check_join_protections(member, config, bot=None, log_callback=None):
             await member.kick(reason=f"NVD Official Join Protection: account age {age_days}d; minimum {min_age}d")
             if log_callback:
                 log_callback("🛡️ JOIN-GUARD", f"Kicked {member} — account age {age_days}d (minimum {min_age}d)", guild_id=guild.id)
+            return True
         except Exception as e:
             print(f"[JOIN-GUARD] Could not remove {member}: {e}")
-        return
+            return False
+        return True
 
     if member.bot and config.get("anti_bot") == "ON":
         # Only allow bot additions performed by the server owner or an administrator.
@@ -301,7 +303,9 @@ async def check_join_protections(member, config, bot=None, log_callback=None):
                 await member.kick(reason="NVD Official Anti-Bot: bot added by an untrusted inviter")
                 if log_callback:
                     log_callback("🤖 ANTI-BOT", f"Removed bot {member} — inviter was not a server owner/admin", guild_id=guild.id)
+                return True
         except discord.Forbidden:
             print(f"[ANTI-BOT] Missing permissions or View Audit Log in {guild.name}; bot was not removed.")
         except Exception as e:
             print(f"[ANTI-BOT] check error in {guild.name}: {e}")
+    return False
