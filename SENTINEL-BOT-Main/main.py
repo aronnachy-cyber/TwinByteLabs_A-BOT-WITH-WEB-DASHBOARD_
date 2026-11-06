@@ -1643,7 +1643,7 @@ async def on_member_update(before, after):
                 bot, config,
                 "✏️ Nickname Changed",
                 f"**{after}** — `{old_nick}` → `{new_nick}`\n🆔 User ID: `{after.id}`",
-                color=0x3498db, guild_id=gid,
+                color=0x3498db, guild_id=gid, actor=after,
             )
             dlog("✏️ NICK-CHANGE", f"{after} changed nickname: {old_nick} → {new_nick}", guild_id=after.guild.id)
 
@@ -1657,7 +1657,7 @@ async def on_member_update(before, after):
                 bot, config,
                 "🏷️ Role Added",
                 f"**{after}** was given the **{role.name}** role\n🆔 User ID: `{after.id}`",
-                color=0x2ecc71, guild_id=gid,
+                color=0x2ecc71, guild_id=gid, actor=after,
             )
             dlog("🏷️ ROLE-ADD", f"{after} → +{role.name}", guild_id=after.guild.id)
         for role in removed_roles:
@@ -1665,7 +1665,7 @@ async def on_member_update(before, after):
                 bot, config,
                 "🏷️ Role Removed",
                 f"**{after}** lost the **{role.name}** role\n🆔 User ID: `{after.id}`",
-                color=0xe67e22, guild_id=gid,
+                color=0xe67e22, guild_id=gid, actor=after,
             )
             dlog("🏷️ ROLE-REMOVE", f"{after} → -{role.name}", guild_id=after.guild.id)
 
@@ -1676,14 +1676,14 @@ async def on_member_update(before, after):
                     bot, config,
                     "⏱️ Member Timed Out",
                     f"**{after}** has been timed out until <t:{int(after.timed_out_until.timestamp())}:F>\n🆔 User ID: `{after.id}`",
-                    color=0xf39c12, guild_id=gid,
+                    color=0xf39c12, guild_id=gid, actor=after,
                 )
             else:
                 await logs.log_event(
                     bot, config,
                     "✅ Timeout Removed",
                     f"**{after}**'s timeout was removed.\n🆔 User ID: `{after.id}`",
-                    color=0x2ecc71, guild_id=gid,
+                    color=0x2ecc71, guild_id=gid, actor=after,
                 )
     except Exception as _e:
         print(f"[member_update log] {_e}")
@@ -1730,7 +1730,7 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
 
 @bot.event
 async def on_message_edit(before, after):
-    if not before.guild or before.content == after.content:
+    if not before.guild or (before.content == after.content and before.attachments == after.attachments):
         return
     refresh_config()
     attachments_before = "\n".join(f"{a.filename}: {a.url}" for a in before.attachments[:8]) or "None"
@@ -1740,6 +1740,7 @@ async def on_message_edit(before, after):
         f"**Channel:** {before.channel.mention} (ID: {before.channel.id})\n"
         f"**Message ID:** {before.id}\n"
         f"**Message link:** {after.jump_url}\n"
+        f"**Created:** <t:{int(before.created_at.timestamp())}:F> | **Edited:** <t:{int(after.edited_at.timestamp())}:F>\n"
         f"**Before:**\n{(before.content or '[empty]')[:1500]}\n"
         f"**After:**\n{(after.content or '[empty]')[:1500]}\n"
         f"**Attachments before:**\n{attachments_before}\n"
@@ -1952,7 +1953,7 @@ async def on_guild_channel_create(channel):
         f"📂 Type: `{ch_type}`\n"
         f"🗂️ Category: `{category}`\n"
         f"🆔 Channel ID: `{channel.id}`",
-        color=0x2ecc71, guild_id=gid,
+        color=0x2ecc71, guild_id=gid, channel=channel,
     )
     dlog("📁 CH-CREATE", f"Channel created: #{channel.name}", guild_id=channel.guild.id)
 
@@ -1972,7 +1973,7 @@ async def on_guild_channel_delete(channel):
         f"📂 Type: `{ch_type}`\n"
         f"🗂️ Category: `{category}`\n"
         f"🆔 Channel ID: `{channel.id}`",
-        color=0xe74c3c, guild_id=gid,
+        color=0xe74c3c, guild_id=gid, channel=channel,
     )
     dlog("🗑️ CH-DELETE", f"Channel deleted: #{channel.name}", guild_id=channel.guild.id)
 
@@ -2016,7 +2017,7 @@ async def on_guild_channel_update(before, after):
         bot, config,
         "✏️ Channel Updated",
         f"**#{after.name}** (`{after.id}`) was modified:\n" + "\n".join(changes),
-        color=0x3498db, guild_id=gid,
+        color=0x3498db, guild_id=gid, channel=after,
     )
     dlog("✏️ CH-UPDATE", f"Channel updated: #{after.name}", guild_id=after.guild.id)
 
@@ -2092,7 +2093,7 @@ async def on_invite_create(invite):
         f"📊 Max uses: `{max_uses}`\n"
         f"⏰ Expires: {expires}\n"
         f"📁 Channel: <#{invite.channel.id if invite.channel else 0}>",
-        color=0x3498db, guild_id=gid,
+        color=0x3498db, guild_id=gid, actor=invite.inviter, channel=invite.channel,
     )
     dlog("📨 INVITE-CREATE", f"Invite {invite.code} created by {inviter}", guild_id=invite.guild.id)
 
@@ -2108,7 +2109,7 @@ async def on_invite_delete(invite):
         "❌ Invite Deleted",
         f"Invite code `{invite.code}` was deleted.\n"
         f"📁 Channel: <#{invite.channel.id if invite.channel else 0}>",
-        color=0xe67e22, guild_id=gid,
+        color=0xe67e22, guild_id=gid, actor=invite.inviter, channel=invite.channel,
     )
     dlog("❌ INVITE-DELETE", f"Invite {invite.code} deleted", guild_id=invite.guild.id)
 
