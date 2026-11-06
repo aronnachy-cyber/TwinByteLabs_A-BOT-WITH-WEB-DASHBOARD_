@@ -1511,13 +1511,13 @@ def setup(bot: commands.Bot, dlog=None):
         else: print(f"[commands_missing] /joinguard error: {_e}")
 
     # ── /captcha group ──
-    _captcha_group = app_commands.Group(name="captcha", description="Captcha verification settings.")
+    _captcha_group = app_commands.Group(name="captcha", description="Human verification settings.")
 
-    @_captcha_group.command(name="setup", description="Enable captcha verification for new members.")
+    @_captcha_group.command(name="setup", description="Configure CAPTCHA and restrict new members to one channel.")
     @app_commands.describe(
-        enabled="Enable or disable captcha verification",
-        channel="Channel where verification messages are sent",
-        role="Role assigned to members after passing captcha",
+        enabled="Enable or disable new-member verification",
+        channel="The only channel unverified members can see",
+        role="Your existing Verified role, assigned after passing CAPTCHA",
     )
     @app_commands.checks.has_permissions(administrator=True)
     async def slash_captcha_setup(
@@ -1528,50 +1528,86 @@ def setup(bot: commands.Bot, dlog=None):
     ):
         if not await _guard(interaction):
             return
+        import captcha as _captcha
         cfg = _gcfg(interaction.guild.id)
-        cfg["captcha_enabled"] = "ON" if enabled else "OFF"
-        if channel:
+
+        if not enabled:
+            await _captcha.disable_guild(
+                interaction.guild, str(cfg.get("captcha_pending_role", "") or "")
+            )
+            cfg["captcha_enabled"] = "OFF"
+            _save_gcfg(interaction.guild.id, cfg)
+            await interaction.response.send_message(
+                "🔴 **CAPTCHA verification disabled.** The temporary unverified-role channel restrictions have been cleared. Existing member roles were not changed.",
+                ephemeral=True,
+            )
+            _dlog("🔐 CAPTCHA", f"Captcha disabled by {interaction.user}")
+            return
+
+        if channel is None and str(cfg.get("captcha_channel", "")).isdigit():
+            channel = interaction.guild.get_channel(int(cfg["captcha_channel"]))
+        if role is None and str(cfg.get("captcha_role", "")).isdigit():
+            role = interaction.guild.get_role(int(cfg["captcha_role"]))
+        if not isinstance(channel, discord.TextChannel) or role is None:
+            return await interaction.response.send_message(
+                "To enable CAPTCHA, select both a verification **channel** and your existing **Verified role**. Use `/captcha setup enabled:True channel:#verify role:@Verified`.",
+                ephemeral=True,
+            )
+        if role.is_default():
+            return await interaction.response.send_message(
+                "❌ The @everyone role cannot be used as the Verified role. Select your existing Verified role.",
+                ephemeral=True,
+            )
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            pending = await _captcha.configure_guild(
+                interaction.guild,
+                channel,
+                role,
+                str(cfg.get("captcha_pending_role", "") or ""),
+            )
+            cfg["captcha_enabled"] = "ON"
             cfg["captcha_channel"] = str(channel.id)
-        if role:
             cfg["captcha_role"] = str(role.id)
-        _save_gcfg(interaction.guild.id, cfg)
-        state = "ON" if enabled else "OFF"
-        emoji = "✅" if enabled else "🔴"
+            cfg["captcha_pending_role"] = str(pending.id)
+            _save_gcfg(interaction.guild.id, cfg)
+            await interaction.followup.send(
+                "✅ **CAPTCHA is enabled!**\n"
+                f"• Verification channel: {channel.mention}\n"
+                f"• Verified role: {role.mention}\n"
+                f"• Temporary gate role: {pending.mention}\n"
+                "New human members will only see the verification channel until they pass. "
+                "Existing members keep their current access. Owner/admin-invited bot accounts bypass the CAPTCHA.",
+                ephemeral=True,
+            )
+            _dlog("🔐 CAPTCHA", f"Captcha enabled in #{channel.name} with role {role.name} by {interaction.user}")
+        except Exception as exc:
+            print(f"[CAPTCHA] Setup failed in {interaction.guild.id}: {exc}")
+            await interaction.followup.send(
+                f"❌ **CAPTCHA setup failed:** {str(exc)[:700]}\nNo existing member roles were changed. Check the bot's Manage Roles/Manage Channels permissions and role hierarchy.",
+                ephemeral=True,
+            )
 
-        lines = [f"{emoji} **Captcha Verification** is now **{state}**."]
-        if channel:
-            lines.append(f"> 📢 **Verification Channel:** {channel.mention}")
-        elif cfg.get("captcha_channel"):
-            lines.append(f"> 📢 **Verification Channel:** <#{cfg['captcha_channel']}> (already set)")
-        else:
-            lines.append("> ⚠️ No verification channel set — use `/captcha setup channel:#your-channel`")
-        if role:
-            lines.append(f"> 🎖️ **Verified Role:** {role.mention}")
-        elif cfg.get("captcha_role"):
-            lines.append(f"> 🎖️ **Verified Role:** <@&{cfg['captcha_role']}> (already set)")
-        else:
-            lines.append("> ⚠️ No verified role set — use `/captcha setup role:@your-role`")
-
-        await interaction.response.send_message("\n".join(lines), ephemeral=True)
-        _dlog("🔐 CAPTCHA", f"Captcha {state} by {interaction.user}")
-
-    @_captcha_group.command(name="status", description="Show current captcha configuration for this server.")
+    @_captcha_group.command(name="status", description="Show current CAPTCHA verification configuration.")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def slash_captcha_status(interaction: discord.Interaction):
         if not await _guard(interaction):
             return
         cfg = _gcfg(interaction.guild.id)
-        state = cfg.get("captcha_enabled", "OFF")
+        state = str(cfg.get("captcha_enabled", "OFF")).upper()
         ch_id = cfg.get("captcha_channel", "")
         role_id = cfg.get("captcha_role", "")
+        pending_id = cfg.get("captcha_pending_role", "")
         embed = discord.Embed(
-            title="🔐 Captcha Configuration",
+            title="🔐 CAPTCHA Configuration",
             color=0x2ecc71 if state == "ON" else 0xe74c3c,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
-        embed.add_field(name="Status", value=f"{'✅ Enabled' if state == 'ON' else '🔴 Disabled'}", inline=True)
-        embed.add_field(name="Channel", value=f"<#{ch_id}>" if ch_id else "❌ Not set", inline=True)
+        embed.add_field(name="Status", value="✅ Enabled" if state == "ON" else "🔴 Disabled", inline=True)
+        embed.add_field(name="Verification Channel", value=f"<#{ch_id}>" if ch_id else "❌ Not set", inline=True)
         embed.add_field(name="Verified Role", value=f"<@&{role_id}>" if role_id else "❌ Not set", inline=True)
+        embed.add_field(name="Temporary Gate Role", value=f"<@&{pending_id}>" if pending_id else "❌ Not created", inline=True)
         embed.set_footer(text="Use /captcha setup to configure")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
