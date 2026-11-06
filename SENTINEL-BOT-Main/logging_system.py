@@ -547,6 +547,15 @@ def register_commands(bot,guard,get_cfg,save_cfg):
         except discord.Forbidden:
             await interaction.response.send_message("Bot needs Manage Roles/Manage Channels to edit category permissions.",ephemeral=True)
 
+    @group.command(name="events",description="List every event key and its ON/OFF state.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def events_cmd(interaction: discord.Interaction):
+        if not await guard(interaction): return
+        states=get_cfg(interaction.guild.id).get("logging_events") or {}
+        rows=[event+": "+("ON" if states.get(event,True) else "OFF") for event in EVENT_CATEGORY]
+        embed=discord.Embed(title="NVD Logging Event Switches",description="\n".join(rows)[:4000],color=0x3498DB)
+        await interaction.response.send_message(embed=embed,ephemeral=True)
+
     @group.command(name="status",description="Show logging status and destinations.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
     async def status(interaction: discord.Interaction):
