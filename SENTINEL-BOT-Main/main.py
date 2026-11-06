@@ -400,6 +400,11 @@ async def add_warning(member, reason="Violation"):
     supabase_save_warning(guild_id, member_id, str(member), count, reason, ts)
     _increment_report_action()
     dlog("⚠️ WARNING", f"{member} now has {count} warning(s) — {reason}", guild_id=member.guild.id)
+    await logs.log_event(
+        bot, config, "⚠️ Warning Issued",
+        f"**Member:** {member} (ID: {member.id})\\n**Warnings:** {count}\\n**Reason:** {reason}\\n**Moderator:** Unavailable from warning event context",
+        color=0xf39c12, guild_id=member.guild.id,
+    )
     print(f"⚠️ Warning added to {member}: {count} total | Reason: {reason}")
     await check_warning_limit(member, count)
     return count
@@ -1615,7 +1620,7 @@ async def on_member_join(member):
 async def on_member_update(before, after):
     refresh_config()
     gcfg = get_config_for_guild(str(after.guild.id))
-    await security.role_monitor_log(bot, gcfg, after, before, after, log_callback=dlog)
+    # Comprehensive role-change logs below replace the older duplicate role-monitor message.
     try:
         await security.check_security_2fa(bot, after.guild, gcfg, log_callback=dlog)
     except Exception as _e:
@@ -1917,7 +1922,7 @@ async def on_guild_role_update(before, after):
     if before.permissions != after.permissions:
         changes.append(f"🔑 Permissions changed (value: `{before.permissions.value}` → `{after.permissions.value}`)")
     if before.position != after.position:
-        changes.append(f"↕️ Position: `{before.position}` → `{after.position}`
+        changes.append(f"↕️ Position: `{before.position}` → `{after.position}`")
     if not changes:
         return
     await logs.log_event(
