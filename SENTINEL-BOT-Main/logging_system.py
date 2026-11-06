@@ -104,6 +104,8 @@ def _ignored(cfg, actor_id=None, channel_id=None, is_bot=False, subject_id=None,
     return (actor_id is not None and str(actor_id) in users) or (subject_id is not None and str(subject_id) in users) or (channel_id is not None and str(channel_id) in channels)
 
 def _target(bot, guild, cfg, category):
+    if guild is None:
+        return None
     mapping = cfg.get("logging_channels") or {}
     raw = mapping.get(category) if isinstance(mapping,dict) else None
     if not raw:
