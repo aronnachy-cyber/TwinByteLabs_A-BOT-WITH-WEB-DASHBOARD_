@@ -1252,7 +1252,7 @@ def save_config():
     print("💾 Settings saved to settings.json")
 
 # ---- DEV / MAINTENANCE STATE ----
-DEV_PIN = os.environ.get("DEV_PIN", "change-me-in-production")
+DEV_PIN = None  # Legacy developer/owner PIN authentication is retired.
 _DEV_STATE_FILE = os.path.join(os.path.dirname(__file__), "dev_state.json")
 
 def _load_dev_state():
@@ -1295,7 +1295,8 @@ def is_maintenance_mode():
     return bool(_load_dev_state().get("maintenance", False))
 
 def is_dev_session():
-    return bool(session.get("dev_unlocked"))
+    # Developer sessions are no longer supported in the single-owner build.
+    return False
 
 # ---- SERVER-OFFICIAL BOT (admin-customizable card on /bots) ----
 SERVER_OFFICIAL_DEFAULTS = {
@@ -1622,9 +1623,6 @@ def server_official_landing():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     so = _so_module()
-
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
 
     # Live counts (best-effort — these fall back to zeros if the bot
     # isn't running yet).
@@ -3195,7 +3193,7 @@ def dev_forms_page():
 @app.route('/api/bot/sync', methods=['POST'])
 def api_bot_sync():
     """Force a Discord slash command sync. Requires logged-in admin / dev session."""
-    if not (session.get('logged_in') and (is_dev_session() or session.get('discord_id') == os.environ.get('ADMIN_DISCORD_ID', ''))):
+    if not (session.get('logged_in') and session.get('is_sp4rk_admin')):
         return jsonify({"ok": False, "error": "Unauthorized"}), 403
     try:
         import main as _main_mod
