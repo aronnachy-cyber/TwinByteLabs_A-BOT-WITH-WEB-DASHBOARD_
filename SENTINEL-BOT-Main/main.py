@@ -1677,7 +1677,7 @@ async def on_member_update(before, after):
 @bot.event
 async def on_member_ban(guild, user):
     refresh_config()
-    _anti_cfg = get_config_for_guild(str(guild.id if 'guild' in locals() else (role.guild.id if 'role' in locals() else (channel.guild.id if 'channel' in locals() else (after.guild.id if 'after' in locals() and hasattr(after, 'guild') else after.id))))
+    _anti_cfg = get_config_for_guild(str(guild.id))
     await security.check_anti_nuke(guild, "ban", _anti_cfg, bot=bot, log_callback=dlog)
     await logs.log_template(bot, config, "sp4rk.member_banned", user=user, server=guild)
     _increment_report_action()
@@ -1861,7 +1861,7 @@ async def on_member_unban(guild, user):
 @bot.event
 async def on_guild_role_create(role):
     refresh_config()
-    _anti_cfg = get_config_for_guild(str(guild.id if 'guild' in locals() else (role.guild.id if 'role' in locals() else (channel.guild.id if 'channel' in locals() else (after.guild.id if 'after' in locals() and hasattr(after, 'guild') else after.id))))
+    _anti_cfg = get_config_for_guild(str(role.guild.id))
     await security.check_anti_nuke(role.guild, "role_create", _anti_cfg, bot=bot, log_callback=dlog)
     gid = str(role.guild.id)
     perms_val = role.permissions.value
@@ -1881,7 +1881,7 @@ async def on_guild_role_create(role):
 @bot.event
 async def on_guild_role_delete(role):
     refresh_config()
-    _anti_cfg = get_config_for_guild(str(guild.id if 'guild' in locals() else (role.guild.id if 'role' in locals() else (channel.guild.id if 'channel' in locals() else (after.guild.id if 'after' in locals() and hasattr(after, 'guild') else after.id))))
+    _anti_cfg = get_config_for_guild(str(role.guild.id))
     await security.check_anti_nuke(role.guild, "role_delete", _anti_cfg, bot=bot, log_callback=dlog)
     gid = str(role.guild.id)
     await logs.log_event(
@@ -1897,7 +1897,7 @@ async def on_guild_role_delete(role):
 @bot.event
 async def on_guild_role_update(before, after):
     refresh_config()
-    _anti_cfg = get_config_for_guild(str(guild.id if 'guild' in locals() else (role.guild.id if 'role' in locals() else (channel.guild.id if 'channel' in locals() else (after.guild.id if 'after' in locals() and hasattr(after, 'guild') else after.id))))
+    _anti_cfg = get_config_for_guild(str(after.guild.id))
     await security.check_anti_nuke(after.guild, "role_update", _anti_cfg, bot=bot, log_callback=dlog)
     gid = str(after.guild.id)
     changes = []
@@ -1925,7 +1925,7 @@ async def on_guild_role_update(before, after):
 @bot.event
 async def on_guild_channel_create(channel):
     refresh_config()
-    _anti_cfg = get_config_for_guild(str(guild.id if 'guild' in locals() else (role.guild.id if 'role' in locals() else (channel.guild.id if 'channel' in locals() else (after.guild.id if 'after' in locals() and hasattr(after, 'guild') else after.id))))
+    _anti_cfg = get_config_for_guild(str(channel.guild.id))
     await security.check_anti_nuke(channel.guild, "channel_create", _anti_cfg, bot=bot, log_callback=dlog)
     gid = str(channel.guild.id)
     ch_type = str(channel.type).replace("_", " ").title()
@@ -1945,7 +1945,7 @@ async def on_guild_channel_create(channel):
 @bot.event
 async def on_guild_channel_delete(channel):
     refresh_config()
-    _anti_cfg = get_config_for_guild(str(guild.id if 'guild' in locals() else (role.guild.id if 'role' in locals() else (channel.guild.id if 'channel' in locals() else (after.guild.id if 'after' in locals() and hasattr(after, 'guild') else after.id))))
+    _anti_cfg = get_config_for_guild(str(channel.guild.id))
     await security.check_anti_nuke(channel.guild, "channel_delete", _anti_cfg, bot=bot, log_callback=dlog)
     gid = str(channel.guild.id)
     ch_type = str(channel.type).replace("_", " ").title()
@@ -1965,7 +1965,7 @@ async def on_guild_channel_delete(channel):
 @bot.event
 async def on_guild_channel_update(before, after):
     refresh_config()
-    _anti_cfg = get_config_for_guild(str(guild.id if 'guild' in locals() else (role.guild.id if 'role' in locals() else (channel.guild.id if 'channel' in locals() else (after.guild.id if 'after' in locals() and hasattr(after, 'guild') else after.id))))
+    _anti_cfg = get_config_for_guild(str(after.guild.id))
     await security.check_anti_nuke(after.guild, "channel_update", _anti_cfg, bot=bot, log_callback=dlog)
     gid = str(after.guild.id)
     changes = []
@@ -2001,7 +2001,7 @@ async def on_guild_channel_update(before, after):
 @bot.event
 async def on_guild_update(before, after):
     refresh_config()
-    _anti_cfg = get_config_for_guild(str(guild.id if 'guild' in locals() else (role.guild.id if 'role' in locals() else (channel.guild.id if 'channel' in locals() else (after.guild.id if 'after' in locals() and hasattr(after, 'guild') else after.id))))
+    _anti_cfg = get_config_for_guild(str(after.id))
     await security.check_anti_nuke(after, "guild_update", _anti_cfg, bot=bot, log_callback=dlog)
     gid = str(after.id)
     changes = []
