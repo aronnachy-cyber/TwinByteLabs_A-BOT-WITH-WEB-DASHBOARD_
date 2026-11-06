@@ -1704,8 +1704,8 @@ async def on_member_remove(member):
     if kick_actor is not None:
         await logging_system.emit(
             bot, member.guild, "member_kick", "👢 Member Kicked",
-            f"**Target:** {member} (ID: {member.id})\\n"
-            f"**Moderator:** {kick_actor} (ID: {kick_actor.id})\\n"
+            f"**Target:** {member} (ID: {member.id})\n"
+            f"**Moderator:** {kick_actor} (ID: {kick_actor.id})\n"
             f"**Reason:** {kick_reason or 'Not supplied'}",
             actor=kick_actor, dedupe_id=f"kick:{member.id}",
         )
@@ -1831,12 +1831,12 @@ async def on_voice_state_update(member, before, after):
             if before.mute != after.mute:
                 state = "server-muted" if after.mute else "server-unmuted"
                 await logs.log_event(bot, config, ("🔇 Server Muted" if after.mute else "🔊 Server Unmuted"),
-                    f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**\\nUser ID: `{member.id}`",
+                    f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**\nUser ID: `{member.id}`",
                     color=0xe74c3c, guild_id=gid)
             if before.deaf != after.deaf:
                 state = "server-deafened" if after.deaf else "server-undeafened"
                 await logs.log_event(bot, config, ("🔕 Server Deafened" if after.deaf else "🔔 Server Undeafened"),
-                    f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**\\nUser ID: `{member.id}`",
+                    f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**\nUser ID: `{member.id}`",
                     color=0xe74c3c, guild_id=gid)
         except Exception as e:
             print(f"Voice state change log error: {e}")
