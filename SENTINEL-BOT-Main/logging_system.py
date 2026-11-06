@@ -366,7 +366,7 @@ async def setup(bot):
 
 async def create_log_channels(guild,save_cfg,setup_member=None):
     me=guild.me
-    if not me or not me.guild_permissions.manage_channels:
+    if not me or not (me.guild_permissions.manage_channels or me.guild_permissions.administrator):
         raise PermissionError("Manage Channels permission is required.")
     category=discord.utils.get(guild.categories,name="SERVER LOGS")
     if category is None:
