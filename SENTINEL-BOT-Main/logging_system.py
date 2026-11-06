@@ -131,7 +131,7 @@ async def emit(bot, guild, event, title, description, *, color=None, actor=None,
         embed=discord.Embed(title=str(title)[:256],description=str(description)[:4000],color=int(raw))
         if cfg.get("logging_timestamps",True) not in (False,"OFF","off","false"):
             embed.timestamp=discord.utils.utcnow()
-        if actor:
+        if actor and cfg.get("logging_format","detailed") != "compact":
             embed.set_author(name=str(actor)+" | "+str(actor.id),icon_url=getattr(getattr(actor,"display_avatar",None),"url",None))
         for name,value,inline in (fields or [])[:20]:
             embed.add_field(name=str(name)[:256],value=str(value)[:1024] or "—",inline=bool(inline))
@@ -197,7 +197,7 @@ async def setup(bot):
 
     @bot.listen("on_message")
     async def _invite_message(message):
-        if not message.guild or message.author.bot: return
+        if not message.guild: return
         links=re.findall(r"(?:https?://)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com/invite)/[A-Za-z0-9-]+",message.content or "",re.I)
         if links:
             await emit(bot,message.guild,"invite_detected","🔗 Discord Invite Link Detected",
@@ -228,6 +228,7 @@ async def setup(bot):
         if before.name!=after.name: changes.append("Username: "+before.name+" → "+after.name)
         if before.global_name!=after.global_name: changes.append("Display name: "+str(before.global_name)+" → "+str(after.global_name))
         if before.avatar!=after.avatar: changes.append("Avatar changed (Discord profile update event)")
+        if getattr(before,"banner",None)!=getattr(after,"banner",None): changes.append("Profile banner changed (where exposed by Discord)")
         if not changes: return
         for guild in bot.guilds:
             if guild.get_member(after.id):
@@ -316,7 +317,7 @@ async def create_log_channels(guild,save_cfg):
         "logging_events":{key:True for key in EVENT_CATEGORY},
         "logging_categories":{key:True for key in CATEGORIES},
         "logging_ignore_users":[],"logging_ignore_channels":[],
-        "logging_ignore_bots":False,"logging_embed_color":0x3498DB,"logging_timestamps":True})
+        "logging_ignore_bots":False,"logging_embed_color":0x3498DB,"logging_timestamps":True,"logging_format":"detailed"})
     return category,mapping
 
 def register_commands(bot,guard,get_cfg,save_cfg):
@@ -373,6 +374,16 @@ def register_commands(bot,guard,get_cfg,save_cfg):
         save_cfg(interaction.guild.id,{"logging_ignore_users":ids})
         await interaction.response.send_message("Now ignoring "+str(user)+".",ephemeral=True)
 
+    @group.command(name="channel",description="Set the destination channel for one logging category.")
+    @discord.app_commands.choices(category=[discord.app_commands.Choice(name=x.replace("_"," ").title(),value=x) for x in cats])
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def channel_cmd(interaction,category:str,channel:discord.TextChannel):
+        if not await guard(interaction): return
+        mapping=dict(get_cfg(interaction.guild.id).get("logging_channels") or {})
+        mapping[category]=str(channel.id)
+        save_cfg(interaction.guild.id,{"logging_channels":mapping})
+        await interaction.response.send_message(category+" logs will go to "+channel.mention,ephemeral=True)
+
     @group.command(name="ignore-channel",description="Ignore events from a channel.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
     async def ignore_channel(interaction,channel:discord.TextChannel):
@@ -381,6 +392,22 @@ def register_commands(bot,guard,get_cfg,save_cfg):
         if str(channel.id) not in [str(x) for x in ids]: ids.append(str(channel.id))
         save_cfg(interaction.guild.id,{"logging_ignore_channels":ids})
         await interaction.response.send_message("Now ignoring "+channel.mention+".",ephemeral=True)
+
+    @group.command(name="unignore-user",description="Remove a user from the ignore list.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def unignore_user(interaction,user:discord.User):
+        if not await guard(interaction): return
+        ids=[str(x) for x in (get_cfg(interaction.guild.id).get("logging_ignore_users") or []) if str(x)!=str(user.id)]
+        save_cfg(interaction.guild.id,{"logging_ignore_users":ids})
+        await interaction.response.send_message("Restored logs involving "+str(user)+".",ephemeral=True)
+
+    @group.command(name="unignore-channel",description="Restore logs for a channel.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def unignore_channel(interaction,channel:discord.TextChannel):
+        if not await guard(interaction): return
+        ids=[str(x) for x in (get_cfg(interaction.guild.id).get("logging_ignore_channels") or []) if str(x)!=str(channel.id)]
+        save_cfg(interaction.guild.id,{"logging_ignore_channels":ids})
+        await interaction.response.send_message("Restored logs for "+channel.mention+".",ephemeral=True)
 
     @group.command(name="ignore-bots",description="Choose whether bot accounts are ignored.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
@@ -401,6 +428,14 @@ def register_commands(bot,guard,get_cfg,save_cfg):
             return await interaction.response.send_message("Use a color such as #3498DB.",ephemeral=True)
         save_cfg(interaction.guild.id,{"logging_embed_color":value})
         await interaction.response.send_message("Embed color saved: #"+raw.upper(),ephemeral=True)
+
+    @group.command(name="format",description="Choose compact or detailed log embeds.")
+    @discord.app_commands.choices(format=[discord.app_commands.Choice(name="Detailed",value="detailed"),discord.app_commands.Choice(name="Compact",value="compact")])
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def format_cmd(interaction,format:str):
+        if not await guard(interaction): return
+        save_cfg(interaction.guild.id,{"logging_format":format})
+        await interaction.response.send_message("Log format set to "+format+".",ephemeral=True)
 
     @group.command(name="timestamps",description="Enable or disable timestamps.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
