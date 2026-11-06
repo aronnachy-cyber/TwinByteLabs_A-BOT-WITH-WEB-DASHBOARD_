@@ -290,9 +290,9 @@ async def setup(bot):
         if before.global_name!=after.global_name:
             events.append(("profile_update","👤 Display Name Changed","Display name: "+str(before.global_name)+" → "+str(after.global_name)))
         if before.avatar!=after.avatar:
-            events.append(("avatar_change","🖼️ Avatar Changed","Avatar changed (Discord profile update event)."))
+            events.append(("avatar_change","🖼️ Avatar Changed","Avatar: "+str(getattr(getattr(before,"display_avatar",None),"url","Unavailable"))+" → "+str(getattr(getattr(after,"display_avatar",None),"url","Unavailable"))))
         if getattr(before,"banner",None)!=getattr(after,"banner",None):
-            events.append(("profile_update","🖼️ Profile Banner Changed","Profile banner changed (where exposed by Discord)."))
+            events.append(("profile_update","🖼️ Profile Banner Changed","Banner: "+str(getattr(before,"banner",None))+" → "+str(getattr(after,"banner",None))))
         if not events: return
         for guild in bot.guilds:
             if guild.get_member(after.id):
