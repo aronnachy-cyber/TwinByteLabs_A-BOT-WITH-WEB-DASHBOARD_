@@ -110,7 +110,14 @@ def _target(bot, guild, cfg, category):
         ident = int(raw)
     except (TypeError,ValueError):
         return None
-    return guild.get_channel(ident) or bot.get_channel(ident)
+    # Never route one guild's logs into a cached channel belonging to another guild.
+    target = guild.get_channel(ident)
+    if target is None:
+        target = bot.get_channel(ident)
+    target_guild = getattr(target, "guild", None)
+    if target is not None and (target_guild is None or target_guild.id != guild.id):
+        return None
+    return target
 
 async def emit(bot, guild, event, title, description, *, color=None, actor=None, channel=None, dedupe_id=None, fields=None):
     if guild is None:
@@ -257,14 +264,6 @@ async def setup(bot):
                 for event,title,detail in events:
                     await emit(bot,guild,event,title,"User: "+str(after)+" ("+str(after.id)+")\\n"+detail,
                         actor=after,dedupe_id=str(after.id)+":"+event+":"+str(after.avatar)+":"+after.name+":"+str(after.global_name))
-
-    @bot.listen("on_member_remove")
-    async def _kick_attribution(member):
-        actor,reason=await audit_actor(member.guild,discord.AuditLogAction.kick,member.id)
-        if actor:
-            await emit(bot,member.guild,"member_kick","👢 Member Kicked",
-                "Target: "+str(member)+" ("+str(member.id)+")\nModerator: "+str(actor)+
-                "\nReason: "+str(reason or "Not supplied"),actor=actor,dedupe_id="kick:"+str(member.id))
 
     @bot.listen("on_voice_state_update")
     async def _voice_extras(member,before,after):
