@@ -39,20 +39,34 @@ async def log_event(bot, config, title, description, color=0x3498db, guild_id=No
     event = logging_system.infer_event(title, description)
     extra = ""
     try:
-        if event == "member_unban":
-            actor, reason = await logging_system.audit_actor(guild, discord.AuditLogAction.unban, None)
-            extra = f"\n**Moderator:** {actor or 'Unavailable from audit log'}\n**Reason:** {reason or 'Unavailable'}"
-        elif event in ("member_timeout", "timeout_removed"):
-            target_id = None
-            import re
-            match = re.search(r"ID: (\d+)", str(description))
+        import re
+        target_id = None
+        match = re.search(r"ID:\s*\x60?(\d+)", str(description))
+        if match:
+            target_id = int(match.group(1))
+        elif event in ("member_unban",):
+            match = re.search(r"\((\d+)\)", str(description))
             if match:
                 target_id = int(match.group(1))
-            actor, reason = await logging_system.audit_actor(guild, discord.AuditLogAction.member_update, target_id)
-            extra = f"\n**Moderator:** {actor or 'Unavailable from audit log'}\n**Reason:** {reason or 'Unavailable'}"
+        action_names = {
+            "member_unban":"unban", "member_timeout":"member_update", "timeout_removed":"member_update",
+            "role_add":"member_role_update", "role_remove":"member_role_update",
+            "role_create":"role_create", "role_delete":"role_delete", "role_update":"role_update",
+            "channel_create":"channel_create", "channel_delete":"channel_delete", "channel_update":"channel_update",
+            "server_update":"guild_update", "invite_create":"invite_create", "invite_delete":"invite_delete",
+        }
+        action_name = action_names.get(event)
+        if action_name:
+            action = getattr(discord.AuditLogAction, action_name, None)
+            if action is not None:
+                moderator, reason = await logging_system.audit_actor(guild, action, target_id)
+                extra = f"\n**Moderator:** {moderator or 'Unavailable from audit log'}\n**Reason:** {reason or 'Unavailable'}"
+                if moderator:
+                    actor = moderator
     except Exception:
         pass
-    return await logging_system.emit(bot, guild, event, title, str(description) + extra, color=color, actor=actor or None, channel=channel, dedupe_id=dedupe_id)
+    return await logging_system.emit(bot, guild, event, title, str(description) + extra,
+                                     color=color, actor=actor, channel=channel, dedupe_id=dedupe_id)
 
 async def log_template(bot, config, key, guild_id=None, **vars):
     if not guild_id:
