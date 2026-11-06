@@ -21,13 +21,9 @@ services:
         sync: false
       - key: SERVER_TOKEN
         sync: false
-      - key: W_TOKEN
         sync: false
-      - key: DISCORD_CLIENT_ID
         sync: false
-      - key: DISCORD_CLIENT_SECRET
         sync: false
-      - key: DISCORD_REDIRECT_URI
         sync: false
       - key: GEMINI_KEY
         sync: false
@@ -39,41 +35,24 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
-      - key: RESEND_API_KEY
         sync: false
-      - key: SMTP_USER
         sync: false
-      - key: SMTP_PASS
         sync: false
-      - key: SMTP_HOST
         value: "smtp.gmail.com"
-      - key: SMTP_PORT
         value: "587"
-      - key: TWITCH_CLIENT_ID
         sync: false
-      - key: TWITCH_CLIENT_SECRET
         sync: false
-      - key: ADMIN_DISCORD_ID
         sync: false
-      - key: DEV_PIN
         sync: false
-      - key: GOOGLE_API_KEY
         sync: false
       - key: FORCE_HTTPS_COOKIES
         value: "true"
-      - key: SERVER_OFFICIAL_CLIENT_ID
         sync: false
       - key: SERVER_OFFICIAL_PERMISSIONS
         value: "8"
-      - key: TESTCORD_TOKEN
         sync: false
-      - key: TEST_GUILD_ID
         sync: false
-      - key: GMAIL_USER
         sync: false
-      - key: GMAIL_APP_PASSWORD
         sync: false
-      - key: SMTP_EMAIL
         sync: false
-      - key: SMTP_PASSWORD
         sync: false
