@@ -483,37 +483,13 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       <span style="margin-left:auto;background:linear-gradient(135deg,#6c3fc5,#4f8ef7);color:#fff;font-size:0.6rem;font-weight:800;padding:2px 7px;border-radius:10px;letter-spacing:.5px;">NEW</span>
     </div>
 
-    <!-- ACCOUNT -->
-    <div class="nav-section">Account</div>
-    {% if is_admin %}
-    <div class="nav-item" onclick="showTab('users',this)" data-tab="users">
-      <i class="fas fa-users"></i> Users
-      <span id="pending-nav-badge" style="margin-left:auto;background:var(--red);color:#fff;font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px;display:{% if pending_users|length > 0 %}inline{% else %}none{% endif %}">{{ pending_users|length }}</span>
-    </div>
-    {% endif %}
-    <div class="nav-item" onclick="showTab('feedback',this)" data-tab="feedback">
-      <i class="fas fa-star"></i> Feedback
-    </div>
-    <div class="nav-item" onclick="showTab('account',this)" data-tab="account">
-      <i class="fas fa-user-circle"></i> Account
-    </div>
   </nav>
   <div class="sidebar-footer">
-    <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      {% if user_avatar %}
-      <img src="{{ user_avatar }}" alt="{{ current_user_name }}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--border);flex-shrink:0;" onerror="this.style.display='none'">
-      {% else %}
-      <div style="width:28px;height:28px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;flex-shrink:0;">{{ current_user_name[0]|upper if current_user_name else 'U' }}</div>
-      {% endif %}
-      <span style="font-size:0.78rem;color:var(--text);font-weight:600;">{{ current_user_name }}</span>
-      {% if user_tier == 'premium' %}
-      <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.35);border-radius:999px;font-size:.65rem;font-weight:700;color:#f59e0b;letter-spacing:.3px;"><i class="fas fa-crown" style="font-size:.6rem;"></i> PRO</span>
-      {% else %}
-      <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.25);border-radius:999px;font-size:.65rem;font-weight:700;color:var(--accent);letter-spacing:.3px;"><i class="fas fa-bolt" style="font-size:.6rem;"></i> FREE</span>
-      {% endif %}
+    <div style="margin-bottom:8px;font-size:0.82rem;color:var(--text);font-weight:700;">
+      <i class="fas fa-shield-halved" style="color:var(--accent);margin-right:6px;"></i> SP4RK Owner
     </div>
     <span id="bot-status-label"><span class="status-dot" id="bot-status-dot" style="background:var(--muted);"></span><span id="bot-status-text" style="color:var(--muted);">Checking…</span></span>&nbsp;&nbsp;
-    <a href="{{ url_for('bots_showcase') }}" style="color:var(--accent);">← All bots</a>
+    <a href="{{ url_for('logout') }}" style="color:var(--accent);">Logout</a>
     <div style="margin-top:8px;font-size:0.7rem;color:var(--muted);opacity:.7;">SP4RK Bot <span style="color:var(--red);font-weight:600;">v26.6</span></div>
   </div>
 </div>
@@ -546,7 +522,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     <button class="btn btn-success" id="restart-bot-btn" onclick="restartBot()" title="Restarts the bot worker process. Settings are reloaded fresh.">
       <i class="fas fa-sync-alt"></i> Restart Bot
     </button>
-    <a href="{{ url_for('server_select') }}" title="{{ current_user_name }} — Switch server" style="display:flex;align-items:center;text-decoration:none;">
+    <a href="{{ url_for('server_select') }}" title="SP4RK Owner — Switch server" style="display:flex;align-items:center;text-decoration:none;">
       {% if user_avatar %}
       {% set _nav_initial = current_user_name[0]|upper if current_user_name else 'U' %}
       <img src="{{ user_avatar }}" alt="{{ current_user_name }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--border);transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onerror="this.outerHTML='<div style=&quot;width:36px;height:36px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;&quot;>{{ _nav_initial }}</div>'">
@@ -1432,105 +1408,6 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   </div>
 </div>
 
-{% if is_admin %}
-<!-- ===================== USERS ===================== -->
-<div id="users" class="tab-content">
-  <div class="page-header">
-    <h2>User Management</h2>
-    <p>Review registration requests and manage dashboard access.</p>
-  </div>
-
-  <!-- Pending Approvals -->
-  <div class="card" style="margin-bottom:20px;">
-    <div class="card-title">
-      <i class="fas fa-user-clock"></i> Pending Approvals
-      <span class="badge badge-off" id="pending-badge">{{ pending_users|length }} pending</span>
-      <button onclick="loadPendingList()" style="margin-left:auto;background:rgba(79,142,247,.15);color:var(--accent);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:0.78rem;cursor:pointer;font-weight:600;"><i class="fas fa-sync-alt"></i> Refresh</button>
-    </div>
-    <div id="pending-list">
-      {% if pending_users %}
-        {% for u in pending_users %}
-        <div class="row" id="pending-{{ u.uid }}">
-          <div class="row-label">
-            <strong>{{ u.name }}</strong>
-            <span style="font-family:'Courier New',monospace;font-size:0.8rem;color:var(--accent);margin-left:8px;">{{ u.uid }}</span>
-            <span style="display:block;font-size:0.75rem;color:var(--muted);margin-top:2px;">Registered: {{ u.created_at }}</span>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-success btn-sm" onclick="approveUser('{{ u.uid }}', '{{ u.name }}')">
-              <i class="fas fa-check"></i> Approve
-            </button>
-            <button class="btn btn-danger btn-sm" onclick="rejectUser('{{ u.uid }}', '{{ u.name }}')">
-              <i class="fas fa-times"></i> Reject
-            </button>
-          </div>
-        </div>
-        {% endfor %}
-      {% else %}
-        <div class="empty-state"><i class="fas fa-check-circle" style="color:var(--green)"></i> No pending requests.</div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- All Users -->
-  <div class="card">
-    <div class="card-title"><i class="fas fa-users"></i> All Users</div>
-    <table class="warnings-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>UID</th>
-          <th>Session Token</th>
-          <th>Status</th>
-          <th>Joined</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="all-users-tbody">
-        {% for u in all_users %}
-        <tr id="user-row-{{ u.uid }}">
-          <td>
-            <strong>{{ u.name }}</strong>
-            {% if u.is_admin %}<span class="badge badge-info" style="margin-left:6px;">Admin</span>{% endif %}
-          </td>
-          <td style="font-family:'Courier New',monospace;font-size:0.82rem;color:var(--accent);">{{ u.uid }}</td>
-          <td style="font-family:'Courier New',monospace;font-size:0.78rem;color:var(--accent2);word-break:break-all;">{{ u.session_token }}</td>
-          <td>
-            {% if u.status == 'approved' %}
-              <span class="badge badge-on">✅ Approved</span>
-            {% elif u.status == 'pending' %}
-              <span class="badge" style="background:rgba(243,156,18,.2);color:var(--orange);">⏳ Pending</span>
-            {% else %}
-              <span class="badge badge-off">❌ Rejected</span>
-            {% endif %}
-          </td>
-          <td style="color:var(--muted);font-size:0.8rem;">{{ u.created_at }}</td>
-          <td>
-            {% if not u.is_admin %}
-              {% if u.status == 'pending' %}
-                <button class="btn btn-success btn-sm" onclick="approveUser('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-check"></i></button>
-                <button class="btn btn-danger btn-sm" onclick="rejectUser('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-times"></i></button>
-              {% elif u.status == 'rejected' %}
-                <button class="btn btn-success btn-sm" onclick="approveUser('{{ u.uid }}','{{ u.name }}')">Re-approve</button>
-              {% endif %}
-              <button class="btn btn-primary btn-sm" onclick="grantAdmin('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-user-shield"></i> Admin</button>
-              <button class="btn btn-sm" style="background:var(--card-hover);" onclick="deleteUser('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-trash"></i></button>
-            {% else %}
-              {% if u.uid != current_uid %}
-                <button class="btn btn-warning btn-sm" onclick="revokeAdmin('{{ u.uid }}','{{ u.name }}')"><i class="fas fa-user-minus"></i> Remove Admin</button>
-              {% else %}
-                <span style="color:var(--muted);font-size:0.8rem;">Current admin</span>
-              {% endif %}
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-
 <!-- ==================== TICKETS TAB ==================== -->
 <div id="tickets" class="tab-content">
   <div class="page-header">
@@ -1795,76 +1672,6 @@ function _esc(s) {
 
 </div><!-- end #byte-ai -->
 
-<!-- ==================== FEEDBACK TAB ==================== -->
-<div id="feedback" class="tab-content">
-  <div class="card" style="max-width:680px;">
-    <div class="card-title"><i class="fas fa-star"></i> Rate your experience</div>
-    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:18px;">
-      How is SP4RK working for you? Your feedback goes straight to the SP4RK team and helps shape the next release.
-    </p>
-
-    <div style="display:flex;flex-direction:column;gap:18px;">
-      <div>
-        <div style="font-size:0.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Your rating</div>
-        <div id="fb-stars" class="star-row" role="radiogroup" aria-label="Star rating">
-          <i class="fas fa-star star" data-val="1" role="radio" tabindex="0" aria-label="1 star"></i>
-          <i class="fas fa-star star" data-val="2" role="radio" tabindex="0" aria-label="2 stars"></i>
-          <i class="fas fa-star star" data-val="3" role="radio" tabindex="0" aria-label="3 stars"></i>
-          <i class="fas fa-star star" data-val="4" role="radio" tabindex="0" aria-label="4 stars"></i>
-          <i class="fas fa-star star" data-val="5" role="radio" tabindex="0" aria-label="5 stars"></i>
-          <span id="fb-stars-label" style="margin-left:14px;color:var(--muted);font-size:0.85rem;">Tap a star</span>
-        </div>
-      </div>
-
-      <div>
-        <label for="fb-comment" style="font-size:0.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">What can we improve? <span style="text-transform:none;letter-spacing:0;opacity:.7;">(optional)</span></label>
-        <textarea id="fb-comment" rows="4" maxlength="2000" placeholder="Tell us about a bug, request a feature, or just say what you love…" style="width:100%;background:var(--bg-deep,#07101f);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:inherit;font-size:0.92rem;resize:vertical;"></textarea>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-        <button id="fb-submit-btn" class="btn-primary" onclick="submitFeedback()" style="background:linear-gradient(135deg,#5b8cff,#8a6cff);color:#fff;border:none;padding:10px 22px;border-radius:10px;font-weight:600;cursor:pointer;font-size:0.92rem;">
-          <i class="fas fa-paper-plane"></i> Send feedback
-        </button>
-        <span id="fb-submit-status" style="color:var(--muted);font-size:0.85rem;"></span>
-      </div>
-    </div>
-  </div>
-
-  <div class="card" style="max-width:680px;margin-top:18px;">
-    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <span><i class="fas fa-comment-dots"></i> Recent feedback</span>
-      <span id="fb-summary" style="font-size:0.82rem;color:var(--muted);font-weight:500;">Loading…</span>
-    </div>
-    <div id="fb-list" style="display:flex;flex-direction:column;gap:10px;"></div>
-  </div>
-</div>
-
-<style>
-.star-row { display:inline-flex; align-items:center; gap:6px; }
-.star-row .star {
-  font-size: 1.6rem;
-  color: rgba(255,255,255,.18);
-  cursor: pointer;
-  transition: transform .12s ease, color .12s ease, text-shadow .12s ease;
-  outline: none;
-}
-.star-row .star:hover { transform: scale(1.12); }
-.star-row .star.lit {
-  color: #ffc62a;
-  text-shadow: 0 0 12px rgba(255,198,42,.45);
-}
-.fb-item {
-  background: rgba(79,142,247,.05);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-}
-.fb-item .meta { display:flex; align-items:center; gap:10px; font-size:.8rem; color:var(--muted); margin-bottom:6px; flex-wrap:wrap; }
-.fb-item .meta .stars { color:#ffc62a; letter-spacing:1px; }
-.fb-item .body { color:var(--text); font-size:.9rem; white-space:pre-wrap; word-break:break-word; }
-.fb-item .empty { color:var(--muted); font-style:italic; }
-</style>
-
 <!-- ==================== EMBED EDITOR TAB ==================== -->
 <style>
 .emb-grid { display:grid; grid-template-columns: 280px 1fr; gap:18px; }
@@ -2070,60 +1877,17 @@ function _esc(s) {
 })();
 </script>
 
-<!-- ==================== ACCOUNT TAB ==================== -->
-<div id="account" class="tab-content">
-  <div class="card" style="max-width:500px;">
-    <div class="card-title"><i class="fas fa-user-circle"></i> Account Settings</div>
-    <div style="display:flex;flex-direction:column;gap:18px;">
-      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
-        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Logged in as</div>
-        <div style="font-size:1.1rem;font-weight:700;color:var(--text);">{{ current_user_name }}</div>
-        <div style="font-size:0.8rem;color:var(--muted);margin-top:4px;">Signed in via Discord</div>
-      </div>
-      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
-        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">License &amp; Plan</div>
-        {% if user_tier == 'premium' %}
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.35);border-radius:999px;font-size:.8rem;font-weight:700;color:#f59e0b;">
-            <i class="fas fa-crown"></i> Premium
-          </span>
-        </div>
-        {% else %}
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.28);border-radius:999px;font-size:.8rem;font-weight:700;color:var(--accent);">
-            <i class="fas fa-bolt"></i> Free
-          </span>
-        </div>
-        {% endif %}
-        <div style="font-size:.78rem;color:var(--muted);margin-top:6px;">
-          {% if is_premium %}
-          Tier granted automatically. Contact support to change your plan.
-          {% else %}
-          Contact the administrator to upgrade to Premium.
-          {% endif %}
-        </div>
-      </div>
-      <div style="background:rgba(79,142,247,.06);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
-        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Quick Actions</div>
-        <a href="{{ url_for('bots_showcase') }}" style="display:inline-flex;align-items:center;gap:8px;background:rgba(79,142,247,.12);color:var(--accent);border:1px solid rgba(79,142,247,.28);border-radius:8px;padding:9px 18px;text-decoration:none;font-size:0.88rem;font-weight:600;">← All bots</a>
-      </div>
-    </div>
-  </div>
-</div>
-
 </div><!-- end .main -->
 <div id="toast"></div>
 
 <script>
-const IS_ADMIN = {{ is_admin | tojson }};
 // ---- NAV ----
 const tabTitles = {
   general: 'General Setup',
   social: 'Social Notifier', tickets: 'Support Tickets', embeds: 'Embed Editor',
   moderation: 'Moderation', automod: 'Automod', security: 'Security & Anti-Raid',
   warnings: 'Live Warnings', logs: 'Action Logs',
-  'byte-ai': 'Byte AI',
-  account: 'Account Settings', users: 'User Management', feedback: 'Feedback'
+  'byte-ai': 'Byte AI'
 };
 
 function showTab(id, el) {
@@ -2136,132 +1900,8 @@ function showTab(id, el) {
   if (id === 'logs') loadLogs();
   if (id === 'tickets') loadTickets();
   if (id === 'general') loadConnectionStatus();
-  if (id === 'users') { {% if is_admin %}pollPendingUsers(); loadPendingList();{% endif %} }
-  if (id === 'feedback') loadFeedback();
   if (id === 'byte-ai') loadByteAI();
 }
-
-/* ============ FEEDBACK (star rating system) ============ */
-let _fbRating = 0;
-const _fbLabels = ['Tap a star','Hated it','Not great','It\'s okay','Pretty good','Loved it!'];
-
-function _renderStars(){
-  document.querySelectorAll('#fb-stars .star').forEach(el => {
-    const v = parseInt(el.getAttribute('data-val'), 10);
-    el.classList.toggle('lit', v <= _fbRating);
-  });
-  const lbl = document.getElementById('fb-stars-label');
-  if (lbl) lbl.textContent = _fbLabels[_fbRating] || _fbLabels[0];
-}
-
-function _initFeedbackStars(){
-  const row = document.getElementById('fb-stars');
-  if (!row || row.dataset.bound) return;
-  row.dataset.bound = '1';
-  row.querySelectorAll('.star').forEach(el => {
-    const v = parseInt(el.getAttribute('data-val'), 10);
-    el.addEventListener('click', () => { _fbRating = v; _renderStars(); });
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _fbRating = v; _renderStars(); }
-    });
-    el.addEventListener('mouseenter', () => {
-      document.querySelectorAll('#fb-stars .star').forEach(s => {
-        s.classList.toggle('lit', parseInt(s.getAttribute('data-val'),10) <= v);
-      });
-    });
-  });
-  row.addEventListener('mouseleave', _renderStars);
-  _renderStars();
-}
-
-async function submitFeedback(){
-  if (_fbRating < 1){
-    const s = document.getElementById('fb-submit-status');
-    s.textContent = 'Please pick a star rating first.';
-    s.style.color = '#e74c3c';
-    return;
-  }
-  const btn = document.getElementById('fb-submit-btn');
-  const status = document.getElementById('fb-submit-status');
-  const comment = (document.getElementById('fb-comment').value || '').trim();
-  btn.disabled = true; btn.style.opacity = '.7';
-  status.style.color = 'var(--muted)';
-  status.textContent = 'Sending…';
-  try {
-    const res = await fetch('/api/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rating: _fbRating, comment, source: 'main' })
-    });
-    const j = await res.json();
-    if (!res.ok || !j.ok){
-      status.style.color = '#e74c3c';
-      status.textContent = j.error || 'Could not send feedback.';
-    } else {
-      status.style.color = '#10b981';
-      status.textContent = 'Thanks for the feedback!';
-      _fbRating = 0; _renderStars();
-      document.getElementById('fb-comment').value = '';
-      loadFeedback();
-    }
-  } catch(e){
-    status.style.color = '#e74c3c';
-    status.textContent = 'Network error — try again.';
-  } finally {
-    btn.disabled = false; btn.style.opacity = '1';
-  }
-}
-
-function _starRow(n){
-  n = Math.max(0, Math.min(5, parseInt(n||0,10)));
-  return '★★★★★'.slice(0,n) + '☆☆☆☆☆'.slice(0, 5-n);
-}
-
-function _fmtFbDate(iso){
-  if (!iso) return '';
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
-  } catch(_){ return iso; }
-}
-
-async function loadFeedback(){
-  _initFeedbackStars();
-  const list = document.getElementById('fb-list');
-  const sum = document.getElementById('fb-summary');
-  if (!list) return;
-  list.innerHTML = '<div class="fb-item"><div class="empty">Loading…</div></div>';
-  try {
-    const res = await fetch('/api/feedback?limit=10');
-    const j = await res.json();
-    if (!res.ok || !j.ok) throw new Error(j.error || 'load failed');
-    if (sum){
-      sum.textContent = j.count
-        ? `${j.count} ${j.count===1?'rating':'ratings'} · avg ${j.average.toFixed(1)} / 5`
-        : 'No feedback yet';
-    }
-    if (!j.items || !j.items.length){
-      list.innerHTML = '<div class="fb-item"><div class="empty">Be the first to share your thoughts.</div></div>';
-      return;
-    }
-    list.innerHTML = j.items.map(it => {
-      const who = (it.user_name || 'Anonymous').replace(/[<>&]/g,'');
-      const cmt = (it.comment || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
-      return `<div class="fb-item">
-        <div class="meta">
-          <span class="stars">${_starRow(it.rating)}</span>
-          <strong style="color:var(--text);">${who}</strong>
-          <span>· ${_fmtFbDate(it.created_at)}</span>
-        </div>
-        <div class="body">${cmt || '<span class="empty">No comment</span>'}</div>
-      </div>`;
-    }).join('');
-  } catch(e){
-    if (sum) sum.textContent = '';
-    list.innerHTML = '<div class="fb-item"><div class="empty">Could not load feedback right now.</div></div>';
-  }
-}
-document.addEventListener('DOMContentLoaded', _initFeedbackStars);
 
 {% if dev_unlocked %}
 /* ============ DEVELOPER TOOLS PANEL ============ */
@@ -3117,196 +2757,7 @@ function exportReport() {
   window.location.href = '/api/export/report' + exportGuild;
 }
 
-// ---- USER MANAGEMENT ----
-async function approveUser(uid, name) {
-  try {
-    const res = await fetch('/api/approve_user', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({uid})
-    });
-    const data = await res.json();
-    if (!res.ok) { showToast('❌ ' + (data.error || 'Failed to approve user.'), true); return; }
-    showToast(`✅ ${name} approved!`);
-    const row = document.getElementById('pending-' + uid);
-    if (row) row.remove();
-    const badge = document.getElementById('pending-badge');
-    if (badge) {
-      const cur = parseInt(badge.textContent) || 1;
-      badge.textContent = Math.max(0, cur - 1) + ' pending';
-    }
-    const userRow = document.getElementById('user-row-' + uid);
-    if (userRow) {
-      const statusCell = userRow.querySelector('td:nth-child(4)');
-      if (statusCell) statusCell.innerHTML = '<span class="badge badge-on">✅ Approved</span>';
-      const actionCell = userRow.querySelector('td:nth-child(6)');
-      if (actionCell) actionCell.innerHTML = '<button class="btn btn-primary btn-sm" onclick="grantAdmin(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-user-shield"></i> Admin</button> <button class="btn btn-sm" style="background:var(--card-hover);" onclick="deleteUser(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-trash"></i></button>';
-    }
-  } catch(e) {
-    showToast('❌ Error: ' + e.message, true);
-  }
-}
-
-async function rejectUser(uid, name) {
-  if (!confirm(`Reject ${name}'s registration?`)) return;
-  try {
-    const res = await fetch('/api/reject_user', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({uid})
-    });
-    const data = await res.json();
-    if (!res.ok) { showToast('❌ ' + (data.error || 'Failed to reject user.'), true); return; }
-    showToast(`❌ ${name} rejected.`, true);
-    const row = document.getElementById('pending-' + uid);
-    if (row) row.remove();
-    const badge = document.getElementById('pending-badge');
-    if (badge) {
-      const cur = parseInt(badge.textContent) || 1;
-      badge.textContent = Math.max(0, cur - 1) + ' pending';
-    }
-    const userRow = document.getElementById('user-row-' + uid);
-    if (userRow) {
-      const statusCell = userRow.querySelector('td:nth-child(4)');
-      if (statusCell) statusCell.innerHTML = '<span class="badge badge-off">❌ Rejected</span>';
-    }
-  } catch(e) {
-    showToast('❌ Error: ' + e.message, true);
-  }
-}
-
-async function deleteUser(uid, name) {
-  if (!confirm(`Permanently delete ${name}?`)) return;
-  try {
-    const res = await fetch('/api/delete_user', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({uid})
-    });
-    const data = await res.json();
-    if (!res.ok) { showToast('❌ ' + (data.error || 'Failed to delete user.'), true); return; }
-    showToast(`🗑️ ${name} deleted.`);
-    const userRow = document.getElementById('user-row-' + uid);
-    if (userRow) userRow.remove();
-    const pendingRow = document.getElementById('pending-' + uid);
-    if (pendingRow) {
-      pendingRow.remove();
-      const badge = document.getElementById('pending-badge');
-      if (badge) {
-        const cur = parseInt(badge.textContent) || 1;
-        badge.textContent = Math.max(0, cur - 1) + ' pending';
-      }
-    }
-  } catch(e) {
-    showToast('❌ Error: ' + e.message, true);
-  }
-}
-
-async function grantAdmin(uid, name) {
-  if (!confirm(`Give ${name} admin access?`)) return;
-  try {
-    const res = await fetch('/api/grant_admin', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({uid})
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Could not grant admin access');
-    showToast(`🛡️ ${name} is now an admin.`);
-    const userRow = document.getElementById('user-row-' + uid);
-    if (userRow) {
-      const nameCell = userRow.querySelector('td:nth-child(1)');
-      if (nameCell && !nameCell.innerHTML.includes('Admin</span>')) {
-        nameCell.innerHTML = '<strong>' + name + '</strong> <span class="badge badge-info" style="margin-left:6px;">Admin</span>';
-      }
-      const statusCell = userRow.querySelector('td:nth-child(4)');
-      if (statusCell) statusCell.innerHTML = '<span class="badge badge-on">✅ Approved</span>';
-      const tokenCell = userRow.querySelector('td:nth-child(3)');
-      if (tokenCell && data.session_token) tokenCell.textContent = data.session_token;
-      const actionCell = userRow.querySelector('td:nth-child(6)');
-      if (actionCell) actionCell.innerHTML = '<button class="btn btn-warning btn-sm" onclick="revokeAdmin(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-user-minus"></i> Remove Admin</button>';
-    }
-  } catch(e) {
-    showToast('❌ Error: ' + e.message, true);
-  }
-}
-
-async function revokeAdmin(uid, name) {
-  if (!confirm(`Remove admin access from ${name}?`)) return;
-  try {
-    const res = await fetch('/api/revoke_admin', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({uid})
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Could not remove admin access');
-    showToast(`🛡️ ${name} is no longer an admin.`);
-    const userRow = document.getElementById('user-row-' + uid);
-    if (userRow) {
-      const nameCell = userRow.querySelector('td:nth-child(1)');
-      if (nameCell) nameCell.innerHTML = '<strong>' + name + '</strong>';
-      const actionCell = userRow.querySelector('td:nth-child(6)');
-      if (actionCell) actionCell.innerHTML = '<button class="btn btn-primary btn-sm" onclick="grantAdmin(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-user-shield"></i> Admin</button> <button class="btn btn-sm" style="background:var(--card-hover);" onclick="deleteUser(\'' + uid + '\',\'' + name + '\')"><i class="fas fa-trash"></i></button>';
-    }
-  } catch(e) {
-    showToast('❌ Error: ' + e.message, true);
-  }
-}
-
-// ---- APPLY THEME ----
-const savedTheme = document.getElementById('theme_color');
-if (savedTheme && savedTheme.value) {
-  document.documentElement.style.setProperty('--accent', savedTheme.value);
-}
-
-
-
-// ---- TICKETS ----
-async function loadTickets() {
-  try {
-    const res = await fetch('/api/tickets' + (currentGuildId ? '?guild_id=' + encodeURIComponent(currentGuildId) : ''));
-    const data = await res.json();
-    const list = Array.isArray(data) ? data : [];
-    const open = list.filter(t => t.status === 'open');
-    const closed = list.filter(t => t.status === 'closed');
-    document.getElementById('tk-open').textContent = open.length;
-    document.getElementById('tk-closed').textContent = closed.length;
-    const tbody = document.getElementById('ticket-table-body');
-    if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">No tickets yet. Members use /ticket in Discord.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = list.slice().reverse().map(t => `
-      <tr>
-        <td style="color:var(--accent);font-weight:700;">#${String(t.id||'?').padStart(4,'0')}</td>
-        <td>${t.user_name || t.user_id || '—'}</td>
-        <td style="font-size:0.82rem;">${(t.reason||'General Support').slice(0,40)}</td>
-        <td><span style="padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:700;background:${t.status==='open' ? 'rgba(79,142,247,.12)' : 'rgba(46,204,113,.12)'};color:${t.status==='open' ? 'var(--accent)' : 'var(--green)'};">${t.status==='open' ? '🟢 Open' : '🔒 Closed'}</span></td>
-        <td style="color:var(--muted);font-size:0.8rem;">${(t.created_at||'').slice(0,16)}</td>
-        <td style="color:var(--muted);font-size:0.8rem;">${t.closed_by || '—'}</td>
-      </tr>`).join('');
-  } catch(e) {
-    document.getElementById('ticket-table-body').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);">Failed to load</td></tr>';
-  }
-}
-
 // ---- AUTO-RESPONDER ----
-// ---- COPY UID ----
-function copyUID() {
-  const uid = document.querySelector('#account code:not(.session-token-code)');
-  if (uid) {
-    navigator.clipboard.writeText(uid.textContent.trim()).then(() => showToast('✅ UID copied!')).catch(() => showToast('❌ Could not copy', true));
-  }
-}
-
-function copySessionToken() {
-  const token = document.querySelector('#account .session-token-code');
-  if (token) {
-    navigator.clipboard.writeText(token.textContent.trim()).then(() => showToast('✅ Session token copied!')).catch(() => showToast('❌ Could not copy', true));
-  }
-}
-
 // ---- AUTO REFRESH ----
 setInterval(loadWarnings, 5000);
 setInterval(checkBotStatus, 30000);
