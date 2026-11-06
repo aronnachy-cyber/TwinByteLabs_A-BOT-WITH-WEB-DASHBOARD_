@@ -298,7 +298,7 @@ async def configure_guild(
             color=0x5865F2,
         )
         embed.add_field(name="Step 1", value="Press **Verify** below.", inline=False)
-        embed.add_field(name="Step 2", value="Enter the 5-character code shown in the verification form.", inline=False)
+        embed.add_field(name="Step 2", value="Solve the short maths question shown after pressing Verify.", inline=False)
         embed.set_footer(text="NVD Official • CAPTCHA verification")
         await channel.send(embed=embed, view=CaptchaView())
     except Exception:
