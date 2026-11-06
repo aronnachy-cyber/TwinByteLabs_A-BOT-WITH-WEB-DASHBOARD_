@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SP4RK — Dashboard</title>
+<title>NVD Official — Dashboard</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -304,8 +304,8 @@ html.bl-compact .page-header { margin-bottom: 18px; }
         <text x="20" y="31" text-anchor="middle" fill="#3a8fff" font-size="18" font-weight="bold" font-family="Arial,sans-serif">S</text>
       </svg>
       <div>
-        <div class="bl-splash-title">SP4RK Dashboard</div>
-        <div class="bl-splash-sub">by SP4RK</div>
+        <div class="bl-splash-title">NVD Official Dashboard</div>
+        <div class="bl-splash-sub">by NVD Official</div>
       </div>
     </div>
 
@@ -319,7 +319,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     <div class="bl-splash-warn">
       <div class="bl-warn-title"><i class="fas fa-triangle-exclamation"></i> Bot is in Alpha</div>
       <div class="bl-warn-body">Expect bugs. Please report anything weird in the Feedback tab.</div>
-      <div class="bl-warn-sig">— SP4RK</div>
+      <div class="bl-warn-sig">— NVD Official</div>
     </div>
   </div>
 </div>
@@ -382,14 +382,14 @@ html.bl-compact .page-header { margin-bottom: 18px; }
 (function(){
   const TIPS = [
     "Drag sidebar items to reorder them — your layout is saved automatically.",
-    "Use the Feedback tab to send bug reports straight to SP4RK.",
+    "Use the Feedback tab to send bug reports straight to NVD Official.",
     "Live Warnings refresh in real time — no manual reload needed.",
-    "Set a log channel under General so SP4RK can post action logs.",
+    "Set a log channel under General so NVD Official can post action logs.",
     "Anti-Raid kicks new accounts joining in bursts — toggle in Security.",
-    "Type /about in Discord to see SP4RK's creator and official birthday.",
+    "Type /about in Discord to see NVD Official's creator and official birthday.",
     "Pro tip: hover any chart point to see exact daily counts.",
-    "Click a star in the Feedback tab to share how SP4RK is treating you.",
-    "Use /bot in Discord for a live status overview of SP4RK.",
+    "Click a star in the Feedback tab to share how NVD Official is treating you.",
+    "Use /bot in Discord for a live status overview of NVD Official.",
     "Daily reports summarise all mod actions — enable them in General.",
   ];
   const tipEl = document.getElementById('bl-tip-text');
@@ -432,7 +432,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       <text x="20" y="31" text-anchor="middle" fill="#3a8fff" font-size="18" font-weight="bold" font-family="Arial,sans-serif">S</text>
     </svg>
     <div>
-      <div class="logo-text">SP4RK</div>
+      <div class="logo-text">NVD Official</div>
       <div class="logo-sub">V2.0.4</div>
     </div>
   </div>
@@ -486,11 +486,11 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   </nav>
   <div class="sidebar-footer">
     <div style="margin-bottom:8px;font-size:0.82rem;color:var(--text);font-weight:700;">
-      <i class="fas fa-shield-halved" style="color:var(--accent);margin-right:6px;"></i> SP4RK Owner
+      <i class="fas fa-shield-halved" style="color:var(--accent);margin-right:6px;"></i> NVD Official Owner
     </div>
     <span id="bot-status-label"><span class="status-dot" id="bot-status-dot" style="background:var(--muted);"></span><span id="bot-status-text" style="color:var(--muted);">Checking…</span></span>&nbsp;&nbsp;
     <a href="{{ url_for('logout') }}" style="color:var(--accent);">Logout</a>
-    <div style="margin-top:8px;font-size:0.7rem;color:var(--muted);opacity:.7;">SP4RK Bot <span style="color:var(--red);font-weight:600;">v26.6</span></div>
+    <div style="margin-top:8px;font-size:0.7rem;color:var(--muted);opacity:.7;">NVD Official Bot <span style="color:var(--red);font-weight:600;">v26.6</span></div>
   </div>
 </div>
 
@@ -522,7 +522,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     <button class="btn btn-success" id="restart-bot-btn" onclick="restartBot()" title="Restarts the bot worker process. Settings are reloaded fresh.">
       <i class="fas fa-sync-alt"></i> Restart Bot
     </button>
-    <a href="{{ url_for('server_select') }}" title="SP4RK Owner — Switch server" style="display:flex;align-items:center;text-decoration:none;">
+    <a href="{{ url_for('server_select') }}" title="NVD Official Owner — Switch server" style="display:flex;align-items:center;text-decoration:none;">
       {% if user_avatar %}
       {% set _nav_initial = current_user_name[0]|upper if current_user_name else 'U' %}
       <img src="{{ user_avatar }}" alt="{{ current_user_name }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--border);transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onerror="this.outerHTML='<div style=&quot;width:36px;height:36px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;&quot;>{{ _nav_initial }}</div>'">
@@ -660,7 +660,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     <div class="card">
       <div class="card-title"><i class="fas fa-door-open"></i> Welcome Message</div>
       <p style="color:var(--muted);font-size:.82rem;margin-bottom:16px;">
-        Configure exactly how SP4RK greets new members. Each line points to a channel — use server emojis like <code style="background:var(--input-bg);padding:1px 6px;border-radius:4px;">:emoji_name:</code> freely in any emoji field.
+        Configure exactly how NVD Official greets new members. Each line points to a channel — use server emojis like <code style="background:var(--input-bg);padding:1px 6px;border-radius:4px;">:emoji_name:</code> freely in any emoji field.
       </p>
 
       <!-- Channel routing -->
@@ -774,19 +774,19 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       </div>
     </div>
 
-    <!-- SP4RK Server Knowledge Card -->
+    <!-- NVD Official Server Knowledge Card -->
     <div class="card" style="grid-column:1/-1;">
-      <div class="card-title"><i class="fas fa-brain"></i> SP4RK Server Knowledge</div>
+      <div class="card-title"><i class="fas fa-brain"></i> NVD Official Server Knowledge</div>
       <p style="color:var(--muted);font-size:.82rem;margin-bottom:16px;">
-        Tell SP4RK about your server so it can answer member questions intelligently when @mentioned.
-        SP4RK already reads your channel list, roles, and member count automatically — use these fields
+        Tell NVD Official about your server so it can answer member questions intelligently when @mentioned.
+        NVD Official already reads your channel list, roles, and member count automatically — use these fields
         to add anything else it should know.
       </p>
       <div class="row-label" style="margin-bottom:6px;"><strong>Server Description</strong> — What is your server about?</div>
       <div class="input-wrap-full" style="margin-bottom:14px;">
         <textarea id="server_description" rows="3" placeholder="e.g. A gaming community focused on Minecraft and Valorant. Founded in 2021.">{{ config.get('server_description','') }}</textarea>
       </div>
-      <div class="row-label" style="margin-bottom:6px;"><strong>Server Rules</strong> — Your server rules (SP4RK will quote these when asked)</div>
+      <div class="row-label" style="margin-bottom:6px;"><strong>Server Rules</strong> — Your server rules (NVD Official will quote these when asked)</div>
       <div class="input-wrap-full">
         <textarea id="server_rules" rows="5" placeholder="1. Be respectful&#10;2. No spam&#10;3. Keep topics in the right channels…">{{ config.get('server_rules','') }}</textarea>
       </div>
@@ -924,7 +924,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     <div class="bai-welcome" id="bai-welcome">
       <div class="bai-welcome-icon">🤖</div>
       <h3>Hi, I'm Byte AI!</h3>
-      <p>Ask me anything about your server settings, moderation rules, or how SP4RK features work.</p>
+      <p>Ask me anything about your server settings, moderation rules, or how NVD Official features work.</p>
       <div class="bai-chips">
         <button class="bai-chip-btn" onclick="baiQuickSend('What settings should I configure first?')">What settings should I configure first?</button>
         <button class="bai-chip-btn" onclick="baiQuickSend('How does automod work?')">How does automod work?</button>
@@ -1133,7 +1133,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
       <div class="row">
         <div class="row-label">
           <strong>Auto DM Warning</strong>
-          <span style="color:var(--muted);font-size:.78rem;">Disabled — SP4RK no longer DMs offending users. Warnings now go to staff only via the log channel/webhook. Use <code>/warn</code> for manual member-to-user warnings.</span>
+          <span style="color:var(--muted);font-size:.78rem;">Disabled — NVD Official no longer DMs offending users. Warnings now go to staff only via the log channel/webhook. Use <code>/warn</code> for manual member-to-user warnings.</span>
         </div>
         <label class="toggle" style="opacity:.5;cursor:not-allowed;">
           <input type="checkbox" id="auto_dm_warning" disabled><span class="slider"></span>
@@ -1177,7 +1177,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
     <div class="card" style="border:1px solid #c084fc;">
       <div class="card-title" style="color:#c084fc;"><i class="fas fa-gavel"></i> Automod (Auto-Action)</div>
       <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px;">
-        When ON, SP4RK automatically mutes / tempbans / kicks members based on their warning count.
+        When ON, NVD Official automatically mutes / tempbans / kicks members based on their warning count.
         When OFF, nothing changes — warnings still get logged to staff but no automatic punishment is applied.
         Owners, staff and equal/higher-role members are never affected.
       </p>
@@ -1701,8 +1701,8 @@ function _esc(s) {
 .emb-btn-preview { background:#4f8ef7; color:#fff; }
 </style>
 <div id="embeds" class="tab-content">
-  <div class="card-title"><i class="fas fa-paint-brush"></i> Embed Editor — Customize SP4RK Messages</div>
-  <p style="color:var(--muted); margin-bottom:18px;">Edit the title, description, color and footer of any embed SP4RK sends. Changes apply globally across all servers SP4RK is in. Use the placeholder chips below to insert dynamic values.</p>
+  <div class="card-title"><i class="fas fa-paint-brush"></i> Embed Editor — Customize NVD Official Messages</div>
+  <p style="color:var(--muted); margin-bottom:18px;">Edit the title, description, color and footer of any embed NVD Official sends. Changes apply globally across all servers NVD Official is in. Use the placeholder chips below to insert dynamic values.</p>
   <div class="emb-grid">
     <div class="emb-list" id="emb-list"><div style="padding:14px; color:var(--muted);">Loading templates…</div></div>
     <div class="emb-edit" id="emb-edit"><div style="color:var(--muted); padding:30px; text-align:center;">← Pick a template on the left to start editing.</div></div>
@@ -2895,7 +2895,7 @@ pollPendingUsers();
   </section>
 
   <div class="bl-dev-foot">
-    SP4RK · SP4RK · dev mode
+    NVD Official · NVD Official · dev mode
   </div>
 </aside>
 
@@ -2971,7 +2971,7 @@ html.bl-compact .main { padding-top: 60px !important; }
 {% include "_cookie_consent.html" %}
 {% include "_emoji_picker.html" %}
 
-<!-- ===== SP4RK POLISH — SP4RK DASHBOARD ===== -->
+<!-- ===== NVD Official POLISH — NVD Official DASHBOARD ===== -->
 <style>
 html { scroll-behavior: smooth; }
 
