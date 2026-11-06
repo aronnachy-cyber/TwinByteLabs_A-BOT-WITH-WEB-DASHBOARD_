@@ -2115,10 +2115,14 @@ async def on_raw_bulk_message_delete(payload: discord.RawBulkMessageDeleteEvent)
     channel = bot.get_channel(payload.channel_id)
     ch_name = f"<#{payload.channel_id}>" if channel else f"Channel `{payload.channel_id}`"
     ids_preview = ", ".join(str(mid) for mid in list(payload.message_ids)[:30])
+    links_preview = "\n".join(
+        f"https://discord.com/channels/{gid}/{payload.channel_id}/{mid}"
+        for mid in list(payload.message_ids)[:10]
+    )
     await logging_system.emit(
         bot, bot.get_guild(int(gid)), "message_bulk_delete", "🗑️ Bulk Messages Deleted",
         f"**{count}** messages were bulk-deleted in {ch_name}.\n"
-        f"**Channel ID:** {payload.channel_id}\n**Message IDs (first 30):** {ids_preview or 'Unavailable'}\n"
+        f"**Channel ID:** {payload.channel_id}\n**Message IDs (first 30):** {ids_preview or 'Unavailable'}\n**Message links (first 10):**\n{links_preview or 'Unavailable'}\n"
         "**Content:** Discord does not provide bulk-deleted message contents in this event.",
         color=0xe74c3c, channel=channel, dedupe_id=f"{payload.channel_id}:{min(payload.message_ids) if payload.message_ids else 0}:{count}",
     )
