@@ -212,17 +212,26 @@ async def handle_member_join(member: discord.Member, config: dict, bot=None) -> 
 
     try:
         pending_id = int(str(config.get("captcha_pending_role", "")).strip())
+        verified_id = int(str(config.get("captcha_role", "")).strip())
         channel_id = int(str(config.get("captcha_channel", "")).strip())
         role = member.guild.get_role(pending_id)
+        verified_role = member.guild.get_role(verified_id)
         channel = member.guild.get_channel(channel_id)
-        if role is None or channel is None:
+        if role is None or verified_role is None or channel is None:
             print(f"[CAPTCHA] Missing role/channel configuration in guild {member.guild.id}")
             return False
         bot_member = member.guild.me
-        if bot_member is None or role >= bot_member.top_role:
-            print(f"[CAPTCHA] Bot role hierarchy prevents assigning pending role in {member.guild.id}")
+        if bot_member is None or role >= bot_member.top_role or verified_role >= bot_member.top_role:
+            print(f"[CAPTCHA] Bot role hierarchy prevents resetting verification in {member.guild.id}")
             return False
-        await member.add_roles(role, reason="NVD CAPTCHA: awaiting human verification")
+
+        # A returning member must verify again. Remove any restored/stale Verified
+        # role and put the member into the pending role before the join flow continues.
+        await member.add_roles(role, reason="NVD CAPTCHA: new join requires verification")
+        if verified_role in member.roles:
+            await member.remove_roles(
+                verified_role, reason="NVD CAPTCHA: re-verification required after rejoining"
+            )
         try:
             await member.send(
                 f"Welcome to **{member.guild.name}**! Please open {channel.mention} and complete the CAPTCHA to access the server."
