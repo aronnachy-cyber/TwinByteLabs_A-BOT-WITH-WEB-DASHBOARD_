@@ -368,11 +368,9 @@ def _preload_guild_config_cache():
     """Warm up the in-memory guild config cache at startup.
 
     Load order:
-      1. Postgres  — authoritative persistent store.
-      2. JSON file — used as warm-start fallback when Postgres is empty OR
-                     unavailable.  When JSON has data and Postgres is empty we
-                     also push the JSON data into Postgres so future restarts
-                     don't need the file.
+      1. Postgres — authoritative when DATABASE_URL is configured.
+      2. Supabase sentinel_config JSON store — persistent fallback on Render.
+      3. Local JSON — warm-start and migration fallback.
     """
     global _guild_config_cache
     _json_path = os.path.join(os.path.dirname(__file__), "sp4rk_guild_configs.json")
@@ -384,7 +382,14 @@ def _preload_guild_config_cache():
                 _guild_config_cache = dict(db_data)
                 print(f"📦 Guild config cache loaded ({len(_guild_config_cache)} guilds from Postgres)")
                 return
-            # Postgres is available but empty — check if JSON has data we should migrate.
+            # Postgres is available but empty — restore from Supabase before JSON.
+            sb_data = _load_supabase_guild_configs()
+            if sb_data:
+                _guild_config_cache = dict(sb_data)
+                _ds.save_all_guild_configs(_guild_config_cache)
+                print(f"📦 Restored guild configs from Supabase ({len(_guild_config_cache)} guilds)")
+                return
+            # Otherwise check if JSON has data we should migrate.
             if os.path.exists(_json_path):
                 try:
                     with open(_json_path, "r", encoding="utf-8") as f:
@@ -464,6 +469,8 @@ def _load_guild_configs() -> dict:
                 loaded = json.load(f)
                 if isinstance(loaded, dict):
                     _guild_config_cache = loaded
+                    if sb_data is not None:
+                        _save_supabase_guild_configs(loaded)
                     return dict(_guild_config_cache)
         except Exception:
             pass
