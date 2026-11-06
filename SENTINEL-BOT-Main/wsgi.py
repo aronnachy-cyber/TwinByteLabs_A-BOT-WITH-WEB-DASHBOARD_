@@ -10,11 +10,10 @@ try:
 except ImportError:
     pass
 
-# Print startup config summary and warn on missing required vars
+# Print startup config summary before loading the dashboard.
 try:
-    from config_check import check_config, warn_dev_pin
+    from config_check import check_config
     check_config(print_optional=True)
-    warn_dev_pin()
 except Exception as _cc_err:
     print(f"[WSGI] config_check skipped: {_cc_err}")
 
@@ -55,17 +54,12 @@ def _bot_watchdog():
 
 
 def _self_ping():
-    """Ping /health every 2 minutes to prevent Render/Replit from spinning down.
-
-    Uses the public DASHBOARD_URL when set so the ping counts as real inbound
-    traffic on Render (internal localhost pings don't reset the idle timer).
-    Falls back to localhost only when no public URL is known.
-    """
+    """Ping /health using Render's public URL when available."""
     time.sleep(30)
     while True:
         try:
-            _render_url    = os.environ.get("RENDER_EXTERNAL_URL", "")
-            _railway_url   = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
+            _render_url = os.environ.get("RENDER_EXTERNAL_URL", "")
+            _railway_url = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
             _replit_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
             base = (
                 os.environ.get("DASHBOARD_URL", "").rstrip("/")
@@ -84,7 +78,7 @@ def _self_ping():
                     print(f"[KEEPALIVE] /health returned {resp.status}")
         except Exception as e:
             print(f"[KEEPALIVE] Ping failed: {e}")
-        time.sleep(120)  # every 2 minutes — well within Render's 15-min idle window
+        time.sleep(120)
 
 
 _token_present = bool(os.environ.get("DISCORD_TOKEN", "").strip())
@@ -95,14 +89,14 @@ if _token_present and not _disabled:
     threading.Thread(target=_bot_watchdog, daemon=True, name="bot-watchdog").start()
 elif not _token_present:
     print("[WSGI] DISCORD_TOKEN not set — Discord bot will not start. "
-          "Set DISCORD_TOKEN in your .env file (local) or host secrets (cloud) to enable the bot.")
+          "Set DISCORD_TOKEN in Render Environment to enable the bot.")
 
 
 def _start_server_official():
-    """Start the Server Official bot if SERVER_TOKEN is configured."""
+    """Start the optional Server Official bot if SERVER_TOKEN is configured."""
     so_token = os.environ.get("SERVER_TOKEN", "").strip()
     if not so_token:
-        print("[WSGI] SERVER_TOKEN not set — Server Official bot will not start.")
+        print("[WSGI] SERVER_TOKEN not set — optional Server Official bot will not start.")
         return
     try:
         import server_official as so
