@@ -2017,8 +2017,23 @@ async def on_guild_channel_update(before, after):
             f"Channel: {after.mention} (ID: `{after.id}`)\nBefore: {getattr(before,'topic',None) or 'None'}\nAfter: {getattr(after,'topic',None) or 'None'}",
             color=0x3498db, guild_id=gid, channel=after)
     if before.overwrites != after.overwrites:
+        old_targets = {target.id: target for target in before.overwrites}
+        new_targets = {target.id: target for target in after.overwrites}
+        permission_changes = []
+        for target_id in set(old_targets) | set(new_targets):
+            target = new_targets.get(target_id) or old_targets.get(target_id)
+            old_overwrite = before.overwrites_for(target)
+            new_overwrite = after.overwrites_for(target)
+            for permission_name in discord.Permissions.VALID_FLAGS:
+                old_value = getattr(old_overwrite, permission_name, None)
+                new_value = getattr(new_overwrite, permission_name, None)
+                if old_value != new_value:
+                    permission_changes.append(
+                        f"{target} ({target_id}) — {permission_name}: {old_value} → {new_value}"
+                    )
+        details = "\n".join(permission_changes[:25]) or "Permission overwrite map changed; individual flags were unavailable."
         await logs.log_event(bot, config, "🔐 Channel Permissions Changed",
-            f"Channel: {after.mention} (ID: `{after.id}`)\nPermission overwrites changed. Exact changed targets and responsible moderator may be unavailable; inspect Discord Audit Log.",
+            f"Channel: {after.mention} (ID: `{after.id}`)\n{details}",
             color=0xe67e22, guild_id=gid, channel=after)
     old_cat = before.category.name if before.category else "None"
     new_cat = after.category.name if after.category else "None"
