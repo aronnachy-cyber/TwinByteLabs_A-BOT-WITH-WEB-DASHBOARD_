@@ -109,7 +109,7 @@ def _make_session_permanent():
     # SP4RK is a private, single-owner dashboard. Retire legacy multi-account,
     # developer-console, owner-console, public-intake and watch-party surfaces.
     path = request.path.rstrip("/") or "/"
-    blocked_prefixes = ("/dev", "/owner", "/api/owner", "/wave", "/watch", "/api/wave", "/api/bot_request")
+    blocked_prefixes = ("/dev", "/owner", "/api/owner", "/wave", "/watch", "/api/wave", "/api/bot_request", "/api/bot_requests")
     blocked_paths = {
         "/register", "/forgot-password", "/activate-license", "/bot-debug",
         "/api/public_feedback", "/api/feedback", "/api/pending_count",
