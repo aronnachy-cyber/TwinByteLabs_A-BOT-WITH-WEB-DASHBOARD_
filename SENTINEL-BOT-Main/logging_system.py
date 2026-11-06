@@ -374,6 +374,8 @@ async def create_log_channels(guild,save_cfg,setup_member=None):
         channel=discord.utils.get(guild.text_channels,name=name)
         if channel is None or channel.category_id!=category.id:
             channel=await guild.create_text_channel(name,category=category,reason="NVD Official logging setup")
+        elif not channel.permissions_synced:
+            await channel.edit(sync_permissions=True,reason="Sync NVD log channel with private SERVER LOGS category")
         mapping[key]=str(channel.id)
     current = _cfg(guild.id)
     events = dict(current.get("logging_events") or {})
