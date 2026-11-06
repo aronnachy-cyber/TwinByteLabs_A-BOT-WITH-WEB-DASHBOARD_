@@ -3,7 +3,7 @@ premium_features.py — SP4RK Premium Admin Feature Pack
 
 Adds the following slash command groups (skips anything already registered):
   /rr        — Advanced Reaction Role Panels (buttons + dropdowns, analytics)
-  /logs      — Ultra Logging System config
+  /logs      — registered by logging_system.py (full configurable logging)
   /automod   — Smart AutoMod slash controls
   /tag       — Advanced Custom Commands / Tag System
   /softban   — Ban + instant unban to clear message history
@@ -1368,7 +1368,6 @@ class SparkEliteGroup(app_commands.Group):
 def setup(bot: commands.Bot, dlog=None) -> None:
     groups = [
         RRGroup(),
-        LogsGroup(),
         AutoModGroup(),
         TagGroup(),
         CaseGroup(),
