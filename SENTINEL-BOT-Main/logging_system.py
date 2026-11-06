@@ -199,7 +199,7 @@ async def send_existing(bot,guild_id,category,event,embed,actor_id=None,channel_
     return False
 
 async def audit_actor(guild,action,target_id=None):
-    if guild is None:
+    if guild is None or action is None:
         return None,None
     key=(guild.id,str(action),str(target_id))
     now=time.monotonic()
