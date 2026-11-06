@@ -733,7 +733,7 @@ async def daily_report_task():
             embed.set_image(url="attachment://daily_report.png")
 
         embed.set_footer(
-            text=f"NVD Official  ·  Byte Labs  ·  Reports every 8 h  ·  {date_str}"
+            text=f"NVD Official  ·  Reports every 8 h  ·  {date_str}"
         )
 
         if img_file:
@@ -1087,7 +1087,7 @@ def _build_manual_pages() -> list:
     # ── Page 10: Server Analytics ─────────────────────────────────────────
     pages.append(page(
         "📊 Server Analytics",
-        "Slash commands for server stats and growth data. Full charts live in the Byte Labs dashboard.",
+        "Slash commands for server stats and growth data. Full charts live in the NVD Official dashboard.",
         [
             ("Overview & Activity — /stats", (
                 "`/stats server` — Complete server overview: members, channels, roles, boosts\n"
@@ -1103,7 +1103,7 @@ def _build_manual_pages() -> list:
                 "😐 **Normal Activity** (−10 to +19) — Business as usual\n"
                 "😬 **Tense Atmosphere** (−11 to −29) — Watch the chat\n"
                 "💀 **Chaotic / Dead** (−30 to −50) — Things are rough\n\n"
-                "Full mood card with score bar and history chart → **Analytics tab** in Byte Labs"
+                "Full mood card with score bar and history chart → **Analytics tab** in NVD Official"
             ), False),
         ]
     ))
@@ -1434,7 +1434,7 @@ async def slash_bot(interaction: discord.Interaction):
     embed.add_field(name="👥 Total Members", value=f"**{total_members:,}**", inline=True)
     if interaction.guild and interaction.guild.me.display_avatar:
         embed.set_thumbnail(url=interaction.guild.me.display_avatar.url)
-    embed.set_footer(text="NVD Official — Your Server's Guardian  •  Byte Labs", icon_url=interaction.guild.me.display_avatar.url if interaction.guild else discord.Embed.Empty)
+    embed.set_footer(text="NVD Official — Your Server's Guardian  •  NVD Official", icon_url=interaction.guild.me.display_avatar.url if interaction.guild else discord.Embed.Empty)
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="dashboard", description="Mini admin dashboard (admin only)")
@@ -3754,7 +3754,7 @@ async def slash_botinfo(interaction: discord.Interaction):
     )
     if bot.user and bot.user.display_avatar:
         embed.set_thumbnail(url=bot.user.display_avatar.url)
-    embed.set_footer(text="NVD Official  •  Byte Labs")
+    embed.set_footer(text="NVD Official")
     await interaction.response.send_message(embed=embed)
 
 
