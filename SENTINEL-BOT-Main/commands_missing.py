@@ -632,52 +632,87 @@ def setup(bot: commands.Bot, dlog=None):
             await ctx.send(f"✅ **Join Guard Set** — accounts younger than **{min_age_days} day(s)** will be kicked on join.")
         _dlog("🛡️ JOINGUARD", f"Join guard set to {min_age_days}d by {ctx.author}")
 
-    # ── !logs group ──
+    # ── !logs group — full logging controls ──
     @bot.group(name="logs", invoke_without_command=True)
     @commands.has_permissions(manage_guild=True)
     async def prefix_logs(ctx):
-        await ctx.send("ℹ️ Usage: `!logs set #channel` · `!logs mod #ch` · `!logs message #ch` · `!logs join #ch` · `!logs voice #ch`")
+        await ctx.send(
+            "**NVD Logging**\n"
+            "`!logs setup` — create SERVER LOGS + ten channels\n"
+            "`!logs enable on|off` — master switch\n"
+            "`!logs category <name> on|off` — category switch\n"
+            "`!logs event <event_key> on|off` — individual event switch\n"
+            "`!logs ignorebots on|off` — ignore bot accounts\n"
+            "`!logs status` — show configuration"
+        )
 
-    @prefix_logs.command(name="set")
+    @prefix_logs.command(name="setup")
     @commands.has_permissions(manage_guild=True)
-    async def prefix_logs_set(ctx, channel: discord.TextChannel):
-        cfg = _gcfg(ctx.guild.id)
-        cfg["log_channel"] = str(channel.id)
-        _save_gcfg(ctx.guild.id, cfg)
-        await ctx.send(f"✅ **Log Channel Set** — All mod logs will be sent to {channel.mention}.")
-        _dlog("📋 LOGS-SET", f"Log channel set to #{channel.name} by {ctx.author}")
+    async def prefix_logs_setup(ctx):
+        import logging_system
+        try:
+            _, mapping = await logging_system.create_log_channels(ctx.guild, _save_gcfg)
+            lines = [f"• **{key.replace('_',' ').title()}** → <#{value}>" for key,value in mapping.items()]
+            await ctx.send("✅ **NVD logging enabled.**\n" + "\n".join(lines))
+        except Exception as exc:
+            await ctx.send(f"❌ Logging setup failed: {str(exc)[:250]}")
 
-    @prefix_logs.command(name="mod")
+    @prefix_logs.command(name="enable")
     @commands.has_permissions(manage_guild=True)
-    async def prefix_logs_mod(ctx, channel: discord.TextChannel):
-        cfg = _gcfg(ctx.guild.id)
-        cfg["log_channel"] = str(channel.id)
-        _save_gcfg(ctx.guild.id, cfg)
-        await ctx.send(f"✅ **Mod Log Channel** → {channel.mention}")
+    async def prefix_logs_enable(ctx, state: str):
+        state = state.lower()
+        if state not in ("on", "off"):
+            return await ctx.send("Use `!logs enable on` or `!logs enable off`.")
+        _save_gcfg(ctx.guild.id, {"logging_enabled": state == "on"})
+        await ctx.send(f"✅ Logging is now **{state.upper()}**.")
 
-    @prefix_logs.command(name="message")
+    @prefix_logs.command(name="category")
     @commands.has_permissions(manage_guild=True)
-    async def prefix_logs_message(ctx, channel: discord.TextChannel):
+    async def prefix_logs_category(ctx, category: str, state: str):
+        import logging_system
+        category, state = category.lower(), state.lower()
+        if category not in logging_system.CATEGORIES or state not in ("on", "off"):
+            return await ctx.send("Invalid category/state. Categories: " + ", ".join(logging_system.CATEGORIES))
         cfg = _gcfg(ctx.guild.id)
-        cfg["message_log_channel"] = str(channel.id)
-        _save_gcfg(ctx.guild.id, cfg)
-        await ctx.send(f"✅ **Message Log Channel** → {channel.mention}")
+        states = dict(cfg.get("logging_categories") or {})
+        states[category] = state == "on"
+        _save_gcfg(ctx.guild.id, {"logging_categories": states})
+        await ctx.send(f"✅ **{category}** is now **{state.upper()}**.")
 
-    @prefix_logs.command(name="join")
+    @prefix_logs.command(name="event")
     @commands.has_permissions(manage_guild=True)
-    async def prefix_logs_join(ctx, channel: discord.TextChannel):
+    async def prefix_logs_event(ctx, event: str, state: str):
+        import logging_system
+        event, state = event.lower(), state.lower()
+        if event not in logging_system.EVENT_CATEGORY or state not in ("on", "off"):
+            return await ctx.send("Invalid event/state. Use `!logs status` and valid event keys from the bot manual.")
         cfg = _gcfg(ctx.guild.id)
-        cfg["join_log_channel"] = str(channel.id)
-        _save_gcfg(ctx.guild.id, cfg)
-        await ctx.send(f"✅ **Join Log Channel** → {channel.mention}")
+        states = dict(cfg.get("logging_events") or {})
+        states[event] = state == "on"
+        _save_gcfg(ctx.guild.id, {"logging_events": states})
+        await ctx.send(f"✅ Event **{event}** is now **{state.upper()}**.")
 
-    @prefix_logs.command(name="voice")
+    @prefix_logs.command(name="ignorebots")
     @commands.has_permissions(manage_guild=True)
-    async def prefix_logs_voice(ctx, channel: discord.TextChannel):
+    async def prefix_logs_ignorebots(ctx, state: str):
+        state = state.lower()
+        if state not in ("on", "off"):
+            return await ctx.send("Use `!logs ignorebots on|off`.")
+        _save_gcfg(ctx.guild.id, {"logging_ignore_bots": state == "on"})
+        await ctx.send(f"✅ Ignore bots: **{state.upper()}**.")
+
+    @prefix_logs.command(name="status")
+    @commands.has_permissions(manage_guild=True)
+    async def prefix_logs_status(ctx):
         cfg = _gcfg(ctx.guild.id)
-        cfg["voice_log_channel"] = str(channel.id)
-        _save_gcfg(ctx.guild.id, cfg)
-        await ctx.send(f"✅ **Voice Log Channel** → {channel.mention}")
+        mapping = cfg.get("logging_channels") or {}
+        rows = [f"**Master:** {'ON' if cfg.get('logging_enabled') else 'OFF'}"]
+        for key in ("messages","members","join_leave","server","voice","moderation","roles","channels","emoji","invites"):
+            raw = mapping.get(key, "")
+            channel = ctx.guild.get_channel(int(raw)) if str(raw).isdigit() else None
+            state = (cfg.get("logging_categories") or {}).get(key, True)
+            rows.append(f"• **{key}**: {'ON' if state else 'OFF'} — {channel.mention if channel else 'Not configured'}")
+        await ctx.send(embed=discord.Embed(title="NVD Logging Status", description="\n".join(rows), color=0x3498db))
 
     # ── !reactionrole group ──
     @bot.group(name="reactionrole", invoke_without_command=True)
@@ -1617,72 +1652,9 @@ def setup(bot: commands.Bot, dlog=None):
         if "already" in str(_e).lower(): print(f"[commands_missing] /captcha already registered — skipping")
         else: print(f"[commands_missing] /captcha error: {_e}")
 
-    # ── /logs group ──
-    _logs_group = app_commands.Group(name="logs", description="Configure logging channels.")
-
-    @_logs_group.command(name="setup", description="Set the main mod log channel.")
-    @app_commands.describe(channel="Channel to send all mod logs to")
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def slash_logs_setup(interaction: discord.Interaction, channel: discord.TextChannel):
-        if not await _guard(interaction):
-            return
-        cfg = _gcfg(interaction.guild.id)
-        cfg["log_channel"] = str(channel.id)
-        _save_gcfg(interaction.guild.id, cfg)
-        await interaction.response.send_message(f"✅ **Log Channel Set** → {channel.mention}", ephemeral=True)
-        _dlog("📋 LOGS-SETUP", f"Log channel → #{channel.name} by {interaction.user}")
-
-    @_logs_group.command(name="mod", description="Set the moderation log channel.")
-    @app_commands.describe(channel="Channel for mod action logs")
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def slash_logs_mod(interaction: discord.Interaction, channel: discord.TextChannel):
-        if not await _guard(interaction):
-            return
-        cfg = _gcfg(interaction.guild.id)
-        cfg["log_channel"] = str(channel.id)
-        _save_gcfg(interaction.guild.id, cfg)
-        await interaction.response.send_message(f"✅ **Mod Log Channel** → {channel.mention}", ephemeral=True)
-
-    @_logs_group.command(name="message", description="Set the message edit/delete log channel.")
-    @app_commands.describe(channel="Channel for message logs")
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def slash_logs_message(interaction: discord.Interaction, channel: discord.TextChannel):
-        if not await _guard(interaction):
-            return
-        cfg = _gcfg(interaction.guild.id)
-        cfg["message_log_channel"] = str(channel.id)
-        _save_gcfg(interaction.guild.id, cfg)
-        await interaction.response.send_message(f"✅ **Message Log Channel** → {channel.mention}", ephemeral=True)
-
-    @_logs_group.command(name="join", description="Set the join/leave log channel.")
-    @app_commands.describe(channel="Channel for join/leave logs")
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def slash_logs_join(interaction: discord.Interaction, channel: discord.TextChannel):
-        if not await _guard(interaction):
-            return
-        cfg = _gcfg(interaction.guild.id)
-        cfg["join_log_channel"] = str(channel.id)
-        _save_gcfg(interaction.guild.id, cfg)
-        await interaction.response.send_message(f"✅ **Join Log Channel** → {channel.mention}", ephemeral=True)
-
-    @_logs_group.command(name="voice", description="Set the voice activity log channel.")
-    @app_commands.describe(channel="Channel for voice logs")
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def slash_logs_voice(interaction: discord.Interaction, channel: discord.TextChannel):
-        if not await _guard(interaction):
-            return
-        cfg = _gcfg(interaction.guild.id)
-        cfg["voice_log_channel"] = str(channel.id)
-        _save_gcfg(interaction.guild.id, cfg)
-        await interaction.response.send_message(f"✅ **Voice Log Channel** → {channel.mention}", ephemeral=True)
-
-    try:
-        bot.tree.add_command(_logs_group)
-    except Exception as _e:
-        if "already" in str(_e).lower():
-            print(f"[commands_missing] /logs already registered — skipping")
-        else:
-            print(f"[commands_missing] /logs error: {_e}")
+    # ── Full /logs management command group ──
+    import logging_system
+    logging_system.register_commands(bot, _guard, _gcfg, _save_gcfg)
 
     # ── /case group ──
     _case_group = app_commands.Group(name="case", description="View and search moderation cases.")
