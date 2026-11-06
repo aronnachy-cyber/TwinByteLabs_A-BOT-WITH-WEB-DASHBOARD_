@@ -500,6 +500,32 @@ def register_commands(bot,guard,get_cfg,save_cfg):
         save_cfg(interaction.guild.id,{"logging_timestamps":enabled})
         await interaction.response.send_message("Timestamps: "+("ON" if enabled else "OFF"),ephemeral=True)
 
+    @group.command(name="access",description="Grant a staff role read access to SERVER LOGS.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def access_cmd(interaction: discord.Interaction,role:discord.Role):
+        if not await guard(interaction): return
+        category=discord.utils.get(interaction.guild.categories,name="SERVER LOGS")
+        if category is None:
+            return await interaction.response.send_message("Run /logs setup first.",ephemeral=True)
+        try:
+            await category.set_permissions(role,view_channel=True,read_message_history=True,reason="NVD logging staff access")
+            await interaction.response.send_message("Granted "+role.mention+" read access to SERVER LOGS.",ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message("Bot needs Manage Roles/Manage Channels to edit category permissions.",ephemeral=True)
+
+    @group.command(name="revoke",description="Remove a staff role's explicit access to SERVER LOGS.")
+    @discord.app_commands.checks.has_permissions(manage_guild=True)
+    async def revoke_cmd(interaction: discord.Interaction,role:discord.Role):
+        if not await guard(interaction): return
+        category=discord.utils.get(interaction.guild.categories,name="SERVER LOGS")
+        if category is None:
+            return await interaction.response.send_message("Run /logs setup first.",ephemeral=True)
+        try:
+            await category.set_permissions(role,overwrite=None,reason="NVD logging staff access revoked")
+            await interaction.response.send_message("Removed explicit SERVER LOGS access for "+role.mention+".",ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message("Bot needs Manage Roles/Manage Channels to edit category permissions.",ephemeral=True)
+
     @group.command(name="status",description="Show logging status and destinations.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
     async def status(interaction: discord.Interaction):
