@@ -94,12 +94,12 @@ def infer_event(title, description=""):
             return event
     return "server_update"
 
-def _ignored(cfg, actor_id=None, channel_id=None, is_bot=False):
-    if cfg.get("logging_ignore_bots") in (True,"ON","on","true") and is_bot:
+def _ignored(cfg, actor_id=None, channel_id=None, is_bot=False, subject_id=None, subject_is_bot=False):
+    if cfg.get("logging_ignore_bots") in (True,"ON","on","true") and (is_bot or subject_is_bot):
         return True
     users = {str(x) for x in (cfg.get("logging_ignore_users") or [])}
     channels = {str(x) for x in (cfg.get("logging_ignore_channels") or [])}
-    return (actor_id is not None and str(actor_id) in users) or (channel_id is not None and str(channel_id) in channels)
+    return (actor_id is not None and str(actor_id) in users) or (subject_id is not None and str(subject_id) in users) or (channel_id is not None and str(channel_id) in channels)
 
 def _target(bot, guild, cfg, category):
     mapping = cfg.get("logging_channels") or {}
@@ -119,7 +119,7 @@ def _target(bot, guild, cfg, category):
         return None
     return target
 
-async def emit(bot, guild, event, title, description, *, color=None, actor=None, channel=None, dedupe_id=None, fields=None):
+async def emit(bot, guild, event, title, description, *, color=None, actor=None, subject=None, channel=None, dedupe_id=None, fields=None):
     if guild is None:
         return False
     category = EVENT_CATEGORY.get(event,"server")
@@ -130,7 +130,7 @@ async def emit(bot, guild, event, title, description, *, color=None, actor=None,
         return False
     if (cfg.get("logging_events") or {}).get(event, True) is False:
         return False
-    if _ignored(cfg,getattr(actor,"id",None),getattr(channel,"id",None),getattr(actor,"bot",False)):
+    if _ignored(cfg,getattr(actor,"id",None),getattr(channel,"id",None),getattr(actor,"bot",False),getattr(subject,"id",None),getattr(subject,"bot",False)):
         return False
     now = time.monotonic()
     if dedupe_id is not None:
@@ -329,6 +329,14 @@ async def create_log_channels(guild,save_cfg,setup_member=None):
         if setup_member is not None:
             overwrites[setup_member] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
         category=await guild.create_category("SERVER LOGS",overwrites=overwrites,reason="NVD Official logging setup")
+    else:
+        try:
+            await category.set_permissions(guild.default_role, view_channel=False, reason="Keep NVD log channels private")
+            await category.set_permissions(me, view_channel=True, send_messages=True, embed_links=True, read_message_history=True, reason="NVD logging permissions")
+            if setup_member is not None:
+                await category.set_permissions(setup_member, view_channel=True, send_messages=True, read_message_history=True, reason="NVD logging setup operator")
+        except discord.Forbidden:
+            raise PermissionError("Manage Channels/Manage Roles is required to secure the SERVER LOGS category.")
     mapping={}
     for key,name in CATEGORIES.items():
         channel=discord.utils.get(guild.text_channels,name=name)
