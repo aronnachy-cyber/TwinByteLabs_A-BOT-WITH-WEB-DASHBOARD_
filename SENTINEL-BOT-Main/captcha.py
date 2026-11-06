@@ -251,6 +251,8 @@ async def configure_guild(
         raise RuntimeError("I couldn't resolve my bot member in this server.")
     if not bot_member.guild_permissions.manage_roles or not bot_member.guild_permissions.manage_channels:
         raise RuntimeError("I need Manage Roles and Manage Channels permissions.")
+    if not bot_member.guild_permissions.view_audit_log:
+        raise RuntimeError("I also need View Audit Log permission to verify that bot accounts were invited by the owner or an administrator.")
     if verified_role.is_default() or verified_role >= bot_member.top_role:
         raise RuntimeError("Move the NVD bot role above the selected Verified role first.")
     if not channel.permissions_for(bot_member).send_messages:
