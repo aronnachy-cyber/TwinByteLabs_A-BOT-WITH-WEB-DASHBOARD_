@@ -1816,12 +1816,12 @@ async def on_voice_state_update(member, before, after):
             if before.mute != after.mute:
                 state = "server-muted" if after.mute else "server-unmuted"
                 await logs.log_event(bot, config, ("🔇 Server Muted" if after.mute else "🔊 Server Unmuted"),
-                    f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**",
+                    f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**\\nUser ID: `{member.id}`",
                     color=0xe74c3c, guild_id=gid)
             if before.deaf != after.deaf:
                 state = "server-deafened" if after.deaf else "server-undeafened"
                 await logs.log_event(bot, config, ("🔕 Server Deafened" if after.deaf else "🔔 Server Undeafened"),
-                    f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**",
+                    f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**\\nUser ID: `{member.id}`",
                     color=0xe74c3c, guild_id=gid)
         except Exception as e:
             print(f"Voice state change log error: {e}")
