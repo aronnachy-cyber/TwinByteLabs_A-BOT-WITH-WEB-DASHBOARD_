@@ -1300,7 +1300,7 @@ def is_dev_session():
 
 # ---- SERVER-OFFICIAL BOT (admin-customizable card on /bots) ----
 SERVER_OFFICIAL_DEFAULTS = {
-    "name": "Server Official",
+    "name": "NVD Official",
     "tagline": "Your server's signature bot",
     "image": "",  # URL — empty falls back to icon
     "description": (
@@ -1503,13 +1503,13 @@ def bots_showcase():
 
 @app.route('/dev/server-official', methods=['GET'])
 def dev_server_official_get():
-    """Read the current Server Official bot card config (public)."""
+    """Read the current NVD Official bot card config (public)."""
     return jsonify({"ok": True, "data": get_server_official()})
 
 
 @app.route('/dev/server-official', methods=['POST'])
 def dev_server_official_set():
-    """Update the Server Official bot card. Requires unlocked dev session."""
+    """Update the NVD Official bot card. Requires unlocked dev session."""
     if not is_dev_session():
         return jsonify({"ok": False, "error": "Locked"}), 403
     payload = request.get_json(silent=True) or {}
@@ -1619,7 +1619,7 @@ def _so_live_state(guild_id: str = "", user_guild_ids=None):
 
 @app.route('/server-official')
 def server_official_landing():
-    """Private information page for the Server Official instance."""
+    """Private information page for the NVD Official instance."""
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     so = _so_module()
@@ -1921,7 +1921,7 @@ def so_api_broadcast():
                 import discord
                 e = discord.Embed(title=title, description=message, color=0x5b8cff,
                                   timestamp=datetime.now(timezone.utc))
-                e.set_footer(text="Server Official • NVD Official")
+                e.set_footer(text="NVD Official")
                 await ch.send(embed=e)
                 posted += 1
             except Exception as ex:
@@ -2739,7 +2739,7 @@ def so_api_rules_post():
             title=f'📜 {guild.name} — Server Rules',
             description=text, color=0x5b8cff,
             timestamp=datetime.now(_tz.utc))
-        e.set_footer(text='Server Official • NVD Official')
+        e.set_footer(text='NVD Official')
         await ch.send(embed=e)
     try:
         fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
@@ -2900,7 +2900,7 @@ def so_api_post_embed():
         e = discord.Embed(title=title, description=message[:4000],
                           color=int(color) if color else 0x5b8cff,
                           timestamp=datetime.now(timezone.utc))
-        e.set_footer(text="Server Official • NVD Official")
+        e.set_footer(text="NVD Official")
         await ch.send(embed=e)
 
     fut = asyncio.run_coroutine_threadsafe(_send(), bot.loop)
@@ -3440,7 +3440,7 @@ def server_select():
 # ---- SERVER SELECTION — SERVER OFFICIAL ----
 @app.route('/server-official/servers')
 def so_server_select():
-    """Server picker dedicated to Server Official — each server links directly to the SO dashboard."""
+    """Server picker dedicated to NVD Official — each server links directly to the SO dashboard."""
     if not session.get('logged_in'):
         session['post_login_redirect'] = url_for('so_server_select')
         return redirect(url_for('login'))
@@ -4452,7 +4452,7 @@ def so_api_global_avatar():
 
 
 # ============================================================
-# 🎨 EMBED EDITOR API (shared by NVD Official + Server Official)
+# 🎨 EMBED EDITOR API (shared by NVD Official + NVD Official)
 # ============================================================
 try:
     import embeds as _embeds_mod
@@ -4544,7 +4544,7 @@ def api_embeds_preview():
         return jsonify({"ok": False, "error": str(e)}), 400
 
 
-# ---- Server Official embed editor (same logic, namespaced) ----
+# ---- NVD Official embed editor (same logic, namespaced) ----
 @app.route('/server-official/api/embeds', methods=['GET'])
 def so_api_embeds_list():
     gid = request.args.get("guild_id")
