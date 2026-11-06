@@ -1821,12 +1821,12 @@ async def on_voice_state_update(member, before, after):
             if before.self_mute != after.self_mute:
                 state = "muted" if after.self_mute else "unmuted"
                 await logs.log_event(bot, config, ("🔇 Voice Muted" if after.self_mute else "🔊 Voice Unmuted"),
-                    f"**{member}** {state} themselves in **{after.channel.name if after.channel else 'VC'}**",
-                    color=0x95a5a6, guild_id=gid)
+                    f"**{member}** {state} themselves in **{after.channel.name if after.channel else 'VC'}** | User ID: {member.id}",
+                    color=0x95a5a6, guild_id=gid, actor=member, channel=after.channel)
             if before.self_deaf != after.self_deaf:
                 state = "deafened" if after.self_deaf else "undeafened"
                 await logs.log_event(bot, config, ("🔕 Voice Deafened" if after.self_deaf else "🔔 Voice Undeafened"),
-                    f"**{member}** {state} themselves in **{after.channel.name if after.channel else 'VC'}**",
+                    f"**{member}** {state} themselves in **{after.channel.name if after.channel else 'VC'}** | User ID: {member.id}",
                     color=0x95a5a6, guild_id=gid)
             if before.mute != after.mute:
                 state = "server-muted" if after.mute else "server-unmuted"
