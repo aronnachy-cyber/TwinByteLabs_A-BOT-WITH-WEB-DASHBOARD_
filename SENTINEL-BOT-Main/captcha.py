@@ -251,8 +251,8 @@ async def configure_guild(
         raise RuntimeError("I couldn't resolve my bot member in this server.")
     if not bot_member.guild_permissions.manage_roles or not bot_member.guild_permissions.manage_channels:
         raise RuntimeError("I need Manage Roles and Manage Channels permissions.")
-    if not bot_member.guild_permissions.view_audit_log:
-        raise RuntimeError("I also need View Audit Log permission to verify that bot accounts were invited by the owner or an administrator.")
+    # View Audit Log is optional for setup. Without it, trusted-bot inviter
+    # attribution is unavailable and bot accounts remain unverified (fail closed).
     if verified_role.is_default() or verified_role >= bot_member.top_role:
         raise RuntimeError("Move the NVD bot role above the selected Verified role first.")
     if not channel.permissions_for(bot_member).send_messages:
@@ -274,20 +274,43 @@ async def configure_guild(
 
     changed = []
     try:
-        # Only the dedicated pending role is restricted. Existing member permissions
-        # and @everyone overwrites are left untouched.
-        for guild_channel in guild.channels:
+        # Apply denies to categories first. Synced child channels inherit the
+        # category overwrite, avoiding one REST request per channel on large servers.
+        # Unsynced children still receive an explicit deny. Only the selected
+        # verification channel gets an explicit allow.
+        categories = [ch for ch in guild.categories]
+        for category in categories:
             overwrite = discord.PermissionOverwrite(view_channel=False)
+            await category.set_permissions(
+                pending_role, overwrite=overwrite,
+                reason="NVD CAPTCHA: restrict unverified members",
+            )
+            changed.append(category)
+
+        for guild_channel in guild.channels:
             if guild_channel.id == channel.id:
                 overwrite = discord.PermissionOverwrite(
                     view_channel=True,
                     send_messages=True,
                     read_message_history=True,
                 )
+                await guild_channel.set_permissions(
+                    pending_role, overwrite=overwrite,
+                    reason="NVD CAPTCHA: allow verification channel",
+                )
+                changed.append(guild_channel)
+                continue
+
+            if getattr(guild_channel, "category", None) is not None and guild_channel.permissions_synced:
+                continue
+
+            if isinstance(guild_channel, discord.CategoryChannel):
+                continue
+
             await guild_channel.set_permissions(
                 pending_role,
-                overwrite=overwrite,
-                reason="NVD CAPTCHA: restrict unverified members",
+                overwrite=discord.PermissionOverwrite(view_channel=False),
+                reason="NVD CAPTCHA: restrict unsynced channel",
             )
             changed.append(guild_channel)
 
