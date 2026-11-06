@@ -603,7 +603,7 @@ def get_guild_config(guild_id: str) -> dict:
 
     return result
 
-def save_guild_config(guild_id: str, updates: dict) -> None:
+def save_guild_config(guild_id: str, updates: dict) -> bool:
     """Persist per-guild config overrides.
 
     Uses a direct per-guild Postgres upsert so saves are always atomic and
@@ -635,8 +635,9 @@ def save_guild_config(guild_id: str, updates: dict) -> None:
                 _db_saved = True
         except Exception as _e:
             print(f"[guild_cfg] Postgres upsert error: {_e}")
-        if not _db_saved:
-            _save_supabase_guild_configs(dict(_guild_config_cache) if _guild_config_cache else {guild_id: existing})
+        _sb_saved = True if _db_saved else _save_supabase_guild_configs(
+            dict(_guild_config_cache) if _guild_config_cache else {guild_id: existing}
+        )
 
         # 2) JSON hot copy — rebuild from updated cache.
         try:
@@ -669,6 +670,8 @@ def save_guild_config(guild_id: str, updates: dict) -> None:
             _lvl.set_leveling_enabled(guild_id, enabled)
         except Exception as _e:
             print(f"[guild_cfg] leveling_enabled sync error: {_e}")
+
+    return bool(_db_saved or _sb_saved)
 
 def _sp4rk_live_state(user_guild_ids=None) -> dict:
     """Return NVD Official bot guild list filtered to the user's admin guilds.
