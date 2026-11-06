@@ -233,10 +233,13 @@ async def setup(bot):
     @bot.listen("on_member_join")
     async def _invite_usage(member):
         guild=member.guild
-        previous=_invite_cache.get(guild.id,{})
         try:
             invites=await guild.invites()
             current={i.code:(i.uses or 0) for i in invites}
+            if guild.id not in _invite_cache:
+                _invite_cache[guild.id]=current
+                return
+            previous=_invite_cache[guild.id]
             used=[i for i in invites if (i.uses or 0)>previous.get(i.code,0)]
             _invite_cache[guild.id]=current
             if used:
@@ -315,7 +318,7 @@ async def setup(bot):
             invites=await guild.invites()
             _invite_cache[guild.id]={i.code:(i.uses or 0) for i in invites}
         except Exception:
-            _invite_cache[guild.id]={}
+            _invite_cache.pop(guild.id,None)
 
 async def create_log_channels(guild,save_cfg,setup_member=None):
     me=guild.me
