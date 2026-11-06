@@ -93,6 +93,10 @@ async def log_template(bot, config, key, guild_id=None, **vars):
         embed = embeds.render(key, guild_id=guild_id, **vars)
         user = vars.get("user")
         channel = vars.get("channel")
+        if user is not None:
+            embed.add_field(name="User ID", value=str(user.id), inline=True)
+        if channel is not None and hasattr(channel, "id"):
+            embed.add_field(name="Channel", value=f"{getattr(channel, 'name', 'Unknown')} ({channel.id})", inline=True)
         # Add account age context to join records without claiming invite attribution.
         if key == "sp4rk.welcome" and user is not None:
             try:
