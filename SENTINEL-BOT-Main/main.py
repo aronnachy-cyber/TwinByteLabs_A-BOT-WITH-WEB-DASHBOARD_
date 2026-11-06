@@ -1944,8 +1944,14 @@ async def on_guild_role_update(before, after):
             f"Role: {after.name} (ID: `{after.id}`)\nBefore: {before.colour}\nAfter: {after.colour}",
             color=0x9b59b6, guild_id=gid)
     if before.permissions != after.permissions:
+        permission_changes = [
+            f"{name}: {getattr(before.permissions, name)} → {getattr(after.permissions, name)}"
+            for name in discord.Permissions.VALID_FLAGS
+            if getattr(before.permissions, name) != getattr(after.permissions, name)
+        ]
         await logs.log_event(bot, config, "🔑 Role Permissions Changed",
-            f"Role: {after.name} (ID: `{after.id}`)\nBefore permissions value: {before.permissions.value}\nAfter permissions value: {after.permissions.value}",
+            f"Role: {after.name} (ID: `{after.id}`)\nBefore bitfield: {before.permissions.value}\n"
+            f"After bitfield: {after.permissions.value}\nChanged flags:\n" + "\n".join(permission_changes[:30]),
             color=0xe67e22, guild_id=gid)
     if before.position != after.position:
         await logs.log_event(bot, config, "↕️ Role Position Changed",
