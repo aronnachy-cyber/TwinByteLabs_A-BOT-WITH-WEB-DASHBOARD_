@@ -1722,8 +1722,15 @@ async def on_member_remove(member):
         )
         dlog("👢 KICK", f"{member} kicked by {kick_actor}", guild_id=member.guild.id)
     else:
-        await logs.log_template(bot, config, "sp4rk.leave", user=member, server=member.guild)
-        dlog("🚪 LEAVE", f"{member} left {member.guild.name} (kick attribution unavailable)", guild_id=member.guild.id)
+        ban_actor, _ban_reason = await logging_system.audit_actor(
+            member.guild, discord.AuditLogAction.ban, member.id
+        )
+        if ban_actor is not None:
+            # The separate on_member_ban event writes the ban record; do not mislabel it as a leave.
+            dlog("⛔ BAN-REMOVE", f"{member} removed by ban action", guild_id=member.guild.id)
+        else:
+            await logs.log_template(bot, config, "sp4rk.leave", user=member, server=member.guild)
+            dlog("🚪 LEAVE", f"{member} left {member.guild.name} (kick attribution unavailable)", guild_id=member.guild.id)
     try:
         import db_spark as _dbs
         _dbs.analytics_record_leave(str(member.guild.id))
