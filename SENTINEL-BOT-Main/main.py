@@ -1696,8 +1696,23 @@ async def on_member_ban(guild, user):
 @bot.event
 async def on_member_remove(member):
     refresh_config()
-    await logs.log_template(bot, config, "sp4rk.leave", user=member, server=member.guild)
-    dlog("🚪 LEAVE", f"{member} left {member.guild.name}", guild_id=member.guild.id)
+    # Discord uses on_member_remove for both voluntary departures and kicks.
+    # Audit-log attribution distinguishes kicks; if unavailable, log a departure.
+    kick_actor, kick_reason = await logging_system.audit_actor(
+        member.guild, discord.AuditLogAction.kick, member.id
+    )
+    if kick_actor is not None:
+        await logging_system.emit(
+            bot, member.guild, "member_kick", "👢 Member Kicked",
+            f"**Target:** {member} (ID: {member.id})\\n"
+            f"**Moderator:** {kick_actor} (ID: {kick_actor.id})\\n"
+            f"**Reason:** {kick_reason or 'Not supplied'}",
+            actor=kick_actor, dedupe_id=f"kick:{member.id}",
+        )
+        dlog("👢 KICK", f"{member} kicked by {kick_actor}", guild_id=member.guild.id)
+    else:
+        await logs.log_template(bot, config, "sp4rk.leave", user=member, server=member.guild)
+        dlog("🚪 LEAVE", f"{member} left {member.guild.name} (kick attribution unavailable)", guild_id=member.guild.id)
     try:
         import db_spark as _dbs
         _dbs.analytics_record_leave(str(member.guild.id))
