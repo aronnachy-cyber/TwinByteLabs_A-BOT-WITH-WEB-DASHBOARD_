@@ -448,6 +448,16 @@ _GUILD_ONLY_KEYS: frozenset = frozenset({
     "captcha_channel",
     "captcha_role",
     "level_up_channel",
+    "logging_enabled",
+    "logging_channels",
+    "logging_events",
+    "logging_categories",
+    "logging_ignore_users",
+    "logging_ignore_channels",
+    "logging_ignore_bots",
+    "logging_embed_color",
+    "logging_timestamps",
+    "logging_format",
 })
 
 
