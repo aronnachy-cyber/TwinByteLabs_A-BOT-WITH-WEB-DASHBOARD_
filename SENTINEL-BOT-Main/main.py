@@ -1707,7 +1707,7 @@ async def on_member_remove(member):
             f"**Target:** {member} (ID: {member.id})\n"
             f"**Moderator:** {kick_actor} (ID: {kick_actor.id})\n"
             f"**Reason:** {kick_reason or 'Not supplied'}",
-            actor=kick_actor, dedupe_id=f"kick:{member.id}",
+            actor=kick_actor, subject=member, dedupe_id=f"kick:{member.id}",
         )
         dlog("👢 KICK", f"{member} kicked by {kick_actor}", guild_id=member.guild.id)
     else:
