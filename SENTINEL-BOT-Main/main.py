@@ -1910,27 +1910,26 @@ async def on_guild_role_update(before, after):
     _anti_cfg = get_config_for_guild(str(after.guild.id))
     await security.check_anti_nuke(after.guild, "role_update", _anti_cfg, bot=bot, log_callback=dlog)
     gid = str(after.guild.id)
-    changes = []
     if before.name != after.name:
-        changes.append(f"📝 Name: `{before.name}` → `{after.name}`")
+        await logs.log_event(bot, config, "✏️ Role Renamed",
+            f"Role ID: `{after.id}`\nBefore: {before.name}\nAfter: {after.name}",
+            color=0x3498db, guild_id=gid)
     if before.colour != after.colour:
-        changes.append(f"🎨 Colour: `{before.colour}` → `{after.colour}`")
-    if before.hoist != after.hoist:
-        changes.append(f"📌 Hoisted: `{before.hoist}` → `{after.hoist}`")
-    if before.mentionable != after.mentionable:
-        changes.append(f"🔔 Mentionable: `{before.mentionable}` → `{after.mentionable}`")
+        await logs.log_event(bot, config, "🎨 Role Color Changed",
+            f"Role: {after.name} (ID: `{after.id}`)\nBefore: {before.colour}\nAfter: {after.colour}",
+            color=0x9b59b6, guild_id=gid)
     if before.permissions != after.permissions:
-        changes.append(f"🔑 Permissions changed (value: `{before.permissions.value}` → `{after.permissions.value}`)")
+        await logs.log_event(bot, config, "🔑 Role Permissions Changed",
+            f"Role: {after.name} (ID: `{after.id}`)\nBefore permissions value: {before.permissions.value}\nAfter permissions value: {after.permissions.value}",
+            color=0xe67e22, guild_id=gid)
     if before.position != after.position:
-        changes.append(f"↕️ Position: `{before.position}` → `{after.position}`")
-    if not changes:
-        return
-    await logs.log_event(
-        bot, config,
-        "✏️ Role Updated",
-        f"**{after.name}** (`{after.id}`) was modified:\n" + "\n".join(changes),
-        color=0x3498db, guild_id=gid,
-    )
+        await logs.log_event(bot, config, "↕️ Role Position Changed",
+            f"Role: {after.name} (ID: `{after.id}`)\nBefore position: {before.position}\nAfter position: {after.position}",
+            color=0x3498db, guild_id=gid)
+    if before.hoist != after.hoist or before.mentionable != after.mentionable:
+        await logs.log_event(bot, config, "✏️ Role Updated",
+            f"Role: {after.name} (ID: `{after.id}`)\nHoisted: {before.hoist} → {after.hoist}\nMentionable: {before.mentionable} → {after.mentionable}",
+            color=0x3498db, guild_id=gid)
     dlog("✏️ ROLE-UPDATE", f"Role updated: {after.name}", guild_id=after.guild.id)
 
 
@@ -1980,41 +1979,40 @@ async def on_guild_channel_update(before, after):
     _anti_cfg = get_config_for_guild(str(after.guild.id))
     await security.check_anti_nuke(after.guild, "channel_update", _anti_cfg, bot=bot, log_callback=dlog)
     gid = str(after.guild.id)
-    changes = []
     if before.name != after.name:
-        changes.append(f"📝 Name: `#{before.name}` → `#{after.name}`")
-    topic_before = getattr(before, "topic", None)
-    topic_after  = getattr(after, "topic", None)
-    if topic_before != topic_after:
-        changes.append(f"📋 Topic: `{topic_before or 'none'}` → `{topic_after or 'none'}`")
-    slowmode_before = getattr(before, "slowmode_delay", None)
-    slowmode_after  = getattr(after, "slowmode_delay", None)
-    if slowmode_before != slowmode_after:
-        changes.append(f"🐢 Slowmode: `{slowmode_before}s` → `{slowmode_after}s`")
-    nsfw_before = getattr(before, "nsfw", None)
-    nsfw_after  = getattr(after, "nsfw", None)
-    if nsfw_before != nsfw_after:
-        changes.append(f"🔞 NSFW: `{nsfw_before}` → `{nsfw_after}`")
-    cat_before = before.category.name if before.category else "None"
-    cat_after  = after.category.name if after.category else "None"
-    if cat_before != cat_after:
-        changes.append(f"🗂️ Category: `{cat_before}` → `{cat_after}`")
+        await logs.log_event(bot, config, "✏️ Channel Renamed",
+            f"Channel ID: `{after.id}`\nBefore: #{before.name}\nAfter: #{after.name}",
+            color=0x3498db, guild_id=gid, channel=after)
+    if getattr(before,"topic",None) != getattr(after,"topic",None):
+        await logs.log_event(bot, config, "📋 Channel Topic Changed",
+            f"Channel: {after.mention} (ID: `{after.id}`)\nBefore: {getattr(before,'topic',None) or 'None'}\nAfter: {getattr(after,'topic',None) or 'None'}",
+            color=0x3498db, guild_id=gid, channel=after)
+    if before.overwrites != after.overwrites:
+        await logs.log_event(bot, config, "🔐 Channel Permissions Changed",
+            f"Channel: {after.mention} (ID: `{after.id}`)\nPermission overwrites changed. Exact changed targets and responsible moderator may be unavailable; inspect Discord Audit Log.",
+            color=0xe67e22, guild_id=gid, channel=after)
+    old_cat = before.category.name if before.category else "None"
+    new_cat = after.category.name if after.category else "None"
+    if old_cat != new_cat:
+        await logs.log_event(bot, config, "🗂️ Channel Category Changed",
+            f"Channel: {after.mention} (ID: `{after.id}`)\nBefore: {old_cat}\nAfter: {new_cat}",
+            color=0x3498db, guild_id=gid, channel=after)
     if before.position != after.position:
-        changes.append(f"↕️ Position: `{before.position}` → `{after.position}`")
+        await logs.log_event(bot, config, "↕️ Channel Position Changed",
+            f"Channel: {after.mention} (ID: `{after.id}`)\nBefore: {before.position}\nAfter: {after.position}",
+            color=0x3498db, guild_id=gid, channel=after)
     if str(before.type) != str(after.type):
-        changes.append(f"🔧 Type: `{before.type}` → `{after.type}`")
-    old_overwrites = before.overwrites
-    new_overwrites = after.overwrites
-    if old_overwrites != new_overwrites:
-        changes.append("🔐 Channel permission overwrites changed (see Discord Audit Log for exact target/actor details).")
-    if not changes:
-        return
-    await logs.log_event(
-        bot, config,
-        "✏️ Channel Updated",
-        f"**#{after.name}** (`{after.id}`) was modified:\n" + "\n".join(changes),
-        color=0x3498db, guild_id=gid, channel=after,
-    )
+        await logs.log_event(bot, config, "🔧 Channel Type Changed",
+            f"Channel ID: `{after.id}`\nBefore: {before.type}\nAfter: {after.type}",
+            color=0xe67e22, guild_id=gid, channel=after)
+    if getattr(before,"slowmode_delay",None) != getattr(after,"slowmode_delay",None):
+        await logs.log_event(bot, config, "🐢 Channel Slowmode Changed",
+            f"Channel: {after.mention}\nBefore: {getattr(before,'slowmode_delay',0)}s\nAfter: {getattr(after,'slowmode_delay',0)}s",
+            color=0x3498db, guild_id=gid, channel=after)
+    if getattr(before,"nsfw",None) != getattr(after,"nsfw",None):
+        await logs.log_event(bot, config, "🔞 Channel NSFW Changed",
+            f"Channel: {after.mention}\nBefore: {getattr(before,'nsfw',False)}\nAfter: {getattr(after,'nsfw',False)}",
+            color=0xe67e22, guild_id=gid, channel=after)
     dlog("✏️ CH-UPDATE", f"Channel updated: #{after.name}", guild_id=after.guild.id)
 
 
@@ -2024,29 +2022,29 @@ async def on_guild_update(before, after):
     _anti_cfg = get_config_for_guild(str(after.id))
     await security.check_anti_nuke(after, "guild_update", _anti_cfg, bot=bot, log_callback=dlog)
     gid = str(after.id)
-    changes = []
     if before.name != after.name:
-        changes.append(f"📝 Name: `{before.name}` → `{after.name}`")
+        await logs.log_event(bot, config, "🏷️ Server Name Changed",
+            f"Before: {before.name}\nAfter: {after.name}", color=0x3498db, guild_id=gid)
     if before.icon != after.icon:
-        changes.append("🖼️ Server icon was changed.")
+        await logs.log_event(bot, config, "🖼️ Server Icon Changed",
+            "Server icon was changed.", color=0x9b59b6, guild_id=gid)
     if before.banner != after.banner:
-        changes.append("🖼️ Server banner was changed.")
+        await logs.log_event(bot, config, "🖼️ Server Banner Changed",
+            "Server banner was changed.", color=0x9b59b6, guild_id=gid)
     if before.description != after.description:
-        changes.append(f"📋 Description updated.")
-    if before.verification_level != after.verification_level:
-        changes.append(f"🔒 Verification level: `{before.verification_level}` → `{after.verification_level}`")
-    if before.explicit_content_filter != after.explicit_content_filter:
-        changes.append(f"🔞 Explicit content filter: `{before.explicit_content_filter}` → `{after.explicit_content_filter}`")
-    if before.default_notifications != after.default_notifications:
-        changes.append(f"🔔 Default notifications: `{before.default_notifications}` → `{after.default_notifications}`")
-    if not changes:
-        return
-    await logs.log_event(
-        bot, config,
-        "⚙️ Server Updated",
-        f"**{after.name}** server settings were changed:\n" + "\n".join(changes),
-        color=0x9b59b6, guild_id=gid,
-    )
+        await logs.log_event(bot, config, "📋 Server Description Changed",
+            f"Server description: {before.description or 'None'} → {after.description or 'None'}",
+            color=0x3498db, guild_id=gid)
+    settings = []
+    for attr,label in (("verification_level","Verification level"),("explicit_content_filter","Content filter"),
+                       ("default_notifications","Default notifications"),("preferred_locale","Preferred locale"),
+                       ("mfa_level","Moderator 2FA level"),("afk_timeout","AFK timeout")):
+        old_value, new_value = getattr(before,attr,None), getattr(after,attr,None)
+        if old_value != new_value:
+            settings.append(f"{label}: {old_value} → {new_value}")
+    if settings:
+        await logs.log_event(bot, config, "⚙️ Server Settings Changed",
+            "\n".join(settings), color=0x9b59b6, guild_id=gid)
     dlog("⚙️ SERVER-UPDATE", f"Server updated: {after.name}", guild_id=after.id)
 
 
