@@ -174,3 +174,134 @@ async def toggle_lockdown(guild, config, enable=True, log_callback=None):
     print(f"🔒 Server {guild.name} is now {state}")
     if log_callback:
         log_callback("🔒 LOCKDOWN", f"{guild.name} is now {state}")
+
+
+# Anti-nuke audit-log monitor. This detects bursts of destructive server changes
+# and alerts staff; it deliberately does not auto-ban/strip roles from admins.
+_nuke_activity = {}
+_nuke_alert_cooldown = {}
+NUKE_WINDOW_SECONDS = 15
+NUKE_THRESHOLD = 3
+
+_NUKE_ACTIONS = {
+    "channel_create": "channel_create",
+    "channel_delete": "channel_delete",
+    "channel_update": "channel_update",
+    "role_create": "role_create",
+    "role_delete": "role_delete",
+    "role_update": "role_update",
+    "ban": "ban",
+    "kick": "kick",
+    "webhook_create": "webhook_create",
+    "webhook_delete": "webhook_delete",
+    "guild_update": "guild_update",
+}
+
+async def check_anti_nuke(guild, event_type, config, bot=None, log_callback=None):
+    """Alert when one actor performs several destructive/moderation changes quickly."""
+    if not guild or config.get("anti_nuke") != "ON":
+        return False
+    action_name = _NUKE_ACTIONS.get(str(event_type))
+    if not action_name:
+        return False
+    try:
+        action = getattr(discord.AuditLogAction, action_name)
+        now = discord.utils.utcnow()
+        cutoff = now - __import__("datetime").timedelta(seconds=NUKE_WINDOW_SECONDS)
+        entries = []
+        async for entry in guild.audit_logs(limit=20, after=cutoff, action=action):
+            if entry.user and entry.user.id != getattr(getattr(bot, "user", None), "id", None):
+                entries.append(entry)
+        if not entries:
+            return False
+        # Use the latest matching audit entry; Discord events may arrive before audit logs.
+        entry = max(entries, key=lambda item: item.created_at)
+        actor = entry.user
+        key = (guild.id, actor.id)
+        bucket = _nuke_activity.setdefault(key, [])
+        bucket[:] = [stamp for stamp in bucket if (now - stamp).total_seconds() <= NUKE_WINDOW_SECONDS]
+        bucket.append(now)
+        if len(bucket) < NUKE_THRESHOLD:
+            return False
+        last_alert = _nuke_alert_cooldown.get(key)
+        if last_alert and (now - last_alert).total_seconds() < 30:
+            return True
+        _nuke_alert_cooldown[key] = now
+        detail = (
+            f"🚨 **Possible server nuke activity detected** in **{guild.name}**.\\n"
+            f"**Actor:** {actor} (ID: {actor.id})\\n"
+            f"**Recent actions:** {len(bucket)} matching `{event_type}` audit events "
+            f"in {NUKE_WINDOW_SECONDS} seconds.\\n"
+            f"**Latest action:** `{event_type}`\\n"
+            "Review the Audit Log and remove unexpected permissions manually."
+        )
+        log_channel_id = str(config.get("log_channel", "") or "").strip()
+        channel = None
+        if bot and log_channel_id.isdigit():
+            channel = bot.get_channel(int(log_channel_id))
+            if channel is None:
+                try:
+                    channel = await bot.fetch_channel(int(log_channel_id))
+                except Exception:
+                    channel = None
+        if channel:
+            await channel.send(detail)
+        if log_callback:
+            log_callback("🚨 ANTI-NUKE", f"{guild.name}: {actor} performed {len(bucket)} {event_type} actions in {NUKE_WINDOW_SECONDS}s", guild_id=guild.id)
+        return True
+    except discord.Forbidden:
+        print(f"[ANTI-NUKE] Missing View Audit Log permission in {guild.name}")
+        return False
+    except Exception as e:
+        print(f"[ANTI-NUKE] monitor error in {guild.name}: {e}")
+        return False
+
+
+async def check_join_protections(member, config, bot=None, log_callback=None):
+    """Apply configured account-age and bot-invite protections to new members."""
+    if not member or not member.guild:
+        return
+    guild = member.guild
+    age_days = max(0, (discord.utils.utcnow() - member.created_at).days)
+
+    # Custom Join Guard takes precedence over the Anti-Alt default threshold.
+    try:
+        min_age = int(config.get("joinguard_min_age", 0) or 0)
+    except (TypeError, ValueError):
+        min_age = 0
+    if min_age <= 0 and config.get("anti_alt") == "ON":
+        min_age = 30
+    if min_age > 0 and age_days < min_age:
+        try:
+            await member.send(
+                f"Your account must be at least {min_age} days old to join **{guild.name}**."
+            )
+        except Exception:
+            pass
+        try:
+            await member.kick(reason=f"NVD Official Join Protection: account age {age_days}d; minimum {min_age}d")
+            if log_callback:
+                log_callback("🛡️ JOIN-GUARD", f"Kicked {member} — account age {age_days}d (minimum {min_age}d)", guild_id=guild.id)
+        except Exception as e:
+            print(f"[JOIN-GUARD] Could not remove {member}: {e}")
+        return
+
+    if member.bot and config.get("anti_bot") == "ON":
+        # Only allow bot additions performed by the server owner or an administrator.
+        try:
+            cutoff = discord.utils.utcnow() - __import__("datetime").timedelta(seconds=20)
+            executor = None
+            async for entry in guild.audit_logs(limit=10, action=discord.AuditLogAction.bot_add, after=cutoff):
+                if entry.target and getattr(entry.target, "id", None) == member.id:
+                    executor = entry.user
+                    break
+            inviter = guild.get_member(executor.id) if executor else None
+            trusted = bool(executor and (executor.id == guild.owner_id or (inviter and inviter.guild_permissions.administrator)))
+            if not trusted:
+                await member.kick(reason="NVD Official Anti-Bot: bot added by an untrusted inviter")
+                if log_callback:
+                    log_callback("🤖 ANTI-BOT", f"Removed bot {member} — inviter was not a server owner/admin", guild_id=guild.id)
+        except discord.Forbidden:
+            print(f"[ANTI-BOT] Missing permissions or View Audit Log in {guild.name}; bot was not removed.")
+        except Exception as e:
+            print(f"[ANTI-BOT] check error in {guild.name}: {e}")
