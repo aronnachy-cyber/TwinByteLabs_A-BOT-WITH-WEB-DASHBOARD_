@@ -1291,7 +1291,12 @@ async def godpanel_command(interaction: discord.Interaction):
 
     rr_panels = _gd(d, "rr_panels", gid)
     embed.add_field(name="🎨 RR Panels", value=str(len(rr_panels)), inline=True)
-    embed.add_field(name="📜 Logging",   value="✅ ON" if _gd(d, "logs_config", gid).get("enabled") else "⛔ OFF", inline=True)
+    try:
+        import logging_system as _nvd_logs
+        logging_enabled = bool(_nvd_logs._cfg(gid).get("logging_enabled", False))
+    except Exception:
+        logging_enabled = False
+    embed.add_field(name="📜 Logging", value="✅ ON" if logging_enabled else "⛔ OFF", inline=True)
     embed.add_field(name="📊 Analytics", value="[Byte Labs Dashboard]", inline=True)
 
     embed.set_footer(text=f"SP4RK God Panel  •  Requested by {interaction.user}  •  {g.member_count} total members")
