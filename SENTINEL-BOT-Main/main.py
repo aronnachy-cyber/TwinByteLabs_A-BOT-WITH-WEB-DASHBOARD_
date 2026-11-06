@@ -18,7 +18,7 @@ from dashboard import (
     supabase_load_all_warnings,
     get_guild_config as _get_guild_config,
 )
-import moderation, automod, roles, logs, security, captcha
+import moderation, automod, roles, logs, security, captcha, logging_system
 
 BOT_START_TIME = datetime.utcnow()
 
@@ -1494,6 +1494,7 @@ async def on_ready():
     s_map = {"online": discord.Status.online, "idle": discord.Status.idle, "dnd": discord.Status.dnd}
     await bot.change_presence(status=s_map.get(config.get("bot_status", "online"), discord.Status.online))
     captcha.register_persistent_view(bot)
+    await logging_system.setup(bot)
     try:
         # Remove legacy guild-scoped copies to prevent every command appearing twice.
         # Keep the command set global-only; Discord may take time to propagate updates.
@@ -1721,54 +1722,53 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
 
 @bot.event
 async def on_message_edit(before, after):
-    if before.author.bot:
-        return
-    if before.content == after.content:
+    if not before.guild or before.content == after.content:
         return
     refresh_config()
-    gcfg = get_config_for_guild(str(before.guild.id)) if before.guild else config
-    log_ch = (gcfg.get("message_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
-              or config.get("message_log_channel", "").strip() or config.get("log_channel", "").strip())
-    if not log_ch:
-        return
-    await logs.log_template(
-        bot, config, "sp4rk.message_edit",
-        user=before.author, channel=before.channel,
-        before=(before.content[:1000] or "*empty*"),
-        after=(after.content[:1000] or "*empty*"),
-        jump_url=after.jump_url,
+    attachments_before = "\n".join(f"{a.filename}: {a.url}" for a in before.attachments[:8]) or "None"
+    attachments_after = "\n".join(f"{a.filename}: {a.url}" for a in after.attachments[:8]) or "None"
+    desc = (
+        f"**Author:** {before.author} (ID: {before.author.id})\n"
+        f"**Channel:** {before.channel.mention} (ID: {before.channel.id})\n"
+        f"**Message ID:** {before.id}\n"
+        f"**Message link:** {after.jump_url}\n"
+        f"**Before:**\n{(before.content or '[empty]')[:1500]}\n"
+        f"**After:**\n{(after.content or '[empty]')[:1500]}\n"
+        f"**Attachments before:**\n{attachments_before}\n"
+        f"**Attachments after:**\n{attachments_after}"
     )
-    dlog("✏️ MSG-EDIT", f"{before.author} edited a message in #{before.channel.name}", guild_id=before.guild.id if before.guild else None)
+    await logging_system.emit(bot, before.guild, "message_edit", "✏️ Message Edited", desc,
+                              actor=before.author, channel=before.channel, dedupe_id=before.id)
+    dlog("✏️ MSG-EDIT", f"{before.author} edited a message in #{before.channel.name}", guild_id=before.guild.id)
 
 # Per-channel snipe cache: { channel_id: {"author": str, "content": str, "ts": datetime} }
 _snipe_cache = {}
 
 @bot.event
 async def on_message_delete(message):
-    if message.author.bot:
+    if not message.guild:
         return
-    # Cache for !snipe
     try:
         _snipe_cache[message.channel.id] = {
-            "author": str(message.author),
-            "author_id": message.author.id,
-            "content": message.content or "(no text — likely embed/attachment)",
-            "ts": datetime.utcnow(),
+            "author": str(message.author), "author_id": message.author.id,
+            "content": message.content or "(no text — likely embed/attachment)", "ts": datetime.utcnow(),
         }
     except Exception:
         pass
     refresh_config()
-    gcfg = get_config_for_guild(str(message.guild.id)) if message.guild else config
-    log_ch = (gcfg.get("message_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
-              or config.get("message_log_channel", "").strip() or config.get("log_channel", "").strip())
-    if not log_ch:
-        return
-    await logs.log_template(
-        bot, config, "sp4rk.message_delete",
-        user=message.author, channel=message.channel,
-        content=(message.content[:1000] or "*empty / attachment*"),
+    attachments = "\n".join(f"{a.filename}: {a.url}" for a in message.attachments[:8]) or "None"
+    desc = (
+        f"**Author:** {message.author} (ID: {message.author.id})\n"
+        f"**Channel:** {message.channel.mention} (ID: {message.channel.id})\n"
+        f"**Message ID:** {message.id}\n"
+        f"**Message link:** https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}\n"
+        f"**Content:**\n{(message.content or '[content unavailable / empty]')[:1800]}\n"
+        f"**Attachments:**\n{attachments}\n"
+        f"**Created:** <t:{int(message.created_at.timestamp())}:F>"
     )
-    dlog("🗑️ MSG-DELETE", f"{message.author} deleted a message in #{message.channel.name}", guild_id=message.guild.id if message.guild else None)
+    await logging_system.emit(bot, message.guild, "message_delete", "🗑️ Message Deleted", desc,
+                              actor=message.author, channel=message.channel, dedupe_id=message.id)
+    dlog("🗑️ MSG-DELETE", f"{message.author} deleted a message in #{message.channel.name}", guild_id=message.guild.id)
 
 _voice_sessions: dict = {}  # (guild_id, user_id) -> datetime of VC join
 
@@ -1916,6 +1916,8 @@ async def on_guild_role_update(before, after):
         changes.append(f"🔔 Mentionable: `{before.mentionable}` → `{after.mentionable}`")
     if before.permissions != after.permissions:
         changes.append(f"🔑 Permissions changed (value: `{before.permissions.value}` → `{after.permissions.value}`)")
+    if before.position != after.position:
+        changes.append(f"↕️ Position: `{before.position}` → `{after.position}`
     if not changes:
         return
     await logs.log_event(
@@ -1992,6 +1994,14 @@ async def on_guild_channel_update(before, after):
     cat_after  = after.category.name if after.category else "None"
     if cat_before != cat_after:
         changes.append(f"🗂️ Category: `{cat_before}` → `{cat_after}`")
+    if before.position != after.position:
+        changes.append(f"↕️ Position: `{before.position}` → `{after.position}`")
+    if str(before.type) != str(after.type):
+        changes.append(f"🔧 Type: `{before.type}` → `{after.type}`")
+    old_overwrites = before.overwrites
+    new_overwrites = after.overwrites
+    if old_overwrites != new_overwrites:
+        changes.append("🔐 Channel permission overwrites changed (see Discord Audit Log for exact target/actor details).")
     if not changes:
         return
     await logs.log_event(
@@ -2044,12 +2054,13 @@ async def on_raw_bulk_message_delete(payload: discord.RawBulkMessageDeleteEvent)
     count = len(payload.message_ids)
     channel = bot.get_channel(payload.channel_id)
     ch_name = f"<#{payload.channel_id}>" if channel else f"Channel `{payload.channel_id}`"
-    await logs.log_event(
-        bot, config,
-        "🗑️ Bulk Messages Deleted",
+    ids_preview = ", ".join(str(mid) for mid in list(payload.message_ids)[:30])
+    await logging_system.emit(
+        bot, bot.get_guild(int(gid)), "message_bulk_delete", "🗑️ Bulk Messages Deleted",
         f"**{count}** messages were bulk-deleted in {ch_name}.\n"
-        f"🆔 Channel ID: `{payload.channel_id}`",
-        color=0xe74c3c, guild_id=gid,
+        f"**Channel ID:** {payload.channel_id}\n**Message IDs (first 30):** {ids_preview or 'Unavailable'}\n"
+        "**Content:** Discord does not provide bulk-deleted message contents in this event.",
+        color=0xe74c3c, channel=channel, dedupe_id=f"{payload.channel_id}:{min(payload.message_ids) if payload.message_ids else 0}:{count}",
     )
     dlog("🗑️ BULK-DELETE", f"{count} messages bulk-deleted", guild_id=payload.guild_id)
 
