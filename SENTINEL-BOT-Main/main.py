@@ -1698,9 +1698,15 @@ async def on_member_remove(member):
     refresh_config()
     # Discord uses on_member_remove for both voluntary departures and kicks.
     # Audit-log attribution distinguishes kicks; if unavailable, log a departure.
-    kick_actor, kick_reason = await logging_system.audit_actor(
-        member.guild, discord.AuditLogAction.kick, member.id
-    )
+    kick_actor, kick_reason = None, None
+    for _attempt in range(3):
+        kick_actor, kick_reason = await logging_system.audit_actor(
+            member.guild, discord.AuditLogAction.kick, member.id
+        )
+        if kick_actor is not None:
+            break
+        if _attempt < 2:
+            await asyncio.sleep(0.4)
     if kick_actor is not None:
         await logging_system.emit(
             bot, member.guild, "member_kick", "👢 Member Kicked",
