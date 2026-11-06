@@ -106,7 +106,7 @@ _DISCORD_REFRESH_INTERVAL = 300  # 5 minutes
 
 @app.before_request
 def _make_session_permanent():
-    # SP4RK is a private, single-owner dashboard. Retire legacy multi-account,
+    # NVD Official is a private, single-owner dashboard. Retire legacy multi-account,
     # developer-console, owner-console, public-intake and watch-party surfaces.
     path = request.path.rstrip("/") or "/"
     blocked_prefixes = ("/dev", "/owner", "/api/owner", "/wave", "/watch", "/api/wave", "/api/bot_request", "/api/bot_requests")
@@ -134,7 +134,7 @@ def _add_security_headers(response):
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     response.headers.setdefault("X-XSS-Protection", "1; mode=block")
     # Hide gunicorn version
-    response.headers["Server"] = "SP4RK"
+    response.headers["Server"] = "NVD Official"
     return response
 
 
@@ -243,7 +243,7 @@ DEFAULT_CONFIG = {
     "anti_zalgo": "OFF",
     "grad_punish": "OFF",
     # --- Master "Automod" auto-action toggle + configurable thresholds ---
-    # When ON, SP4RK auto-mutes / tempbans / kicks based on warning count.
+    # When ON, NVD Official auto-mutes / tempbans / kicks based on warning count.
     # All thresholds and durations are editable from the dashboard.
     "automod_on": "OFF",
     "automod_mute1_warns":   5,   # warn count → first mute
@@ -253,7 +253,7 @@ DEFAULT_CONFIG = {
     "automod_tempban_warns": 20,  # warn count → tempban
     "automod_tempban_mins":  30,  # duration (minutes) of tempban
     "automod_kick_warns":    30,  # warn count → kick
-    # --- SP4RK Server Knowledge (used when the bot is @mentioned) ---
+    # --- NVD Official Server Knowledge (used when the bot is @mentioned) ---
     "server_description": "",
     "server_rules": "",
     # --- Staff role overrides ---
@@ -539,7 +539,7 @@ def save_guild_config(guild_id: str, updates: dict) -> None:
             print(f"[guild_cfg] leveling_enabled sync error: {_e}")
 
 def _sp4rk_live_state(user_guild_ids=None) -> dict:
-    """Return SP4RK bot guild list filtered to the user's admin guilds.
+    """Return NVD Official bot guild list filtered to the user's admin guilds.
 
     Primary source: live Discord bot (accurate member counts, real-time).
     Fallback: session-cached guild list from OAuth login, so the server
@@ -1164,7 +1164,7 @@ def _add_startup_log():
         db_status = "Postgres" if _ds.is_available() else "JSON fallback"
     except Exception:
         db_status = "unknown"
-    add_dashboard_log("🚀 STARTUP", f"SP4RK dashboard started — DB: {db_status}")
+    add_dashboard_log("🚀 STARTUP", f"NVD Official dashboard started — DB: {db_status}")
 
 _threading.Thread(target=_add_startup_log, daemon=True, name="startup-log").start()
 
@@ -1334,21 +1334,21 @@ SITE_SETTINGS_DEFAULTS = {
     "color_accent3": "#22d3ee",
     "color_text":    "#e8f0ff",
     # Hero / brand text
-    "brand_name":      "SP4RK",
+    "brand_name":      "NVD Official",
     "hero_badge":      "Building the future of community automation",
     "hero_title_pre":  "We build",
     "hero_title_grad": "intelligent bots",
     "hero_title_post": "that power modern communities.",
     "hero_lede": (
-        "SP4RK designs and ships AI-driven bots, dashboards, and automation tools "
+        "NVD Official designs and ships AI-driven bots, dashboards, and automation tools "
         "that help Discord servers, communities, and creators run smoother — without "
         "the busywork."
     ),
     # Section title under "What We Build"
-    "section_title": "Every SP4RK bot follows the same principles.",
+    "section_title": "Every NVD Official bot follows the same principles.",
     "section_lede":  "Beautiful dashboards, intelligent automation, rock-solid uptime, and full control in your hands.",
     # CTA strip
-    "cta_title": "Ready to add a SP4RK bot to your server?",
+    "cta_title": "Ready to add a NVD Official bot to your server?",
     "cta_lede":  "Browse our growing lineup of bots and find the one that fits your community.",
     # Footer tag
     "footer_tag": "Crafted with care for communities.",
@@ -1921,7 +1921,7 @@ def so_api_broadcast():
                 import discord
                 e = discord.Embed(title=title, description=message, color=0x5b8cff,
                                   timestamp=datetime.now(timezone.utc))
-                e.set_footer(text="Server Official • SP4RK")
+                e.set_footer(text="Server Official • NVD Official")
                 await ch.send(embed=e)
                 posted += 1
             except Exception as ex:
@@ -2166,9 +2166,9 @@ def so_api_setup_template():
     return jsonify({"ok": True, "data": summary})
 
 
-# --- SP4RK Custom Commands (global; applies to all SP4RK guilds) ---
+# --- NVD Official Custom Commands (global; applies to all NVD Official guilds) ---
 def _sp4rk_require_login():
-    """Require a logged-in dashboard session for SP4RK custom-commands routes."""
+    """Require a logged-in dashboard session for NVD Official custom-commands routes."""
     if not session.get('logged_in'):
         return None, (jsonify({"ok": False, "error": "not authenticated"}), 401)
     return True, None
@@ -2739,7 +2739,7 @@ def so_api_rules_post():
             title=f'📜 {guild.name} — Server Rules',
             description=text, color=0x5b8cff,
             timestamp=datetime.now(_tz.utc))
-        e.set_footer(text='Server Official • SP4RK')
+        e.set_footer(text='Server Official • NVD Official')
         await ch.send(embed=e)
     try:
         fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
@@ -2900,7 +2900,7 @@ def so_api_post_embed():
         e = discord.Embed(title=title, description=message[:4000],
                           color=int(color) if color else 0x5b8cff,
                           timestamp=datetime.now(timezone.utc))
-        e.set_footer(text="Server Official • SP4RK")
+        e.set_footer(text="Server Official • NVD Official")
         await ch.send(embed=e)
 
     fut = asyncio.run_coroutine_threadsafe(_send(), bot.loop)
@@ -3387,12 +3387,12 @@ def login():
     session['logged_in'] = True
     session['is_sp4rk_admin'] = True
     session['discord_id'] = 'sp4rk-admin'
-    session['user_name'] = 'SP4RK Admin'
+    session['user_name'] = 'NVD Official Admin'
     session['user_admin_guild_ids'] = [str(g.get('id')) for g in live_guilds if g.get('id')]
     session['user_guilds'] = live_guilds
     session['user_avatar'] = ''
     session.modified = True
-    add_dashboard_log("✅ LOGIN", "SP4RK admin authenticated with passkey")
+    add_dashboard_log("✅ LOGIN", "NVD Official admin authenticated with passkey")
     if next_url and next_url.startswith('/') and not next_url.startswith('//'):
         return redirect(next_url)
     return redirect(url_for('server_select'))
@@ -3419,10 +3419,10 @@ def activate_license():
     return redirect(url_for('landing'))
 
 
-# ---- SERVER SELECTION — SP4RK ----
+# ---- SERVER SELECTION — NVD Official ----
 @app.route('/servers')
 def server_select():
-    """Post-login server picker for SP4RK — each server links directly to the SP4RK dashboard."""
+    """Post-login server picker for NVD Official — each server links directly to the NVD Official dashboard."""
     if not session.get('logged_in'):
         session['post_login_redirect'] = url_for('server_select')
         return redirect(url_for('login'))
@@ -3569,7 +3569,7 @@ def index():
         <!doctype html>
         <html>
         <head>
-            <title>SP4RK Dashboard</title>
+            <title>NVD Official Dashboard</title>
             <style>
                 body {{ font-family: Arial, sans-serif; background:#07101f; color:#e8f0ff; padding:40px; }}
                 .card {{ max-width:720px; margin:auto; background:#0f1d38; border:1px solid rgba(58,143,255,.25); border-radius:14px; padding:28px; }}
@@ -3579,7 +3579,7 @@ def index():
         </head>
         <body>
             <div class="card">
-                <h1>SP4RK Dashboard</h1>
+                <h1>NVD Official Dashboard</h1>
                 <p>You are logged in as <strong>{safe_name}</strong>.</p>
                 <p>UID: <code>{safe_uid}</code></p>
                 <p>Session token: <code>{safe_token}</code></p>
@@ -4452,7 +4452,7 @@ def so_api_global_avatar():
 
 
 # ============================================================
-# 🎨 EMBED EDITOR API (shared by SP4RK + Server Official)
+# 🎨 EMBED EDITOR API (shared by NVD Official + Server Official)
 # ============================================================
 try:
     import embeds as _embeds_mod
@@ -4484,14 +4484,14 @@ def _embeds_for_bot(bot: str, guild_id=None):
 
 @app.route('/api/embeds', methods=['GET'])
 def api_embeds_list():
-    """List SP4RK embed templates (with optional ?guild_id=)."""
+    """List NVD Official embed templates (with optional ?guild_id=)."""
     gid = request.args.get("guild_id")
     return jsonify({"ok": True, "items": _embeds_for_bot("sp4rk", guild_id=gid)})
 
 
 @app.route('/api/embeds', methods=['POST'])
 def api_embeds_save():
-    """Save an SP4RK embed override. Body: {key, override:{title,description,color,footer,...}, guild_id?}"""
+    """Save an NVD Official embed override. Body: {key, override:{title,description,color,footer,...}, guild_id?}"""
     if _embeds_mod is None:
         return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
     body = request.get_json(silent=True) or {}
@@ -4514,7 +4514,7 @@ def api_embeds_save():
 
 @app.route('/api/embeds', methods=['DELETE'])
 def api_embeds_reset():
-    """Reset an SP4RK embed override to default. Body: {key, guild_id?}"""
+    """Reset an NVD Official embed override to default. Body: {key, guild_id?}"""
     if _embeds_mod is None:
         return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
     body = request.get_json(silent=True) or {}
@@ -5161,7 +5161,7 @@ def bot_diagnostics():
         bot_thread_state = f"error checking thread: {_e}"
 
     lines = [
-        "=== Sentinel Bot Diagnostics ===",
+        "=== NVD Official Diagnostics ===",
         f"timestamp          : {int(_t.time())}",
         "",
         "--- Environment ---",
@@ -5739,7 +5739,7 @@ def api_owner_broadcast():
                     if ch:
                         try:
                             embed = _discord.Embed(description=message, color=0x00c4ff)
-                            embed.set_author(name="📢 Announcement from SP4RK")
+                            embed.set_author(name="📢 Announcement from NVD Official")
                             await ch.send(embed=embed)
                             sent_count += 1
                         except Exception:
