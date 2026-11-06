@@ -2086,9 +2086,16 @@ async def on_guild_update(before, after):
             f"Server description: {before.description or 'None'} → {after.description or 'None'}",
             color=0x3498db, guild_id=gid)
     settings = []
-    for attr,label in (("verification_level","Verification level"),("explicit_content_filter","Content filter"),
-                       ("default_notifications","Default notifications"),("preferred_locale","Preferred locale"),
-                       ("mfa_level","Moderator 2FA level"),("afk_timeout","AFK timeout")):
+    for attr,label in (
+        ("verification_level","Verification level"),("explicit_content_filter","Content filter"),
+        ("default_notifications","Default notifications"),("preferred_locale","Preferred locale"),
+        ("mfa_level","Moderator 2FA level"),("afk_timeout","AFK timeout"),
+        ("widget_enabled","Server widget enabled"),("widget_channel","Widget channel"),
+        ("system_channel","System channel"),("rules_channel","Rules channel"),
+        ("public_updates_channel","Public updates channel"),("afk_channel","AFK voice channel"),
+        ("vanity_url_code","Vanity invite code"),("premium_progress_bar_enabled","Server boost progress bar"),
+        ("nsfw_level","Server NSFW level"),("max_members","Member capacity"),
+    ):
         old_value, new_value = getattr(before,attr,None), getattr(after,attr,None)
         if old_value != new_value:
             settings.append(f"{label}: {old_value} → {new_value}")
