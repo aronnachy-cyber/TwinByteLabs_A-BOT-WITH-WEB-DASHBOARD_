@@ -93,4 +93,3 @@ elif not _token_present:
 
 
 threading.Thread(target=_self_ping, daemon=True, name="self-keepalive").start()
-threading.Thread(target=_self_ping, daemon=True, name="self-keepalive").start()
