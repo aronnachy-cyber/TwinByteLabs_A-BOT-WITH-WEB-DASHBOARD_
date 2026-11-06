@@ -15,44 +15,15 @@ services:
         value: "true"
       - key: FLASK_SECRET_KEY
         sync: false
-      - key: SESSION_SECRET
+      - key: SP4RK_PASSKEY
         sync: false
       - key: DISCORD_TOKEN
         sync: false
-      - key: SERVER_TOKEN
-        sync: false
-        sync: false
-        sync: false
-        sync: false
-        sync: false
       - key: GEMINI_KEY
         sync: false
-      - key: DASHBOARD_URL
+      - key: DATABASE_URL
         sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
-        sync: false
-      - key: DATABASE_URL
-        sync: false
-        sync: false
-        sync: false
-        sync: false
-        value: "smtp.gmail.com"
-        value: "587"
-        sync: false
-        sync: false
-        sync: false
-        sync: false
-        sync: false
-      - key: FORCE_HTTPS_COOKIES
-        value: "true"
-        sync: false
-      - key: SERVER_OFFICIAL_PERMISSIONS
-        value: "8"
-        sync: false
-        sync: false
-        sync: false
-        sync: false
-        sync: false
         sync: false
