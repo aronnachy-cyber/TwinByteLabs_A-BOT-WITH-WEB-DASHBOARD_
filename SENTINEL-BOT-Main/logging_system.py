@@ -152,7 +152,7 @@ async def emit(bot, guild, event, title, description, *, color=None, actor=None,
             if not (p.view_channel and p.send_messages and p.embed_links):
                 print("[LOGS] Missing View Channel, Send Messages, or Embed Links for "+category)
                 return False
-        raw=color if color is not None else cfg.get("logging_embed_color",0x3498DB)
+        raw=cfg.get("logging_embed_color", color if color is not None else 0x3498DB)
         if isinstance(raw,str): raw=int(raw.strip().lstrip("#"),16)
         embed=discord.Embed(title=str(title)[:256],description=str(description)[:4000],color=int(raw))
         if cfg.get("logging_timestamps",True) not in (False,"OFF","off","false"):
@@ -182,7 +182,14 @@ async def send_existing(bot,guild_id,category,event,embed,actor_id=None,channel_
     target=_target(bot,guild,cfg,category)
     if target is None: return False
     try:
-        if cfg.get("logging_timestamps",True) in (False,"OFF","off","false"): embed.timestamp=None
+        if cfg.get("logging_timestamps",True) in (False,"OFF","off","false"):
+            embed.timestamp=None
+        else:
+            embed.timestamp=embed.timestamp or discord.utils.utcnow()
+        raw_color=cfg.get("logging_embed_color",0x3498DB)
+        if isinstance(raw_color,str):
+            raw_color=int(raw_color.strip().lstrip("#"),16)
+        embed.color=discord.Colour(int(raw_color))
         await target.send(embed=embed,allowed_mentions=discord.AllowedMentions.none())
         return True
     except (discord.NotFound,discord.Forbidden) as exc:
