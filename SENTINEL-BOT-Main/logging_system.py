@@ -414,7 +414,9 @@ async def create_log_channels(guild,save_cfg,setup_member=None):
     updates.setdefault("logging_embed_color", current.get("logging_embed_color", 0x3498DB))
     updates.setdefault("logging_timestamps", current.get("logging_timestamps", True))
     updates.setdefault("logging_format", current.get("logging_format", "detailed"))
-    save_cfg(str(guild.id), updates)
+    persisted = save_cfg(str(guild.id), updates)
+    if persisted is False:
+        raise RuntimeError("Logging channels were created, but persistent config storage failed. Check Supabase Storage permissions or configure DATABASE_URL.")
     return category,mapping
 
 def register_commands(bot,guard,get_cfg,save_cfg):
