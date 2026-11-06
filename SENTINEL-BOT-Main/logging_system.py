@@ -69,6 +69,7 @@ def infer_event(title, description=""):
         (("voice deafen",),"voice_self_deafen"),(("emoji added",),"emoji_create"),
         (("emoji removed",),"emoji_delete"),(("sticker added",),"sticker_create"),
         (("sticker removed",),"sticker_delete"),
+        (("warning issued","warning"),"warning_issued"),(("warnings cleared","clear-warn"),"warning_removed"),
     ]
     for needles, event in checks:
         if any(n in text for n in needles):
@@ -179,6 +180,21 @@ async def setup(bot):
     if _registered: return
     _registered=True
 
+    @bot.listen("on_raw_message_delete")
+    async def _uncached_message_delete(payload):
+        if not payload.guild_id or payload.cached_message is not None:
+            return
+        guild = bot.get_guild(payload.guild_id)
+        if guild is None:
+            return
+        channel = guild.get_channel(payload.channel_id)
+        await emit(bot, guild, "message_delete", "🗑️ Message Deleted (uncached)",
+                   "Discord did not provide cached message content for this delete event.\n"
+                   "Message ID: " + str(payload.message_id) + "\n"
+                   "Channel ID: " + str(payload.channel_id) + "\n"
+                   "Author/content/attachments: Unavailable from this gateway event.",
+                   channel=channel, dedupe_id=payload.message_id)
+
     @bot.listen("on_message")
     async def _invite_message(message):
         if not message.guild or message.author.bot: return
@@ -226,20 +242,6 @@ async def setup(bot):
             await emit(bot,member.guild,"member_kick","👢 Member Kicked",
                 "Target: "+str(member)+" ("+str(member.id)+")\nModerator: "+str(actor)+
                 "\nReason: "+str(reason or "Not supplied"),actor=actor,dedupe_id="kick:"+str(member.id))
-
-    @bot.listen("on_member_ban")
-    async def _ban_attribution(guild,user):
-        actor,reason=await audit_actor(guild,discord.AuditLogAction.ban,user.id)
-        await emit(bot,guild,"member_ban","⛔ Member Banned",
-            "Target: "+str(user)+" ("+str(user.id)+")\nModerator: "+str(actor or "Unavailable")+
-            "\nReason: "+str(reason or "Unavailable"),actor=actor,dedupe_id="ban:"+str(user.id))
-
-    @bot.listen("on_member_unban")
-    async def _unban_attribution(guild,user):
-        actor,reason=await audit_actor(guild,discord.AuditLogAction.unban,user.id)
-        await emit(bot,guild,"member_unban","✅ Member Unbanned",
-            "Target: "+str(user)+" ("+str(user.id)+")\nModerator: "+str(actor or "Unavailable")+
-            "\nReason: "+str(reason or "Unavailable"),actor=actor,dedupe_id="unban:"+str(user.id))
 
     @bot.listen("on_voice_state_update")
     async def _voice_extras(member,before,after):
@@ -298,7 +300,11 @@ async def create_log_channels(guild,save_cfg):
         raise PermissionError("Manage Channels permission is required.")
     category=discord.utils.get(guild.categories,name="SERVER LOGS")
     if category is None:
-        category=await guild.create_category("SERVER LOGS",reason="NVD Official logging setup")
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            me: discord.PermissionOverwrite(view_channel=True, send_messages=True, embed_links=True, read_message_history=True),
+        }
+        category=await guild.create_category("SERVER LOGS",overwrites=overwrites,reason="NVD Official logging setup")
     mapping={}
     for key,name in CATEGORIES.items():
         channel=discord.utils.get(guild.text_channels,name=name)
@@ -347,11 +353,12 @@ def register_commands(bot,guard,get_cfg,save_cfg):
         save_cfg(interaction.guild.id,{"logging_categories":states})
         await interaction.response.send_message(category+" category: "+("ON" if enabled else "OFF"),ephemeral=True)
 
-    @group.command(name="event",description="Toggle one individual event.")
-    @discord.app_commands.choices(event=[discord.app_commands.Choice(name=x.replace("_"," ").title(),value=x) for x in evts])
+    @group.command(name="event",description="Toggle one individual event. Use an event key from /logs status or the event list.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
     async def event_cmd(interaction,event:str,enabled:bool):
         if not await guard(interaction): return
+        if event not in EVENT_CATEGORY:
+            return await interaction.response.send_message("Unknown event key. Valid keys: "+", ".join(evts),ephemeral=True)
         states=dict(get_cfg(interaction.guild.id).get("logging_events") or {})
         states[event]=enabled
         save_cfg(interaction.guild.id,{"logging_events":states})
