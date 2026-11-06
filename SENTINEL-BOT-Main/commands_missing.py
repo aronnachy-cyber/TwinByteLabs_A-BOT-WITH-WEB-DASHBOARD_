@@ -1624,6 +1624,20 @@ def setup(bot: commands.Bot, dlog=None):
                 ephemeral=True,
             )
 
+    @_captcha_group.command(name="enable", description="Enable CAPTCHA using your verification channel and Verified role.")
+    @app_commands.describe(
+        channel="The only channel unverified members can see",
+        role="Your existing Verified role, assigned after passing CAPTCHA",
+    )
+    @app_commands.checks.has_permissions(administrator=True)
+    async def slash_captcha_enable(
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+        role: discord.Role,
+    ):
+        # Keep one implementation so /captcha enable and /captcha setup behave identically.
+        await slash_captcha_setup.callback(interaction, True, channel, role)
+
     @_captcha_group.command(name="status", description="Show current CAPTCHA verification configuration.")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def slash_captcha_status(interaction: discord.Interaction):
