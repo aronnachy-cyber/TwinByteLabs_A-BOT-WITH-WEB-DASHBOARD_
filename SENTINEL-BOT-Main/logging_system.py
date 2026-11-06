@@ -311,19 +311,23 @@ async def setup(bot):
         old={x.id:x for x in before}; new={x.id:x for x in after}
         for ident in old.keys() & new.keys():
             if old[ident].name!=new[ident].name:
+                actor,reason=await audit_actor(guild,getattr(discord.AuditLogAction,"emoji_update",None),ident)
                 await emit(bot,guild,"emoji_update","😀 Emoji Updated",
-                    ":"+old[ident].name+": → :"+new[ident].name+":\nEmoji ID: "+str(ident),
-                    dedupe_id="emoji:"+str(ident)+":"+new[ident].name)
+                    ":"+old[ident].name+": → :"+new[ident].name+":\nEmoji ID: "+str(ident)+
+                    "\nModerator: "+str(actor or "Unavailable")+"\nReason: "+str(reason or "Unavailable"),
+                    actor=actor,dedupe_id="emoji:"+str(ident)+":"+new[ident].name)
 
     @bot.listen("on_guild_stickers_update")
     async def _sticker_edits(guild,before,after):
         old={x.id:x for x in before}; new={x.id:x for x in after}
         for ident in old.keys() & new.keys():
             if old[ident].name!=new[ident].name or old[ident].description!=new[ident].description:
+                actor,reason=await audit_actor(guild,getattr(discord.AuditLogAction,"sticker_update",None),ident)
                 await emit(bot,guild,"sticker_update","🏷️ Sticker Updated",
                     "Sticker ID: "+str(ident)+"\nName: "+old[ident].name+" → "+new[ident].name+
-                    "\nDescription: "+str(old[ident].description)+" → "+str(new[ident].description),
-                    dedupe_id="sticker:"+str(ident)+":"+new[ident].name)
+                    "\nDescription: "+str(old[ident].description)+" → "+str(new[ident].description)+
+                    "\nModerator: "+str(actor or "Unavailable")+"\nReason: "+str(reason or "Unavailable"),
+                    actor=actor,dedupe_id="sticker:"+str(ident)+":"+new[ident].name)
 
     @bot.listen("on_automod_action")
     async def _automod_log(execution):
