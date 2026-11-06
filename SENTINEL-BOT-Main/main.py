@@ -1722,9 +1722,15 @@ async def on_member_remove(member):
         )
         dlog("👢 KICK", f"{member} kicked by {kick_actor}", guild_id=member.guild.id)
     else:
-        ban_actor, _ban_reason = await logging_system.audit_actor(
-            member.guild, discord.AuditLogAction.ban, member.id
-        )
+        ban_actor, _ban_reason = None, None
+        for _attempt in range(2):
+            ban_actor, _ban_reason = await logging_system.audit_actor(
+                member.guild, discord.AuditLogAction.ban, member.id
+            )
+            if ban_actor is not None:
+                break
+            if _attempt == 0:
+                await asyncio.sleep(0.3)
         if ban_actor is not None:
             # The separate on_member_ban event writes the ban record; do not mislabel it as a leave.
             dlog("⛔ BAN-REMOVE", f"{member} removed by ban action", guild_id=member.guild.id)
