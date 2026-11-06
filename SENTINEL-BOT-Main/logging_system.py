@@ -44,6 +44,7 @@ EVENT_CATEGORY = {
 }
 _seen = {}
 _invite_cache = {}
+_audit_cache = {}
 _registered = False
 
 def _cfg(guild_id):
@@ -198,11 +199,22 @@ async def send_existing(bot,guild_id,category,event,embed,actor_id=None,channel_
     return False
 
 async def audit_actor(guild,action,target_id=None):
+    if guild is None:
+        return None,None
+    key=(guild.id,str(action),str(target_id))
+    now=time.monotonic()
+    cached=_audit_cache.get(key)
+    if cached and now-cached[0] < 5:
+        return cached[1],cached[2]
     try:
         from datetime import timedelta
         cutoff=discord.utils.utcnow()-timedelta(seconds=10)
         async for entry in guild.audit_logs(limit=10,action=action,after=cutoff):
             if target_id is None or getattr(entry.target,"id",None)==target_id:
+                _audit_cache[key]=(now,entry.user,entry.reason)
+                if len(_audit_cache)>1000:
+                    for cache_key,value in list(_audit_cache.items()):
+                        if now-value[0]>10: _audit_cache.pop(cache_key,None)
                 return entry.user,entry.reason
     except Exception:
         pass
