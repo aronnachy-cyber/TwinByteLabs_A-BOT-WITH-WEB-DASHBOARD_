@@ -1313,14 +1313,17 @@ def save_config():
             print("💾 Settings saved to Postgres!")
     except Exception as _e:
         print(f"⚠️ db_spark save_settings error: {_e}")
-    # 2) Supabase mirror
+    # 2) Supabase mirror — preserve the private per-guild config store.
     if supabase:
         try:
-            res = supabase.table("sentinel_config").select("id").eq("id", 1).execute()
-            if res.data:
-                supabase.table("sentinel_config").update({"data": config}).eq("id", 1).execute()
-            else:
-                supabase.table("sentinel_config").insert({"id": 1, "data": config}).execute()
+            with _SUPABASE_GUILD_CFG_LOCK:
+                root = _read_sentinel_config_data()
+                if root is not None:
+                    guild_store = root.get("_guild_config_store")
+                    root.update(config)
+                    if guild_store is not None:
+                        root["_guild_config_store"] = guild_store
+                    supabase.table("sentinel_config").upsert({"id": 1, "data": root}).execute()
         except Exception as e:
             print(f"⚠️ Supabase save_config error: {e}")
     # 3) JSON hot copy — absolute path so it resolves correctly regardless of CWD
