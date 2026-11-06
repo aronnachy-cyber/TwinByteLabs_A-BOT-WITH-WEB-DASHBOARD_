@@ -960,9 +960,6 @@ def setup(bot: commands.Bot, dlog=None):
     # ══════════════════════════════════════════════════════════════════════════
 
     # ── /clear ──
-    @bot.tree.command(name="clear", description="Delete the last N messages in this channel (max 200).")
-    @app_commands.describe(amount="Number of messages to delete (default 10)")
-    @app_commands.checks.has_permissions(manage_messages=True)
     async def slash_clear(interaction: discord.Interaction, amount: int = 10):
         if not await _guard(interaction):
             return
@@ -1019,9 +1016,6 @@ def setup(bot: commands.Bot, dlog=None):
         await interaction.followup.send(f"📋 Deleted **{len(deleted)}** embed message(s).", ephemeral=True)
 
     # ── /nickname ──
-    @bot.tree.command(name="nickname", description="Change or reset a member's nickname.")
-    @app_commands.describe(member="Target member", name="New nickname (leave blank to reset)")
-    @app_commands.checks.has_permissions(manage_nicknames=True)
     async def slash_nickname(interaction: discord.Interaction, member: discord.Member, name: str = None):
         if not await _guard(interaction):
             return
@@ -1049,9 +1043,6 @@ def setup(bot: commands.Bot, dlog=None):
         await interaction.response.send_message(embed=embed)
 
     # ── /modhistory ──
-    @bot.tree.command(name="modhistory", description="View full mod history (warnings + notes) for a member.")
-    @app_commands.describe(member="Member to inspect")
-    @app_commands.checks.has_permissions(manage_messages=True)
     async def slash_modhistory(interaction: discord.Interaction, member: discord.Member):
         if not await _guard(interaction):
             return
@@ -1112,7 +1103,6 @@ def setup(bot: commands.Bot, dlog=None):
         await interaction.response.send_message(embed=embed)
 
     # ── /membercount ──
-    @bot.tree.command(name="membercount", description="Show the server member count.")
     async def slash_membercount(interaction: discord.Interaction):
         if not await _guard(interaction):
             return
