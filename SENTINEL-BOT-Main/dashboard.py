@@ -345,6 +345,7 @@ def load_config_from_supabase():
                     except Exception:
                         stored = {}
                 if isinstance(stored, dict):
+                    stored.pop("_guild_config_store", None)
                     config.update(stored)
                 print("📁 Settings loaded from Supabase!")
                 return
@@ -402,16 +403,28 @@ def _preload_guild_config_cache():
             return
     except Exception as e:
         print(f"[guild_cfg] preload from Postgres failed: {e}")
-    # Postgres not available — fall back to JSON only.
+    # Postgres unavailable — prefer the Supabase sentinel_config JSON store.
+    sb_data = _load_supabase_guild_configs()
+    if sb_data:
+        _guild_config_cache = dict(sb_data)
+        print(f"📦 Guild config cache loaded from Supabase ({len(_guild_config_cache)} guilds)")
+        return
+    # If Supabase is reachable but has no guild store yet, migrate JSON into it.
     if os.path.exists(_json_path):
         try:
             with open(_json_path, "r", encoding="utf-8") as f:
                 loaded = json.load(f)
                 if isinstance(loaded, dict):
                     _guild_config_cache = loaded
+                    if sb_data is not None:
+                        _save_supabase_guild_configs(loaded)
                     print(f"📦 Guild config cache loaded from JSON ({len(_guild_config_cache)} guilds)")
+                    return
         except Exception:
             pass
+    if sb_data is not None:
+        _guild_config_cache = dict(sb_data)
+        print(f"📦 Guild config cache loaded from Supabase ({len(_guild_config_cache)} guilds)")
 
 # ---- PER-GUILD CONFIG STORE ----
 import threading as _threading
