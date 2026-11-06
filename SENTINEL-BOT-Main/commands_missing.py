@@ -40,9 +40,10 @@ def _gcfg(guild_id):
 def _save_gcfg(guild_id, cfg):
     try:
         from dashboard import save_guild_config
-        save_guild_config(str(guild_id), cfg)
-    except Exception:
-        pass
+        return save_guild_config(str(guild_id), cfg)
+    except Exception as exc:
+        print(f"[GUILD_CFG] Save error: {exc}")
+        return False
 
 
 def _toggle(cfg, key, value=None):
