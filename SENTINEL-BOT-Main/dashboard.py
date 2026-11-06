@@ -106,6 +106,20 @@ _DISCORD_REFRESH_INTERVAL = 300  # 5 minutes
 
 @app.before_request
 def _make_session_permanent():
+    # SP4RK is a private, single-owner dashboard. Retire legacy multi-account,
+    # developer-console, owner-console, public-intake and watch-party surfaces.
+    path = request.path.rstrip("/") or "/"
+    blocked_prefixes = ("/dev", "/owner", "/api/owner", "/wave", "/watch", "/api/wave", "/api/bot_request")
+    blocked_paths = {
+        "/register", "/forgot-password", "/activate-license", "/bot-debug",
+        "/api/public_feedback", "/api/feedback", "/api/pending_count",
+        "/api/approve_user", "/api/reject_user", "/api/grant_admin",
+        "/api/delete_user", "/api/bot/sync",
+    }
+    if path in blocked_paths or any(path == prefix or path.startswith(prefix + "/") for prefix in blocked_prefixes):
+        abort(404)
+    session.pop("dev_unlocked", None)
+    session.pop("owner_unlocked", None)
     if session.get('passkey_login') and _time_module.time() > float(session.get('passkey_expires_at', 0)):
         session.clear()
         return redirect(url_for('login'))
@@ -1605,8 +1619,8 @@ def _so_live_state(guild_id: str = "", user_guild_ids=None):
 @app.route('/server-official')
 def server_official_landing():
     """Private information page for the Server Official instance."""
-    if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
     so = _so_module()
 
     if not session.get('logged_in'):
@@ -1634,8 +1648,6 @@ def server_official_landing():
 @app.route('/server-official/dashboard')
 def server_official_dashboard():
     """Web dashboard for managing scheduled announcements, giveaways and stats."""
-    if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
     if not session.get('logged_in'):
         # Send unauthenticated visitors through Discord login, then back here.
         session['post_login_redirect'] = url_for('server_official_dashboard')
@@ -2902,18 +2914,8 @@ def so_api_post_embed():
 
 @app.route('/sp4rk')
 def sp4rk_landing():
-    """Private SP4RK information page; public bot invitations are disabled."""
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-    if is_maintenance_mode() and not is_dev_session():
-        return render_template('under_maintenance.html', maintenance_eta=_load_dev_state().get('maintenance_eta','')), 200
-
-    return render_template(
-        'landing.html',
-        dev_unlocked=is_dev_session(),
-        maintenance_on=is_maintenance_mode(),
-        logged_in=bool(session.get('logged_in')),
-    )
+    """Legacy entry URL: send the single owner to the main dashboard."""
+    return redirect(url_for('server_select') if session.get('logged_in') else url_for('login'))
 
 # ---- DEV ROUTES (PIN-protected) ----
 @app.route('/dev/unlock', methods=['POST'])
@@ -3502,11 +3504,7 @@ def index():
     session['user_name'] = current_user.get('name', 'User')
 
     # ── Tier: check license manager first, fall back to user record ──
-    _admin_discord_id = os.environ.get("ADMIN_DISCORD_ID", "").strip()
-    _is_admin = (
-        current_user.get("is_admin")
-        or (discord_id and _admin_discord_id and discord_id == _admin_discord_id)
-    )
+    _is_admin = bool(session.get("is_sp4rk_admin"))
     if _is_admin:
         user_tier = "premium"
     else:
