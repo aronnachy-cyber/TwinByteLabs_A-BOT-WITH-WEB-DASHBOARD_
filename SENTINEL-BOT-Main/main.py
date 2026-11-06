@@ -1864,8 +1864,12 @@ async def on_voice_state_update(member, before, after):
             dlog("🔇 VC-LEAVE", f"{member} left VC: {before.channel.name}", guild_id=member.guild.id)
         else:
             move_chan = f"**{before.channel.name}** → **{after.channel.name}**"
-            await logs.log_template(bot, config, "sp4rk.voice_move",
-                                    user=member, channel=move_chan)
+            await logging_system.emit(
+                bot, member.guild, "voice_move", "🔀 Voice Channel Moved",
+                f"**Member:** {member} (ID: {member.id})\n**Route:** {move_chan}",
+                actor=member, channel=after.channel,
+                dedupe_id=f"{member.id}:{before.channel.id}:{after.channel.id}",
+            )
             dlog("🔀 VC-MOVE", f"{member} moved: {before.channel.name} → {after.channel.name}", guild_id=member.guild.id)
     except Exception as e:
         print(f"Voice log error: {e}")
