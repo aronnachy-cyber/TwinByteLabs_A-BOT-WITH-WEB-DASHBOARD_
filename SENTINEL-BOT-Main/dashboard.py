@@ -43,6 +43,50 @@ def _init_supabase():
 
 _threading.Thread(target=_init_supabase, daemon=True, name="supabase-init").start()
 
+# The Supabase sentinel_config row is the persistent fallback for per-guild
+# configuration when Render has no DATABASE_URL / managed Postgres.
+_SUPABASE_GUILD_CFG_LOCK = _threading.RLock()
+
+def _read_sentinel_config_data():
+    if supabase is None:
+        return None
+    try:
+        result = supabase.table("sentinel_config").select("data").eq("id", 1).limit(1).execute()
+        rows = result.data or []
+        if not rows:
+            return {}
+        data = rows[0].get("data", {})
+        if isinstance(data, str):
+            data = json.loads(data)
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        print(f"[guild_cfg] Supabase config read error: {exc}")
+        return None
+
+def _load_supabase_guild_configs():
+    with _SUPABASE_GUILD_CFG_LOCK:
+        root = _read_sentinel_config_data()
+        if root is None:
+            return None
+        stored = root.get("_guild_config_store", {})
+        return dict(stored) if isinstance(stored, dict) else {}
+
+def _save_supabase_guild_configs(data):
+    if supabase is None:
+        return False
+    with _SUPABASE_GUILD_CFG_LOCK:
+        root = _read_sentinel_config_data()
+        if root is None:
+            return False
+        root["_guild_config_store"] = dict(data or {})
+        try:
+            supabase.table("sentinel_config").upsert({"id": 1, "data": root}).execute()
+            return True
+        except Exception as exc:
+            print(f"[guild_cfg] Supabase config save error: {exc}")
+            return False
+
+
 app = Flask(__name__)
 
 def _get_or_create_secret_key() -> str:
