@@ -1407,7 +1407,7 @@ async def slash_serverinfo(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
-@bot.tree.command(name="bot", description="Show NVD Official bot details and status")
+# /bot is covered by the fuller /botinfo command; keep /uptime as its own command.
 async def slash_bot(interaction: discord.Interaction):
     uptime = datetime.utcnow() - BOT_START_TIME
     hours, rem = divmod(int(uptime.total_seconds()), 3600)
