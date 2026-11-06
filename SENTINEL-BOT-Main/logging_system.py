@@ -333,7 +333,7 @@ def register_commands(bot,guard,get_cfg,save_cfg):
 
     @group.command(name="setup",description="Create SERVER LOGS and all ten log channels.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def setup_cmd(interaction):
+    async def setup_cmd(interaction: discord.Interaction):
         if not await guard(interaction): return
         await interaction.response.defer(ephemeral=True,thinking=True)
         try:
@@ -345,7 +345,7 @@ def register_commands(bot,guard,get_cfg,save_cfg):
 
     @group.command(name="enable",description="Enable or disable all logging.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def enable_cmd(interaction,enabled:bool):
+    async def enable_cmd(interaction: discord.Interaction,enabled:bool):
         if not await guard(interaction): return
         save_cfg(interaction.guild.id,{"logging_enabled":enabled})
         await interaction.response.send_message("Logging is now "+("ON" if enabled else "OFF")+".",ephemeral=True)
@@ -353,7 +353,7 @@ def register_commands(bot,guard,get_cfg,save_cfg):
     @group.command(name="category",description="Toggle a complete log category.")
     @discord.app_commands.choices(category=[discord.app_commands.Choice(name=x.replace("_"," ").title(),value=x) for x in cats])
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def category_cmd(interaction,category:str,enabled:bool):
+    async def category_cmd(interaction: discord.Interaction,category:str,enabled:bool):
         if not await guard(interaction): return
         states=dict(get_cfg(interaction.guild.id).get("logging_categories") or {})
         states[category]=enabled
@@ -362,7 +362,7 @@ def register_commands(bot,guard,get_cfg,save_cfg):
 
     @group.command(name="event",description="Toggle one individual event. Use an event key from /logs status or the event list.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def event_cmd(interaction,event:str,enabled:bool):
+    async def event_cmd(interaction: discord.Interaction,event:str,enabled:bool):
         if not await guard(interaction): return
         if event not in EVENT_CATEGORY:
             return await interaction.response.send_message("Unknown event key. Valid keys: "+", ".join(evts),ephemeral=True)
@@ -373,7 +373,7 @@ def register_commands(bot,guard,get_cfg,save_cfg):
 
     @group.command(name="ignore-user",description="Ignore a user in logs.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def ignore_user(interaction,user:discord.User):
+    async def ignore_user(interaction: discord.Interaction,user:discord.User):
         if not await guard(interaction): return
         ids=list(get_cfg(interaction.guild.id).get("logging_ignore_users") or [])
         if str(user.id) not in [str(x) for x in ids]: ids.append(str(user.id))
@@ -383,7 +383,7 @@ def register_commands(bot,guard,get_cfg,save_cfg):
     @group.command(name="channel",description="Set the destination channel for one logging category.")
     @discord.app_commands.choices(category=[discord.app_commands.Choice(name=x.replace("_"," ").title(),value=x) for x in cats])
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def channel_cmd(interaction,category:str,channel:discord.TextChannel):
+    async def channel_cmd(interaction: discord.Interaction,category:str,channel:discord.TextChannel):
         if not await guard(interaction): return
         mapping=dict(get_cfg(interaction.guild.id).get("logging_channels") or {})
         mapping[category]=str(channel.id)
@@ -392,7 +392,7 @@ def register_commands(bot,guard,get_cfg,save_cfg):
 
     @group.command(name="ignore-channel",description="Ignore events from a channel.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def ignore_channel(interaction,channel:discord.TextChannel):
+    async def ignore_channel(interaction: discord.Interaction,channel:discord.TextChannel):
         if not await guard(interaction): return
         ids=list(get_cfg(interaction.guild.id).get("logging_ignore_channels") or [])
         if str(channel.id) not in [str(x) for x in ids]: ids.append(str(channel.id))
@@ -401,7 +401,7 @@ def register_commands(bot,guard,get_cfg,save_cfg):
 
     @group.command(name="unignore-user",description="Remove a user from the ignore list.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def unignore_user(interaction,user:discord.User):
+    async def unignore_user(interaction: discord.Interaction,user:discord.User):
         if not await guard(interaction): return
         ids=[str(x) for x in (get_cfg(interaction.guild.id).get("logging_ignore_users") or []) if str(x)!=str(user.id)]
         save_cfg(interaction.guild.id,{"logging_ignore_users":ids})
@@ -409,7 +409,7 @@ def register_commands(bot,guard,get_cfg,save_cfg):
 
     @group.command(name="unignore-channel",description="Restore logs for a channel.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def unignore_channel(interaction,channel:discord.TextChannel):
+    async def unignore_channel(interaction: discord.Interaction,channel:discord.TextChannel):
         if not await guard(interaction): return
         ids=[str(x) for x in (get_cfg(interaction.guild.id).get("logging_ignore_channels") or []) if str(x)!=str(channel.id)]
         save_cfg(interaction.guild.id,{"logging_ignore_channels":ids})
@@ -417,14 +417,14 @@ def register_commands(bot,guard,get_cfg,save_cfg):
 
     @group.command(name="ignore-bots",description="Choose whether bot accounts are ignored.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def ignore_bots(interaction,enabled:bool):
+    async def ignore_bots(interaction: discord.Interaction,enabled:bool):
         if not await guard(interaction): return
         save_cfg(interaction.guild.id,{"logging_ignore_bots":enabled})
         await interaction.response.send_message("Ignore bots: "+("ON" if enabled else "OFF"),ephemeral=True)
 
     @group.command(name="color",description="Set embed color using six-digit hex.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def color_cmd(interaction,hex_color:str):
+    async def color_cmd(interaction: discord.Interaction,hex_color:str):
         if not await guard(interaction): return
         raw=hex_color.strip().lstrip("#")
         try:
@@ -438,21 +438,21 @@ def register_commands(bot,guard,get_cfg,save_cfg):
     @group.command(name="format",description="Choose compact or detailed log embeds.")
     @discord.app_commands.choices(format=[discord.app_commands.Choice(name="Detailed",value="detailed"),discord.app_commands.Choice(name="Compact",value="compact")])
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def format_cmd(interaction,format:str):
+    async def format_cmd(interaction: discord.Interaction,format:str):
         if not await guard(interaction): return
         save_cfg(interaction.guild.id,{"logging_format":format})
         await interaction.response.send_message("Log format set to "+format+".",ephemeral=True)
 
     @group.command(name="timestamps",description="Enable or disable timestamps.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def timestamps(interaction,enabled:bool):
+    async def timestamps(interaction: discord.Interaction,enabled:bool):
         if not await guard(interaction): return
         save_cfg(interaction.guild.id,{"logging_timestamps":enabled})
         await interaction.response.send_message("Timestamps: "+("ON" if enabled else "OFF"),ephemeral=True)
 
     @group.command(name="status",description="Show logging status and destinations.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def status(interaction):
+    async def status(interaction: discord.Interaction):
         if not await guard(interaction): return
         cfg=get_cfg(interaction.guild.id); mapping=cfg.get("logging_channels") or {}
         states=cfg.get("logging_categories") or {}
