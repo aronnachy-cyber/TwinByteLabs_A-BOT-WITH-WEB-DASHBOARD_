@@ -1799,33 +1799,28 @@ async def on_voice_state_update(member, before, after):
         pass
 
     gcfg = get_config_for_guild(str(member.guild.id))
-    log_ch = (gcfg.get("voice_log_channel", "").strip() or gcfg.get("log_channel", "").strip()
-              or config.get("voice_log_channel", "").strip() or config.get("log_channel", "").strip())
-    if not log_ch:
-        return
-
     if before.channel == after.channel:
         # Channel didn't change — check for mute/deafen/stream state changes
         try:
             gid = str(member.guild.id)
             if before.self_mute != after.self_mute:
                 state = "muted" if after.self_mute else "unmuted"
-                await logs.log_event(bot, config, "🔇 Voice Mute",
+                await logs.log_event(bot, config, ("🔇 Voice Muted" if after.self_mute else "🔊 Voice Unmuted"),
                     f"**{member}** {state} themselves in **{after.channel.name if after.channel else 'VC'}**",
                     color=0x95a5a6, guild_id=gid)
             if before.self_deaf != after.self_deaf:
                 state = "deafened" if after.self_deaf else "undeafened"
-                await logs.log_event(bot, config, "🔕 Voice Deafen",
+                await logs.log_event(bot, config, ("🔕 Voice Deafened" if after.self_deaf else "🔔 Voice Undeafened"),
                     f"**{member}** {state} themselves in **{after.channel.name if after.channel else 'VC'}**",
                     color=0x95a5a6, guild_id=gid)
             if before.mute != after.mute:
                 state = "server-muted" if after.mute else "server-unmuted"
-                await logs.log_event(bot, config, "🔇 Server Mute",
+                await logs.log_event(bot, config, ("🔇 Server Muted" if after.mute else "🔊 Server Unmuted"),
                     f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**",
                     color=0xe74c3c, guild_id=gid)
             if before.deaf != after.deaf:
                 state = "server-deafened" if after.deaf else "server-undeafened"
-                await logs.log_event(bot, config, "🔕 Server Deafen",
+                await logs.log_event(bot, config, ("🔕 Server Deafened" if after.deaf else "🔔 Server Undeafened"),
                     f"**{member}** was {state} in **{after.channel.name if after.channel else 'VC'}**",
                     color=0xe74c3c, guild_id=gid)
         except Exception as e:
@@ -1843,7 +1838,7 @@ async def on_voice_state_update(member, before, after):
             dlog("🔇 VC-LEAVE", f"{member} left VC: {before.channel.name}", guild_id=member.guild.id)
         else:
             move_chan = f"**{before.channel.name}** → **{after.channel.name}**"
-            await logs.log_template(bot, config, "sp4rk.voice_leave",
+            await logs.log_template(bot, config, "sp4rk.voice_move",
                                     user=member, channel=move_chan)
             dlog("🔀 VC-MOVE", f"{member} moved: {before.channel.name} → {after.channel.name}", guild_id=member.guild.id)
     except Exception as e:
