@@ -2202,14 +2202,14 @@ async def on_guild_stickers_update(guild, before, after):
         await logs.log_event(
             bot, config,
             "🏷️ Sticker Added",
-            f"New sticker **{sticker.name}** was added.\\n🆔 Sticker ID: `{sticker.id}`",
+            f"New sticker **{sticker.name}** was added.\n🆔 Sticker ID: `{sticker.id}`",
             color=0x2ecc71, guild_id=gid,
         )
     for sticker in removed:
         await logs.log_event(
             bot, config,
             "🗑️ Sticker Removed",
-            f"Sticker **{sticker.name}** was removed.\\n🆔 Sticker ID: `{sticker.id}`",
+            f"Sticker **{sticker.name}** was removed.\n🆔 Sticker ID: `{sticker.id}`",
             color=0xe74c3c, guild_id=gid,
         )
 
