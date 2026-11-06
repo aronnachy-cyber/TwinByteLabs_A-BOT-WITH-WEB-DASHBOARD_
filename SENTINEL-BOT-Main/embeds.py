@@ -255,6 +255,22 @@ EMBED_REGISTRY: dict[str, dict[str, Any]] = {
             "author_name": "Voice Activity", "author_icon": "",
         },
     },
+    "sp4rk.voice_move": {
+        "bot": "sp4rk", "category": "Logging",
+        "label": "🔀 Voice Move",
+        "description": "Logged when a member moves between voice channels.",
+        "placeholders": ["{user_mention}", "{user_name}", "{channel}"],
+        "default": {
+            "title": "🔀 Voice Channel Moved",
+            "description": "**{user_name}** moved between voice channels.\n\n"
+                           "📡 **Route:** {channel}\n"
+                           "👤 **Member:** {user_mention}",
+            "color": 0x3498db,
+            "footer": "NVD Official Voice Logging",
+            "thumbnail": "", "image": "",
+            "author_name": "Voice Activity", "author_icon": "",
+        },
+    },
     "sp4rk.ticket_open": {
         "bot": "sp4rk", "category": "Tickets",
         "label": "🎫 Ticket Opened",
