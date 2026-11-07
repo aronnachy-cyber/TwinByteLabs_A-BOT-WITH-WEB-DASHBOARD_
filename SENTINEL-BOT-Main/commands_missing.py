@@ -639,7 +639,7 @@ def setup(bot: commands.Bot, dlog=None):
     async def prefix_logs(ctx):
         await ctx.send(
             "**NVD Logging**\n"
-            "`!logs setup` — create SERVER LOGS + ten channels\n"
+            "`!logs setup` — create one unified SERVER LOGS channel\n"
             "`!logs enable on|off` — master switch\n"
             "`!logs category <name> on|off` — category switch\n"
             "`!logs event <event_key> on|off` — individual event switch\n"
@@ -653,8 +653,7 @@ def setup(bot: commands.Bot, dlog=None):
         import logging_system
         try:
             _, mapping = await logging_system.create_log_channels(ctx.guild, _save_gcfg, ctx.author)
-            lines = [f"• **{key.replace('_',' ').title()}** → <#{value}>" for key,value in mapping.items()]
-            await ctx.send("✅ **NVD logging enabled.**\n" + "\n".join(lines))
+            await ctx.send("✅ **NVD unified logging enabled.** All event categories will be sent to <#" + mapping["all"] + ">.")
         except Exception as exc:
             await ctx.send(f"❌ Logging setup failed: {str(exc)[:250]}")
 
@@ -706,13 +705,13 @@ def setup(bot: commands.Bot, dlog=None):
     @commands.has_permissions(manage_guild=True)
     async def prefix_logs_status(ctx):
         cfg = _gcfg(ctx.guild.id)
-        mapping = cfg.get("logging_channels") or {}
-        rows = [f"**Master:** {'ON' if cfg.get('logging_enabled') else 'OFF'}"]
+        raw = cfg.get("log_channel", "")
+        channel = ctx.guild.get_channel(int(raw)) if str(raw).isdigit() else None
+        rows = [f"**Master:** {'ON' if cfg.get('logging_enabled') else 'OFF'}",
+                f"**Unified destination:** {channel.mention if channel else 'Not configured'}"]
         for key in ("messages","members","join_leave","server","voice","moderation","roles","channels","emoji","invites"):
-            raw = mapping.get(key, "")
-            channel = ctx.guild.get_channel(int(raw)) if str(raw).isdigit() else None
             state = (cfg.get("logging_categories") or {}).get(key, True)
-            rows.append(f"• **{key}**: {'ON' if state else 'OFF'} — {channel.mention if channel else 'Not configured'}")
+            rows.append(f"• **{key}**: {'ON' if state else 'OFF'}")
         await ctx.send(embed=discord.Embed(title="NVD Logging Status", description="\n".join(rows), color=0x3498db))
 
     # ── !reactionrole group ──
