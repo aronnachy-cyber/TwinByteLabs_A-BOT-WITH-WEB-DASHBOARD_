@@ -582,39 +582,49 @@ async def handle_message(message, config, add_warning_fn=None):
         return False
 
     async def _punish(reason, log_title, log_desc, dm=True):
-        # Always delete the offending message.
-        await safe_delete(message)
+        # Keep the user-facing moderation path short: deletion and the public
+        # warning are sent concurrently; persistence/logging runs in background.
+        warn_text = f"⚠️ {author.mention} your message was removed — **{reason}**."
 
-        count = None
-        if add_warning_fn:
+        async def _record_warning_and_escalate():
+            count = None
+            if add_warning_fn:
+                try:
+                    count = await add_warning_fn(author, reason)
+                except Exception as e:
+                    print(f"[automod] add_warning_fn failed: {e}")
+
+            if count and config.get("auto_dm_warning") == "ON":
+                try:
+                    await auto_dm_warning_user(
+                        author, reason,
+                        message.guild.name if message.guild else "the server",
+                        count=count,
+                    )
+                except Exception as e:
+                    print(f"[automod] DM warning failed: {e}")
+
+            if count and (config.get("automod_on") == "ON" or config.get("grad_punish") == "ON"):
+                try:
+                    await apply_graduated_punishment(message, config, count, add_warning_fn)
+                except Exception as e:
+                    print(f"[automod] graduated punishment failed: {e}")
+
+        async def _send_warning():
             try:
-                count = await add_warning_fn(author, reason)
+                await channel.send(warn_text, delete_after=15)
             except Exception as e:
-                print(f"[automod] add_warning_fn failed: {e}")
+                print(f"[automod] in-channel warn failed: {e}")
 
-        await send_webhook_log(config, log_title, log_desc)
+        # Start durable warning bookkeeping without holding up message removal.
+        asyncio.create_task(_record_warning_and_escalate())
+        asyncio.create_task(send_webhook_log(config, log_title, log_desc))
 
-        # In-channel warning to the offending member.
-        try:
-            warn_text = (
-                f"⚠️ {author.mention} your message was removed — **{reason}**."
-            )
-            if count:
-                warn_text += f" (Warning **#{count}**)"
-            await channel.send(warn_text, delete_after=15)
-        except Exception as e:
-            print(f"[automod] in-channel warn failed: {e}")
-
-        # DM the user if the auto_dm_warning toggle is ON in the dashboard.
-        if count and config.get("auto_dm_warning") == "ON":
-            await auto_dm_warning_user(
-                author, reason,
-                message.guild.name if message.guild else "the server",
-                count=count,
-            )
-
-        if count and (config.get("automod_on") == "ON" or config.get("grad_punish") == "ON"):
-            await apply_graduated_punishment(message, config, count, add_warning_fn)
+        # Discord API/network latency determines the actual time; these two
+        # requests run concurrently to minimize avoidable delay.
+        delete_task = asyncio.create_task(safe_delete(message))
+        warning_task = asyncio.create_task(_send_warning())
+        await asyncio.gather(delete_task, warning_task, return_exceptions=True)
         return True
 
     # -----------------------------------------------------------------------
