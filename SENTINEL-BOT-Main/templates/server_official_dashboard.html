@@ -1986,7 +1986,11 @@ function soEmbRenderEditor(t){
       <div><label style="display:block;font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 5px;">Footer</label><input type="text" id="so-emb-f-footer" value="${soEmbEsc(eff.footer||'')}" style="width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:inherit;font-size:.91rem;box-sizing:border-box;"/></div>
     </div>
     <label style="display:block;font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 5px;">Thumbnail URL</label>
-    <input type="text" id="so-emb-f-thumbnail" value="${soEmbEsc(eff.thumbnail||'')}" style="width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:inherit;font-size:.91rem;box-sizing:border-box;"/>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="text" id="so-emb-f-thumbnail" value="${soEmbEsc(eff.thumbnail||'')}" style="flex:1;min-width:180px;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:inherit;font-size:.91rem;box-sizing:border-box;"/>
+      <input type="file" id="so-emb-f-thumbnail-file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onchange="soEmbUploadThumbnail(this)"/>
+      <button type="button" class="btn btn-ghost" onclick="document.getElementById('so-emb-f-thumbnail-file').click()"><i class="fas fa-upload"></i> Upload photo</button>
+    </div>
     <div style="display:flex;gap:9px;margin-top:16px;flex-wrap:wrap;">
       <button class="btn btn-ghost" onclick="soEmbPreview()"><i class="fas fa-eye"></i> Preview</button>
       <button class="btn" onclick="soEmbSave()"><i class="fas fa-save"></i> Save</button>
@@ -1995,6 +1999,20 @@ function soEmbRenderEditor(t){
     <div id="so-emb-preview-box"></div>
   `;
   soEmbPreview();
+}
+async function soEmbUploadThumbnail(fileInput){
+  const file=fileInput.files&&fileInput.files[0]; if(!file) return;
+  if(file.size>8*1024*1024){toast('Image must be smaller than 8 MB','err');fileInput.value='';return;}
+  const form=new FormData();form.append('image',file);
+  try{
+    toast('Uploading photo…');
+    const response=await fetch('/api/dashboard/upload_image',{method:'POST',body:form,credentials:'same-origin'});
+    const data=await response.json();
+    if(!response.ok||!data.ok||!data.url) throw new Error(data.error||'Upload failed');
+    document.getElementById('so-emb-f-thumbnail').value=data.url;
+    toast('Photo uploaded. Click Save to apply it.');
+  }catch(error){toast(error.message||'Photo upload failed','err');}
+  finally{fileInput.value='';}
 }
 function soEmbCollect(){
   const colorHex=(document.getElementById('so-emb-f-color').value||'#5b8cff').replace('#','');
