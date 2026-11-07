@@ -114,15 +114,19 @@
 
     try {
       const bot = botName || 'sp4rk';
-      const res  = await fetch(`/api/guild_emojis?guild_id=${encodeURIComponent(guildId)}&bot=${encodeURIComponent(bot)}`);
+      const res  = await fetch(`/api/guild_emojis?guild_id=${encodeURIComponent(guildId)}&bot=${encodeURIComponent(bot)}`, {credentials:'same-origin'});
       const data = await res.json();
-      status.style.display = 'none';
-
-      if (!data.ok || !data.emojis || data.emojis.length === 0) {
-        status.textContent = 'No custom emojis found in this server, or the bot is offline.';
+      if (!res.ok || !data.ok) {
+        status.textContent = data.error || 'Could not load server emojis.';
         status.style.display = 'block';
         return;
       }
+      if (!data.emojis || data.emojis.length === 0) {
+        status.textContent = 'No custom emojis found in this server.';
+        status.style.display = 'block';
+        return;
+      }
+      status.style.display = 'none';
 
       data.emojis.forEach(e => {
         const tile = document.createElement('div');
@@ -141,7 +145,7 @@
       });
 
     } catch(err) {
-      status.textContent = 'Failed to load emojis. Is the bot online?';
+      status.textContent = 'Failed to load server emojis. Please close the picker and try again.';
       status.style.display = 'block';
     }
   };
