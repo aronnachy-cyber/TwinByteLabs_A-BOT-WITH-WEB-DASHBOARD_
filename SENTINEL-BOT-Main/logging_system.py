@@ -99,6 +99,25 @@ def _ignored(cfg, actor_id=None, channel_id=None, is_bot=False, subject_id=None,
     channels = {str(x) for x in (cfg.get("logging_ignore_channels") or [])}
     return (actor_id is not None and str(actor_id) in users) or (subject_id is not None and str(subject_id) in users) or (channel_id is not None and str(channel_id) in channels)
 
+def _safe_embed_color(cfg, fallback=0x3498DB):
+    """Parse configured embed colors without letting malformed/blank values kill an event log."""
+    raw = cfg.get("logging_embed_color")
+    if raw is None or raw == "":
+        raw = fallback
+    try:
+        if isinstance(raw, str):
+            value = raw.strip()
+            if not value:
+                return int(fallback)
+            if value.startswith("#"):
+                value = value[1:]
+            if value.lower().startswith("0x"):
+                value = value[2:]
+            return int(value, 16) if any(c in "abcdefABCDEF" for c in value) or len(value) in (3, 6) else int(value)
+        return int(raw)
+    except (TypeError, ValueError):
+        return int(fallback)
+
 def _target(bot, guild, cfg, category):
     if guild is None:
         return None
@@ -149,9 +168,8 @@ async def emit(bot, guild, event, title, description, *, color=None, actor=None,
             if not (p.view_channel and p.send_messages and p.embed_links):
                 print("[LOGS] Missing View Channel, Send Messages, or Embed Links for "+category)
                 return False
-        raw=cfg.get("logging_embed_color", color if color is not None else 0x3498DB)
-        if isinstance(raw,str): raw=int(raw.strip().lstrip("#"),16)
-        embed=discord.Embed(title=str(title)[:256],description=str(description)[:4000],color=int(raw))
+        embed_color = _safe_embed_color(cfg, color if color is not None else 0x3498DB)
+        embed=discord.Embed(title=str(title)[:256],description=str(description)[:4000],color=embed_color)
         if cfg.get("logging_timestamps",True) not in (False,"OFF","off","false"):
             embed.timestamp=discord.utils.utcnow()
         if actor and cfg.get("logging_format","detailed") != "compact":
@@ -185,10 +203,7 @@ async def send_existing(bot,guild_id,category,event,embed,actor_id=None,channel_
             embed.timestamp=embed.timestamp or discord.utils.utcnow()
         if cfg.get("logging_format","detailed") == "compact":
             embed.remove_author()
-        raw_color=cfg.get("logging_embed_color",0x3498DB)
-        if isinstance(raw_color,str):
-            raw_color=int(raw_color.strip().lstrip("#"),16)
-        embed.color=discord.Colour(int(raw_color))
+        embed.color=discord.Colour(_safe_embed_color(cfg, 0x3498DB))
         await target.send(embed=embed,allowed_mentions=discord.AllowedMentions.none())
         return True
     except (discord.NotFound,discord.Forbidden) as exc:
@@ -404,7 +419,7 @@ async def create_log_channels(guild,save_cfg,setup_member=None):
     updates.setdefault("logging_ignore_users", current.get("logging_ignore_users") or [])
     updates.setdefault("logging_ignore_channels", current.get("logging_ignore_channels") or [])
     updates.setdefault("logging_ignore_bots", current.get("logging_ignore_bots", False))
-    updates.setdefault("logging_embed_color", current.get("logging_embed_color", 0x3498DB))
+    updates["logging_embed_color"] = _safe_embed_color(current, 0x3498DB)
     updates.setdefault("logging_timestamps", current.get("logging_timestamps", True))
     updates.setdefault("logging_format", current.get("logging_format", "detailed"))
     persisted = save_cfg(str(guild.id), updates)
