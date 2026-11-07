@@ -5184,9 +5184,9 @@ def api_dashboard_upload_image():
     if not data or len(data) > 8 * 1024 * 1024:
         return jsonify({"ok": False, "error": "Image must be smaller than 8 MB"}), 400
     signatures = {
-        'png': data.startswith(b'\\x89PNG\\r\\n\\x1a\\n'),
-        'jpg': data.startswith(b'\\xff\\xd8\\xff'),
-        'jpeg': data.startswith(b'\\xff\\xd8\\xff'),
+        'png': data.startswith(b'\x89PNG\r\n\x1a\n'),
+        'jpg': data.startswith(b'\xff\xd8\xff'),
+        'jpeg': data.startswith(b'\xff\xd8\xff'),
         'gif': data.startswith((b'GIF87a', b'GIF89a')),
         'webp': len(data) >= 12 and data[:4] == b'RIFF' and data[8:12] == b'WEBP',
     }
