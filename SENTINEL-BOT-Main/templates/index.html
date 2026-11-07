@@ -1897,7 +1897,10 @@ function showTab(id, el) {
   document.getElementById(id).classList.add('active');
   if (el) el.classList.add('active');
   document.getElementById('topbar-title').textContent = tabTitles[id] || id;
-  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.body.classList.remove('sidebar-open');
+  }
   if (id === 'logs') loadLogs();
   if (id === 'tickets') loadTickets();
   if (id === 'general') loadConnectionStatus();
