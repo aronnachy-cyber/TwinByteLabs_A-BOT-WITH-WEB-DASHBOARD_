@@ -2786,4 +2786,44 @@ html { scroll-behavior: smooth; }
 })();
 </script>
 
+
+<!-- NVD MOBILE TAB VISIBILITY HOTFIX -->
+<style id="nvd-tab-visibility-hotfix">
+.tab-content{display:none!important}
+.tab-content.active{display:block!important;visibility:visible!important;opacity:1!important;filter:none!important;pointer-events:auto!important;position:relative;z-index:1;min-height:120px}
+.tab-content.active>*{visibility:visible}
+@media(max-width:768px){.main,.main-content,.content,.dashboard-content{min-width:0!important;width:100%!important;max-width:100%!important}.tab-content.active{overflow:visible!important}.tab-content .grid{min-width:0!important}.tab-content .card{min-width:0!important;max-width:100%!important}}
+</style>
+<script id="nvd-tab-navigation-hotfix">
+(function(){
+ const titles={general:'General Setup',social:'Social Notifier',tickets:'Support Tickets',embeds:'Embed Editor',moderation:'Moderation',automod:'Automod',security:'Security & Anti-Raid',warnings:'Live Warnings',logs:'Action Logs'};
+ window.showTab=function(id,el){
+  const target=document.getElementById(id);
+  if(!target||!target.classList.contains('tab-content')){console.error('[NVD] Missing tab:',id);return;}
+  document.querySelectorAll('.tab-content').forEach(t=>{t.classList.remove('active');t.style.removeProperty('display');});
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  target.classList.add('active');
+  target.style.setProperty('display','block','important');
+  target.style.setProperty('visibility','visible','important');
+  target.style.setProperty('opacity','1','important');
+  target.style.setProperty('filter','none','important');
+  if(el)el.classList.add('active');
+  const heading=document.getElementById('topbar-title');if(heading)heading.textContent=titles[id]||id;
+  document.body.classList.remove('sidebar-open');
+  const sidebar=document.getElementById('sidebar');if(innerWidth<=768&&sidebar)sidebar.classList.remove('open');
+  window.scrollTo({top:0,behavior:'auto'});
+  try{
+   if(id==='logs'&&typeof loadLogs==='function')loadLogs();
+   if(id==='tickets'&&typeof loadTickets==='function')loadTickets();
+   if(id==='general'&&typeof loadConnectionStatus==='function')loadConnectionStatus();
+   if(id==='embeds'&&typeof embLoad==='function')embLoad();
+  }catch(error){console.error('[NVD] Tab loader failed:',id,error);}
+ };
+ document.addEventListener('DOMContentLoaded',function(){
+  const active=document.querySelector('.tab-content.active')||document.getElementById('general');
+  if(active){active.classList.add('active');active.style.setProperty('display','block','important');active.style.setProperty('visibility','visible','important');active.style.setProperty('opacity','1','important');}
+ });
+})();
+</script>
+
 </body>
