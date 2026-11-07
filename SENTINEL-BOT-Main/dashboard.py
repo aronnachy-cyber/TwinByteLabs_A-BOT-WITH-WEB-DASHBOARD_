@@ -26,22 +26,41 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import license_manager as _lm
 
 # ---- SUPABASE ----
-_sb_url = os.environ.get("SUPABASE_URL", "")
-_sb_key = os.environ.get("SUPABASE_KEY", "")
-supabase: SupabaseClient = None  # initialised in background thread below
+_sb_url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+_sb_key = (os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_SECRET_KEY") or "").strip()
+supabase: SupabaseClient = None
 
 def _init_supabase():
-    global supabase
-    if _sb_url and _sb_key:
-        try:
-            supabase = create_client(_sb_url, _sb_key)
-            print("✅ Supabase connected")
-        except Exception as _e:
-            print(f"⚠️  Supabase connection failed ({_e}) — falling back to local JSON files")
-    else:
-        print("⚠️  Supabase not configured — falling back to local JSON files")
+    """Initialize and verify Supabase before any startup config reads run."""
+    global supabase, _SUPABASE_CONFIG_TABLE_AVAILABLE
+    if not _sb_url or not _sb_key:
+        print("[supabase] Missing SUPABASE_URL or SUPABASE_KEY; using local fallback.")
+        return False
+    if create_client is None:
+        print("[supabase] Python SDK unavailable; using local fallback.")
+        return False
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(_sb_url).hostname or "invalid-host"
+        expected_host = "zppzhfmrfvnbzpllatyb.supabase.co"
+        if host != expected_host:
+            print(f"[supabase] WARNING: Render SUPABASE_URL host is {host}; expected {expected_host}.")
+        supabase = create_client(_sb_url, _sb_key)
+        # Client construction alone is not a connection test. Verify the Data API
+        # and the exact public table used by the bot before declaring success.
+        supabase.schema("public").table("sentinel_config").select("id").limit(1).execute()
+        _SUPABASE_CONFIG_TABLE_AVAILABLE = True
+        print(f"[supabase] REST health check passed for {host}; public.sentinel_config is reachable.")
+        return True
+    except Exception as exc:
+        supabase = None
+        _SUPABASE_CONFIG_TABLE_AVAILABLE = None
+        code = getattr(exc, "code", None) or getattr(exc, "error", None) or type(exc).__name__
+        print(f"[supabase] REST health check FAILED ({code}): {exc}")
+        return False
 
-_threading.Thread(target=_init_supabase, daemon=True, name="supabase-init").start()
+# Initialize synchronously: module-level config loading below must never race this.
+_init_supabase()
 
 # The Supabase sentinel_config row is the persistent fallback for per-guild
 # configuration when Render has no DATABASE_URL / managed Postgres.
@@ -55,7 +74,7 @@ def _read_sentinel_config_data():
     if supabase is None or _SUPABASE_CONFIG_TABLE_AVAILABLE is False:
         return None
     try:
-        result = supabase.table("sentinel_config").select("data").eq("id", 1).limit(1).execute()
+        result = supabase.schema("public").table("sentinel_config").select("data").eq("id", 1).limit(1).execute()
         _SUPABASE_CONFIG_TABLE_AVAILABLE = True
         rows = result.data or []
         if not rows:
@@ -65,8 +84,9 @@ def _read_sentinel_config_data():
             data = json.loads(data)
         return data if isinstance(data, dict) else {}
     except Exception as exc:
-        _SUPABASE_CONFIG_TABLE_AVAILABLE = False
-        print(f"[guild_cfg] Supabase config table unavailable; using Storage fallback: {exc}")
+        # Do not permanently disable the table after a transient API/cache error.
+        _SUPABASE_CONFIG_TABLE_AVAILABLE = None
+        print(f"[guild_cfg] Supabase config read failed; retrying on next access: {exc}")
         return None
 
 def _load_supabase_guild_configs_storage():
@@ -127,7 +147,7 @@ def _save_supabase_guild_configs(data):
         if root is not None:
             root["_guild_config_store"] = dict(data or {})
             try:
-                supabase.table("sentinel_config").upsert({"id": 1, "data": root}).execute()
+                supabase.schema("public").table("sentinel_config").upsert({"id": 1, "data": root}).execute()
                 return True
             except Exception as exc:
                 print(f"[guild_cfg] Supabase config save error; trying Storage: {exc}")
@@ -383,7 +403,7 @@ def load_config_from_supabase():
     # 2) Supabase mirror
     if supabase:
         try:
-            res = supabase.table("sentinel_config").select("*").eq("id", 1).execute()
+            res = supabase.schema("public").table("sentinel_config").select("*").eq("id", 1).execute()
             if res.data:
                 stored = res.data[0].get("data", {})
                 if isinstance(stored, str):
@@ -837,7 +857,7 @@ def supabase_save_warning(guild_id, member_id, username, count, reason, timestam
     if not supabase:
         return
     try:
-        supabase.table("sentinel_warnings").insert({
+        supabase.schema("public").table("sentinel_warnings").insert({
             "guild_id":  str(guild_id),
             "member_id": str(member_id),
             "username":  username,
@@ -861,7 +881,7 @@ def supabase_clear_warnings(guild_id, member_id):
     if not supabase:
         return
     try:
-        supabase.table("sentinel_warnings").delete()\
+        supabase.schema("public").table("sentinel_warnings").delete()\
             .eq("guild_id", str(guild_id))\
             .eq("member_id", str(member_id))\
             .execute()
@@ -872,7 +892,7 @@ def supabase_get_warnings(guild_id, member_id):
     if not supabase:
         return []
     try:
-        res = supabase.table("sentinel_warnings")\
+        res = supabase.schema("public").table("sentinel_warnings")\
             .select("*")\
             .eq("guild_id", str(guild_id))\
             .eq("member_id", str(member_id))\
@@ -895,7 +915,7 @@ def supabase_load_all_warnings():
         return {}
     try:
         res = (
-            supabase.table("sentinel_warnings")
+            supabase.schema("public").table("sentinel_warnings")
             .select("*")
             .order("timestamp", desc=False)
             .execute()
@@ -938,7 +958,7 @@ def supabase_save_mod_log(guild_id, action, target, moderator, reason, timestamp
     if not supabase:
         return
     try:
-        supabase.table("sentinel_mod_logs").insert({
+        supabase.schema("public").table("sentinel_mod_logs").insert({
             "guild_id":  str(guild_id),
             "action":    action,
             "target":    target,
@@ -961,7 +981,7 @@ def supabase_save_note(guild_id, member_id, username, note, moderator, timestamp
     if not supabase:
         return
     try:
-        supabase.table("sentinel_notes").insert({
+        supabase.schema("public").table("sentinel_notes").insert({
             "guild_id":  str(guild_id),
             "member_id": str(member_id),
             "username":  username,
@@ -986,7 +1006,7 @@ def supabase_get_notes(guild_id, member_id):
     if not supabase:
         return []
     try:
-        res = supabase.table("sentinel_notes")\
+        res = supabase.schema("public").table("sentinel_notes")\
             .select("*")\
             .eq("guild_id", str(guild_id))\
             .eq("member_id", str(member_id))\
@@ -1044,7 +1064,7 @@ def supabase_save_feedback(entry):
     # 2) Supabase mirror
     if supabase:
         try:
-            supabase.table("sentinel_feedback").insert({
+            supabase.schema("public").table("sentinel_feedback").insert({
                 "discord_id": entry.get("discord_id"),
                 "user_name":  entry.get("user_name"),
                 "rating":     entry.get("rating"),
@@ -1070,7 +1090,7 @@ def supabase_list_feedback(limit=20):
     if not supabase:
         return None
     try:
-        res = supabase.table("sentinel_feedback")\
+        res = supabase.schema("public").table("sentinel_feedback")\
             .select("*")\
             .order("created_at", desc=True)\
             .limit(limit)\
@@ -1153,7 +1173,7 @@ def load_users():
     # 2) Supabase REST — legacy path, still supported when env vars are set.
     if supabase:
         try:
-            res = supabase.table("sentinel_users").select("*").execute()
+            res = supabase.schema("public").table("sentinel_users").select("*").execute()
             return [u for u in (_from_db_row(r) for r in (res.data or [])) if u]
         except Exception as e:
             print(f"⚠️ Supabase load_users error: {e}")
@@ -1179,7 +1199,7 @@ def save_single_user(u):
     if supabase:
         try:
             row = _to_db_row(u)
-            supabase.table("sentinel_users").upsert(
+            supabase.schema("public").table("sentinel_users").upsert(
                 row, on_conflict="discord_id"
             ).execute()
             return
@@ -1190,7 +1210,7 @@ def save_single_user(u):
             if "PGRST204" in err_str or "avatar_url" in err_str:
                 try:
                     row.pop("avatar_url", None)
-                    supabase.table("sentinel_users").upsert(
+                    supabase.schema("public").table("sentinel_users").upsert(
                         row, on_conflict="discord_id"
                     ).execute()
                     print("⚠️ Supabase: saved user without avatar_url (column missing — run migration)")
@@ -1221,7 +1241,7 @@ def find_user_by_discord_id(discord_id):
     if supabase:
         try:
             res = (
-                supabase.table("sentinel_users")
+                supabase.schema("public").table("sentinel_users")
                 .select("*")
                 .eq("discord_id", discord_id)
                 .limit(1)
@@ -1380,7 +1400,7 @@ def save_config():
                     root.update(config)
                     if guild_store is not None:
                         root["_guild_config_store"] = guild_store
-                    supabase.table("sentinel_config").upsert({"id": 1, "data": root}).execute()
+                    supabase.schema("public").table("sentinel_config").upsert({"id": 1, "data": root}).execute()
         except Exception as e:
             print(f"⚠️ Supabase save_config error: {e}")
     # 3) JSON hot copy — absolute path so it resolves correctly regardless of CWD
