@@ -1,4 +1,5220 @@
-n\x1a\n'),
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response, abort
+import os
+import json
+import secrets
+import hmac
+import requests as http_requests
+import traceback
+from html import escape as html_escape
+from datetime import datetime, timedelta, timezone
+import threading as _threading
+import time as _time_module
+
+# Load .env file for local development (no-op when env vars are already set by the host)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=False)
+except ImportError:
+    pass
+try:
+    from supabase import create_client, Client as SupabaseClient
+except Exception as _supabase_import_err:
+    print(f"⚠️  supabase package import failed ({_supabase_import_err}) — Supabase features disabled")
+    create_client = None
+    SupabaseClient = None
+from werkzeug.middleware.proxy_fix import ProxyFix
+import license_manager as _lm
+
+# ---- SUPABASE ----
+_sb_url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+_sb_key = (os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_SECRET_KEY") or "").strip()
+supabase: SupabaseClient = None
+_SUPABASE_CONFIG_TABLE_AVAILABLE = None
+
+def _init_supabase():
+    """Initialize and verify Supabase before any startup config reads run."""
+    global supabase, _SUPABASE_CONFIG_TABLE_AVAILABLE
+    if not _sb_url or not _sb_key:
+        print("[supabase] Missing SUPABASE_URL or SUPABASE_KEY; using local fallback.")
+        return False
+    if create_client is None:
+        print("[supabase] Python SDK unavailable; using local fallback.")
+        return False
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(_sb_url).hostname or "invalid-host"
+        expected_host = "zppzhfmrfvnbzpllatyb.supabase.co"
+        if host != expected_host:
+            print(f"[supabase] WARNING: Render SUPABASE_URL host is {host}; expected {expected_host}.")
+        supabase = create_client(_sb_url, _sb_key)
+        # Verify every table used by NVD through the real REST Data API.
+        # A zero-row select validates table exposure/schema without reading user data.
+        tables = (
+            "sentinel_config",
+            "sentinel_warnings",
+            "sentinel_feedback",
+            "sentinel_mod_logs",
+            "sentinel_notes",
+            "sentinel_users",
+        )
+        for table_name in tables:
+            supabase.schema("public").table(table_name).select("*").limit(0).execute()
+            print(f"[supabase] REST table check passed: public.{table_name}")
+        _SUPABASE_CONFIG_TABLE_AVAILABLE = True
+        print(f"[supabase] REST health check passed for {host}; verified all {len(tables)} public tables.")
+        return True
+    except Exception as exc:
+        supabase = None
+        _SUPABASE_CONFIG_TABLE_AVAILABLE = None
+        code = getattr(exc, "code", None) or getattr(exc, "error", None) or type(exc).__name__
+        print(f"[supabase] REST health check FAILED ({code}): {exc}")
+        return False
+
+# Initialize synchronously: module-level config loading below must never race this.
+_init_supabase()
+
+# The Supabase sentinel_config row is the persistent fallback for per-guild
+# configuration when Render has no DATABASE_URL / managed Postgres.
+_SUPABASE_GUILD_CFG_LOCK = _threading.RLock()
+_SUPABASE_GUILD_CFG_BUCKET = "nvd-guild-configs"
+_SUPABASE_GUILD_CFG_OBJECT = "guild-configs.json"
+
+def _read_sentinel_config_data():
+    global _SUPABASE_CONFIG_TABLE_AVAILABLE
+    if supabase is None or _SUPABASE_CONFIG_TABLE_AVAILABLE is False:
+        return None
+    try:
+        result = supabase.schema("public").table("sentinel_config").select("data").eq("id", 1).limit(1).execute()
+        _SUPABASE_CONFIG_TABLE_AVAILABLE = True
+        rows = result.data or []
+        if not rows:
+            return {}
+        data = rows[0].get("data", {})
+        if isinstance(data, str):
+            data = json.loads(data)
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        # Do not permanently disable the table after a transient API/cache error.
+        _SUPABASE_CONFIG_TABLE_AVAILABLE = None
+        print(f"[guild_cfg] Supabase config read failed; retrying on next access: {exc}")
+        return None
+
+def _load_supabase_guild_configs_storage():
+    if supabase is None:
+        return None
+    try:
+        raw = supabase.storage.from_(_SUPABASE_GUILD_CFG_BUCKET).download(_SUPABASE_GUILD_CFG_OBJECT)
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        data = json.loads(raw) if isinstance(raw, str) else raw
+        return dict(data) if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+def _save_supabase_guild_configs_storage(data):
+    if supabase is None:
+        return False
+    payload = json.dumps(dict(data or {}), ensure_ascii=False).encode("utf-8")
+    try:
+        supabase.storage.from_(_SUPABASE_GUILD_CFG_BUCKET).upload(
+            _SUPABASE_GUILD_CFG_OBJECT, payload,
+            file_options={"content-type": "application/json", "upsert": "true"}
+        )
+        return True
+    except Exception:
+        try:
+            supabase.storage.create_bucket(_SUPABASE_GUILD_CFG_BUCKET, options={"public": False})
+        except Exception:
+            pass
+        try:
+            supabase.storage.from_(_SUPABASE_GUILD_CFG_BUCKET).upload(
+                _SUPABASE_GUILD_CFG_OBJECT, payload,
+                file_options={"content-type": "application/json", "upsert": "true"}
+            )
+            print("[guild_cfg] Persistent guild config saved to Supabase Storage.")
+            return True
+        except Exception as exc:
+            print(f"[guild_cfg] Supabase Storage save failed: {exc}")
+            return False
+
+def _load_supabase_guild_configs():
+    with _SUPABASE_GUILD_CFG_LOCK:
+        root = _read_sentinel_config_data()
+        if root is not None:
+            stored = root.get("_guild_config_store", {})
+            if isinstance(stored, dict) and stored:
+                return dict(stored)
+        storage_data = _load_supabase_guild_configs_storage()
+        if storage_data is not None:
+            return storage_data
+        return {} if root is not None else None
+
+def _save_supabase_guild_configs(data):
+    if supabase is None:
+        return False
+    with _SUPABASE_GUILD_CFG_LOCK:
+        root = _read_sentinel_config_data()
+        if root is not None:
+            root["_guild_config_store"] = dict(data or {})
+            try:
+                supabase.schema("public").table("sentinel_config").upsert({"id": 1, "data": root}).execute()
+                return True
+            except Exception as exc:
+                print(f"[guild_cfg] Supabase config save error; trying Storage: {exc}")
+        return _save_supabase_guild_configs_storage(data)
+
+
+app = Flask(__name__)
+
+def _get_or_create_secret_key() -> str:
+    """Return a stable secret key that survives process restarts.
+
+    Priority:
+      FLASK_SECRET_KEY env var (set by the operator)
+      3. A key persisted in .flask_secret_key beside this file — generated
+         once and reused on every subsequent restart so sessions stay valid.
+    """
+    key = os.environ.get("FLASK_SECRET_KEY")
+    if key:
+        return key
+    key_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".flask_secret_key")
+    if os.path.exists(key_file):
+        try:
+            with open(key_file, "r") as fh:
+                stored = fh.read().strip()
+            if stored:
+                return stored
+        except Exception:
+            pass
+    import secrets as _secrets_mod
+    key = _secrets_mod.token_hex(32)
+    try:
+        with open(key_file, "w") as fh:
+            fh.write(key)
+    except Exception as e:
+        print(f"[dashboard] Warning: could not persist secret key to {key_file}: {e}")
+    return key
+
+app.secret_key = _get_or_create_secret_key()
+# Trust the reverse proxy (Render/Replit) so request.scheme/host_url reflect HTTPS
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+# Persistent, cross-redirect-safe session cookies for the Discord OAuth round-trip
+# SESSION_COOKIE_SECURE only applies when running behind an HTTPS proxy (Render/Replit).
+# On plain HTTP (local dev) it must be False or the browser won't send the cookie at all.
+_behind_https_proxy = bool(
+    os.environ.get("RENDER") or
+    os.environ.get("FORCE_HTTPS_COOKIES") or
+    os.environ.get("REPLIT_DEV_DOMAIN") or
+    os.environ.get("RAILWAY_ENVIRONMENT") or
+    os.environ.get("HEROKU_APP_NAME") or
+    os.environ.get("FLY_APP_NAME")
+)
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=_behind_https_proxy,
+    SESSION_COOKIE_HTTPONLY=True,
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+)
+
+
+import time as _time_mod
+
+# How many seconds between live Discord profile refreshes.
+# The session stores the last refresh timestamp so we don't hit Discord on
+# every single request — only when the cached data is getting stale.
+_DISCORD_REFRESH_INTERVAL = 300  # 5 minutes
+
+
+@app.before_request
+def _make_session_permanent():
+    # NVD Official is a private, single-owner dashboard. Retire legacy multi-account,
+    # developer-console, owner-console, public-intake and watch-party surfaces.
+    path = request.path.rstrip("/") or "/"
+    blocked_prefixes = ("/dev", "/owner", "/api/owner", "/wave", "/watch", "/api/wave", "/api/bot_request", "/api/bot_requests")
+    blocked_paths = {
+        "/register", "/forgot-password", "/activate-license", "/bot-debug",
+        "/api/public_feedback", "/api/feedback", "/api/pending_count",
+        "/api/approve_user", "/api/reject_user", "/api/grant_admin",
+        "/api/delete_user", "/api/bot/sync",
+    }
+    if path in blocked_paths or any(path == prefix or path.startswith(prefix + "/") for prefix in blocked_prefixes):
+        abort(404)
+    session.pop("dev_unlocked", None)
+    session.pop("owner_unlocked", None)
+    if session.get('passkey_login') and _time_module.time() > float(session.get('passkey_expires_at', 0)):
+        session.clear()
+        return redirect(url_for('login'))
+    session.permanent = True
+
+
+@app.after_request
+def _add_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+    # Hide gunicorn version
+    response.headers["Server"] = "NVD Official"
+    return response
+
+
+DASHBOARD_LINK = "/dashboard"
+
+@app.errorhandler(404)
+def handle_not_found(error):
+    if request.path.startswith("/api/") or request.path.startswith("/server-official/api/"):
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    return render_template("404.html",
+        bad_path=request.path,
+        dashboard_link=DASHBOARD_LINK), 404
+
+
+@app.errorhandler(500)
+def handle_server_error(error):
+    if request.path.startswith("/api/") or request.path.startswith("/server-official/api/"):
+        return jsonify({"ok": False, "error": "Internal server error"}), 500
+    return render_template("500.html"), 500
+
+
+# ---- IN-MEMORY RATE LIMITER ----
+_rl_lock = _threading.Lock()
+_rl_store: dict = {}
+
+
+def _rate_limit(ip: str, max_calls: int = 10, window_secs: int = 3600) -> bool:
+    """Return True (allowed) or False (rate-limited). Thread-safe."""
+    now = _time_module.monotonic()
+    with _rl_lock:
+        ts = [t for t in _rl_store.get(ip, []) if now - t < window_secs]
+        if len(ts) >= max_calls:
+            _rl_store[ip] = ts
+            return False
+        ts.append(now)
+        _rl_store[ip] = ts
+        return True
+
+
+DEFAULT_CONFIG = {
+    "prefix": "!",
+    "bot_status": "online",
+    "bot_activity_type": "none",
+    "bot_activity_text": "",
+    "theme_color": "#3498db",
+    "welcome_msg": "",
+    "welcome_image": "",
+    "welcome_channel": "",
+    "welcome_dot_emoji":    "🔴",
+    "welcome_arrow_emoji":  "➡️",
+    "welcome_line1_label":   "PLEASE READ",
+    "welcome_line1_channel": "",
+    "welcome_line2_label":   "PLEASE CHECK",
+    "welcome_line2_channel": "",
+    "welcome_line3_label":   "ALSO REACT IN",
+    "welcome_line3_channel": "",
+    "welcome_line4_label":   "CHAT IN",
+    "welcome_line4_channel": "",
+    "welcome_footer_emoji":  "❤️",
+    "welcome_footer_msg":    "THANKS FOR JOINING US",
+    "welcome_staff_msg":     "FOR ANY HELP CONTACT WITH OUR STAFFS",
+    "welcome_staff_emoji":   "👦",
+    "bot_avatar": "",
+    "log_channel": "",
+    "mod_block_links": "OFF",
+    "mod_block_mentions": "OFF",
+    "profanity_level": "low",
+    "mute_role": "",
+    "auto_role": "",
+    "auto_block_links": "OFF",
+    "auto_block_invites": "OFF",
+    "auto_block_mentions": "OFF",
+    "auto_custom_blacklist": "",
+    "auto_allowlist": "",
+    "auto_dm_warning": "OFF",
+    "webhook_log": "",
+    "warning_limit": 30,
+    "owner_approval": "OFF",
+    "anti_raid": "OFF",
+    "banned_words": "",
+    "security_2fa": "OFF",
+    "role_monitor": "OFF",
+    "mass_ban_prevent": "OFF",
+    "temp_lockdown": "OFF",
+    "discord_alerts": "OFF",
+    "twitter_alerts": "OFF",
+    "youtube_alerts": "OFF",
+    "youtube_channel_link": "",
+    "youtube_notify_msg": "📺 A new YouTube video was shared! Check it out:",
+    "multi_channel": "",
+    "owner_dm_id": "",
+    "daily_report": "OFF",
+    "ticket_category": "",
+    # --- Advanced automod ---
+    "spam_filter": "OFF",
+    "spam_threshold": 5,
+    "spam_window": 5,
+    "caps_filter": "OFF",
+    "caps_percent": 70,
+    "emoji_filter": "OFF",
+    "emoji_limit": 8,
+    "duplicate_filter": "OFF",
+    "wall_filter": "OFF",
+    "wall_newlines": 10,
+    "wall_length": 1000,
+    "anti_zalgo": "OFF",
+    "grad_punish": "OFF",
+    # --- Master "Automod" auto-action toggle + configurable thresholds ---
+    # When ON, NVD Official auto-mutes / tempbans / kicks based on warning count.
+    # All thresholds and durations are editable from the dashboard.
+    "automod_on": "OFF",
+    "automod_mute1_warns":   5,   # warn count → first mute
+    "automod_mute1_mins":    5,   # duration (minutes) of first mute
+    "automod_mute2_warns":  10,   # warn count → second mute
+    "automod_mute2_mins":   10,   # duration (minutes) of second mute
+    "automod_tempban_warns": 20,  # warn count → tempban
+    "automod_tempban_mins":  30,  # duration (minutes) of tempban
+    "automod_kick_warns":    30,  # warn count → kick
+    # --- NVD Official Server Knowledge (used when the bot is @mentioned) ---
+    "server_description": "",
+    "server_rules": "",
+    # --- Staff role overrides ---
+    "bot_admin_role": "",
+    "bot_mod_role":   "",
+}
+
+config = {**DEFAULT_CONFIG}
+
+def load_config_from_supabase():
+    global config
+    _settings_json = os.path.join(os.path.dirname(__file__), "settings.json")
+    # 1) Postgres (preferred — authoritative persistent store)
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            stored = _ds.get_settings()
+            if stored and isinstance(stored, dict):
+                config.update(stored)
+                print("📁 Settings loaded from Postgres!")
+                return
+            # Postgres available but empty — bootstrap from JSON if it exists.
+            if os.path.exists(_settings_json):
+                try:
+                    with open(_settings_json, 'r') as _f:
+                        _json_cfg = json.load(_f)
+                    if isinstance(_json_cfg, dict) and _json_cfg:
+                        config.update(_json_cfg)
+                        _ds.save_settings(_json_cfg)
+                        print("📁 Settings bootstrapped JSON → Postgres!")
+                        return
+                except Exception as _je:
+                    print(f"⚠️ Settings JSON bootstrap error: {_je}")
+    except Exception as _e:
+        print(f"⚠️ db_spark get_settings error: {_e}")
+    # 2) Supabase mirror
+    if supabase:
+        try:
+            res = supabase.schema("public").table("sentinel_config").select("*").eq("id", 1).execute()
+            if res.data:
+                stored = res.data[0].get("data", {})
+                if isinstance(stored, str):
+                    try:
+                        stored = json.loads(stored)
+                    except Exception:
+                        stored = {}
+                if isinstance(stored, dict):
+                    stored.pop("_guild_config_store", None)
+                    config.update(stored)
+                print("📁 Settings loaded from Supabase!")
+                return
+        except Exception as e:
+            print(f"⚠️ Supabase config load error: {e}")
+    # 3) JSON fallback — use absolute path so it resolves correctly regardless of CWD
+    if os.path.exists(_settings_json):
+        with open(_settings_json, 'r') as f:
+            try:
+                stored = json.load(f)
+                if isinstance(stored, dict):
+                    config.update(stored)
+                print("📁 Settings loaded from settings.json")
+            except Exception:
+                pass
+
+load_config_from_supabase()
+
+def _preload_guild_config_cache():
+    """Warm up the in-memory guild config cache at startup.
+
+    Load order:
+      1. Postgres — authoritative when DATABASE_URL is configured.
+      2. Supabase sentinel_config JSON store — persistent fallback on Render.
+      3. Local JSON — warm-start and migration fallback.
+    """
+    global _guild_config_cache
+    _json_path = os.path.join(os.path.dirname(__file__), "sp4rk_guild_configs.json")
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            db_data = _ds.get_all_guild_configs()
+            if db_data:          # Non-empty dict → Postgres has real data
+                _guild_config_cache = dict(db_data)
+                print(f"📦 Guild config cache loaded ({len(_guild_config_cache)} guilds from Postgres)")
+                return
+            # Postgres is available but empty — restore from Supabase before JSON.
+            sb_data = _load_supabase_guild_configs()
+            if sb_data:
+                _guild_config_cache = dict(sb_data)
+                _ds.save_all_guild_configs(_guild_config_cache)
+                print(f"📦 Restored guild configs from Supabase ({len(_guild_config_cache)} guilds)")
+                return
+            # Otherwise check if JSON has data we should migrate.
+            if os.path.exists(_json_path):
+                try:
+                    with open(_json_path, "r", encoding="utf-8") as f:
+                        loaded = json.load(f)
+                    if isinstance(loaded, dict) and loaded:
+                        _guild_config_cache = loaded
+                        print(f"📦 Bootstrapping Postgres from JSON ({len(loaded)} guilds)…")
+                        _ds.save_all_guild_configs(loaded)
+                        print("✅ Guild configs migrated JSON → Postgres")
+                        return
+                except Exception as _je:
+                    print(f"[guild_cfg] JSON bootstrap read error: {_je}")
+            # Postgres available, no data anywhere — start with empty cache.
+            _guild_config_cache = {}
+            print("📦 Guild config cache: empty (no guilds configured yet)")
+            return
+    except Exception as e:
+        print(f"[guild_cfg] preload from Postgres failed: {e}")
+    # Postgres unavailable — prefer the Supabase sentinel_config JSON store.
+    sb_data = _load_supabase_guild_configs()
+    if sb_data:
+        _guild_config_cache = dict(sb_data)
+        print(f"📦 Guild config cache loaded from Supabase ({len(_guild_config_cache)} guilds)")
+        return
+    # If Supabase is reachable but has no guild store yet, migrate JSON into it.
+    if os.path.exists(_json_path):
+        try:
+            with open(_json_path, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    _guild_config_cache = loaded
+                    if sb_data is not None:
+                        _save_supabase_guild_configs(loaded)
+                    print(f"📦 Guild config cache loaded from JSON ({len(_guild_config_cache)} guilds)")
+                    return
+        except Exception:
+            pass
+    if sb_data is not None:
+        _guild_config_cache = dict(sb_data)
+        print(f"📦 Guild config cache loaded from Supabase ({len(_guild_config_cache)} guilds)")
+
+# ---- PER-GUILD CONFIG STORE ----
+import threading as _threading
+_GUILD_CONFIGS_FILE = os.path.join(os.path.dirname(__file__), "sp4rk_guild_configs.json")
+_guild_cfg_lock = _threading.RLock()
+
+# In-memory cache — populated on first load and updated on every save.
+# Eliminates a blocking Postgres query on every Discord message without
+# sacrificing correctness: writes always update the cache atomically.
+_guild_config_cache: dict | None = None  # None = not yet loaded
+
+
+def _load_guild_configs() -> dict:
+    global _guild_config_cache
+    # 1) In-memory cache (hot path — always up-to-date after any save)
+    if _guild_config_cache is not None:
+        return dict(_guild_config_cache)
+    # 2) Postgres (cold start — populate the cache)
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            db_data = _ds.get_all_guild_configs()
+            if db_data is not None:  # {} is valid (no guilds yet), None means error
+                _guild_config_cache = dict(db_data)
+                return dict(_guild_config_cache)
+    except Exception:
+        pass
+    # 3) Supabase persistent fallback
+    sb_data = _load_supabase_guild_configs()
+    if sb_data:
+        _guild_config_cache = dict(sb_data)
+        return dict(_guild_config_cache)
+    # 4) JSON fallback
+    if os.path.exists(_GUILD_CONFIGS_FILE):
+        try:
+            with open(_GUILD_CONFIGS_FILE, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    _guild_config_cache = loaded
+                    if sb_data is not None:
+                        _save_supabase_guild_configs(loaded)
+                    return dict(_guild_config_cache)
+        except Exception:
+            pass
+    _guild_config_cache = {}
+    return {}
+
+def _save_guild_configs(data: dict) -> None:
+    global _guild_config_cache
+    # Update the in-memory cache immediately so the bot sees changes instantly
+    _guild_config_cache = dict(data)
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.save_all_guild_configs(data)
+        else:
+            _save_supabase_guild_configs(data)
+    except Exception:
+        _save_supabase_guild_configs(data)
+    # 2) JSON (keep as hot copy)
+    with _guild_cfg_lock:
+        tmp = _GUILD_CONFIGS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, _GUILD_CONFIGS_FILE)
+
+_threading.Thread(target=_preload_guild_config_cache, daemon=True, name="preload-guild-cfg").start()
+
+# Keys that hold Discord channel/role IDs or other server-specific resource
+# identifiers.  They must NEVER be inherited from the global config dict —
+# if Server A saves its log_channel, that value must not appear in Server B's
+# effective config just because Server B hasn't set one yet.
+_GUILD_ONLY_KEYS: frozenset = frozenset({
+    "log_channel",
+    "welcome_channel",
+    "message_log_channel",
+    "join_log_channel",
+    "voice_log_channel",
+    "mute_role",
+    "auto_role",
+    "bot_admin_role",
+    "bot_mod_role",
+    "ticket_category",
+    "owner_dm_id",
+    "multi_channel",
+    "captcha_channel",
+    "captcha_role",
+    "level_up_channel",
+    "logging_enabled",
+    "logging_channels",
+    "logging_events",
+    "logging_categories",
+    "logging_ignore_users",
+    "logging_ignore_channels",
+    "logging_ignore_bots",
+    "logging_embed_color",
+    "logging_timestamps",
+    "logging_format",
+})
+
+
+def get_guild_config(guild_id: str) -> dict:
+    """Return the effective config for a guild: per-guild overrides merged over global defaults.
+
+    Guild-only keys (channel/role IDs) are NEVER inherited from the global config
+    so that a server that hasn't configured a log channel never receives another
+    server's channel ID as a fallback.
+    """
+    guild_id = str(guild_id).strip()
+    data = _load_guild_configs()
+    guild_overrides = data.get(guild_id, {})
+
+    # Build base from global config, but strip out all guild-only keys so they
+    # can only come from the guild's own saved config.
+    base = {k: v for k, v in config.items() if k not in _GUILD_ONLY_KEYS}
+
+    # Merge: global non-channel defaults → guild's own saved values.
+    result = {**base, **guild_overrides}
+
+    # Guarantee every guild-only key exists in the result (empty = not configured).
+    for key in _GUILD_ONLY_KEYS:
+        result.setdefault(key, "")
+
+    return result
+
+def save_guild_config(guild_id: str, updates: dict) -> bool:
+    """Persist per-guild config overrides.
+
+    Uses a direct per-guild Postgres upsert so saves are always atomic and
+    never depend on whether the in-memory cache is fully populated.  The
+    local JSON file is kept as a warm-start fallback only.
+
+    If ``log_channel`` is included, it is also mirrored into the SO bot's
+    per-guild config (as ``log_channel_id``) so both bots share one value.
+    """
+    guild_id = str(guild_id).strip()
+    with _guild_cfg_lock:
+        # Merge updates into whatever the cache has for this guild.
+        global _guild_config_cache
+        if _guild_config_cache is None:
+            _load_guild_configs()  # warm cache on first call
+        existing = dict((_guild_config_cache or {}).get(guild_id, {}))
+        existing.update(updates)
+
+        # Keep cache in sync immediately.
+        if _guild_config_cache is not None:
+            _guild_config_cache[guild_id] = existing
+
+        # 1) Postgres — direct per-guild upsert (atomic, no stale-cache risk).
+        _db_saved = False
+        try:
+            import db_spark as _ds
+            if _ds.is_available():
+                _ds.upsert_guild_config(guild_id, existing)
+                _db_saved = True
+        except Exception as _e:
+            print(f"[guild_cfg] Postgres upsert error: {_e}")
+        _sb_saved = True if _db_saved else _save_supabase_guild_configs(
+            dict(_guild_config_cache) if _guild_config_cache else {guild_id: existing}
+        )
+
+        # 2) JSON hot copy — rebuild from updated cache.
+        try:
+            snapshot = dict(_guild_config_cache) if _guild_config_cache else {}
+            snapshot[guild_id] = existing
+            tmp = _GUILD_CONFIGS_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(snapshot, f, indent=2)
+            os.replace(tmp, _GUILD_CONFIGS_FILE)
+        except Exception as _e:
+            print(f"[guild_cfg] JSON write error: {_e}")
+
+    if "log_channel" in updates:
+        try:
+            import server_official as _so
+            _so.update_guild_config(guild_id, {"log_channel_id": updates["log_channel"]})
+        except Exception as _e:
+            print(f"[dashboard] SO log_channel sync skipped: {_e}")
+
+    # Sync leveling_enabled to the leveling subsystem's own config store
+    # so that !leveling on/off and the dashboard toggle stay consistent.
+    if "leveling_enabled" in updates:
+        try:
+            import leveling as _lvl
+            raw = updates["leveling_enabled"]
+            if isinstance(raw, bool):
+                enabled = raw
+            else:
+                enabled = str(raw).lower() not in ("false", "0", "off", "no")
+            _lvl.set_leveling_enabled(guild_id, enabled)
+        except Exception as _e:
+            print(f"[guild_cfg] leveling_enabled sync error: {_e}")
+
+    return bool(_db_saved or _sb_saved)
+
+def _sp4rk_live_state(user_guild_ids=None) -> dict:
+    """Return NVD Official bot guild list filtered to the user's admin guilds.
+
+    Primary source: live Discord bot (accurate member counts, real-time).
+    Fallback: session-cached guild list from OAuth login, so the server
+    picker is always visible even when the bot is offline/reconnecting.
+    """
+    out = {"guilds": [], "guilds_count": 0}
+    filter_ids = None
+    if user_guild_ids is not None:
+        filter_ids = {str(x) for x in user_guild_ids if x}
+
+    try:
+        import main as _main_mod
+        b = getattr(_main_mod, "bot", None)
+        if b and b.is_ready():
+            guilds = []
+            for g in b.guilds:
+                gid_str = str(g.id)
+                if filter_ids is not None and gid_str not in filter_ids:
+                    continue
+                guilds.append({"id": gid_str, "name": g.name, "member_count": g.member_count or 0})
+            if guilds:
+                out["guilds"] = sorted(guilds, key=lambda x: x["member_count"], reverse=True)
+                out["guilds_count"] = len(guilds)
+                return out
+    except Exception as e:
+        app.logger.warning(f"[sp4rk_live_state] bot not ready: {e}")
+
+    # Fallback: use the session-cached guild list from OAuth login.
+    # The bot_guilds.json registry is used only to enrich member counts;
+    # we no longer gate on it because stale registry data (from a previous
+    # hosting session) would silently drop valid guilds from the picker.
+    try:
+        import json as _j
+        _bot_guild_path = os.path.join(os.path.dirname(__file__), "bot_guilds.json")
+        bot_guild_map = {}   # {gid_str: {id, name, member_count}}
+        if os.path.exists(_bot_guild_path):
+            with open(_bot_guild_path) as _f:
+                for entry in _j.load(_f):
+                    gid = str(entry.get("id", ""))
+                    if gid:
+                        bot_guild_map[gid] = entry
+    except Exception as _be:
+        app.logger.warning(f"[sp4rk_live_state] bot_guilds.json read error: {_be}")
+        bot_guild_map = {}
+
+    try:
+        from flask import session as _sess
+        cached = _sess.get("user_guilds") or []
+        if cached:
+            guilds = []
+            for g in cached:
+                gid_str = str(g.get("id", ""))
+                if not gid_str:
+                    continue
+                # Must be in user's admin guilds
+                if filter_ids is not None and gid_str not in filter_ids:
+                    continue
+                # Enrich with bot registry data when available (member count,
+                # canonical name) but never exclude a guild just because it
+                # isn't in the registry — the registry may be stale.
+                mc = bot_guild_map.get(gid_str, {}).get("member_count") or g.get("member_count", 0)
+                guilds.append({
+                    "id":           gid_str,
+                    "name":         g.get("name", bot_guild_map.get(gid_str, {}).get("name", "Unknown")),
+                    "member_count": mc,
+                })
+            out["guilds"] = guilds
+            out["guilds_count"] = len(guilds)
+    except Exception as e:
+        app.logger.warning(f"[sp4rk_live_state] session fallback failed: {e}")
+
+    return out
+
+def _bot_live_guilds(module_name: str, user_guild_ids=None) -> list:
+    """Query any bot module for its guild list, filtered to the user's admin guilds.
+
+    Returns a list of dicts: [{id, name, member_count, icon_url}, ...]
+    """
+    try:
+        import importlib
+        mod = importlib.import_module(module_name)
+        b = getattr(mod, 'bot', None)
+        if b and b.is_ready():
+            filter_ids = None
+            if user_guild_ids is not None:
+                filter_ids = {str(x) for x in user_guild_ids if x}
+            guilds = []
+            for g in b.guilds:
+                gid_str = str(g.id)
+                if filter_ids is not None and gid_str not in filter_ids:
+                    continue
+                icon_url = None
+                try:
+                    if g.icon:
+                        icon_url = str(g.icon.url)
+                except Exception:
+                    pass
+                guilds.append({
+                    "id":           gid_str,
+                    "name":         g.name,
+                    "member_count": g.member_count or 0,
+                    "icon_url":     icon_url,
+                })
+            return sorted(guilds, key=lambda x: x["member_count"], reverse=True)
+    except Exception as e:
+        app.logger.warning(f"[bot_live_guilds:{module_name}] {e}")
+    return []
+
+def _require_discord_login(dest_url: str):
+    """Redirect to login if the user is not logged in, preserving the destination."""
+    if not session.get('logged_in'):
+        session['post_login_redirect'] = dest_url
+        return redirect(url_for('login'))
+    if 'user_admin_guild_ids' not in session:
+        session['post_login_redirect'] = dest_url
+        session.clear()
+        session['post_login_redirect'] = dest_url
+        return redirect(url_for('login'))
+    return None
+
+warnings_db = []
+
+# One-shot: load warnings from Postgres into the in-memory list on startup.
+def _load_warnings_from_db():
+    global warnings_db
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.get_all_warnings()
+            if rows:
+                warnings_db = rows
+                print(f"📦 Loaded {len(rows)} warning(s) from Postgres")
+                return
+    except Exception as _e:
+        print(f"[warnings] db load skipped: {_e}")
+    # JSON fallback
+    try:
+        if os.path.exists('warnings.json'):
+            with open('warnings.json', 'r') as _f:
+                import json as _j
+                _data = _j.load(_f)
+                if isinstance(_data, list):
+                    warnings_db = _data
+    except Exception:
+        pass
+
+_load_warnings_from_db()
+
+# ---- WARNINGS (Supabase-backed, JSON fallback) ----
+def supabase_save_warning(guild_id, member_id, username, count, reason, timestamp):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.upsert_warning(str(member_id), str(username), int(count), str(guild_id))
+            _ds.add_warning_event(str(guild_id), str(member_id), str(username), str(reason or ""))
+    except Exception as _e:
+        print(f"⚠️ db_spark save_warning error: {_e}")
+    # 2) Supabase mirror
+    if not supabase:
+        return
+    try:
+        supabase.schema("public").table("sentinel_warnings").insert({
+            "guild_id":  str(guild_id),
+            "member_id": str(member_id),
+            "username":  username,
+            "count":     count,
+            "reason":    reason,
+            "timestamp": timestamp,
+        }).execute()
+    except Exception as e:
+        print(f"⚠️ Supabase save_warning error: {e}")
+
+def supabase_clear_warnings(guild_id, member_id):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.delete_warning(str(member_id), str(guild_id))
+            _ds.clear_warning_history(str(guild_id), str(member_id))
+    except Exception as _e:
+        print(f"⚠️ db_spark clear_warnings error: {_e}")
+    # 2) Supabase mirror
+    if not supabase:
+        return
+    try:
+        supabase.schema("public").table("sentinel_warnings").delete()\
+            .eq("guild_id", str(guild_id))\
+            .eq("member_id", str(member_id))\
+            .execute()
+    except Exception as e:
+        print(f"⚠️ Supabase clear_warnings error: {e}")
+
+def supabase_get_warnings(guild_id, member_id):
+    if not supabase:
+        return []
+    try:
+        res = supabase.schema("public").table("sentinel_warnings")\
+            .select("*")\
+            .eq("guild_id", str(guild_id))\
+            .eq("member_id", str(member_id))\
+            .order("timestamp", desc=False)\
+            .execute()
+        return res.data or []
+    except Exception as e:
+        print(f"⚠️ Supabase get_warnings error: {e}")
+        return []
+
+def supabase_load_all_warnings():
+    """
+    Load every warning row from Supabase and group them into the
+    in-memory shape used by the bot:
+        { guild_id: { member_id: { "count": int, "history": [ {reason, time} ] } } }
+    Returns {} if Supabase is unavailable so callers can fall back to the
+    local JSON cache.
+    """
+    if not supabase:
+        return {}
+    try:
+        res = (
+            supabase.schema("public").table("sentinel_warnings")
+            .select("*")
+            .order("timestamp", desc=False)
+            .execute()
+        )
+        rows = res.data or []
+    except Exception as e:
+        print(f"⚠️ Supabase load_all_warnings error: {e}")
+        return {}
+
+    out = {}
+    for r in rows:
+        gid = str(r.get("guild_id") or "")
+        mid = str(r.get("member_id") or "")
+        if not gid or not mid:
+            continue
+        guild = out.setdefault(gid, {})
+        entry = guild.setdefault(mid, {"count": 0, "history": []})
+        # Each row is one warning event; count the events and keep history.
+        entry["count"] = max(int(r.get("count") or 0), entry["count"] + 1)
+        entry["history"].append({
+            "reason": r.get("reason") or "",
+            "time":   r.get("timestamp") or "",
+        })
+    # Re-derive count as the length of history so it can never disagree
+    # with the stored history list.
+    for guild in out.values():
+        for entry in guild.values():
+            entry["count"] = len(entry["history"])
+    return out
+
+def supabase_save_mod_log(guild_id, action, target, moderator, reason, timestamp):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.add_mod_log(str(guild_id), str(action), str(target), str(moderator), str(reason))
+    except Exception as _e:
+        print(f"⚠️ db_spark save_mod_log error: {_e}")
+    # 2) Supabase mirror
+    if not supabase:
+        return
+    try:
+        supabase.schema("public").table("sentinel_mod_logs").insert({
+            "guild_id":  str(guild_id),
+            "action":    action,
+            "target":    target,
+            "moderator": moderator,
+            "reason":    reason,
+            "timestamp": timestamp,
+        }).execute()
+    except Exception as e:
+        print(f"⚠️ Supabase save_mod_log error: {e}")
+
+def supabase_save_note(guild_id, member_id, username, note, moderator, timestamp):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.add_note(str(guild_id), str(member_id), str(username), str(note), str(moderator))
+    except Exception as _e:
+        print(f"⚠️ db_spark save_note error: {_e}")
+    # 2) Supabase mirror
+    if not supabase:
+        return
+    try:
+        supabase.schema("public").table("sentinel_notes").insert({
+            "guild_id":  str(guild_id),
+            "member_id": str(member_id),
+            "username":  username,
+            "note":      note,
+            "moderator": moderator,
+            "timestamp": timestamp,
+        }).execute()
+    except Exception as e:
+        print(f"⚠️ Supabase save_note error: {e}")
+
+def supabase_get_notes(guild_id, member_id):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.get_notes(str(guild_id), str(member_id))
+            if rows:
+                return rows
+    except Exception:
+        pass
+    # 2) Supabase fallback
+    if not supabase:
+        return []
+    try:
+        res = supabase.schema("public").table("sentinel_notes")\
+            .select("*")\
+            .eq("guild_id", str(guild_id))\
+            .eq("member_id", str(member_id))\
+            .order("timestamp", desc=False)\
+            .execute()
+        return res.data or []
+    except Exception as e:
+        print(f"⚠️ Supabase get_notes error: {e}")
+        return []
+
+# ---- USER FEEDBACK (star ratings, Supabase + JSON fallback) ----
+FEEDBACK_FILE = 'feedback.json'
+
+
+def _load_feedback_file():
+    """Load feedback: Postgres → JSON file fallback."""
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.list_feedback(limit=200)
+            if rows is not None:
+                return rows
+    except Exception:
+        pass
+    try:
+        if os.path.exists(FEEDBACK_FILE):
+            with open(FEEDBACK_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+    except Exception as e:
+        print(f"⚠️ load feedback file error: {e}")
+    return []
+
+
+def _save_feedback_file(items):
+    # Keep JSON as a hot copy only
+    try:
+        with open(FEEDBACK_FILE, 'w', encoding='utf-8') as f:
+            json.dump(items, f, indent=2, default=str)
+    except Exception as e:
+        print(f"⚠️ save feedback file error: {e}")
+
+
+def supabase_save_feedback(entry):
+    """Insert one feedback row into Postgres (preferred) and Supabase mirror."""
+    saved = False
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            saved = _ds.insert_feedback(entry)
+    except Exception as _e:
+        print(f"⚠️ db_spark save_feedback error: {_e}")
+    # 2) Supabase mirror
+    if supabase:
+        try:
+            supabase.schema("public").table("sentinel_feedback").insert({
+                "discord_id": entry.get("discord_id"),
+                "user_name":  entry.get("user_name"),
+                "rating":     entry.get("rating"),
+                "comment":    entry.get("comment", ""),
+                "source":     entry.get("source", "main"),
+            }).execute()
+            saved = True
+        except Exception as e:
+            print(f"⚠️ Supabase save_feedback error: {e}")
+    return saved
+
+
+def supabase_list_feedback(limit=20):
+    """Fetch feedback: Postgres → Supabase → None."""
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.list_feedback(limit=limit)
+            if rows is not None:
+                return rows
+    except Exception:
+        pass
+    if not supabase:
+        return None
+    try:
+        res = supabase.schema("public").table("sentinel_feedback")\
+            .select("*")\
+            .order("created_at", desc=True)\
+            .limit(limit)\
+            .execute()
+        return res.data or []
+    except Exception as e:
+        print(f"⚠️ Supabase list_feedback error: {e}")
+        return None
+
+
+# ---- USERS MANAGEMENT (Discord-only, Supabase-backed with JSON fallback) ----
+# Use an absolute path so the file resolves correctly regardless of the CWD
+# (Gunicorn is launched from the repo root, but the file lives in SENTINEL-BOT-Main/).
+USERS_FILE = os.path.join(os.path.dirname(__file__), 'users.json')
+
+# The Supabase `sentinel_users` table schema is:
+#   discord_id text primary key, username text, avatar_url text,
+#   email text, created_at timestamptz, last_login timestamptz
+# The application code internally uses `name` (display name) and
+# `discord_username` (raw Discord username). The helpers below translate
+# between the two representations so we can persist everything in Supabase.
+
+def _normalize_user(u):
+    if not isinstance(u, dict) or not u.get('discord_id'):
+        return None
+    u['discord_id'] = str(u['discord_id'])
+    if not u.get('name'):
+        u['name'] = u.get('discord_username') or u.get('username') or 'User'
+    if not u.get('discord_username'):
+        u['discord_username'] = u.get('username') or u['name']
+    if not u.get('created_at'):
+        u['created_at'] = datetime.now().strftime('%Y-%m-%d')
+    return u
+
+def _to_db_row(u):
+    """Convert an in-memory user dict to a Supabase `sentinel_users` row."""
+    row = {
+        'discord_id': str(u['discord_id']),
+        'username':   u.get('name') or u.get('discord_username') or 'User',
+        'last_login': datetime.utcnow().isoformat(),
+    }
+    if u.get('avatar_url'):
+        row['avatar_url'] = u['avatar_url']
+    if u.get('email'):
+        row['email'] = u['email']
+    return row
+
+def _from_db_row(r):
+    """Convert a Supabase `sentinel_users` row back to the app's user dict."""
+    if not isinstance(r, dict) or not r.get('discord_id'):
+        return None
+    username = r.get('username') or 'User'
+    return _normalize_user({
+        'discord_id':       str(r['discord_id']),
+        'discord_username': username,
+        'name':             username,
+        'avatar_url':       r.get('avatar_url') or '',
+        'email':            r.get('email') or '',
+        'created_at':       r.get('created_at') or datetime.now().strftime('%Y-%m-%d'),
+        'last_login':       r.get('last_login') or '',
+    })
+
+# ---- Postgres-backed user store (preferred when DATABASE_URL is set) ----
+import db_users as _db_users
+
+def _migrate_users():
+    if _db_users.is_available() and os.path.exists(USERS_FILE):
+        try:
+            _db_users.migrate_from_json(USERS_FILE)
+        except Exception as _e:
+            print(f"[users] one-shot JSON→PG migration skipped: {_e}")
+
+_threading.Thread(target=_migrate_users, daemon=True, name="migrate-users").start()
+
+
+def load_users():
+    # 1) Postgres (DATABASE_URL) — preferred persistent store.
+    if _db_users.is_available():
+        return _db_users.load_all()
+    # 2) Supabase REST — legacy path, still supported when env vars are set.
+    if supabase:
+        try:
+            res = supabase.schema("public").table("sentinel_users").select("*").execute()
+            return [u for u in (_from_db_row(r) for r in (res.data or [])) if u]
+        except Exception as e:
+            print(f"⚠️ Supabase load_users error: {e}")
+    # 3) JSON file fallback.
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, 'r') as f:
+            try:
+                stored = json.load(f)
+                users = stored.get('users', []) if isinstance(stored, dict) else stored
+                return [u for u in users if _normalize_user(u)]
+            except Exception:
+                return []
+    return []
+
+def save_single_user(u):
+    if not _normalize_user(u):
+        return
+    # 1) Postgres.
+    if _db_users.is_available():
+        if _db_users.upsert(u):
+            return
+    # 2) Supabase REST.
+    if supabase:
+        try:
+            row = _to_db_row(u)
+            supabase.schema("public").table("sentinel_users").upsert(
+                row, on_conflict="discord_id"
+            ).execute()
+            return
+        except Exception as e:
+            err_str = str(e)
+            # PGRST204: column doesn't exist in Supabase schema cache yet.
+            # Retry without the missing column so the rest of the row still saves.
+            if "PGRST204" in err_str or "avatar_url" in err_str:
+                try:
+                    row.pop("avatar_url", None)
+                    supabase.schema("public").table("sentinel_users").upsert(
+                        row, on_conflict="discord_id"
+                    ).execute()
+                    print("⚠️ Supabase: saved user without avatar_url (column missing — run migration)")
+                    return
+                except Exception as e2:
+                    print(f"⚠️ Supabase save_single_user error (retry): {e2}")
+            else:
+                print(f"⚠️ Supabase save_single_user error: {e}")
+    # 3) JSON file fallback.
+    users = load_users()
+    for i, existing in enumerate(users):
+        if str(existing.get("discord_id")) == u["discord_id"]:
+            users[i] = u
+            break
+    else:
+        users.append(u)
+    with open(USERS_FILE, 'w') as f:
+        json.dump({'users': users}, f, indent=4)
+
+def find_user_by_discord_id(discord_id):
+    discord_id = str(discord_id)
+    # 1) Postgres.
+    if _db_users.is_available():
+        u = _db_users.find_by_discord_id(discord_id)
+        if u:
+            return u
+    # 2) Supabase REST.
+    if supabase:
+        try:
+            res = (
+                supabase.schema("public").table("sentinel_users")
+                .select("*")
+                .eq("discord_id", discord_id)
+                .limit(1)
+                .execute()
+            )
+            if res.data:
+                return _from_db_row(res.data[0])
+        except Exception as e:
+            print(f"⚠️ Supabase find_user_by_discord_id error: {e}")
+    # 3) JSON scan fallback.
+    for u in load_users():
+        if str(u.get('discord_id')) == discord_id:
+            return u
+    return None
+
+@app.errorhandler(500)
+def handle_internal_error(error):
+    print("❌ Dashboard internal server error")
+    original = getattr(error, "original_exception", None)
+    if original:
+        traceback.print_exception(type(original), original, original.__traceback__)
+    else:
+        traceback.print_exc()
+    return render_template(
+        'login.html',
+        error="The dashboard hit a server error. Please try logging in again.",
+        discord_configured=False,
+    ), 200
+
+# ---- BOT RESTART CALLBACK ----
+_bot_restart_callback = None
+
+def set_bot_restart_callback(fn):
+    global _bot_restart_callback
+    _bot_restart_callback = fn
+
+# ---- BOT CONFIG REFRESH CALLBACK ----
+# Called every time settings are saved so the bot picks up changes instantly
+_bot_config_refresh_callback = None
+
+def set_bot_config_refresh_callback(fn):
+    global _bot_config_refresh_callback
+    _bot_config_refresh_callback = fn
+
+def _trigger_bot_config_refresh():
+    if _bot_config_refresh_callback:
+        try:
+            _bot_config_refresh_callback()
+        except Exception as e:
+            print(f"Config refresh callback error: {e}")
+
+# ---- ACTION LOGS ----
+action_logs = []
+
+def _preload_action_logs():
+    """Load recent action logs from Postgres into the in-memory list at startup."""
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.list_action_logs(limit=300)
+            if rows:
+                action_logs.extend(rows)
+                print(f"📋 Action logs preloaded ({len(rows)} entries)")
+    except Exception as _e:
+        print(f"[action_logs] preload failed: {_e}")
+
+_threading.Thread(target=_preload_action_logs, daemon=True, name="preload-action-logs").start()
+
+def _add_startup_log():
+    """Add a startup entry to action_logs so there's always at least one entry."""
+    import time as _t
+    _t.sleep(2)  # wait for preload to finish
+    try:
+        import db_spark as _ds
+        db_status = "Postgres" if _ds.is_available() else "JSON fallback"
+    except Exception:
+        db_status = "unknown"
+    add_dashboard_log("🚀 STARTUP", f"NVD Official dashboard started — DB: {db_status}")
+
+_threading.Thread(target=_add_startup_log, daemon=True, name="startup-log").start()
+
+
+def add_dashboard_log(event_type, description, guild_id=None):
+    action_logs.insert(0, {
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "type": event_type,
+        "description": description,
+        "guild_id": str(guild_id or ""),
+    })
+    if len(action_logs) > 300:
+        action_logs.pop()
+    # Persist to Postgres asynchronously (best-effort)
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.add_action_log(event_type, description, guild_id=str(guild_id or ""))
+    except Exception:
+        pass
+
+TOGGLE_KEYS = [
+    "mod_block_links", "mod_block_mentions",
+    "auto_block_links", "auto_block_invites", "auto_block_mentions",
+    "auto_dm_warning", "owner_approval",
+    "anti_raid", "security_2fa", "role_monitor", "mass_ban_prevent",
+    "temp_lockdown", "discord_alerts", "twitter_alerts", "youtube_alerts",
+    "daily_report",
+    "spam_filter", "caps_filter", "emoji_filter", "duplicate_filter",
+    "wall_filter", "anti_zalgo", "grad_punish", "automod_on",
+    "leveling_enabled",
+]
+
+TEXT_KEYS = [
+    "prefix", "bot_status", "theme_color", "welcome_msg", "welcome_image", "welcome_channel", "bot_avatar",
+    "welcome_dot_emoji", "welcome_arrow_emoji",
+    "welcome_line1_label", "welcome_line1_channel",
+    "welcome_line2_label", "welcome_line2_channel",
+    "welcome_line3_label", "welcome_line3_channel",
+    "welcome_line4_label", "welcome_line4_channel",
+    "welcome_footer_emoji", "welcome_footer_msg",
+    "welcome_staff_msg", "welcome_staff_emoji",
+    "log_channel", "message_log_channel", "join_log_channel", "voice_log_channel",
+    "profanity_level", "mute_role", "auto_role",
+    "auto_custom_blacklist", "auto_allowlist", "webhook_log", "banned_words",
+    "youtube_channel_link", "youtube_notify_msg", "multi_channel",
+    "owner_dm_id", "ticket_category",
+    "spam_threshold", "spam_window", "caps_percent",
+    "emoji_limit", "wall_newlines", "wall_length",
+    "server_description", "server_rules",
+    "automod_mute1_warns", "automod_mute1_mins",
+    "automod_mute2_warns", "automod_mute2_mins",
+    "automod_tempban_warns", "automod_tempban_mins",
+    "automod_kick_warns",
+    "bot_admin_role", "bot_mod_role",
+    "captcha_channel", "captcha_role",
+    "level_up_channel",
+]
+
+PUBLIC_BOT_CONFIG_KEYS = set(TOGGLE_KEYS + TEXT_KEYS + ["warning_limit"])
+
+def save_config():
+    # 1) Postgres (preferred)
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.save_settings(config)
+            print("💾 Settings saved to Postgres!")
+    except Exception as _e:
+        print(f"⚠️ db_spark save_settings error: {_e}")
+    # 2) Supabase mirror — preserve the private per-guild config store.
+    if supabase:
+        try:
+            with _SUPABASE_GUILD_CFG_LOCK:
+                root = _read_sentinel_config_data()
+                if root is not None:
+                    guild_store = root.get("_guild_config_store")
+                    root.update(config)
+                    if guild_store is not None:
+                        root["_guild_config_store"] = guild_store
+                    supabase.schema("public").table("sentinel_config").upsert({"id": 1, "data": root}).execute()
+        except Exception as e:
+            print(f"⚠️ Supabase save_config error: {e}")
+    # 3) JSON hot copy — absolute path so it resolves correctly regardless of CWD
+    _settings_json = os.path.join(os.path.dirname(__file__), "settings.json")
+    with open(_settings_json, 'w') as f:
+        json.dump(config, f, indent=4)
+    print("💾 Settings saved to settings.json")
+
+# ---- DEV / MAINTENANCE STATE ----
+DEV_PIN = None  # Legacy developer/owner PIN authentication is retired.
+_DEV_STATE_FILE = os.path.join(os.path.dirname(__file__), "dev_state.json")
+
+def _load_dev_state():
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            db_val = _ds.get_dev_state()
+            if db_val is not None:
+                return db_val
+    except Exception:
+        pass
+    # 2) JSON fallback
+    try:
+        if os.path.exists(_DEV_STATE_FILE):
+            with open(_DEV_STATE_FILE) as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {"maintenance": False, "maintenance_eta": ""}
+
+def _save_dev_state(state):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.save_dev_state(state)
+    except Exception as _e:
+        print(f"[dev_state] Postgres save error: {_e}")
+    # 2) JSON hot copy
+    try:
+        tmp = _DEV_STATE_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(state, f, indent=2)
+        os.replace(tmp, _DEV_STATE_FILE)
+    except Exception as e:
+        print(f"[dev_state] save error: {e}")
+
+def is_maintenance_mode():
+    return bool(_load_dev_state().get("maintenance", False))
+
+def is_dev_session():
+    # Developer sessions are no longer supported in the single-owner build.
+    return False
+
+# ---- SERVER-OFFICIAL BOT (admin-customizable card on /bots) ----
+SERVER_OFFICIAL_DEFAULTS = {
+    "name": "NVD Official",
+    "tagline": "Your server's signature bot",
+    "image": "",  # URL — empty falls back to icon
+    "description": (
+        "A custom bot crafted for your community. Rename it, set a custom "
+        "profile picture, and make it truly yours."
+    ),
+}
+
+def get_server_official():
+    state = _load_dev_state()
+    cfg = state.get("server_official") or {}
+    merged = {**SERVER_OFFICIAL_DEFAULTS, **{k: v for k, v in cfg.items() if v is not None}}
+    return merged
+
+def save_server_official(updates: dict):
+    state = _load_dev_state()
+    current = state.get("server_official") or {}
+    for key in ("name", "tagline", "image", "description"):
+        if key in updates and updates[key] is not None:
+            current[key] = str(updates[key]).strip()
+    state["server_official"] = current
+    _save_dev_state(state)
+    return get_server_official()
+
+# ---- SITE SETTINGS (theme + hero text — live "redesign in minutes") ----
+SITE_SETTINGS_DEFAULTS = {
+    # Theme colors (any valid CSS color)
+    "color_bg":      "#050b18",
+    "color_accent":  "#5b8cff",
+    "color_accent2": "#8b5cf6",
+    "color_accent3": "#22d3ee",
+    "color_text":    "#e8f0ff",
+    # Hero / brand text
+    "brand_name":      "NVD Official",
+    "hero_badge":      "Building the future of community automation",
+    "hero_title_pre":  "We build",
+    "hero_title_grad": "intelligent bots",
+    "hero_title_post": "that power modern communities.",
+    "hero_lede": (
+        "NVD Official designs and ships AI-driven bots, dashboards, and automation tools "
+        "that help Discord servers, communities, and creators run smoother — without "
+        "the busywork."
+    ),
+    # Section title under "What We Build"
+    "section_title": "Every NVD Official bot follows the same principles.",
+    "section_lede":  "Beautiful dashboards, intelligent automation, rock-solid uptime, and full control in your hands.",
+    # CTA strip
+    "cta_title": "Ready to add a NVD Official bot to your server?",
+    "cta_lede":  "Browse our growing lineup of bots and find the one that fits your community.",
+    # Footer tag
+    "footer_tag": "Crafted with care for communities.",
+}
+
+def get_site_settings():
+    state = _load_dev_state()
+    cfg = state.get("site_settings") or {}
+    merged = {**SITE_SETTINGS_DEFAULTS, **{k: v for k, v in cfg.items() if v not in (None, "")}}
+    return merged
+
+def save_site_settings(updates: dict):
+    state = _load_dev_state()
+    current = state.get("site_settings") or {}
+    for key in SITE_SETTINGS_DEFAULTS.keys():
+        if key in updates and updates[key] is not None:
+            current[key] = str(updates[key]).strip()
+    state["site_settings"] = current
+    _save_dev_state(state)
+    return get_site_settings()
+
+# ---- BOT REQUESTS ("Ask for a Bot" inbox) ----
+# Storage strategy: prefer the Postgres `sentinel_form_submissions` table
+# (via db_forms) when DATABASE_URL is set. Fall back to the legacy JSON
+# file so existing data still works if the DB is ever unavailable.
+BOT_REQUESTS_FILE = "bot_requests.json"
+
+import db_forms as _db_spark_forms  # noqa: E402
+import db_spark as _db_spark          # noqa: E402
+_db_forms = _db_spark_forms           # backwards-compat alias
+
+def _migrate_forms():
+    if _db_forms.is_available() and os.path.exists(BOT_REQUESTS_FILE):
+        try:
+            _db_forms.migrate_from_json(BOT_REQUESTS_FILE)
+        except Exception as _e:
+            print(f"[forms] one-shot JSON→PG migration skipped: {_e}")
+
+_threading.Thread(target=_migrate_forms, daemon=True, name="migrate-forms").start()
+
+
+def _load_bot_requests():
+    # 1) Postgres — preferred, persistent across redeploys.
+    if _db_forms.is_available():
+        try:
+            return _db_forms.list_all(form_type=_db_forms.FORM_TYPE_BOT_REQUEST, limit=1000)
+        except Exception as e:
+            print(f"⚠️ db_forms list_all error: {e}")
+    # 2) Legacy JSON file fallback.
+    try:
+        if os.path.exists(BOT_REQUESTS_FILE):
+            with open(BOT_REQUESTS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+    except Exception as e:
+        print(f"⚠️ load bot_requests error: {e}")
+    return []
+
+
+def _save_bot_request(entry):
+    """Persist a single submission. Used by the public POST route."""
+    if _db_forms.is_available():
+        if _db_forms.insert(entry, form_type=_db_forms.FORM_TYPE_BOT_REQUEST):
+            return
+    # JSON fallback: append + atomic replace.
+    items = []
+    try:
+        if os.path.exists(BOT_REQUESTS_FILE):
+            with open(BOT_REQUESTS_FILE, "r", encoding="utf-8") as f:
+                items = json.load(f) or []
+    except Exception:
+        items = []
+    items.insert(0, entry)
+    items = items[:1000]
+    try:
+        tmp = BOT_REQUESTS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(items, f, indent=2, default=str)
+        os.replace(tmp, BOT_REQUESTS_FILE)
+    except Exception as e:
+        print(f"⚠️ save bot_requests error: {e}")
+
+
+def _delete_bot_request(rid):
+    """Delete a single submission. Returns True when something was removed."""
+    if _db_forms.is_available():
+        if _db_forms.delete_by_id(rid):
+            return True
+    # JSON fallback.
+    try:
+        if not os.path.exists(BOT_REQUESTS_FILE):
+            return False
+        with open(BOT_REQUESTS_FILE, "r", encoding="utf-8") as f:
+            items = json.load(f) or []
+        new_items = [r for r in items if r.get("id") != rid]
+        if len(new_items) == len(items):
+            return False
+        tmp = BOT_REQUESTS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(new_items, f, indent=2, default=str)
+        os.replace(tmp, BOT_REQUESTS_FILE)
+        return True
+    except Exception as e:
+        print(f"⚠️ delete bot_request error: {e}")
+        return False
+
+
+# Kept for backwards compatibility with anything still calling the old API.
+def _save_bot_requests(items):
+    try:
+        tmp = BOT_REQUESTS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(items, f, indent=2, default=str)
+        os.replace(tmp, BOT_REQUESTS_FILE)
+    except Exception as e:
+        print(f"⚠️ save bot_requests error: {e}")
+
+# ---- LANDING PAGES ----
+def _current_user_summary():
+    """Return basic identity info for the navbar (login pill / logout)."""
+    if not session.get('logged_in'):
+        return {"logged_in": False}
+    discord_id = session.get('discord_id', '')
+    user = find_user_by_discord_id(discord_id) if discord_id else None
+    name = (user or {}).get('name') or session.get('user_name', 'User')
+    avatar_url = (user or {}).get('avatar_url', '')
+    return {
+        "logged_in":  True,
+        "user_name":  name,
+        "avatar_url": avatar_url,
+        "discord_id": discord_id,
+    }
+
+
+@app.route('/')
+def landing():
+    """Private bot entry point: send every visitor to the private sign-in page."""
+    response = redirect(url_for('login'))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    return response
+
+
+@app.route('/bots')
+def bots_showcase():
+    """Public bot directory is disabled; bot features remain available in the private dashboard."""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    return redirect(url_for('index'))
+
+
+@app.route('/dev/server-official', methods=['GET'])
+def dev_server_official_get():
+    """Read the current NVD Official bot card config (public)."""
+    return jsonify({"ok": True, "data": get_server_official()})
+
+
+@app.route('/dev/server-official', methods=['POST'])
+def dev_server_official_set():
+    """Update the NVD Official bot card. Requires unlocked dev session."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    payload = request.get_json(silent=True) or {}
+    # Basic length sanity
+    name = (payload.get("name") or "").strip()
+    if name and len(name) > 60:
+        return jsonify({"ok": False, "error": "Name is too long (max 60 chars)"}), 400
+    image = (payload.get("image") or "").strip()
+    if image and len(image) > 1000:
+        return jsonify({"ok": False, "error": "Image URL is too long"}), 400
+    if image and not (image.startswith("http://") or image.startswith("https://") or image.startswith("/")):
+        return jsonify({"ok": False, "error": "Image must be an http(s) URL or a /static path"}), 400
+    tagline = (payload.get("tagline") or "").strip()
+    description = (payload.get("description") or "").strip()
+    saved = save_server_official({
+        "name": name if name else None,
+        "image": image if image is not None else None,
+        "tagline": tagline if tagline else None,
+        "description": description if description else None,
+    })
+    return jsonify({"ok": True, "data": saved})
+
+
+# ============================================================
+# SERVER OFFICIAL — Landing, Dashboard, API
+# ============================================================
+def _so_module():
+    """Lazy-import the server_official module so dashboard.py doesn't crash if discord libs missing."""
+    try:
+        import server_official as so
+        return so
+    except Exception as e:
+        app.logger.warning(f"[server-official] import failed: {e}")
+        return None
+
+
+def _user_admin_guild_ids():
+    """Return the user's admin guild ids as a set, or None if not yet fetched.
+
+    Populated by the OAuth callback (`identify guilds` scope).
+
+    Returns:
+      - `None`  — key absent; the SO dashboard will force a re-auth so the
+                  guild list gets fetched fresh (prevents showing all servers).
+      - `set[str]` — possibly empty; user manages no servers the bot is in.
+    """
+    if 'user_admin_guild_ids' not in session:
+        return None
+    raw = session.get('user_admin_guild_ids') or []
+    return {str(x) for x in raw if x}
+
+
+def _so_live_state(guild_id: str = "", user_guild_ids=None):
+    """Pull live guild list / counts straight from the running bot (if any).
+
+    When `guild_id` is supplied, `selected_name` and `selected_member_count`
+    are populated so the dashboard's overview cards can show per-server
+    numbers instead of bot-wide totals.
+
+    When `user_guild_ids` is a set/iterable of guild ids, the returned list
+    is filtered to ONLY those servers (intersection of "bot is in" AND
+    "user can administer"). Pass `None` to skip filtering (public/landing
+    contexts where we just want bot-wide counts).
+    """
+    so = _so_module()
+    out = {
+        "guilds_count": 0, "members_count": 0, "guilds": [],
+        "selected_id": str(guild_id or ""),
+        "selected_name": "",
+        "selected_member_count": 0,
+    }
+    if not so:
+        return out
+
+    # Normalize the filter (None → no filtering; otherwise coerce to set[str]).
+    filter_ids = None
+    if user_guild_ids is not None:
+        filter_ids = {str(x) for x in user_guild_ids if x}
+
+    try:
+        b = so.bot
+        if b and b.is_ready():
+            guilds = []
+            total_members = 0
+            for g in b.guilds:
+                gid_str = str(g.id)
+                # Skip guilds the user has no admin access to.
+                if filter_ids is not None and gid_str not in filter_ids:
+                    continue
+                gm = g.member_count or 0
+                guilds.append({
+                    "id": gid_str,
+                    "name": g.name,
+                    "member_count": gm,
+                })
+                total_members += gm
+                if guild_id and gid_str == str(guild_id):
+                    out["selected_name"] = g.name
+                    out["selected_member_count"] = gm
+            out["guilds_count"] = len(guilds)
+            out["members_count"] = total_members
+            out["guilds"] = sorted(guilds, key=lambda x: x["member_count"], reverse=True)
+    except Exception as e:
+        app.logger.warning(f"[server-official] live_state error: {e}")
+    return out
+
+
+@app.route('/server-official')
+def server_official_landing():
+    """Private information page for the NVD Official instance."""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    so = _so_module()
+
+    # Live counts (best-effort — these fall back to zeros if the bot
+    # isn't running yet).
+    live = _so_live_state()
+    overview = {}
+    if so:
+        try:
+            overview = so.get_full_overview()
+        except Exception as e:
+            app.logger.warning(f"[server-official] overview failed: {e}")
+
+    return render_template(
+        'server_official_landing.html',
+        so=get_server_official(),
+        bot_running=bool(so and so.is_running()),
+        live=live,
+        overview=overview,
+    )
+
+
+@app.route('/server-official/dashboard')
+def server_official_dashboard():
+    """Web dashboard for managing scheduled announcements, giveaways and stats."""
+    if not session.get('logged_in'):
+        # Send unauthenticated visitors through Discord login, then back here.
+        session['post_login_redirect'] = url_for('server_official_dashboard')
+        return redirect(url_for('login'))
+
+    # If the session is missing guild info (old session or failed OAuth guilds
+    # fetch), force a fresh Discord re-auth so the guild list is populated.
+    # Without this, _user_admin_guild_ids() returns None → no filtering →
+    # every server the bot is in becomes visible to any logged-in user.
+    if 'user_admin_guild_ids' not in session:
+        redirect_target = url_for('server_official_dashboard')
+        session.clear()
+        session['post_login_redirect'] = redirect_target
+        return redirect(url_for('login'))
+
+    # A guild must be explicitly passed in the URL — always show the SO
+    # server picker first, never shortcut via session.
+    so_guild_from_url = request.args.get('guild', '').strip()
+    if so_guild_from_url:
+        session['selected_guild_id'] = so_guild_from_url
+        session.modified = True
+    else:
+        return redirect(url_for('so_server_select'))
+
+    so = _so_module()
+    # Scope the server picker to ONLY guilds the logged-in user can administer.
+    live = _so_live_state(user_guild_ids=_user_admin_guild_ids())
+    overview = so.get_full_overview() if so else {
+        "scheduled_count": 0, "active_giveaways": 0, "templates_count": 0,
+        "polls_active": 0, "reminders_pending": 0, "stickies": 0,
+        "goals_count": 0, "backups_count": 0, "custom_commands_count": 0,
+        "external_hooks": 0, "incoming_webhooks": 0, "logs_count": 0,
+        "bot_actions_count": 0,
+    }
+    selected_guild_id = session.get('selected_guild_id', '')
+    # Prefer live guilds (bot online); fall back to user's Discord admin guilds
+    # from session so the server picker works even when the bot is offline.
+    guilds = live.get('guilds') or session.get('user_guilds', [])
+    return render_template(
+        'server_official_dashboard.html',
+        bot_running=bool(so and so.is_running()),
+        live=live,
+        guilds=guilds,
+        selected_guild_id=selected_guild_id,
+        overview=overview,
+        dev_unlocked=is_dev_session(),
+    )
+
+
+@app.route('/server-official/api/announcements', methods=['GET'])
+def server_official_api_list_announcements():
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Login required"}), 401
+    so = _so_module()
+    if not so:
+        return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
+    return jsonify({"ok": True, "data": so.list_scheduled_announcements(include_posted=False)})
+
+
+@app.route('/server-official/api/announcements', methods=['POST'])
+def server_official_api_create_announcement():
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Login required"}), 401
+    so = _so_module()
+    if not so:
+        return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
+
+    payload = request.get_json(silent=True) or {}
+    channel_id = (payload.get("channel_id") or "").strip()
+    message = (payload.get("message") or "").strip()
+    scheduled_for = (payload.get("scheduled_for") or "").strip()
+    title = (payload.get("title") or "").strip() or None
+    guild_id = (payload.get("guild_id") or "") or None
+    color = payload.get("color")
+    image_url = (payload.get("image_url") or "").strip() or None
+
+    if not channel_id or not channel_id.isdigit():
+        return jsonify({"ok": False, "error": "channel_id must be a numeric Discord channel ID"}), 400
+    if not message:
+        return jsonify({"ok": False, "error": "message is required"}), 400
+    if len(message) > 2000:
+        return jsonify({"ok": False, "error": "message too long (max 2000 chars)"}), 400
+    if not scheduled_for:
+        return jsonify({"ok": False, "error": "scheduled_for (ISO datetime) is required"}), 400
+    when = so._parse_iso(scheduled_for)
+    if not when:
+        return jsonify({"ok": False, "error": "scheduled_for must be ISO 8601 (e.g. 2026-04-28T10:00:00Z)"}), 400
+    from datetime import datetime, timezone
+    if when <= datetime.now(timezone.utc):
+        return jsonify({"ok": False, "error": "scheduled_for must be in the future"}), 400
+
+    # If the user uploaded a relative path (e.g. "/static/announcement_images/abc.png"),
+    # promote it to an absolute URL so Discord's CDN can fetch it at post time.
+    if image_url and image_url.startswith("/"):
+        image_url = request.host_url.rstrip("/") + image_url
+
+    item = so.add_scheduled_announcement(
+        guild_id=str(guild_id) if guild_id else None,
+        channel_id=channel_id,
+        title=title or "📣 Announcement",
+        message=message,
+        scheduled_for_iso=when.isoformat(),
+        color=int(color) if color is not None else None,
+        created_by="dashboard",
+        image_url=image_url,
+    )
+    return jsonify({"ok": True, "data": item})
+
+
+@app.route('/server-official/api/announcements/upload_image', methods=['POST'])
+def server_official_api_upload_announcement_image():
+    """Accept a single image upload for use as the picture on a scheduled
+    announcement. Returns a public URL (absolute) the caller stores and then
+    sends back inside the schedule POST."""
+    so, err = _so_require_login()
+    if err: return err
+    if 'image' not in request.files:
+        return jsonify({"ok": False, "error": "No image uploaded"}), 400
+    f = request.files['image']
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "Empty file"}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else 'png'
+    data = f.read()
+    result = so.save_announcement_image(data, ext)
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": result.get("error", "Save failed")}), 400
+    rel = result["path"]
+    absolute = request.host_url.rstrip("/") + rel
+    return jsonify({"ok": True, "data": {"url": absolute, "relative_url": rel, "filename": result["filename"]}})
+
+
+@app.route('/server-official/api/announcements/<announce_id>', methods=['DELETE'])
+def server_official_api_delete_announcement(announce_id):
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Login required"}), 401
+    so = _so_module()
+    if not so:
+        return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
+    if so.delete_scheduled_announcement(announce_id):
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Not found"}), 404
+
+
+@app.route('/server-official/api/state', methods=['GET'])
+def server_official_api_state():
+    """Public read-only status for the landing page badge."""
+    so = _so_module()
+    return jsonify({
+        "ok": True,
+        "bot_running": bool(so and so.is_running()),
+        "guilds_count": _so_live_state()["guilds_count"],
+    })
+
+
+# ============================================================
+# SERVER OFFICIAL — Extended Dashboard APIs
+# ============================================================
+def _so_require_login():
+    """Helper: returns (so, error_response) tuple."""
+    if not session.get('logged_in'):
+        return None, (jsonify({"ok": False, "error": "Login required"}), 401)
+    so = _so_module()
+    if not so:
+        return None, (jsonify({"ok": False, "error": "Bot module unavailable"}), 503)
+    return so, None
+
+
+def _current_actor() -> str:
+    u = session.get('user') or {}
+    return u.get('username') or u.get('id') or 'dashboard'
+
+
+
+
+@app.route('/server-official/api/growth', methods=['GET'])
+def so_api_growth():
+    """Server growth analysis: growth %, retention, health score, trend chart data."""
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = request.args.get('guild_id') or None
+    try:
+        days = max(7, min(int(request.args.get('days', 30)), 60))
+    except (TypeError, ValueError):
+        days = 30
+    return jsonify({"ok": True, "data": so.get_server_growth(guild_id, days)})
+
+
+@app.route('/server-official/api/overview', methods=['GET'])
+def so_api_overview():
+    so, err = _so_require_login()
+    if err: return err
+    gid = (request.args.get('guild_id') or '').strip()
+    overview = so.get_full_overview(gid or None)
+    # Filter the live guild list to ONLY the logged-in user's admin servers.
+    live = _so_live_state(gid, user_guild_ids=_user_admin_guild_ids())
+    return jsonify({"ok": True, "data": overview, "live": live})
+
+
+# --- Guild Config ---
+@app.route('/server-official/api/config', methods=['GET'])
+def so_api_get_config():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": True, "data": so.get_guild_config(gid)})
+
+
+@app.route('/server-official/api/config', methods=['POST'])
+def so_api_set_config():
+    so, err = _so_require_login()
+    if err: return err
+    payload = request.get_json(silent=True) or {}
+    gid = (payload.pop('guild_id', '') or '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+
+    # Save to local state first so the dashboard's stored value stays in sync
+    # even if Discord rejects the live update (e.g. permission missing).
+    cfg = so.update_guild_config(gid, payload)
+    so.add_bot_action("config_update", f"Updated config for guild {gid}", _current_actor())
+
+    # If the user changed the bot's display name, ALSO push the rename to
+    # Discord so the bot is actually renamed on the server (not just in the
+    # dashboard view). We surface the live status back to the UI.
+    discord_status = None
+    if 'display_name' in payload:
+        try:
+            nick_result = so.set_guild_bot_nickname(gid, payload.get('display_name') or '')
+            discord_status = nick_result.get('discord_status')
+            if not nick_result.get('ok', True):
+                # Soft-fail: keep the saved config, but tell the UI Discord
+                # rejected the rename so the user can fix permissions.
+                return jsonify({
+                    "ok": False,
+                    "data": cfg,
+                    "discord_status": discord_status,
+                    "error": discord_status or "Discord rejected the rename",
+                }), 200
+        except Exception as e:
+            app.logger.warning(f"[server-official] nickname push failed: {e}")
+            discord_status = f"Saved locally; Discord update failed ({e.__class__.__name__})"
+
+    resp = {"ok": True, "data": cfg}
+    if discord_status:
+        resp["discord_status"] = discord_status
+    return jsonify(resp)
+
+
+# --- Broadcast ---
+@app.route('/server-official/api/broadcast', methods=['POST'])
+def so_api_broadcast():
+    so, err = _so_require_login()
+    if err: return err
+    payload = request.get_json(silent=True) or {}
+    channels = payload.get('channels') or []
+    title = (payload.get('title') or '').strip() or '📣 Announcement'
+    message = (payload.get('message') or '').strip()
+    if not channels or not message:
+        return jsonify({"ok": False, "error": "channels and message required"}), 400
+    bot = so.bot
+    if not bot or not bot.is_ready():
+        return jsonify({"ok": False, "error": "Bot not ready"}), 503
+
+    import asyncio
+    async def _do():
+        posted = 0
+        for cid in channels:
+            try:
+                ch = bot.get_channel(int(cid)) or await bot.fetch_channel(int(cid))
+                from datetime import datetime, timezone
+                import discord
+                e = discord.Embed(title=title, description=message, color=0x5b8cff,
+                                  timestamp=datetime.now(timezone.utc))
+                e.set_footer(text="NVD Official")
+                await ch.send(embed=e)
+                posted += 1
+            except Exception as ex:
+                app.logger.warning(f"[broadcast] {cid} -> {ex}")
+        return posted
+
+    fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+    posted = fut.result(timeout=20)
+    so.add_bot_action("broadcast", f"Broadcast to {posted} channel(s) from dashboard", _current_actor())
+    return jsonify({"ok": True, "posted": posted})
+
+
+# --- Templates ---
+@app.route('/server-official/api/templates', methods=['GET'])
+def so_api_templates():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_templates()})
+
+
+@app.route('/server-official/api/templates', methods=['POST'])
+def so_api_create_template():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    name = (p.get('name') or '').strip()
+    title = (p.get('title') or '').strip() or '📣 Announcement'
+    message = (p.get('message') or '').strip()
+    if not name or not message:
+        return jsonify({"ok": False, "error": "name and message required"}), 400
+    item = so.add_template(p.get('guild_id'), name, title, message, p.get('color'))
+    return jsonify({"ok": True, "data": item})
+
+
+@app.route('/server-official/api/templates/<tid>', methods=['DELETE'])
+def so_api_delete_template(tid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_template(tid)})
+
+
+# --- Giveaways ---
+@app.route('/server-official/api/giveaways', methods=['GET'])
+def so_api_giveaways():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_giveaways()})
+
+
+# --- Polls ---
+@app.route('/server-official/api/polls', methods=['GET'])
+def so_api_polls():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_polls(request.args.get('guild_id'))})
+
+
+# --- Reminders ---
+@app.route('/server-official/api/reminders', methods=['GET'])
+def so_api_reminders():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_reminders()})
+
+
+@app.route('/server-official/api/reminders/<rid>', methods=['DELETE'])
+def so_api_delete_reminder(rid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_reminder(rid)})
+
+
+# --- Stickies ---
+@app.route('/server-official/api/stickies', methods=['GET'])
+def so_api_stickies():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_stickies()})
+
+
+@app.route('/server-official/api/stickies', methods=['POST'])
+def so_api_set_sticky():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    cid = (p.get('channel_id') or '').strip()
+    msg = (p.get('message') or '').strip()
+    if not cid.isdigit() or not msg:
+        return jsonify({"ok": False, "error": "channel_id (numeric) and message required"}), 400
+    item = so.set_sticky(cid, msg, guild_id=p.get('guild_id'))
+    so.add_bot_action("sticky_set", f"Sticky set on channel {cid}", _current_actor())
+    return jsonify({"ok": True, "data": item})
+
+
+@app.route('/server-official/api/stickies/<cid>', methods=['DELETE'])
+def so_api_remove_sticky(cid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.remove_sticky(cid)})
+
+
+# --- Notes ---
+@app.route('/server-official/api/notes', methods=['GET'])
+def so_api_notes():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": True, "data": so.list_admin_notes(gid)})
+
+
+@app.route('/server-official/api/notes', methods=['POST'])
+def so_api_add_note():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    text = (p.get('text') or '').strip()
+    if not gid or not text:
+        return jsonify({"ok": False, "error": "guild_id and text required"}), 400
+    return jsonify({"ok": True, "data": so.add_admin_note(gid, text, _current_actor())})
+
+
+@app.route('/server-official/api/notes/<nid>', methods=['DELETE'])
+def so_api_del_note(nid):
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": so.delete_admin_note(gid, nid)})
+
+
+# --- Goals ---
+@app.route('/server-official/api/goals', methods=['GET'])
+def so_api_goals():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_goals(request.args.get('guild_id'))})
+
+
+@app.route('/server-official/api/goals', methods=['POST'])
+def so_api_add_goal():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    gtype = (p.get('type') or '').strip()
+    target = int(p.get('target') or 0)
+    if not gid or gtype not in {'messages', 'members'} or target <= 0:
+        return jsonify({"ok": False, "error": "guild_id, type (messages|members), target>0 required"}), 400
+    return jsonify({"ok": True, "data": so.add_goal(gid, gtype, target)})
+
+
+@app.route('/server-official/api/goals/<gid_>', methods=['DELETE'])
+def so_api_del_goal(gid_):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_goal(gid_)})
+
+
+# --- Logs ---
+@app.route('/server-official/api/server_logs', methods=['GET'])
+def so_api_server_logs():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.get_server_logs(request.args.get('guild_id'))})
+
+
+@app.route('/server-official/api/bot_actions', methods=['GET'])
+def so_api_bot_actions():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.get_bot_action_logs()})
+
+
+@app.route('/server-official/api/announcement_history', methods=['GET'])
+def so_api_ann_history():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_scheduled_announcements(include_posted=True)})
+
+
+@app.route('/server-official/api/setup_history', methods=['GET'])
+def so_api_setup_hist():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.get_setup_history(request.args.get('guild_id'))})
+
+
+# --- Setup template (apply via running bot) ---
+@app.route('/server-official/api/setup_template', methods=['POST'])
+def so_api_setup_template():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    template = (p.get('template') or '').strip().lower()
+    if not gid or template not in so.SERVER_TEMPLATES:
+        return jsonify({"ok": False, "error": f"guild_id + template ({', '.join(so.SERVER_TEMPLATES.keys())}) required"}), 400
+    bot = so.bot
+    if not bot or not bot.is_ready():
+        return jsonify({"ok": False, "error": "Bot not ready"}), 503
+    g = bot.get_guild(int(gid))
+    if not g:
+        return jsonify({"ok": False, "error": "Bot is not in that server"}), 404
+
+    import asyncio, discord
+    spec = so.SERVER_TEMPLATES[template]
+    summary = {"categories": [], "channels": [], "voice": [], "roles": []}
+
+    async def _do():
+        try:
+            for cname in spec["categories"]:
+                cat = discord.utils.get(g.categories, name=cname)
+                if not cat:
+                    cat = await g.create_category(cname)
+                    summary["categories"].append(cname)
+                for chan_name in spec["channels"].get(cname, []):
+                    if not discord.utils.get(g.text_channels, name=chan_name):
+                        await g.create_text_channel(chan_name, category=cat)
+                        summary["channels"].append(chan_name)
+                for vname in spec["voice"].get(cname, []):
+                    if not discord.utils.get(g.voice_channels, name=vname):
+                        await g.create_voice_channel(vname, category=cat)
+                        summary["voice"].append(vname)
+            for rname, rcolor in spec["roles"]:
+                if not discord.utils.get(g.roles, name=rname):
+                    await g.create_role(name=rname, colour=discord.Colour(rcolor))
+                    summary["roles"].append(rname)
+        except discord.Forbidden:
+            return False
+        return True
+
+    fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+    ok = fut.result(timeout=25)
+    if not ok:
+        return jsonify({"ok": False, "error": "Bot lacks permissions to apply template"}), 403
+    so.add_setup_history(gid, f"template:{template}", summary)
+    so.add_bot_action("setup_template", f"Applied template '{template}' from dashboard", _current_actor())
+    return jsonify({"ok": True, "data": summary})
+
+
+# --- NVD Official Custom Commands (global; applies to all NVD Official guilds) ---
+def _sp4rk_require_login():
+    """Require a logged-in dashboard session for NVD Official custom-commands routes."""
+    if not session.get('logged_in'):
+        return None, (jsonify({"ok": False, "error": "not authenticated"}), 401)
+    return True, None
+
+
+@app.route('/api/custom_commands', methods=['GET'])
+def sp4rk_api_cc_list():
+    _, err = _sp4rk_require_login()
+    if err: return err
+    import custom_commands as _cc
+    return jsonify({"ok": True, "data": _cc.list_commands("sp4rk", _cc.GLOBAL_GID)})
+
+
+@app.route('/api/custom_commands', methods=['POST'])
+def sp4rk_api_cc_add():
+    _, err = _sp4rk_require_login()
+    if err: return err
+    import custom_commands as _cc
+    p = request.get_json(silent=True) or {}
+    trig = (p.get('trigger') or '').strip()
+    result_text = (p.get('result') or p.get('response') or '').strip()
+    description = (p.get('description') or '').strip()
+    use_embed = bool(p.get('use_embed', False))
+    if not trig or not result_text:
+        return jsonify({"ok": False, "error": "trigger and result required"}), 400
+    try:
+        data = _cc.add_command("sp4rk", _cc.GLOBAL_GID, trig,
+                               description=description, result=result_text, use_embed=use_embed)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    return jsonify({"ok": True, "data": data})
+
+
+@app.route('/api/custom_commands', methods=['DELETE'])
+def sp4rk_api_cc_del():
+    _, err = _sp4rk_require_login()
+    if err: return err
+    import custom_commands as _cc
+    trig = (request.args.get('trigger') or '').strip()
+    if not trig:
+        return jsonify({"ok": False, "error": "trigger required"}), 400
+    return jsonify({"ok": _cc.remove_command("sp4rk", _cc.GLOBAL_GID, trig)})
+
+
+# --- Custom Commands ---
+@app.route('/server-official/api/custom_commands', methods=['GET'])
+def so_api_cc_list():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": True, "data": so.list_custom_commands(gid)})
+
+
+@app.route('/server-official/api/custom_commands', methods=['POST'])
+def so_api_cc_add():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    trig = (p.get('trigger') or '').strip()
+    # Accept both "result" (new) and "response" (legacy)
+    result_text = (p.get('result') or p.get('response') or '').strip()
+    description = (p.get('description') or '').strip()
+    use_embed = bool(p.get('use_embed', False))
+    if not gid or not trig or not result_text:
+        return jsonify({"ok": False, "error": "guild_id, trigger, result required"}), 400
+    try:
+        data = so.add_custom_command(gid, trig, result=result_text,
+                                     description=description, use_embed=use_embed)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    return jsonify({"ok": True, "data": data})
+
+
+@app.route('/server-official/api/custom_commands', methods=['DELETE'])
+def so_api_cc_del():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    trig = request.args.get('trigger', '').strip()
+    if not gid or not trig:
+        return jsonify({"ok": False, "error": "guild_id and trigger required"}), 400
+    return jsonify({"ok": so.remove_custom_command(gid, trig)})
+
+
+# --- Incoming Webhooks ---
+@app.route('/server-official/api/webhooks_in', methods=['GET'])
+def so_api_wh_list():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_incoming_webhooks(request.args.get('guild_id'))})
+
+
+@app.route('/server-official/api/webhooks_in', methods=['POST'])
+def so_api_wh_create():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    name = (p.get('name') or '').strip()
+    cid = (p.get('channel_id') or '').strip()
+    if not gid or not name or not cid.isdigit():
+        return jsonify({"ok": False, "error": "guild_id, name, channel_id required"}), 400
+    return jsonify({"ok": True, "data": so.add_incoming_webhook(gid, name, cid)})
+
+
+@app.route('/server-official/api/webhooks_in/<wid>', methods=['DELETE'])
+def so_api_wh_del(wid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_incoming_webhook(wid)})
+
+
+# ---- SO MANAGEMENT: ROLES ----
+def _so_bot_guild(guild_id):
+    """Returns (so, bot, guild, error) — error is None on success."""
+    so = _so_module()
+    if not so:
+        return None, None, None, (jsonify({'ok': False, 'error': 'Bot module unavailable'}), 503)
+    if not session.get('logged_in'):
+        return None, None, None, (jsonify({'ok': False, 'error': 'Login required'}), 401)
+    if not guild_id:
+        return None, None, None, (jsonify({'ok': False, 'error': 'Select a server first'}), 400)
+    bot = so.bot
+    if not bot or not bot.is_ready():
+        return None, None, None, (jsonify({'ok': False, 'error': 'Bot is offline — start the bot to use management features'}), 503)
+    try:
+        guild = bot.get_guild(int(guild_id))
+    except Exception:
+        return None, None, None, (jsonify({'ok': False, 'error': 'Invalid guild ID'}), 400)
+    if not guild:
+        return None, None, None, (jsonify({'ok': False, 'error': 'Server not found — bot may not be in this server'}), 404)
+    return so, bot, guild, None
+
+
+@app.route('/server-official/api/roles', methods=['GET'])
+def so_api_roles_list():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    roles = [
+        {'id': str(r.id), 'name': r.name, 'color': str(r.color),
+         'hoist': r.hoist, 'mentionable': r.mentionable, 'position': r.position,
+         'managed': r.managed, 'member_count': len(r.members)}
+        for r in reversed(guild.roles) if r.name != '@everyone'
+    ]
+    return jsonify({'ok': True, 'data': roles})
+
+
+@app.route('/server-official/api/roles', methods=['POST'])
+def so_api_roles_create():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    name = (p.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'name required'}), 400
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    try:
+        import discord as _discord
+        raw_color = (p.get('color') or '').strip().lstrip('#')
+        color = _discord.Color(int(raw_color, 16)) if raw_color else _discord.Color.default()
+    except Exception:
+        color = _discord.Color.default()
+    async def _do():
+        import discord as _d2
+        perm_preset = (p.get('permissions') or 'none').strip()
+        perm_map = {
+            'none':          _d2.Permissions.none(),
+            'administrator': _d2.Permissions(administrator=True),
+            'moderator':     _d2.Permissions(manage_messages=True, kick_members=True, ban_members=True, manage_channels=True),
+            'manage_messages': _d2.Permissions(manage_messages=True),
+            'manage_channels': _d2.Permissions(manage_channels=True),
+        }
+        perms = perm_map.get(perm_preset, _d2.Permissions.none())
+        role = await guild.create_role(
+            name=name, color=color,
+            hoist=bool(p.get('hoist', False)),
+            mentionable=bool(p.get('mentionable', False)),
+            permissions=perms,
+            reason=f'Created via SO dashboard by {_current_actor()}')
+        return {'id': str(role.id), 'name': role.name}
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        result = fut.result(timeout=15)
+        so.add_bot_action('role_create', f'Created role "{name}"', _current_actor())
+        return jsonify({'ok': True, 'data': result})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/roles/assign', methods=['POST'])
+def so_api_roles_assign():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    role_id = (p.get('role_id') or '').strip()
+    user_id = (p.get('user_id') or '').strip()
+    action = (p.get('action') or 'add').strip()
+    if not role_id or not user_id:
+        return jsonify({'ok': False, 'error': 'role_id and user_id required'}), 400
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        member = guild.get_member(int(user_id)) or await guild.fetch_member(int(user_id))
+        if not member: raise ValueError('Member not found')
+        role = guild.get_role(int(role_id))
+        if not role: raise ValueError('Role not found')
+        if action == 'remove':
+            await member.remove_roles(role, reason=f'Via SO dashboard by {_current_actor()}')
+        else:
+            await member.add_roles(role, reason=f'Via SO dashboard by {_current_actor()}')
+        return member.display_name
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        name = fut.result(timeout=15)
+        verb = 'Added' if action == 'add' else 'Removed'
+        so.add_bot_action('role_assign', f'{verb} role to/from {name}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/roles/<role_id>', methods=['DELETE'])
+def so_api_roles_delete(role_id):
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        role = guild.get_role(int(role_id))
+        if not role: raise ValueError('Role not found')
+        rname = role.name
+        await role.delete(reason=f'Deleted via SO dashboard by {_current_actor()}')
+        return rname
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        rname = fut.result(timeout=15)
+        so.add_bot_action('role_delete', f'Deleted role "{rname}"', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ---- SO MANAGEMENT: CHANNELS ----
+@app.route('/server-official/api/channels', methods=['GET'])
+def so_api_channels_list():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import discord as _discord
+    channels = []
+    for ch in sorted(guild.channels, key=lambda c: c.position):
+        if isinstance(ch, _discord.TextChannel):
+            ch_type = 'text'
+        elif isinstance(ch, _discord.VoiceChannel):
+            ch_type = 'voice'
+        elif isinstance(ch, _discord.CategoryChannel):
+            ch_type = 'category'
+        else:
+            ch_type = 'other'
+        entry = {
+            'id': str(ch.id), 'name': ch.name, 'type': ch_type,
+            'position': ch.position,
+            'category': ch.category.name if ch.category else None,
+        }
+        if isinstance(ch, _discord.TextChannel):
+            entry['slowmode'] = ch.slowmode_delay
+            entry['topic'] = ch.topic or ''
+            entry['nsfw'] = ch.is_nsfw()
+        channels.append(entry)
+    return jsonify({'ok': True, 'data': channels})
+
+
+@app.route('/server-official/api/channels/slowmode', methods=['POST'])
+def so_api_channels_slowmode():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    channel_id = (p.get('channel_id') or '').strip()
+    if not channel_id:
+        return jsonify({'ok': False, 'error': 'channel_id required'}), 400
+    delay = max(0, min(21600, int(p.get('delay', 0))))
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        ch = bot.get_channel(int(channel_id)) or await bot.fetch_channel(int(channel_id))
+        await ch.edit(slowmode_delay=delay, reason=f'Via SO dashboard by {_current_actor()}')
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        fut.result(timeout=15)
+        so.add_bot_action('channel_slowmode', f'Set slowmode={delay}s on {channel_id}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/channels/topic', methods=['POST'])
+def so_api_channels_topic():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    channel_id = (p.get('channel_id') or '').strip()
+    topic = (p.get('topic') or '').strip()[:1024]
+    if not channel_id:
+        return jsonify({'ok': False, 'error': 'channel_id required'}), 400
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        ch = bot.get_channel(int(channel_id)) or await bot.fetch_channel(int(channel_id))
+        await ch.edit(topic=topic, reason=f'Via SO dashboard by {_current_actor()}')
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        fut.result(timeout=15)
+        so.add_bot_action('channel_topic', f'Updated topic for {channel_id}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ---- SO MANAGEMENT: INVITES ----
+@app.route('/server-official/api/invites', methods=['GET'])
+def so_api_invites_list():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        invites = await guild.invites()
+        return [
+            {'code': inv.code, 'url': inv.url,
+             'channel': inv.channel.name if inv.channel else '?',
+             'inviter': inv.inviter.name if inv.inviter else 'Unknown',
+             'uses': inv.uses or 0, 'max_uses': inv.max_uses or 0,
+             'max_age': inv.max_age or 0, 'temporary': inv.temporary,
+             'created_at': inv.created_at.isoformat() if inv.created_at else None}
+            for inv in invites
+        ]
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        data = fut.result(timeout=15)
+        return jsonify({'ok': True, 'data': data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/invites', methods=['POST'])
+def so_api_invites_create():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    channel_id = (p.get('channel_id') or '').strip()
+    if not channel_id:
+        return jsonify({'ok': False, 'error': 'channel_id required'}), 400
+    max_uses = max(0, int(p.get('max_uses', 0)))
+    max_age = max(0, int(p.get('max_age', 86400)))
+    temporary = bool(p.get('temporary', False))
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        ch = bot.get_channel(int(channel_id)) or await bot.fetch_channel(int(channel_id))
+        inv = await ch.create_invite(
+            max_uses=max_uses, max_age=max_age, temporary=temporary,
+            reason=f'Via SO dashboard by {_current_actor()}')
+        return {'code': inv.code, 'url': inv.url}
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        data = fut.result(timeout=15)
+        so.add_bot_action('invite_create', f'Created invite {data["code"]}', _current_actor())
+        return jsonify({'ok': True, 'data': data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/invites/<code>', methods=['DELETE'])
+def so_api_invites_delete(code):
+    so, err = _so_require_login()
+    if err: return err
+    so, bot, _, err = _so_bot_guild(request.args.get('guild_id', 'any'))
+    if err:
+        so2, err2 = _so_require_login()
+        if err2: return err2
+        bot2 = so2.bot if so2 else None
+        if not bot2 or not bot2.is_ready():
+            return jsonify({'ok': False, 'error': 'Bot is offline'}), 503
+        bot = bot2
+    import asyncio
+    async def _do():
+        inv = await bot.fetch_invite(code)
+        await inv.delete(reason=f'Via SO dashboard by {_current_actor()}')
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        fut.result(timeout=15)
+        so.add_bot_action('invite_delete', f'Deleted invite {code}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ---- SO MANAGEMENT: EVENTS ----
+@app.route('/server-official/api/events', methods=['GET'])
+def so_api_events_list():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        events = await guild.fetch_scheduled_events()
+        return [
+            {'id': str(ev.id), 'name': ev.name,
+             'description': ev.description or '',
+             'status': str(ev.status).split('.')[-1],
+             'start_time': ev.start_time.isoformat() if ev.start_time else None,
+             'end_time': ev.end_time.isoformat() if ev.end_time else None,
+             'location': getattr(ev.location, 'value', None) if ev.location else None,
+             'channel': ev.channel.name if getattr(ev, 'channel', None) else None,
+             'subscriber_count': ev.subscriber_count or 0}
+            for ev in events
+        ]
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        data = fut.result(timeout=15)
+        return jsonify({'ok': True, 'data': data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/events', methods=['POST'])
+def so_api_events_create():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    name = (p.get('name') or '').strip()
+    start_time_str = (p.get('start_time') or '').strip()
+    if not name or not start_time_str:
+        return jsonify({'ok': False, 'error': 'name and start_time required'}), 400
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio, discord as _discord
+    from datetime import datetime, timezone as _tz
+    async def _do():
+        dt_start = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+        if dt_start.tzinfo is None:
+            dt_start = dt_start.replace(tzinfo=_tz.utc)
+        end_str = (p.get('end_time') or '').strip()
+        dt_end = None
+        if end_str:
+            dt_end = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+            if dt_end.tzinfo is None:
+                dt_end = dt_end.replace(tzinfo=_tz.utc)
+        description = (p.get('description') or '').strip()[:1000]
+        channel_id = (p.get('channel_id') or '').strip()
+        location_str = (p.get('location') or '').strip()
+        if channel_id:
+            ch = guild.get_channel(int(channel_id))
+            ev = await guild.create_scheduled_event(
+                name=name, description=description,
+                start_time=dt_start, end_time=dt_end,
+                entity_type=_discord.EntityType.voice, channel=ch,
+                reason=f'Via SO dashboard by {_current_actor()}')
+        else:
+            ev = await guild.create_scheduled_event(
+                name=name, description=description,
+                start_time=dt_start, end_time=dt_end,
+                entity_type=_discord.EntityType.external,
+                location=location_str or 'TBD',
+                reason=f'Via SO dashboard by {_current_actor()}')
+        return {'id': str(ev.id), 'name': ev.name}
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        data = fut.result(timeout=15)
+        so.add_bot_action('event_create', f'Created event "{name}"', _current_actor())
+        return jsonify({'ok': True, 'data': data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/events/<event_id>', methods=['DELETE'])
+def so_api_events_delete(event_id):
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio
+    async def _do():
+        ev = await guild.fetch_scheduled_event(int(event_id))
+        await ev.delete()
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        fut.result(timeout=15)
+        so.add_bot_action('event_delete', f'Deleted event {event_id}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ---- SO MANAGEMENT: SERVER RULES ----
+@app.route('/server-official/api/rules', methods=['GET'])
+def so_api_rules_get():
+    so, err = _so_require_login()
+    if err: return err
+    guild_id = (request.args.get('guild_id') or '').strip()
+    state = so.load_state()
+    rules = state.get('server_rules', {}).get(guild_id, {}) if guild_id else {}
+    return jsonify({'ok': True, 'data': rules})
+
+
+@app.route('/server-official/api/rules', methods=['POST'])
+def so_api_rules_save():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    if not guild_id:
+        return jsonify({'ok': False, 'error': 'guild_id required'}), 400
+    state = so.load_state()
+    if 'server_rules' not in state:
+        state['server_rules'] = {}
+    state['server_rules'].setdefault(guild_id, {})
+    state['server_rules'][guild_id]['text'] = (p.get('text') or '').strip()
+    state['server_rules'][guild_id]['channel_id'] = (p.get('channel_id') or '').strip()
+    so.save_state(state)
+    return jsonify({'ok': True})
+
+
+@app.route('/server-official/api/rules/post', methods=['POST'])
+def so_api_rules_post():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    guild_id = (p.get('guild_id') or '').strip()
+    channel_id = (p.get('channel_id') or '').strip()
+    text = (p.get('text') or '').strip()
+    if not channel_id or not text:
+        return jsonify({'ok': False, 'error': 'channel_id and text required'}), 400
+    so, bot, guild, err = _so_bot_guild(guild_id)
+    if err: return err
+    import asyncio, discord as _discord
+    from datetime import datetime, timezone as _tz
+    async def _do():
+        ch = bot.get_channel(int(channel_id)) or await bot.fetch_channel(int(channel_id))
+        e = _discord.Embed(
+            title=f'📜 {guild.name} — Server Rules',
+            description=text, color=0x5b8cff,
+            timestamp=datetime.now(_tz.utc))
+        e.set_footer(text='NVD Official')
+        await ch.send(embed=e)
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), bot.loop)
+        fut.result(timeout=15)
+        state = so.load_state()
+        state.setdefault('server_rules', {}).setdefault(guild_id, {})
+        from datetime import datetime
+        state['server_rules'][guild_id]['last_posted_at'] = datetime.utcnow().isoformat()
+        so.save_state(state)
+        so.add_bot_action('rules_post', f'Posted rules to channel {channel_id}', _current_actor())
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/server-official/api/webhook_in/<secret>', methods=['POST'])
+def so_api_wh_fire(secret):
+    """Public endpoint: third-party services POST here to fire an embed in the linked channel."""
+    so = _so_module()
+    if not so:
+        return jsonify({"ok": False, "error": "Bot module unavailable"}), 503
+    wh = so.find_webhook_by_secret(secret)
+    if not wh:
+        return jsonify({"ok": False, "error": "Invalid webhook"}), 404
+    p = request.get_json(silent=True) or {}
+    title = (p.get('title') or '📥 Webhook').strip()
+    message = (p.get('message') or '').strip()
+    if not message:
+        return jsonify({"ok": False, "error": "message required"}), 400
+    bot = so.bot
+    if not bot or not bot.is_ready():
+        return jsonify({"ok": False, "error": "Bot not ready"}), 503
+
+    import asyncio, discord
+    from datetime import datetime, timezone
+
+    async def _send():
+        ch = bot.get_channel(int(wh['channel_id']))
+        if ch is None:
+            ch = await bot.fetch_channel(int(wh['channel_id']))
+        e = discord.Embed(title=title, description=message[:2000], color=0x22d3ee,
+                          timestamp=datetime.now(timezone.utc))
+        e.set_footer(text=f"via {wh['name']}")
+        await ch.send(embed=e)
+
+    asyncio.run_coroutine_threadsafe(_send(), bot.loop)
+    so.add_bot_action("webhook_in", f"Incoming webhook '{wh['name']}' fired", "external")
+    return jsonify({"ok": True})
+
+
+# --- External Hooks ---
+@app.route('/server-official/api/external_hooks', methods=['GET'])
+def so_api_hooks():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_external_hooks()})
+
+
+@app.route('/server-official/api/external_hooks', methods=['POST'])
+def so_api_hook_add():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    name = (p.get('name') or '').strip()
+    url = (p.get('url') or '').strip()
+    events = p.get('events') or []
+    if not name or not url.startswith('http'):
+        return jsonify({"ok": False, "error": "name and valid url required"}), 400
+    return jsonify({"ok": True, "data": so.add_external_hook(name, url, events)})
+
+
+@app.route('/server-official/api/external_hooks/<hid>', methods=['DELETE'])
+def so_api_hook_del(hid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_external_hook(hid)})
+
+
+# --- Backups ---
+@app.route('/server-official/api/backups', methods=['GET'])
+def so_api_backups():
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": True, "data": so.list_backups()})
+
+
+@app.route('/server-official/api/backups', methods=['POST'])
+def so_api_backup_create():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    label = (p.get('label') or 'manual').strip()
+    return jsonify({"ok": True, "data": so.create_backup(label)})
+
+
+@app.route('/server-official/api/backups/<bid>/restore', methods=['POST'])
+def so_api_backup_restore(bid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.restore_backup(bid)})
+
+
+@app.route('/server-official/api/backups/<bid>', methods=['DELETE'])
+def so_api_backup_delete(bid):
+    so, err = _so_require_login()
+    if err: return err
+    return jsonify({"ok": so.delete_backup(bid)})
+
+
+# --- Reset selected guild's state ---
+@app.route('/server-official/api/reset_guild', methods=['POST'])
+def so_api_reset_guild():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    gid = (p.get('guild_id') or '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    # Always backup first
+    so.create_backup(label=f"pre-reset-{gid}")
+    state = so.load_state()
+    state["server_configs"].pop(gid, None)
+    state["daily_checkins"].pop(gid, None)
+    state["custom_commands"].pop(gid, None)
+    state["admin_notes"].pop(gid, None)
+    state["activity_stats"].pop(gid, None)
+    state["invite_counts"].pop(gid, None)
+    state["server_goals"] = [g for g in state["server_goals"] if g.get("guild_id") != gid]
+    state["scheduled_announcements"] = [a for a in state["scheduled_announcements"] if a.get("guild_id") != gid]
+    state["polls"] = [p for p in state["polls"] if p.get("guild_id") != gid]
+    state["server_logs"] = [l for l in state["server_logs"] if l.get("guild_id") != gid]
+    so.save_state(state)
+    so.add_bot_action("reset_guild", f"Reset all state for guild {gid}", _current_actor())
+    return jsonify({"ok": True})
+
+
+# --- Embed builder ---
+@app.route('/server-official/api/post_embed', methods=['POST'])
+def so_api_post_embed():
+    so, err = _so_require_login()
+    if err: return err
+    p = request.get_json(silent=True) or {}
+    cid = (p.get('channel_id') or '').strip()
+    title = (p.get('title') or '📣 Announcement').strip()
+    message = (p.get('message') or '').strip()
+    color = p.get('color')
+    if not cid.isdigit() or not message:
+        return jsonify({"ok": False, "error": "channel_id (numeric) and message required"}), 400
+    bot = so.bot
+    if not bot or not bot.is_ready():
+        return jsonify({"ok": False, "error": "Bot not ready"}), 503
+
+    import asyncio, discord
+    from datetime import datetime, timezone
+
+    async def _send():
+        ch = bot.get_channel(int(cid)) or await bot.fetch_channel(int(cid))
+        e = discord.Embed(title=title, description=message[:4000],
+                          color=int(color) if color else 0x5b8cff,
+                          timestamp=datetime.now(timezone.utc))
+        e.set_footer(text="NVD Official")
+        await ch.send(embed=e)
+
+    fut = asyncio.run_coroutine_threadsafe(_send(), bot.loop)
+    fut.result(timeout=15)
+    so.add_bot_action("embed_post", f"Embed posted to #{cid}", _current_actor())
+    return jsonify({"ok": True})
+
+
+
+@app.route('/sp4rk')
+def sp4rk_landing():
+    """Legacy entry URL: send the single owner to the main dashboard."""
+    return redirect(url_for('server_select') if session.get('logged_in') else url_for('login'))
+
+# ---- DEV ROUTES (PIN-protected) ----
+@app.route('/dev/unlock', methods=['POST'])
+def dev_unlock():
+    """Unlock the dev menu by submitting the correct PIN."""
+    pin = (request.json or {}).get('pin', '').strip() if request.is_json else request.form.get('pin', '').strip()
+    if not pin:
+        return jsonify({"ok": False, "error": "PIN required"}), 400
+    if pin != DEV_PIN:
+        return jsonify({"ok": False, "error": "Wrong PIN"}), 403
+    session.permanent = True
+    session['dev_unlocked'] = True
+    session.modified = True
+    return jsonify({"ok": True})
+
+@app.route('/dev/lock', methods=['POST'])
+def dev_lock():
+    session.pop('dev_unlocked', None)
+    session.modified = True
+    return jsonify({"ok": True})
+
+@app.route('/dev/state', methods=['GET'])
+def dev_state():
+    return jsonify({
+        "dev_unlocked": is_dev_session(),
+        "maintenance":  is_maintenance_mode(),
+    })
+
+@app.route('/dev/maintenance/preview')
+def dev_maintenance_preview():
+    state = _load_dev_state()
+    return render_template(
+        'under_maintenance.html',
+        maintenance_eta=state.get("maintenance_eta", "")
+    ), 200
+
+@app.route('/dev/maintenance/eta', methods=['GET'])
+def dev_maintenance_eta_get():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    state = _load_dev_state()
+    return jsonify({"ok": True, "eta": state.get("maintenance_eta", "")})
+
+@app.route('/dev/maintenance/eta', methods=['POST'])
+def dev_maintenance_eta_set():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    payload = request.json or {}
+    eta = str(payload.get("eta", "")).strip()
+    state = _load_dev_state()
+    state["maintenance_eta"] = eta
+    _save_dev_state(state)
+    return jsonify({"ok": True, "eta": eta})
+
+@app.route('/dev/maintenance', methods=['POST'])
+def dev_maintenance_toggle():
+    """Turn maintenance mode on/off. Requires unlocked dev session."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    payload = request.json or {}
+    enabled = bool(payload.get('enabled'))
+    state = _load_dev_state()
+    state['maintenance'] = enabled
+    _save_dev_state(state)
+    return jsonify({"ok": True, "maintenance": enabled})
+
+# ---- DEV: SITE SETTINGS (theme + hero + section text) ----
+@app.route('/dev/site_settings', methods=['GET'])
+def dev_site_settings_get():
+    """Read current site settings (public — used to render landing page)."""
+    return jsonify({
+        "ok": True,
+        "settings": get_site_settings(),
+        "defaults": SITE_SETTINGS_DEFAULTS,
+    })
+
+@app.route('/dev/site_settings', methods=['POST'])
+def dev_site_settings_set():
+    """Update site settings. Requires unlocked dev session."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    payload = request.json or {}
+    updates = payload.get('settings') or {}
+    if not isinstance(updates, dict):
+        return jsonify({"ok": False, "error": "Bad payload"}), 400
+    saved = save_site_settings(updates)
+    add_dashboard_log("SITE_SETTINGS", f"Updated {len(updates)} field(s)")
+    return jsonify({"ok": True, "settings": saved})
+
+@app.route('/dev/whats_new', methods=['GET'])
+def dev_whats_new_get():
+    state = _load_dev_state()
+    return jsonify({"ok": True, "whats_new": state.get("whats_new", {})})
+
+@app.route('/dev/whats_new', methods=['POST'])
+def dev_whats_new_set():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    payload = request.json or {}
+    data = payload.get("whats_new")
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "Bad payload"}), 400
+    items = data.get("items", [])
+    if not isinstance(items, list) or len(items) > 20:
+        return jsonify({"ok": False, "error": "items must be a list of up to 20"}), 400
+    state = _load_dev_state()
+    state["whats_new"] = data
+    _save_dev_state(state)
+    add_dashboard_log("WHATS_NEW", f"Updated — {len(items)} item(s), enabled={data.get('enabled')}")
+    return jsonify({"ok": True, "whats_new": data})
+
+@app.route('/dev/site_settings/reset', methods=['POST'])
+def dev_site_settings_reset():
+    """Reset all site settings back to defaults. Requires unlocked dev session."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    state = _load_dev_state()
+    state['site_settings'] = {}
+    _save_dev_state(state)
+    add_dashboard_log("SITE_SETTINGS", "Reset to defaults")
+    return jsonify({"ok": True, "settings": get_site_settings()})
+
+# ---- PUBLIC FEEDBACK (no Discord login required) ----
+@app.route('/api/public_feedback', methods=['POST'])
+def api_public_feedback_submit():
+    """Public landing-page feedback. Anyone can submit."""
+    if not _rate_limit(request.remote_addr, max_calls=10, window_secs=3600):
+        return jsonify({"ok": False, "error": "Too many submissions. Please wait before trying again."}), 429
+    data = request.get_json(silent=True) or {}
+    try:
+        rating = int(data.get('rating', 0))
+    except (TypeError, ValueError):
+        rating = 0
+    if rating < 1 or rating > 5:
+        return jsonify({"ok": False, "error": "Rating must be between 1 and 5"}), 400
+    name = (data.get('name') or 'Anonymous').strip()[:80] or 'Anonymous'
+    comment = (data.get('comment') or '').strip()
+    if len(comment) > 2000:
+        comment = comment[:2000]
+    entry = {
+        "discord_id": "",
+        "user_name":  name,
+        "rating":     rating,
+        "comment":    comment,
+        "source":     "landing",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    saved_remote = supabase_save_feedback(entry)
+    items = _load_feedback_file()
+    items.insert(0, entry)
+    _save_feedback_file(items[:500])
+    add_dashboard_log("FEEDBACK", f"{name} rated {rating}/5 (landing)")
+    return jsonify({"ok": True, "remote": saved_remote})
+
+@app.route('/api/public_feedback', methods=['GET'])
+def api_public_feedback_list():
+    """List recent landing-page feedback (latest first)."""
+    try:
+        limit = max(1, min(int(request.args.get('limit', 6)), 30))
+    except (TypeError, ValueError):
+        limit = 6
+    rows = supabase_list_feedback(limit=200)
+    if rows is None:
+        rows = _load_feedback_file()[:200]
+    landing_only = [r for r in rows if (r.get('source') == 'landing')][:limit]
+    total = len(landing_only)
+    avg = round(sum((r.get('rating') or 0) for r in landing_only) / total, 2) if total else 0
+    return jsonify({"ok": True, "items": landing_only, "count": total, "average": avg})
+
+# ---- BOT REQUESTS ("Ask for a Bot" form) ----
+@app.route('/api/bot_request', methods=['POST'])
+def api_bot_request_submit():
+    """Public submission of a custom-bot request from the landing page."""
+    if not _rate_limit(request.remote_addr, max_calls=5, window_secs=3600):
+        return jsonify({"ok": False, "error": "Too many submissions. Please wait before trying again."}), 429
+    data = request.get_json(silent=True) or {}
+
+    def _s(key, max_len=500):
+        v = (data.get(key) or '').strip()
+        return v[:max_len]
+
+    name        = _s('name', 120)
+    email       = _s('email', 200)
+    discord     = _s('discord_handle', 120)
+    bot_name    = _s('bot_name', 120)
+    bot_purpose = _s('bot_purpose', 120)
+    description = _s('description', 4000)
+    features    = _s('features', 4000)
+    needs_dash  = bool(data.get('needs_dashboard'))
+    bot_token   = _s('bot_token', 200)
+    has_token   = bool(bot_token)
+    timeline    = _s('timeline', 80)
+    budget      = _s('budget', 80)
+    notes       = _s('notes', 2000)
+
+    # Required fields
+    missing = [k for k, v in (("name", name), ("email", email), ("description", description)) if not v]
+    if missing:
+        return jsonify({"ok": False, "error": f"Missing required: {', '.join(missing)}"}), 400
+    if "@" not in email or "." not in email:
+        return jsonify({"ok": False, "error": "Invalid email address"}), 400
+
+    entry = {
+        "id":             datetime.now(timezone.utc).strftime("req_%Y%m%d_%H%M%S_") + str(int(datetime.now(timezone.utc).timestamp() * 1000) % 100000),
+        "name":           name,
+        "email":          email,
+        "discord_handle": discord,
+        "bot_name":       bot_name,
+        "bot_purpose":    bot_purpose,
+        "description":    description,
+        "features":       features,
+        "needs_dashboard": needs_dash,
+        "bot_token":      bot_token,    # stored as-is; visible only in dev menu
+        "has_token":      has_token,
+        "timeline":       timeline,
+        "budget":         budget,
+        "notes":          notes,
+        "status":         "new",
+        "created_at":     datetime.now(timezone.utc).isoformat(),
+    }
+    _save_bot_request(entry)
+    add_dashboard_log("BOT_REQUEST", f"{name} <{email}> — '{bot_name or 'Untitled bot'}'")
+    return jsonify({"ok": True, "id": entry["id"]})
+
+@app.route('/api/bot_requests', methods=['GET'])
+def api_bot_requests_list():
+    """List all bot requests. Dev session required (contains user emails / tokens)."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    try:
+        limit = max(1, min(int(request.args.get('limit', 50)), 500))
+    except (TypeError, ValueError):
+        limit = 50
+    items = _load_bot_requests()[:limit]
+    # Mask tokens by default; real value still in storage. Dev can see partial.
+    masked = []
+    for r in items:
+        rr = dict(r)
+        tok = rr.get("bot_token") or ""
+        if tok:
+            rr["bot_token_preview"] = (tok[:6] + "…" + tok[-4:]) if len(tok) > 12 else "set"
+        rr.pop("bot_token", None)
+        masked.append(rr)
+    return jsonify({"ok": True, "items": masked, "count": len(masked)})
+
+@app.route('/api/bot_requests/<rid>', methods=['DELETE'])
+def api_bot_request_delete(rid):
+    """Delete a bot request. Dev session required."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    if not _delete_bot_request(rid):
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    add_dashboard_log("BOT_REQUEST", f"Deleted request {rid}")
+    return jsonify({"ok": True})
+
+
+# ---- Dev-only "Forms" page ----
+# Dedicated full-page admin view for every form submission. Reachable from
+# the Developer Tools kebab menu under the "Forms" item. Outside of a
+# dev-unlocked session the page returns 404 to avoid leaking its existence.
+@app.route('/dev/forms', methods=['GET'])
+def dev_forms_page():
+    if not is_dev_session():
+        # Return a real 404 so unauthenticated visitors can't even confirm
+        # the page exists. Devs see the full inbox.
+        return render_template('login.html',
+                               error="Page not found.",
+                               discord_configured=False), 404
+    storage = "Postgres" if _db_forms.is_available() else "Local JSON file"
+    return render_template(
+        'dev_forms.html',
+        dev_unlocked=True,
+        storage_backend=storage,
+    )
+
+# ---- API: BOT SLASH COMMAND SYNC ----
+@app.route('/api/bot/sync', methods=['POST'])
+def api_bot_sync():
+    """Force a Discord slash command sync. Requires logged-in admin / dev session."""
+    if not (session.get('logged_in') and session.get('is_sp4rk_admin')):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
+    try:
+        import main as _main_mod
+        b = getattr(_main_mod, "bot", None)
+        if not b or not b.is_ready():
+            return jsonify({"ok": False, "error": "Bot is not running or not ready yet."}), 503
+        import asyncio
+        loop = getattr(b, "loop", None) or asyncio.get_event_loop()
+        async def _do_sync():
+            synced = await b.tree.sync()
+            return len(synced)
+        future = asyncio.run_coroutine_threadsafe(_do_sync(), loop)
+        count = future.result(timeout=30)
+        add_dashboard_log("🔄 SYNC", f"Slash commands synced by dashboard ({count} commands)")
+        return jsonify({"ok": True, "count": count})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ---- DEV: TESTCORD ----
+@app.route('/dev/testcord', methods=['GET'])
+def dev_testcord_page():
+    """Dedicated Testcord management page. Requires an unlocked dev session."""
+    if not is_dev_session():
+        return render_template('login.html',
+                               error="Page not found.",
+                               discord_configured=False), 404
+    token_set  = bool(os.environ.get("TESTCORD_TOKEN", "").strip())
+    guild_set  = bool(os.environ.get("TEST_GUILD_ID",  "").strip())
+    guild_id   = os.environ.get("TEST_GUILD_ID", "").strip() or "—"
+    return render_template(
+        'testcord_dev.html',
+        token_set=token_set,
+        guild_set=guild_set,
+        guild_id=guild_id,
+        dev_unlocked=True,
+    )
+
+
+@app.route('/dev/testcord/status', methods=['GET'])
+def dev_testcord_status():
+    """Return JSON status of the Testcord bot — called by the dev panel."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    token_set = bool(os.environ.get("TESTCORD_TOKEN", "").strip())
+    guild_set = bool(os.environ.get("TEST_GUILD_ID",  "").strip())
+    running = False
+    log_lines = []
+    try:
+        import sys as _sys
+        tc = _sys.modules.get('testcord')
+        if tc:
+            running = tc.is_running()
+            log_lines = tc.get_log()[-40:]
+    except Exception:
+        pass
+    return jsonify({
+        "ok":        True,
+        "token_set": token_set,
+        "guild_set": guild_set,
+        "guild_id":  os.environ.get("TEST_GUILD_ID", "").strip() or None,
+        "running":   running,
+        "log":       log_lines,
+    })
+
+
+@app.route('/dev/testcord/start', methods=['POST'])
+def dev_testcord_start():
+    """Start the Testcord bot thread."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    if not os.environ.get("TESTCORD_TOKEN", "").strip():
+        return jsonify({"ok": False, "error": "TESTCORD_TOKEN is not set"}), 400
+    try:
+        import sys as _sys
+        import importlib
+        tc = _sys.modules.get('testcord')
+        if tc is None:
+            import os as _os
+            import sys as _sys2
+            _sys2.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+            tc = importlib.import_module('testcord')
+        started = tc.start_bot_thread()
+        return jsonify({"ok": True, "started": started, "already_running": not started and tc.is_running()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/dev/testcord/stop', methods=['POST'])
+def dev_testcord_stop():
+    """Stop the Testcord bot thread."""
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Locked"}), 403
+    try:
+        import sys as _sys
+        tc = _sys.modules.get('testcord')
+        if tc is None:
+            return jsonify({"ok": False, "error": "Testcord module not loaded"})
+        stopped = tc.stop_bot_thread()
+        return jsonify({"ok": True, "stopped": stopped})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ---- DEV: LICENSE MANAGEMENT ----
+@app.route('/dev/licenses', methods=['GET'])
+def dev_licenses_list():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
+    all_users = _lm.list_all()
+    result = []
+    for discord_id, rec in all_users.items():
+        user_rec = find_user_by_discord_id(discord_id) or {}
+        result.append({
+            "discord_id": discord_id,
+            "tier":       rec.get("tier", "free"),
+            "note":       rec.get("note", ""),
+            "granted_at": rec.get("granted_at", ""),
+            "username":   user_rec.get("name") or user_rec.get("discord_username") or rec.get("note", ""),
+        })
+    result.sort(key=lambda x: x.get("tier") == "premium", reverse=True)
+    return jsonify({"ok": True, "licenses": result})
+
+
+@app.route('/dev/licenses/grant', methods=['POST'])
+def dev_licenses_grant():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    discord_id = str(data.get('discord_id', '')).strip()
+    tier = data.get('tier', 'free')
+    note = data.get('note', '')
+    if not discord_id:
+        return jsonify({"ok": False, "error": "Discord ID is required"}), 400
+    if tier not in ('free', 'premium'):
+        return jsonify({"ok": False, "error": "Invalid tier"}), 400
+    try:
+        _lm.grant_tier(discord_id, tier, note=note, granted_by="admin")
+        user_rec = find_user_by_discord_id(discord_id) or {}
+        if user_rec:
+            user_rec['tier'] = tier
+            save_single_user(user_rec)
+        add_dashboard_log("🔑 GRANT-TIER", f"Granted {tier.upper()} to Discord ID {discord_id} ({note})")
+        return jsonify({"ok": True, "discord_id": discord_id, "tier": tier})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route('/dev/licenses/revoke', methods=['POST'])
+def dev_licenses_revoke():
+    if not is_dev_session():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    discord_id = str(data.get('discord_id', '')).strip()
+    if not discord_id:
+        return jsonify({"ok": False, "error": "No Discord ID provided"}), 400
+    ok = _lm.revoke_user(discord_id)
+    user_rec = find_user_by_discord_id(discord_id) or {}
+    if user_rec:
+        user_rec.pop('tier', None)
+        save_single_user(user_rec)
+    if ok:
+        add_dashboard_log("🔑 REVOKE-TIER", f"Revoked tier for Discord ID {discord_id}")
+    return jsonify({"ok": ok})
+
+
+# ---- AUTH: PRIVATE ADMIN LOGIN ----
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        if session.get('logged_in') and session.get('is_sp4rk_admin'):
+            return redirect(url_for('server_select'))
+        if not session.get('login_csrf'):
+            session['login_csrf'] = secrets.token_urlsafe(32)
+        return render_template('login.html', error=None, csrf_token=session.get('login_csrf'))
+    expected_passkey = os.environ.get('SP4RK_PASSKEY', '').strip()
+    supplied_csrf = request.form.get('csrf_token', '')
+    saved_csrf = session.get('login_csrf', '')
+    if (not expected_passkey or not saved_csrf
+            or not hmac.compare_digest(supplied_csrf, saved_csrf)):
+        return _login_error("Admin login is not configured. Contact the project owner.")
+    if not _rate_limit(request.remote_addr or 'unknown', max_calls=5, window_secs=900):
+        return _login_error("Too many attempts. Please wait 15 minutes and try again.")
+    supplied_passkey = request.form.get('passkey', '')
+    if not hmac.compare_digest(supplied_passkey.encode('utf-8'), expected_passkey.encode('utf-8')):
+        return _login_error("Invalid passkey.")
+    next_url = session.get('post_login_redirect')
+    live_guilds = _sp4rk_live_state().get('guilds', [])
+    session.clear()
+    session.permanent = True
+    session['logged_in'] = True
+    session['is_sp4rk_admin'] = True
+    session['discord_id'] = 'sp4rk-admin'
+    session['user_name'] = 'NVD Official Admin'
+    session['user_admin_guild_ids'] = [str(g.get('id')) for g in live_guilds if g.get('id')]
+    session['user_guilds'] = live_guilds
+    session['user_avatar'] = ''
+    session.modified = True
+    add_dashboard_log("✅ LOGIN", "NVD Official admin authenticated with passkey")
+    if next_url and next_url.startswith('/') and not next_url.startswith('//'):
+        return redirect(next_url)
+    return redirect(url_for('server_select'))
+
+def _login_error(msg):
+    if not session.get('login_csrf'):
+        session['login_csrf'] = secrets.token_urlsafe(32)
+    return render_template('login.html', error=msg, csrf_token=session.get('login_csrf'))
+
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    name = session.get('user_name', 'Admin')
+    add_dashboard_log("🚪 LOGOUT", f"{name} logged out")
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/register')
+@app.route('/forgot-password')
+def _legacy_auth_redirect():
+    return redirect(url_for('login'))
+
+@app.route('/activate-license', methods=['GET', 'POST'])
+def activate_license():
+    return redirect(url_for('landing'))
+
+
+# ---- SERVER SELECTION — NVD Official ----
+@app.route('/servers')
+def server_select():
+    """Post-login server picker for NVD Official — each server links directly to the NVD Official dashboard."""
+    if not session.get('logged_in'):
+        session['post_login_redirect'] = url_for('server_select')
+        return redirect(url_for('login'))
+    user_guilds = session.get('user_guilds', [])
+    user_avatar = session.get('user_avatar', '') or ''
+    return render_template(
+        'server_select.html',
+        user_guilds=user_guilds,
+        user_avatar=user_avatar,
+        user_name=session.get('user_name', 'User'),
+        discord_configured=False,
+    )
+
+
+# ---- SERVER SELECTION — SERVER OFFICIAL ----
+@app.route('/server-official/servers')
+def so_server_select():
+    """Server picker dedicated to NVD Official — each server links directly to the SO dashboard."""
+    if not session.get('logged_in'):
+        session['post_login_redirect'] = url_for('so_server_select')
+        return redirect(url_for('login'))
+    user_guilds = session.get('user_guilds', [])
+    user_avatar = session.get('user_avatar', '') or ''
+    return render_template(
+        'server_official_select.html',
+        user_guilds=user_guilds,
+        user_avatar=user_avatar,
+        user_name=session.get('user_name', 'User'),
+        discord_configured=False,
+    )
+
+
+
+
+# ---- MAIN DASHBOARD ----
+@app.route('/dashboard')
+def index():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    discord_id = session.get('discord_id', '')
+    if not discord_id:
+        session.clear()
+        return redirect(url_for('login'))
+
+    # Grab the guild param early so we can preserve it across redirects.
+    guild_from_url = request.args.get('guild', '').strip()
+
+    # Force re-auth if guild list is absent (old session) so the server
+    # picker is always scoped to only the user's admin servers.
+    # Preserve the ?guild= param so the user lands directly on their server
+    # after re-authenticating instead of being bounced back to /servers.
+    if 'user_admin_guild_ids' not in session:
+        redirect_target = (
+            url_for('index', guild=guild_from_url) if guild_from_url
+            else url_for('server_select')
+        )
+        session.clear()
+        session['post_login_redirect'] = redirect_target
+        return redirect(url_for('login'))
+
+    if guild_from_url:
+        session['selected_guild_id'] = guild_from_url
+        session.modified = True
+    else:
+        return redirect(url_for('server_select'))
+
+    if session.get('is_sp4rk_admin'):
+        current_user = {'discord_id': discord_id, 'discord_username': session.get('user_name', 'admin'),
+                        'name': session.get('user_name', 'admin'), 'is_admin': True,
+                        'created_at': datetime.now().strftime('%Y-%m-%d')}
+    else:
+        current_user = find_user_by_discord_id(discord_id)
+        if not current_user:
+            session.clear()
+            return redirect(url_for('login'))
+    session['user_name'] = current_user.get('name', 'User')
+
+    # ── Tier: check license manager first, fall back to user record ──
+    _is_admin = bool(session.get("is_sp4rk_admin"))
+    if _is_admin:
+        user_tier = "premium"
+    else:
+        lm_tier = _lm.get_user_tier(discord_id)
+        user_tier = lm_tier if lm_tier != "free" else current_user.get("tier", "free")
+    is_premium = (user_tier == "premium")
+    user_license_code = ""
+
+    live = _sp4rk_live_state(user_guild_ids=_user_admin_guild_ids())
+
+    # Fallback guild list for picker when bot is offline: use OAuth session guilds.
+    # Always make session guilds available — the template merges live + session guilds,
+    # so the picker is populated even when the bot is offline or not yet in any guild.
+    _session_guilds = session.get('user_guilds') or []
+    # Use session guilds as fallback only when bot isn't providing live guilds.
+    # When live.guilds is populated (bot online), the template already uses live.guilds.
+    session_guilds = _session_guilds if not (live and live.get('guilds')) else []
+
+    user_avatar = current_user.get('avatar_url', '') or session.get('user_avatar', '') or ''
+    preselect_guild = request.args.get('guild', '') or session.get('selected_guild_id', '')
+
+    # Resolve the guild name so the frontend can display it even when the
+    # dropdown doesn't yet contain that server (e.g. bot not yet connected).
+    preselect_guild_name = ''
+    if preselect_guild:
+        # Check live guilds first (most accurate), then session OAuth guilds.
+        for g in (live.get('guilds') or []):
+            if str(g.get('id', '')) == str(preselect_guild):
+                preselect_guild_name = g.get('name', '')
+                break
+        if not preselect_guild_name:
+            for g in (session.get('user_guilds') or []):
+                if str(g.get('id', '')) == str(preselect_guild):
+                    preselect_guild_name = g.get('name', '')
+                    break
+
+    try:
+        return render_template(
+            'index.html',
+            config=config,
+            is_admin=False,
+            current_user_name=current_user.get('name', 'User'),
+            current_uid='',
+            current_session_token='',
+            pending_users=[],
+            all_users=[],
+            dev_unlocked=is_dev_session(),
+            user_tier=user_tier,
+            user_license_code=user_license_code or current_user.get('license_code', ''),
+            is_premium=is_premium,
+            live=live,
+            session_guilds=session_guilds,
+            user_avatar=user_avatar,
+            preselect_guild=preselect_guild,
+            preselect_guild_name=preselect_guild_name,
+        )
+    except Exception as e:
+        print(f"❌ Dashboard template render error: {e}")
+        traceback.print_exc()
+        safe_name = html_escape(str(current_user.get('name', 'User')))
+        safe_uid = ''
+        safe_token = ''
+        return f"""
+        <!doctype html>
+        <html>
+        <head>
+            <title>NVD Official Dashboard</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; background:#07101f; color:#e8f0ff; padding:40px; }}
+                .card {{ max-width:720px; margin:auto; background:#0f1d38; border:1px solid rgba(58,143,255,.25); border-radius:14px; padding:28px; }}
+                a {{ color:#5ab4ff; }}
+                code {{ background:#07101f; color:#5ab4ff; padding:3px 7px; border-radius:6px; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>NVD Official Dashboard</h1>
+                <p>You are logged in as <strong>{safe_name}</strong>.</p>
+                <p>UID: <code>{safe_uid}</code></p>
+                <p>Session token: <code>{safe_token}</code></p>
+                <p>The full dashboard template hit a render error, but your login session is working. Check the server logs for the template error details.</p>
+                <p><a href="/dashboard">Retry dashboard</a> · <a href="/logout">Logout</a></p>
+            </div>
+        </body>
+        </html>
+        """
+
+# ---- UPDATE SETTINGS ----
+@app.route('/update', methods=['POST'])
+def update():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    global config
+    for key in TEXT_KEYS:
+        if key in request.form:
+            config[key] = request.form.get(key, "").strip()
+    for key in TOGGLE_KEYS:
+        config[key] = "ON" if request.form.get(key) else "OFF"
+    try:
+        config["warning_limit"] = int(request.form.get("warning_limit", 30))
+    except ValueError:
+        config["warning_limit"] = 30
+    save_config()
+    _trigger_bot_config_refresh()
+    return redirect(url_for('index'))
+
+# ---- API: SAVE SETTINGS ----
+@app.route('/api/save', methods=['POST'])
+def api_save():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    global config
+    data = request.get_json() or {}
+    for key in TEXT_KEYS:
+        if key in data:
+            config[key] = str(data[key]).strip()
+    for key in TOGGLE_KEYS:
+        if key in data:
+            config[key] = "ON" if data[key] else "OFF"
+    if "warning_limit" in data:
+        try:
+            config["warning_limit"] = int(data["warning_limit"])
+        except ValueError:
+            pass
+    save_config()
+    _trigger_bot_config_refresh()
+    add_dashboard_log("⚙️ SETTINGS", "Configuration updated via dashboard")
+    return jsonify({"status": "success", "message": "Settings saved!"})
+
+# ---- API: GET CONFIG ----
+@app.route('/api/config')
+def api_config():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    return jsonify(config)
+
+@app.route('/api/bot_config')
+def api_bot_config():
+    return jsonify({key: config.get(key) for key in PUBLIC_BOT_CONFIG_KEYS})
+
+# ---- API: PER-GUILD CONFIG (GET) ----
+@app.route('/api/guild_config', methods=['GET'])
+def api_guild_config_get():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = request.args.get('guild_id', '').strip()
+    if not guild_id:
+        return jsonify(config)
+    # Return only the guild-specific overrides (NOT merged with global defaults).
+    # Merging would cause every field to appear populated when switching servers,
+    # because global defaults fill in any key the guild hasn't set yet.
+    data = _load_guild_configs()
+    guild_cfg = data.get(guild_id, {})
+    result = dict(guild_cfg)
+    # Tell the frontend this guild has never been configured — triggers onboarding.
+    if guild_id and not guild_cfg:
+        result['_is_new'] = True
+    return jsonify(result)
+
+# ---- API: PER-GUILD CONFIG (POST / SAVE) ----
+@app.route('/api/guild_config', methods=['POST'])
+def api_guild_config_save():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    guild_id = str(data.pop('guild_id', '')).strip()
+
+    # If no guild_id in payload, fall back to the session's selected guild so
+    # that guild-only fields (log_channel, welcome_channel, etc.) are always
+    # saved per-guild and never silently swallowed into the global config.
+    if not guild_id:
+        guild_id = str(session.get('selected_guild_id', '') or '').strip()
+
+    updates = {}
+    for key in TEXT_KEYS:
+        if key in data:
+            updates[key] = str(data[key]).strip()
+    for key in TOGGLE_KEYS:
+        if key in data:
+            updates[key] = "ON" if data[key] else "OFF"
+    if "warning_limit" in data:
+        try:
+            updates["warning_limit"] = int(data["warning_limit"])
+        except (ValueError, TypeError):
+            pass
+
+    if guild_id:
+        save_guild_config(guild_id, updates)
+        add_dashboard_log("⚙️ GUILD-SETTINGS", f"Config updated for guild {guild_id}", guild_id=guild_id)
+    else:
+        global config
+        config.update(updates)
+        save_config()
+        add_dashboard_log("⚙️ SETTINGS", "Global configuration updated via dashboard")
+    _trigger_bot_config_refresh()
+    return jsonify({"status": "success", "message": "Settings saved!"})
+
+# ---- API: BOT CONFIG BY GUILD (for bot worker process) ----
+@app.route('/api/bot_config/<guild_id>')
+def api_bot_config_guild(guild_id):
+    cfg = get_guild_config(str(guild_id).strip())
+    return jsonify({key: cfg.get(key) for key in PUBLIC_BOT_CONFIG_KEYS})
+
+# ---- API: LOGS ----
+@app.route('/api/refresh_guilds', methods=['POST'])
+def api_refresh_guilds():
+    if not session.get('logged_in') or not session.get('is_sp4rk_admin'):
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    guilds = _sp4rk_live_state().get('guilds', [])
+    session['user_guilds'] = guilds
+    session['user_admin_guild_ids'] = [str(g.get('id')) for g in guilds if g.get('id')]
+    session.modified = True
+    return jsonify({'ok': True, 'guilds': guilds, 'count': len(guilds)})
+
+
+@app.route('/api/logs')
+def api_logs():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    limit    = int(request.args.get('limit', 200))
+    guild_id = (request.args.get('guild_id') or '').strip()
+    # Prefer DB logs (persistent across restarts) over in-memory only
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            db_logs = _ds.list_action_logs(limit=limit, guild_id=guild_id)
+            if db_logs:
+                return jsonify(db_logs)
+    except Exception as _le:
+        print(f"[api_logs] DB read failed: {_le}")
+    # Fallback: in-memory action_logs
+    if guild_id:
+        filtered = [l for l in action_logs if l.get('guild_id', '') in (guild_id, '')]
+    else:
+        filtered = action_logs
+    return jsonify(filtered[:limit])
+
+
+# ---- API: PER-GUILD ANALYTICS ----
+@app.route('/api/analytics')
+def api_analytics():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = (request.args.get('guild_id') or session.get('selected_guild_id') or '').strip()
+    days = int(request.args.get('days', 30))
+    if not guild_id:
+        return jsonify({"error": "No guild selected"}), 400
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            totals = _ds.get_analytics_totals(guild_id, days=days)
+            daily  = _ds.get_analytics_daily(guild_id, days=days)
+            voice  = _ds.get_analytics_voice_top(guild_id, limit=10)
+            # Format daily rows for charting: oldest first
+            daily_asc = list(reversed(daily))
+            chart = {
+                "labels":   [r.get("date", "")[:10] if isinstance(r.get("date"), str) else str(r.get("date", "")) for r in daily_asc],
+                "messages": [r.get("messages", 0) for r in daily_asc],
+                "joins":    [r.get("joins", 0)    for r in daily_asc],
+                "leaves":   [r.get("leaves", 0)   for r in daily_asc],
+            }
+            # Also pull recent action logs for this guild
+            guild_logs = [l for l in action_logs if l.get('guild_id', '') in (guild_id, '')][:50]
+            return jsonify({
+                "ok": True,
+                "guild_id": guild_id,
+                "days": days,
+                "totals": totals,
+                "chart": chart,
+                "voice_top": voice,
+                "action_logs": guild_logs,
+            })
+    except Exception as _e:
+        print(f"[api_analytics] error: {_e}")
+    # Fallback when DB unavailable
+    guild_logs = [l for l in action_logs if l.get('guild_id', '') in (guild_id, '')][:50]
+    return jsonify({
+        "ok": True,
+        "guild_id": guild_id,
+        "days": days,
+        "totals": {"messages": 0, "joins": 0, "leaves": 0, "days": days},
+        "chart": {"labels": [], "messages": [], "joins": [], "leaves": []},
+        "voice_top": [],
+        "action_logs": guild_logs,
+    })
+
+@app.route('/api/add_log', methods=['POST'])
+def api_add_log():
+    data = request.get_json() or {}
+    guild_id = data.get("guild_id") or (session.get("selected_guild_id") if session.get("logged_in") else None)
+    add_dashboard_log(data.get("type", "INFO"), data.get("description", ""), guild_id=guild_id)
+    return jsonify({"status": "success"})
+
+
+# ---- API: SPARK LOGS (full persistent action log from DB) ----
+@app.route('/api/spark_logs')
+def api_spark_logs():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = (request.args.get('guild_id') or session.get('selected_guild_id') or '').strip()
+    limit = int(request.args.get('limit', 200))
+    # 1) Try Postgres for persistent logs
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rows = _ds.list_action_logs(limit=limit)
+            if guild_id:
+                rows = [r for r in rows if r.get('guild_id', '') in (guild_id, '')]
+            return jsonify({"ok": True, "logs": rows, "source": "postgres", "count": len(rows)})
+    except Exception as _e:
+        print(f"[api_spark_logs] DB error: {_e}")
+    # 2) Fallback: in-memory action_logs
+    filtered = [l for l in action_logs if not guild_id or l.get('guild_id', '') in (guild_id, '')]
+    return jsonify({"ok": True, "logs": filtered[:limit], "source": "memory", "count": len(filtered[:limit])})
+
+# ---- API: USER FEEDBACK (star ratings) ----
+@app.route('/api/feedback', methods=['POST'])
+def api_feedback_submit():
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        rating = int(data.get('rating', 0))
+    except (TypeError, ValueError):
+        rating = 0
+    if rating < 1 or rating > 5:
+        return jsonify({"ok": False, "error": "Rating must be between 1 and 5"}), 400
+    comment = (data.get('comment') or '').strip()
+    if len(comment) > 2000:
+        comment = comment[:2000]
+    source = (data.get('source') or 'main').strip()[:64] or 'main'
+    entry = {
+        "discord_id": session.get('discord_id', ''),
+        "user_name":  session.get('user_name', 'User'),
+        "rating":     rating,
+        "comment":    comment,
+        "source":     source,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    saved_remote = supabase_save_feedback(entry)
+    # Always keep a local copy as a safety net (and so it shows even when
+    # Supabase is offline).
+    items = _load_feedback_file()
+    items.insert(0, entry)
+    _save_feedback_file(items[:500])
+    add_dashboard_log("FEEDBACK", f"{entry['user_name']} rated {rating}/5 ({source})")
+    return jsonify({"ok": True, "remote": saved_remote})
+
+
+@app.route('/api/feedback', methods=['GET'])
+def api_feedback_list():
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    try:
+        limit = max(1, min(int(request.args.get('limit', 10)), 50))
+    except (TypeError, ValueError):
+        limit = 10
+    rows = supabase_list_feedback(limit=limit)
+    if rows is None:  # Supabase unavailable -> use local file
+        rows = _load_feedback_file()[:limit]
+    # Compute aggregate stats from whichever source we used
+    total = len(rows)
+    avg = round(sum((r.get('rating') or 0) for r in rows) / total, 2) if total else 0
+    return jsonify({"ok": True, "items": rows, "count": total, "average": avg})
+
+# ---- API: EXPORT REPORT ----
+@app.route('/api/export/report')
+def export_report():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    warnings_file_data = {}
+    if os.path.exists('warnings.json'):
+        with open('warnings.json', 'r') as f:
+            try:
+                warnings_file_data = json.load(f)
+            except Exception:
+                pass
+
+    guild_id = (request.args.get('guild_id') or '').strip()
+    filtered_logs = [l for l in action_logs if l.get('guild_id', '') == guild_id] if guild_id else action_logs
+    filtered_warnings = [w for w in warnings_db if str(w.get('guild_id', '')) == guild_id] if guild_id else warnings_db
+    export_data = {
+        "exported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "guild_id": guild_id or "all",
+        "config_snapshot": {k: v for k, v in config.items() if k not in ("bot_avatar",)},
+        "live_warnings": filtered_warnings,
+        "persistent_warnings": warnings_file_data,
+        "action_logs": filtered_logs
+    }
+
+    response = make_response(json.dumps(export_data, indent=4))
+    fname = f"sentinel_report_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
+    response.headers["Content-Disposition"] = f"attachment; filename={fname}"
+    response.headers["Content-Type"] = "application/json"
+    add_dashboard_log("📥 EXPORT", "Moderation report exported")
+    return response
+
+# ---- API: WARNINGS ----
+@app.route('/api/get_warnings')
+def get_warnings():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = (request.args.get('guild_id') or '').strip()
+    if guild_id:
+        filtered = [w for w in warnings_db if str(w.get('guild_id', '')) == guild_id]
+    else:
+        filtered = warnings_db
+    return jsonify(filtered)
+
+@app.route('/api/add_warning', methods=['POST'])
+def add_warning_api():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    member_id = data.get("member_id")
+    username = data.get("username")
+    count = data.get("warnings", 0)
+    guild_id = str(data.get("guild_id") or "global")
+    for w in warnings_db:
+        if w["id"] == member_id and str(w.get("guild_id", "global")) == guild_id:
+            w["warnings"] = count
+            return jsonify({"status": "success"})
+    warnings_db.append({"id": member_id, "username": username, "warnings": count, "guild_id": guild_id})
+    add_dashboard_log("⚠️ WARNING", f"{username} now has {count} warning(s)")
+    return jsonify({"status": "success"})
+
+@app.route('/api/clear_warning', methods=['POST'])
+def clear_warning_api():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    member_id = data.get("member_id")
+    guild_id = str(data.get("guild_id") or "")
+    global warnings_db
+    entry = next((w for w in warnings_db if w["id"] == member_id and (not guild_id or str(w.get("guild_id", "")) == guild_id)), None)
+    if entry:
+        add_dashboard_log("🧹 CLEAR", f"Warnings cleared for {entry['username']}")
+    warnings_db = [w for w in warnings_db if not (w["id"] == member_id and (not guild_id or str(w.get("guild_id", "")) == guild_id))]
+    return jsonify({"status": "success"})
+
+# ---- API: CONFIRM ACTION ----
+@app.route('/api/confirm_action', methods=['POST'])
+def confirm_action():
+    data = request.get_json() or {}
+    member_id = data.get("member_id")
+    action = data.get("action")
+    print(f"⚡ Dashboard: {action.upper()} approved for member {member_id}")
+    add_dashboard_log(f"{'⛔' if action=='ban' else '🚪'} {action.upper()}", f"Dashboard action approved for member {member_id}")
+    return jsonify({"status": "success", "member_id": member_id, "action": action})
+
+# ---- API: BOT STATUS & RESTART ----
+@app.route('/api/bot_status')
+def bot_status():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    # The dashboard treats the main bot as "online" if either (a) it lives
+    # in this Python process (the restart callback is wired up) or (b) the
+    # configured DISCORD_TOKEN is valid and Discord is reachable — which
+    # covers the common Render setup where the bot runs as a separate
+    # service. The restart button itself only makes sense for case (a).
+    in_process = _bot_restart_callback is not None
+    token_ok = False
+    try:
+        from bot_health import token_is_live
+        token_ok = token_is_live(os.environ.get("DISCORD_TOKEN", ""))
+    except Exception:
+        token_ok = False
+    return jsonify({
+        "status": "ok",
+        "restart_available": bool(in_process or token_ok),
+        "in_process": in_process,
+        "remote_online": token_ok and not in_process,
+    })
+
+@app.route('/api/connection_status')
+def connection_status():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    discord_token  = bool(os.environ.get("DISCORD_TOKEN", "").strip())
+    client_id      = False
+    client_secret  = False
+    supabase_ok    = supabase is not None
+    gemini_ok      = bool(os.environ.get("GEMINI_KEY", "").strip() or os.environ.get("GOOGLE_API_KEY", "").strip())
+
+    # Email: need a login user AND a password
+    smtp_login_user = (
+        os.environ.get("SMTP_USER", "").strip()
+        or os.environ.get("GMAIL_USER", "").strip()
+        or os.environ.get("SMTP_EMAIL", "").strip()
+    )
+    smtp_password = (
+        os.environ.get("GMAIL_APP_PASSWORD", "")
+        or os.environ.get("SMTP_PASS", "")
+        or os.environ.get("SMTP_PASSWORD", "")
+    ).strip()
+    email_ok  = bool(smtp_login_user and smtp_password)
+    smtp_host = os.environ.get("SMTP_HOST", "")
+
+    session_ok = bool(os.environ.get("FLASK_SECRET_KEY", "").strip())
+
+    redirect_uri = os.environ.get("DISCORD_REDIRECT_URI", "").strip()
+
+    return jsonify({
+        "discord_bot":    discord_token,
+        "discord_oauth":  client_id and client_secret,
+        "discord_redirect": bool(redirect_uri),
+        "supabase":       supabase_ok,
+        "gemini":         gemini_ok,
+        "email":          email_ok,
+        "smtp_host":      smtp_host or None,
+        "session_stable": session_ok,
+        "bot_in_process": _bot_restart_callback is not None,
+    })
+
+@app.route('/api/restart_bot', methods=['POST'])
+def restart_bot():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    if _bot_restart_callback:
+        started = _bot_restart_callback()
+        add_dashboard_log("🔄 RESTART", "Bot restart triggered from dashboard")
+        msg = "Bot thread started." if started else "Bot is already running."
+        return jsonify({"status": "success", "message": msg})
+    return jsonify({"status": "error", "message": "Restart not available."}), 503
+
+# ---- API: GIVEAWAYS ----
+@app.route('/api/giveaways')
+def api_giveaways():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = (request.args.get('guild_id') or session.get('selected_guild_id') or '').strip()
+    if not guild_id:
+        return jsonify({"error": "No guild selected"}), 400
+    try:
+        import giveaway as giveaway_mod
+        return jsonify(giveaway_mod.get_giveaways_for_guild(guild_id))
+    except Exception as e:
+        return jsonify([])
+
+@app.route('/api/giveaway/set_winner', methods=['POST'])
+def api_giveaway_set_winner():
+    if not session.get("logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    message_id = data.get('message_id')
+    winner_name = (data.get('winner_name') or '').strip()
+    if not message_id or not winner_name:
+        return jsonify({"error": "message_id and winner_name are required"}), 400
+    try:
+        import giveaway as giveaway_mod
+        giveaway = giveaway_mod.force_set_winner(message_id, winner_name)
+        if not giveaway:
+            return jsonify({"error": "No active giveaway found with that ID"}), 404
+        prize = giveaway.get('prize', 'Unknown')
+        add_dashboard_log("👑 MANUAL WINNER", f"Giveaway '{prize}' — winner manually set to: {winner_name}")
+        # Announce in Discord if the bot is running in the same process
+        try:
+            import main as bot_main
+            import asyncio
+            if hasattr(bot_main, 'bot') and bot_main.bot.is_ready():
+                channel_id = giveaway.get('channel_id')
+                async def _announce():
+                    ch = bot_main.bot.get_channel(int(channel_id))
+                    if ch:
+                        await ch.send(
+                            f"🎉 **Giveaway Winner!** 👑 **{winner_name}** has been manually selected "
+                            f"as the winner of **{prize}**!"
+                        )
+                loop = bot_main.bot.loop
+                if loop and loop.is_running():
+                    asyncio.run_coroutine_threadsafe(_announce(), loop)
+        except Exception as disc_err:
+            print(f"⚠️ Discord giveaway announce error: {disc_err}")
+        return jsonify({"status": "success", "prize": prize, "winner": winner_name})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- API: TICKETS ----
+@app.route('/api/tickets')
+def api_tickets():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = (request.args.get('guild_id') or session.get('selected_guild_id') or '').strip()
+    if not guild_id:
+        return jsonify({"error": "No guild selected"}), 400
+    try:
+        import tickets as tickets_mod
+        return jsonify(tickets_mod.get_tickets_for_guild(guild_id))
+    except Exception as e:
+        return jsonify([])
+
+# ---- API: AUTO-RESPONDER ----
+@app.route('/api/autoresponder')
+def api_autoresponder():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        import autoresponder as ar_mod
+        return jsonify(ar_mod.get_all_responses())
+    except Exception as e:
+        return jsonify([])
+
+@app.route('/api/autoresponder/add', methods=['POST'])
+def api_autoresponder_add():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    trigger = data.get('trigger', '').strip()
+    response = data.get('response', '').strip()
+    match = data.get('match', 'contains')
+    if not trigger or not response:
+        return jsonify({"error": "Missing trigger or response"}), 400
+    try:
+        import autoresponder as ar_mod
+        is_new = ar_mod.add_response(trigger, response, match)
+        add_dashboard_log("🤖 AUTO-RESPOND", f"{'Added' if is_new else 'Updated'} trigger: {trigger}")
+        return jsonify({"status": "success", "new": is_new})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/autoresponder/remove', methods=['POST'])
+def api_autoresponder_remove():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    trigger = data.get('trigger', '').strip()
+    try:
+        import autoresponder as ar_mod
+        removed = ar_mod.remove_response(trigger)
+        if removed:
+            add_dashboard_log("🤖 AUTO-RESPOND", f"Removed trigger: {trigger}")
+        return jsonify({"status": "success", "removed": removed})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- API: REACTION ROLES ----
+@app.route('/api/reaction_roles')
+def api_reaction_roles():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        import reaction_roles as rr_mod
+        return jsonify(rr_mod.get_all_rules())
+    except Exception as e:
+        return jsonify([])
+
+@app.route('/api/reaction_roles/remove', methods=['POST'])
+def api_reaction_roles_remove():
+    if not session.get("logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    message_id = data.get('message_id')
+    emoji = data.get('emoji', '')
+    try:
+        import reaction_roles as rr_mod
+        removed = rr_mod.remove_rule(message_id, emoji)
+        return jsonify({"status": "success", "removed": removed})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- API: MENTION REACTIONS ----
+@app.route('/api/mention_reactions', methods=['GET'])
+def api_mention_reactions_get():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = request.args.get('guild_id', '')
+    try:
+        import mention_reactions as mr_mod
+        return jsonify(mr_mod.get_rules(guild_id or None))
+    except Exception as e:
+        return jsonify([])
+
+@app.route('/api/mention_reactions/add', methods=['POST'])
+def api_mention_reactions_add():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    guild_id = data.get('guild_id', '').strip()
+    user_id  = data.get('user_id', '').strip()
+    emoji    = data.get('emoji', '').strip()
+    label    = data.get('label', '').strip()
+    if not guild_id or not user_id or not emoji:
+        return jsonify({"error": "guild_id, user_id and emoji are required"}), 400
+    try:
+        import mention_reactions as mr_mod
+        is_new = mr_mod.add_rule(guild_id, user_id, emoji, label)
+        return jsonify({"status": "success", "new": is_new})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/mention_reactions/remove', methods=['POST'])
+def api_mention_reactions_remove():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    guild_id = data.get('guild_id', '').strip()
+    user_id  = data.get('user_id', '').strip()
+    if not guild_id or not user_id:
+        return jsonify({"error": "guild_id and user_id are required"}), 400
+    try:
+        import mention_reactions as mr_mod
+        removed = mr_mod.remove_rule(guild_id, user_id)
+        return jsonify({"status": "success", "removed": removed})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- API: LEVELING ----
+@app.route('/api/leveling/config', methods=['GET'])
+def api_leveling_config_get():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = request.args.get('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({"error": "guild_id required"}), 400
+    try:
+        import leveling as lv
+        return jsonify(lv.get_config(guild_id))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/leveling/config', methods=['POST'])
+def api_leveling_config_set():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    guild_id = data.pop('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({"error": "guild_id required"}), 400
+    try:
+        import leveling as lv
+        lv.set_config(guild_id, **data)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/leveling/leaderboard', methods=['GET'])
+def api_leveling_leaderboard():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = request.args.get('guild_id', '').strip()
+    if not guild_id:
+        return jsonify([])
+    try:
+        import leveling as lv
+        return jsonify(lv.get_leaderboard(guild_id, limit=25))
+    except Exception as e:
+        return jsonify([])
+
+@app.route('/api/leveling/reset_user', methods=['POST'])
+def api_leveling_reset_user():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    guild_id = data.get('guild_id', '').strip()
+    user_id  = data.get('user_id', '').strip()
+    if not guild_id or not user_id:
+        return jsonify({"error": "guild_id and user_id required"}), 400
+    try:
+        import leveling as lv, json, os
+        path = lv._XP_FILE
+        if os.path.exists(path):
+            db = json.load(open(path))
+            db.pop(f"{guild_id}:{user_id}", None)
+            lv._save_file(path, db)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- API: STARBOARD ----
+@app.route('/api/starboard/config', methods=['GET'])
+def api_starboard_config_get():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    guild_id = request.args.get('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({"error": "guild_id required"}), 400
+    try:
+        import starboard as sb
+        return jsonify(sb.get_config(guild_id))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/starboard/config', methods=['POST'])
+def api_starboard_config_set():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    guild_id = data.pop('guild_id', '').strip()
+    if not guild_id:
+        return jsonify({"error": "guild_id required"}), 400
+    try:
+        import starboard as sb
+        sb.set_config(guild_id, **data)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- API: STATS OVERVIEW ----
+@app.route('/api/stats')
+def api_stats():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    import os, json as _json
+    total_warnings = 0
+    try:
+        if os.path.exists('warnings.json'):
+            with open('warnings.json') as f:
+                wdb = _json.load(f)
+            for guild in wdb.values():
+                if isinstance(guild, dict):
+                    for v in guild.values():
+                        if isinstance(v, dict):
+                            total_warnings += v.get("count", 0)
+                        elif isinstance(v, int):
+                            total_warnings += v
+    except Exception:
+        pass
+    active_giveaways = 0
+    try:
+        if os.path.exists('giveaways.json'):
+            with open('giveaways.json') as f:
+                gd = _json.load(f)
+            active_giveaways = len([g for g in gd.get("giveaways", []) if not g.get("ended")])
+    except Exception:
+        pass
+    open_tickets = 0
+    try:
+        if os.path.exists('tickets.json'):
+            with open('tickets.json') as f:
+                td = _json.load(f)
+            open_tickets = len([t for t in td.get("tickets", []) if t.get("status") == "open"])
+    except Exception:
+        pass
+    ar_count = 0
+    try:
+        if os.path.exists('autoresponder.json'):
+            with open('autoresponder.json') as f:
+                ar = _json.load(f)
+            ar_count = len(ar.get("responses", []))
+    except Exception:
+        pass
+    rr_count = 0
+    try:
+        if os.path.exists('reaction_roles.json'):
+            with open('reaction_roles.json') as f:
+                rr = _json.load(f)
+            rr_count = len(rr.get("rules", []))
+    except Exception:
+        pass
+    return jsonify({
+        "total_warnings": total_warnings,
+        "active_giveaways": active_giveaways,
+        "open_tickets": open_tickets,
+        "autoresponders": ar_count,
+        "reaction_roles": rr_count
+    })
+
+# ---- SERVER OFFICIAL: AVATAR / PERMISSION ----
+@app.route('/server-official/api/permission', methods=['GET'])
+def so_api_permission():
+    """Tell the dashboard whether the logged-in user can manage the bot in the given guild."""
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    uid = str(session.get('discord_id') or '')
+    if not gid:
+        return jsonify({"ok": True, "data": {"allowed": False, "reason": "Select a server first", "role": ""}})
+    if not uid:
+        return jsonify({"ok": True, "data": {"allowed": False, "reason": "No Discord user in session", "role": ""}})
+    return jsonify({"ok": True, "data": so.member_can_manage_bot(gid, uid)})
+
+
+@app.route('/server-official/api/avatar', methods=['GET'])
+def so_api_avatar_get():
+    so, err = _so_require_login()
+    if err: return err
+    gid = request.args.get('guild_id', '').strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    return jsonify({"ok": True, "data": {"url": so.get_guild_avatar_url(gid)}})
+
+
+@app.route('/server-official/api/avatar', methods=['POST'])
+def so_api_avatar_upload():
+    so, err = _so_require_login()
+    if err: return err
+    gid = (request.form.get('guild_id') or '').strip()
+    uid = str(session.get('discord_id') or '')
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    perm = so.member_can_manage_bot(gid, uid)
+    if not perm.get("allowed"):
+        return jsonify({"ok": False, "error": perm.get("reason") or "Permission denied"}), 403
+    if 'image' not in request.files:
+        return jsonify({"ok": False, "error": "No image uploaded"}), 400
+    f = request.files['image']
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "Empty file"}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else 'png'
+    data = f.read()
+    result = so.save_guild_avatar(gid, data, ext)
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": result.get("error", "Save failed")}), 400
+    so.add_bot_action("avatar_change", f"Avatar updated for guild {gid} ({result.get('discord_status')})", _current_actor())
+    return jsonify({"ok": True, "data": result})
+
+
+@app.route('/server-official/api/avatar', methods=['DELETE'])
+def so_api_avatar_delete():
+    so, err = _so_require_login()
+    if err: return err
+    gid = (request.args.get('guild_id') or '').strip()
+    uid = str(session.get('discord_id') or '')
+    if not gid:
+        return jsonify({"ok": False, "error": "guild_id required"}), 400
+    perm = so.member_can_manage_bot(gid, uid)
+    if not perm.get("allowed"):
+        return jsonify({"ok": False, "error": perm.get("reason") or "Permission denied"}), 403
+    result = so.delete_guild_avatar(gid)
+    so.add_bot_action("avatar_reset", f"Avatar reset for guild {gid} ({result.get('discord_status')})", _current_actor())
+    return jsonify({"ok": True, "data": result})
+
+
+@app.route('/server-official/api/global_avatar', methods=['POST'])
+def so_api_global_avatar():
+    """Change the bot's global Discord profile picture (applies to all servers)."""
+    so, err = _so_require_login()
+    if err: return err
+    uid = str(session.get('discord_id') or '')
+    # Only server owners / admins / manage-server users on any bot guild may do this.
+    # We simply require the user to be logged in and have admin rights on at least
+    # one guild the bot is in; the real guard is the Discord rate-limit on avatar changes.
+    if 'image' not in request.files:
+        return jsonify({"ok": False, "error": "No image uploaded"}), 400
+    f = request.files['image']
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "Empty file"}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else 'png'
+    data = f.read()
+    result = so.set_global_avatar(data, ext)
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": result.get("error", "Failed")}), 400
+    so.add_bot_action("global_avatar_change", result.get("discord_status", ""), _current_actor())
+    return jsonify({"ok": True, "data": result})
+
+
+# ============================================================
+# 🎨 EMBED EDITOR API (shared by NVD Official + NVD Official)
+# ============================================================
+try:
+    import embeds as _embeds_mod
+except Exception as _embeds_import_err:
+    print(f"⚠️  embeds module import failed ({_embeds_import_err}) — embed editor disabled")
+    _embeds_mod = None
+
+
+def _embeds_for_bot(bot: str, guild_id=None):
+    """Return [{key, label, default, override, effective, ...}] for a bot."""
+    if _embeds_mod is None:
+        return []
+    items = []
+    for entry in _embeds_mod.list_for_bot(bot):
+        key = entry["key"]
+        items.append({
+            "key": key,
+            "label": entry.get("label", key),
+            "category": entry.get("category", ""),
+            "description": entry.get("description", ""),
+            "placeholders": entry.get("placeholders", []),
+            "default": entry["default"],
+            "override": _embeds_mod.get_override(key, guild_id=guild_id),
+            "effective": _embeds_mod.get_effective(key, guild_id=guild_id),
+            "has_override": _embeds_mod.has_override(key, guild_id=guild_id),
+        })
+    return items
+
+
+@app.route('/api/embeds', methods=['GET'])
+def api_embeds_list():
+    """List NVD Official embed templates (with optional ?guild_id=)."""
+    gid = request.args.get("guild_id")
+    return jsonify({"ok": True, "items": _embeds_for_bot("sp4rk", guild_id=gid)})
+
+
+@app.route('/api/embeds', methods=['POST'])
+def api_embeds_save():
+    """Save an NVD Official embed override. Body: {key, override:{title,description,color,footer,...}, guild_id?}"""
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    override = body.get("override") or {}
+    gid = body.get("guild_id")
+    if not key or not key.startswith("sp4rk."):
+        return jsonify({"ok": False, "error": "invalid key"}), 400
+    try:
+        _embeds_mod.save_override(key, override, guild_id=gid)
+        actor = _current_actor() if "_current_actor" in globals() else "dashboard"
+        try:
+            so.add_bot_action("embed_edit", f"Edited embed {key}" + (f" (guild {gid})" if gid else " (global)"), actor)
+        except Exception:
+            pass
+        return jsonify({"ok": True, "effective": _embeds_mod.get_effective(key, guild_id=gid)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route('/api/embeds', methods=['DELETE'])
+def api_embeds_reset():
+    """Reset an NVD Official embed override to default. Body: {key, guild_id?}"""
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    gid = body.get("guild_id")
+    if not key:
+        return jsonify({"ok": False, "error": "missing key"}), 400
+    _embeds_mod.reset_override(key, guild_id=gid)
+    return jsonify({"ok": True, "effective": _embeds_mod.get_effective(key, guild_id=gid)})
+
+
+@app.route('/api/embeds/preview', methods=['POST'])
+def api_embeds_preview():
+    """Preview an embed (rendered with sample placeholders).
+    Body: {key, override?, guild_id?}  — override is the unsaved draft.
+    Returns the rendered embed as a dict for client-side preview."""
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "missing key"}), 400
+    try:
+        preview = _embeds_mod.preview(key, payload=body.get("override"), guild_id=body.get("guild_id"))
+        return jsonify({"ok": True, "preview": preview})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+# ---- NVD Official embed editor (same logic, namespaced) ----
+@app.route('/server-official/api/embeds', methods=['GET'])
+def so_api_embeds_list():
+    gid = request.args.get("guild_id")
+    return jsonify({"ok": True, "items": _embeds_for_bot("server_official", guild_id=gid)})
+
+
+@app.route('/server-official/api/embeds', methods=['POST'])
+def so_api_embeds_save():
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    override = body.get("override") or {}
+    gid = body.get("guild_id")
+    if not key or not key.startswith("so."):
+        return jsonify({"ok": False, "error": "invalid key"}), 400
+    try:
+        _embeds_mod.save_override(key, override, guild_id=gid)
+        try:
+            so.add_bot_action("embed_edit", f"Edited embed {key}" + (f" (guild {gid})" if gid else " (global)"), _current_actor())
+        except Exception:
+            pass
+        return jsonify({"ok": True, "effective": _embeds_mod.get_effective(key, guild_id=gid)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route('/server-official/api/embeds', methods=['DELETE'])
+def so_api_embeds_reset():
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    gid = body.get("guild_id")
+    if not key:
+        return jsonify({"ok": False, "error": "missing key"}), 400
+    _embeds_mod.reset_override(key, guild_id=gid)
+    return jsonify({"ok": True, "effective": _embeds_mod.get_effective(key, guild_id=gid)})
+
+
+@app.route('/server-official/api/embeds/preview', methods=['POST'])
+def so_api_embeds_preview():
+    if _embeds_mod is None:
+        return jsonify({"ok": False, "error": "embed editor unavailable"}), 503
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "missing key"}), 400
+    try:
+        preview = _embeds_mod.preview(key, payload=body.get("override"), guild_id=body.get("guild_id"))
+        return jsonify({"ok": True, "preview": preview})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# WAVE — STREAMING & WATCH PARTY ROUTES
+# ════════════════════════════════════════════════════════════════════════════
+import secrets as _secrets
+import threading as _wv_threading
+import time as _wv_time
+
+_WAVE_ROOMS_FILE = os.path.join(os.path.dirname(__file__), 'wave_rooms.json')
+_WAVE_LOCK = _wv_threading.Lock()
+_WAVE_PRESENCE: dict = {}   # room_id → {viewer_name: last_ping_ts}
+
+
+def _wave_read() -> dict:
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            rooms = _ds.get_wave_rooms()
+            if rooms is not None:
+                return rooms
+    except Exception:
+        pass
+    # 2) JSON fallback
+    try:
+        from pathlib import Path as _P
+        p = _P(_WAVE_ROOMS_FILE)
+        if p.exists():
+            import json as _j
+            return _j.loads(p.read_text(encoding='utf-8'))
+    except Exception:
+        pass
+    return {}
+
+
+def _wave_write(data: dict):
+    # 1) Postgres
+    try:
+        import db_spark as _ds
+        if _ds.is_available():
+            _ds.save_wave_rooms(data)
+    except Exception:
+        pass
+    # 2) JSON hot copy
+    import json as _j
+    from pathlib import Path as _P
+    p = _P(_WAVE_ROOMS_FILE)
+    tmp = p.with_suffix('.tmp')
+    tmp.write_text(_j.dumps(data, indent=2), encoding='utf-8')
+    tmp.replace(p)
+
+
+def _wave_room(rid: str) -> dict | None:
+    return _wave_read().get(rid)
+
+
+@app.route('/wave')
+def wave_landing():
+    """Wave streaming bot landing page."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html',
+                               maintenance_eta=_load_dev_state().get('maintenance_eta', '')), 200
+    return render_template('wave_landing.html')
+
+
+@app.route('/wave/dashboard')
+def wave_dashboard():
+    """Wave admin dashboard — requires login."""
+    if is_maintenance_mode() and not is_dev_session():
+        return render_template('under_maintenance.html',
+                               maintenance_eta=_load_dev_state().get('maintenance_eta', '')), 200
+    if not session.get('logged_in'):
+        session['post_login_redirect'] = url_for('wave_dashboard')
+        return redirect(url_for('login'))
+
+    # Load active rooms + attach viewer counts
+    rooms_raw = _wave_read()
+    now = _wv_time.time()
+    rooms_out = {}
+    total_viewers = 0
+    for rid, rm in rooms_raw.items():
+        pres = _WAVE_PRESENCE.get(rid, {})
+        vc   = max(1, len([ts for ts in pres.values() if now - ts < 14]))
+        rm_copy = dict(rm)
+        rm_copy['viewer_count'] = vc
+        total_viewers += vc
+        rooms_out[rid] = rm_copy
+
+    # Guild config
+    try:
+        from pathlib import Path as _P
+        import json as _j
+        cfg_path = _P(__file__).parent / 'wave_config.json'
+        guild_cfg = _j.loads(cfg_path.read_text(encoding='utf-8')) if cfg_path.exists() else {}
+    except Exception:
+        guild_cfg = {}
+
+    # Bot running detection
+    try:
+        import wavebot as _wb
+        bot_running = bool(
+            _wb._bot_thread and _wb._bot_thread.is_alive()
+            and os.environ.get('W_TOKEN', '').strip()
+        )
+    except Exception:
+        bot_running = False
+
+    return render_template(
+        'wave_dashboard.html',
+        rooms=rooms_out,
+        total_viewers=total_viewers,
+        guilds_configured=len(guild_cfg),
+        guild_config=guild_cfg,
+        bot_running=bot_running,
+    )
+
+
+@app.route('/watch/<room_id>')
+def watch_room(room_id):
+    """Public watch-party room — accessible without login."""
+    room = _wave_room(room_id)
+    if not room:
+        return render_template('404.html'), 404
+    host_token = request.args.get('host', '')
+    is_host = host_token == room.get('host_token', '__invalid__')
+    return render_template(
+        'stream_room.html',
+        room_id=room_id,
+        room=room,
+        is_host=is_host,
+        host_token=host_token if is_host else '',
+    )
+
+
+# ── API: create room (called by wavebot /start) ───────────────────────────
+@app.route('/api/wave/create', methods=['POST'])
+def wave_api_create():
+    import json as _j, datetime as _dt
+    data  = request.get_json(silent=True) or {}
+    rid   = _secrets.token_urlsafe(8)
+    tok   = _secrets.token_hex(20)
+    room  = {
+        'title':       data.get('title', 'Watch Party')[:80],
+        'stream_url':  data.get('url', '').strip(),
+        'stream_type': 'iframe' if data.get('url', '').strip() else 'none',
+        'playing':     False,
+        'position':    0.0,
+        'position_ts': _wv_time.time(),
+        'host_token':  tok,
+        'created_at':  _dt.datetime.utcnow().isoformat(),
+        'chat':        [],
+        'guild_id':    data.get('guild_id', ''),
+    }
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        rooms[rid] = room
+        _wave_write(rooms)
+    base = request.host_url.rstrip('/')
+    return jsonify({
+        'ok':        True,
+        'room_id':   rid,
+        'host_token': tok,
+        'watch_url': f'{base}/watch/{rid}',
+        'host_url':  f'{base}/watch/{rid}?host={tok}',
+    })
+
+
+# ── API: room state (polling) ─────────────────────────────────────────────
+@app.route('/api/wave/state/<room_id>')
+def wave_api_state(room_id):
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    now  = _wv_time.time()
+    pres = _WAVE_PRESENCE.get(room_id, {})
+    viewers = [{'name': n, 'host': False}
+               for n, ts in pres.items() if now - ts < 14]
+    out = {k: v for k, v in room.items() if k != 'host_token'}
+    out['viewer_count'] = max(1, len(viewers))
+    out['viewers_list'] = viewers
+    return jsonify({'ok': True, 'room': out})
+
+
+# ── API: set stream URL (host only) ──────────────────────────────────────
+@app.route('/api/wave/set-stream/<room_id>', methods=['POST'])
+def wave_api_set_stream(room_id):
+    data = request.get_json(silent=True) or {}
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    if data.get('host_token') != room.get('host_token'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+    url  = data.get('url', '').strip()
+    stype = data.get('type', 'iframe')  # 'iframe' | 'video' | 'none'
+    if not url:
+        stype = 'none'
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        r = rooms.get(room_id, room)
+        r['stream_url']  = url
+        r['stream_type'] = stype
+        r['playing']     = False
+        r['position']    = 0.0
+        r['position_ts'] = _wv_time.time()
+        rooms[room_id] = r
+        _wave_write(rooms)
+    return jsonify({'ok': True})
+
+
+# ── API: playback control for video streams (host only) ───────────────────
+@app.route('/api/wave/control/<room_id>', methods=['POST'])
+def wave_api_control(room_id):
+    data = request.get_json(silent=True) or {}
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    if data.get('host_token') != room.get('host_token'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+    action   = data.get('action', '')
+    position = float(data.get('position', room.get('position', 0)))
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        r = rooms.get(room_id, room)
+        r['position_ts'] = _wv_time.time()
+        if action == 'play':
+            r['position'] = position
+            r['playing']  = True
+        elif action == 'pause':
+            r['position'] = position
+            r['playing']  = False
+        elif action == 'seek':
+            r['position'] = position
+        rooms[room_id] = r
+        _wave_write(rooms)
+    return jsonify({'ok': True})
+
+
+# ── API: chat ─────────────────────────────────────────────────────────────
+@app.route('/api/wave/chat/<room_id>', methods=['POST'])
+def wave_api_chat(room_id):
+    import datetime as _dt
+    data = request.get_json(silent=True) or {}
+    name = str(data.get('name', 'Viewer'))[:28].strip() or 'Viewer'
+    text = str(data.get('text', ''))[:240].strip()
+    if not text:
+        return jsonify({'ok': False, 'error': 'empty'}), 400
+    ts  = _dt.datetime.utcnow().strftime('%H:%M')
+    msg = {'name': name, 'text': text, 'ts': ts}
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        room  = rooms.get(room_id)
+        if not room:
+            return jsonify({'ok': False, 'error': 'not found'}), 404
+        room.setdefault('chat', []).append(msg)
+        if len(room['chat']) > 120:
+            room['chat'] = room['chat'][-120:]
+        rooms[room_id] = room
+        _wave_write(rooms)
+    return jsonify({'ok': True})
+
+
+# ── API: presence ping ────────────────────────────────────────────────────
+@app.route('/api/wave/ping/<room_id>', methods=['POST'])
+def wave_api_ping(room_id):
+    data = request.get_json(silent=True) or {}
+    name = str(data.get('name', 'Viewer'))[:28].strip() or 'Viewer'
+    _WAVE_PRESENCE.setdefault(room_id, {})[name] = _wv_time.time()
+    return jsonify({'ok': True})
+
+
+# ── API: scan URL for video streams (yt-dlp) ─────────────────────────────
+@app.route('/api/wave/scan', methods=['POST'])
+def wave_api_scan():
+    import re as _re
+    data = request.get_json(silent=True) or {}
+    url  = data.get('url', '').strip()
+    if not url:
+        return jsonify({'ok': False, 'error': 'no url'}), 400
+
+    results = []
+
+    # 1. yt-dlp — handles YouTube, Twitch, Vimeo, 1000+ sites
+    try:
+        import yt_dlp
+        flat_opts = {'quiet': True, 'no_warnings': True,
+                     'extract_flat': True, 'noplaylist': False}
+        with yt_dlp.YoutubeDL(flat_opts) as ytdl:
+            info = ytdl.extract_info(url, download=False)
+            if info:
+                if 'entries' in info:
+                    for e in list(info['entries'])[:20]:
+                        if not e:
+                            continue
+                        results.append({
+                            'title':     e.get('title') or 'Stream',
+                            'url':       e.get('url') or e.get('webpage_url', ''),
+                            'thumbnail': e.get('thumbnail', ''),
+                            'type':      'youtube' if 'youtube' in url else 'video',
+                        })
+                else:
+                    stream_opts = {'quiet': True, 'no_warnings': True,
+                                   'format': 'bestaudio/best',
+                                   'skip_download': True, 'noplaylist': True}
+                    with yt_dlp.YoutubeDL(stream_opts) as ytdl2:
+                        info2 = ytdl2.extract_info(url, download=False)
+                        if info2:
+                            results.append({
+                                'title':     info2.get('title') or 'Stream',
+                                'url':       info2.get('url', url),
+                                'thumbnail': info2.get('thumbnail', ''),
+                                'type':      'live' if info2.get('is_live') else 'video',
+                            })
+    except Exception:
+        pass
+
+    # 2. Fallback — scrape page for .m3u8 / .mp4 URLs
+    if not results:
+        try:
+            import requests as _req
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            resp = _req.get(url, timeout=12, headers=headers)
+            txt  = resp.text
+            for mu in list(dict.fromkeys(_re.findall(r'https?://[^\s"\'<>]+\.m3u8[^\s"\'<>]*', txt)))[:10]:
+                results.append({'title': f'HLS Stream', 'url': mu, 'thumbnail': '', 'type': 'm3u8'})
+            if not results:
+                for mu in list(dict.fromkeys(_re.findall(r'https?://[^\s"\'<>]+\.mp4[^\s"\'<>]*', txt)))[:5]:
+                    results.append({'title': f'Video', 'url': mu, 'thumbnail': '', 'type': 'mp4'})
+        except Exception:
+            pass
+
+    # 3. URL itself is a direct stream
+    if not results and ('.m3u8' in url or url.endswith('.mp4') or url.endswith('.webm')):
+        results.append({'title': 'Direct Stream', 'url': url, 'thumbnail': '', 'type': 'm3u8'})
+
+    return jsonify({'ok': True, 'results': results, 'count': len(results)})
+
+
+# ── API: end session (host or logged-in admin) ────────────────────────────
+@app.route('/api/wave/end/<room_id>', methods=['POST'])
+def wave_api_end(room_id):
+    data = request.get_json(silent=True) or {}
+    room = _wave_room(room_id)
+    if not room:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    is_admin = session.get('logged_in') and data.get('_admin')
+    if not is_admin and data.get('host_token') != room.get('host_token'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+    with _WAVE_LOCK:
+        rooms = _wave_read()
+        rooms.pop(room_id, None)
+        _wave_write(rooms)
+    _WAVE_PRESENCE.pop(room_id, None)
+    return jsonify({'ok': True})
+
+
+# ── API: admin rooms list (dashboard polling) ─────────────────────────────
+@app.route('/api/wave/admin/rooms')
+def wave_api_admin_rooms():
+    if not session.get('logged_in'):
+        return jsonify({'ok': False, 'error': 'Login required'}), 401
+    rooms_raw = _wave_read()
+    now = _wv_time.time()
+    rooms_out = []
+    total = 0
+    for rid, rm in rooms_raw.items():
+        pres = _WAVE_PRESENCE.get(rid, {})
+        vc   = max(1, len([ts for ts in pres.values() if now - ts < 14]))
+        total += vc
+        rooms_out.append({
+            'id':          rid,
+            'title':       rm.get('title', 'Watch Party'),
+            'stream_url':  rm.get('stream_url', ''),
+            'stream_type': rm.get('stream_type', 'none'),
+            'playing':     rm.get('playing', False),
+            'created_at':  rm.get('created_at', ''),
+            'guild_id':    rm.get('guild_id', ''),
+            'viewer_count': vc,
+        })
+    return jsonify({'ok': True, 'rooms': rooms_out, 'total_viewers': total})
+
+
+# ---- GUILD EMOJIS ----
+@app.route('/api/guild_emojis')
+def api_guild_emojis():
+    """Return custom emojis for the selected guild, fetching live if cache is empty."""
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "emojis": [], "error": "Unauthorized"}), 401
+    gid = request.args.get('guild_id', '').strip()
+    bot_name = request.args.get('bot', 'sp4rk').strip()
+    if not gid or not gid.isdigit():
+        return jsonify({"ok": False, "emojis": [], "error": "A valid guild_id is required"}), 400
+    try:
+        if bot_name == 'server_official':
+            import server_official as _so_mod
+            b = getattr(_so_mod, 'bot', None)
+        else:
+            import main as _main_mod
+            b = getattr(_main_mod, 'bot', None)
+        if not b or not b.is_ready():
+            return jsonify({"ok": False, "emojis": [], "error": "The selected bot is not connected to Discord yet."}), 503
+
+        import asyncio as _asyncio
+        guild = b.get_guild(int(gid))
+        if guild is None:
+            try:
+                guild = _asyncio.run_coroutine_threadsafe(b.fetch_guild(int(gid)), b.loop).result(timeout=10)
+            except Exception:
+                return jsonify({"ok": False, "emojis": [], "error": "The bot cannot access this server. Check that it has joined the selected server."}), 404
+
+        found = list(guild.emojis or [])
+        if not found:
+            try:
+                found = _asyncio.run_coroutine_threadsafe(guild.fetch_emojis(), b.loop).result(timeout=10)
+            except Exception as fetch_error:
+                app.logger.warning(f'[guild_emojis] fetch failed for {gid}: {fetch_error}')
+
+        emojis = []
+        for e in found:
+            fmt = f'<a:{e.name}:{e.id}>' if e.animated else f'<:{e.name}:{e.id}>'
+            emojis.append({
+                'id': str(e.id), 'name': e.name, 'animated': e.animated,
+                'url': str(e.url), 'format': fmt,
+            })
+        return jsonify({'ok': True, 'emojis': emojis, 'guild_id': gid, 'count': len(emojis)})
+    except Exception as ex:
+        app.logger.exception(f'[guild_emojis] {ex}')
+        return jsonify({"ok": False, "emojis": [], "error": "Could not load server emojis. Please retry."}), 500
+
+
+# ---- DASHBOARD IMAGE UPLOAD ----
+@app.route('/api/dashboard/upload_image', methods=['POST'])
+def api_dashboard_upload_image():
+    """Upload an image for dashboard image-URL fields; returns an absolute URL."""
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    if 'image' not in request.files:
+        return jsonify({"ok": False, "error": "Choose an image first"}), 400
+    f = request.files['image']
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "Choose an image first"}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+    if ext not in {'png', 'jpg', 'jpeg', 'gif', 'webp'}:
+        return jsonify({"ok": False, "error": "Use PNG, JPG, GIF, or WebP"}), 400
+    data = f.read(8 * 1024 * 1024 + 1)
+    if not data or len(data) > 8 * 1024 * 1024:
+        return jsonify({"ok": False, "error": "Image must be smaller than 8 MB"}), 400
+    signatures = {
+        'png': data.startswith(b'\x89PNG\r\n\x1a\n'),
         'jpg': data.startswith(b'\xff\xd8\xff'),
         'jpeg': data.startswith(b'\xff\xd8\xff'),
         'gif': data.startswith((b'GIF87a', b'GIF89a')),
