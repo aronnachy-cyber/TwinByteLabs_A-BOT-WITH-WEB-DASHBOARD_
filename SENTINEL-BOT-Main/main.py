@@ -4039,17 +4039,40 @@ async def slash_set_log_channel(interaction: discord.Interaction, channel: disco
             "❌ **Access Denied** — You need Administrator permission.", ephemeral=True
         )
     try:
-        from dashboard import save_guild_config, get_guild_config as _ggc
-        gcfg = _ggc(str(interaction.guild.id))
-        gcfg["log_channel"] = str(channel.id)
-        save_guild_config(str(interaction.guild.id), gcfg)
+        from dashboard import save_guild_config
+        # Persist only the guild-scoped destination and explicitly enable the
+        # unified logger. Do not write a stale full-config snapshot back.
+        saved = save_guild_config(str(interaction.guild.id), {
+            "log_channel": str(channel.id),
+            "logging_enabled": True,
+        })
+        if not saved:
+            raise RuntimeError("Config storage did not confirm the save.")
+        effective = get_config_for_guild(str(interaction.guild.id))
+        if str(effective.get("log_channel", "")) != str(channel.id):
+            raise RuntimeError("Saved channel could not be read back from guild config.")
+        me = interaction.guild.me
+        perms = channel.permissions_for(me) if me else None
+        missing = []
+        if not perms or not perms.view_channel: missing.append("View Channel")
+        if not perms or not perms.send_messages: missing.append("Send Messages")
+        if not perms or not perms.embed_links: missing.append("Embed Links")
+        if missing:
+            raise PermissionError("Bot needs: " + ", ".join(missing))
+        test = discord.Embed(
+            title="✅ NVD Unified Logging Test",
+            description="This channel is configured. All enabled NVD event logs will be sent here.",
+            color=0x2ECC71,
+            timestamp=discord.utils.utcnow(),
+        )
+        await channel.send(embed=test, allowed_mentions=discord.AllowedMentions.none())
         refresh_config()
-        dlog("📋 LOG-CHANNEL", f"Log channel set to #{channel.name} ({channel.id}) by {interaction.user}", guild_id=interaction.guild_id)
+        dlog("📋 LOG-CHANNEL", f"Unified log channel set to #{channel.name} ({channel.id}) by {interaction.user}", guild_id=interaction.guild_id)
     except Exception as e:
-        return await interaction.response.send_message(f"❌ Failed to save log channel: `{e}`", ephemeral=True)
+        return await interaction.response.send_message(f"❌ Log channel setup failed: `{str(e)[:300]}`", ephemeral=True)
     await interaction.response.send_message(
-        f"✅ **Log channel set!** Logs will be sent to {channel.mention}\n"
-        f"The dashboard has been updated automatically.",
+        f"✅ **Unified log channel set!** Test message sent to {channel.mention}.\n"
+        f"Logging is enabled and the saved channel was verified.",
         ephemeral=True,
     )
 
