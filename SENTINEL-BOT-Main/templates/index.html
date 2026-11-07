@@ -268,6 +268,7 @@ html.bl-compact .page-header { margin-bottom: 18px; }
   .page-header h2 { font-size: 1.25rem; }
 }
 </style>
+<link rel="stylesheet" href="{{ url_for('static', filename='dashboard-refresh.css') }}">
 </head>
 <script>
 /* ===== Apply persisted dev theme BEFORE paint to avoid flash ===== */
@@ -2148,8 +2149,29 @@ blOpenDev = async function(){
 {% endif %}
 
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  const isOpen = sidebar.classList.toggle('open');
+  document.body.classList.toggle('sidebar-open', isOpen);
 }
+
+// Close the mobile drawer after navigation or an outside tap.
+document.addEventListener('click', function(event) {
+  if (window.innerWidth > 768) return;
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar || !sidebar.classList.contains('open')) return;
+  if (event.target.closest('#sidebar .nav-item') ||
+      (!event.target.closest('#sidebar') && !event.target.closest('.mobile-bar'))) {
+    sidebar.classList.remove('open');
+    document.body.classList.remove('sidebar-open');
+  }
+});
+document.addEventListener('keydown', function(event) {
+  if (event.key !== 'Escape') return;
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) sidebar.classList.remove('open');
+  document.body.classList.remove('sidebar-open');
+});
 
 // ---- SIDEBAR DRAG TO REORDER (Sortable.js) ----
 const sortableNav = document.getElementById('sortable-nav');
