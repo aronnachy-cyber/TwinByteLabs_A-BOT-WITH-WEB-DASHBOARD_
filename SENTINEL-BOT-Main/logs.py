@@ -14,18 +14,14 @@ _TEMPLATE_EVENTS = {
 }
 
 async def _resolve_log_channel_id(config, guild_id=None, channel_key="log_channel", bot=None):
-    """Legacy resolver retained for integrations; category-aware when possible."""
+    """Resolve the single unified NVD server log channel."""
     if not bot or not guild_id:
-        return (config or {}).get(channel_key) or (config or {}).get("log_channel") or ""
+        return (config or {}).get("log_channel") or ""
     guild = bot.get_guild(int(guild_id))
     if guild is None:
         return ""
     cfg = logging_system._cfg(guild_id)
-    category = {
-        "message_log_channel":"messages", "join_log_channel":"join_leave",
-        "voice_log_channel":"voice"
-    }.get(channel_key, "moderation")
-    target = logging_system._target(bot, guild, cfg, category)
+    target = logging_system._target(bot, guild, cfg, "server")
     return str(target.id) if target else ""
 
 async def _get_channel(bot, channel_id: int):
