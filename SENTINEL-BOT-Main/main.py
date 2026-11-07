@@ -20,6 +20,7 @@ from dashboard import (
 )
 import moderation, automod, roles, logs, security, captcha, logging_system
 
+BOT_VERSION = "2.1.1"
 BOT_START_TIME = datetime.utcnow()
 
 # ---------------- CONFIG LOADER ----------------
@@ -3856,7 +3857,7 @@ async def slash_botinfo(interaction: discord.Interaction):
     embed.add_field(name="🏠 Servers", value=f"**{guild_count:,}**", inline=True)
     embed.add_field(name="👥 Users", value=f"**{user_count:,}**", inline=True)
     embed.add_field(name="🏓 Latency", value=f"**{latency_ms} ms**", inline=True)
-    embed.add_field(name="📦 Version", value="**V2.5.0**", inline=True)
+    embed.add_field(name="📦 Version", value=f"**v{BOT_VERSION}**", inline=True)
     embed.add_field(name="⚙️ Library", value="**discord.py 2.x**", inline=True)
     embed.add_field(name="🐍 Python", value="**3.11**", inline=True)
     embed.add_field(
@@ -3884,7 +3885,7 @@ async def slash_about(interaction: discord.Interaction):
     )
     embed.add_field(name="👤 Created by", value="**Aronna Chowdhury**", inline=True)
     embed.add_field(name="🎂 Bot Birthday", value="**19 February 2026**", inline=True)
-    embed.add_field(name="📦 Version", value="**V2.5.0**", inline=True)
+    embed.add_field(name="📦 Version", value=f"**v{BOT_VERSION}**", inline=True)
     embed.add_field(
         name="🛡️ What NVD Official does",
         value=(
@@ -4614,7 +4615,7 @@ def run_bot():
     import time
     retry_delay = 5
     while True:
-        print("🤖 Starting NVD Official Bot V2.0.4...")
+        print(f"🤖 Starting NVD Official Bot v{BOT_VERSION}...")
         try:
             bot.run(TOKEN, reconnect=True)
         except discord.errors.LoginFailure:
