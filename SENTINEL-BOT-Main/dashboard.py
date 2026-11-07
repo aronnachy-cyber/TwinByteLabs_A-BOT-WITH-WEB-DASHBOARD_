@@ -5121,14 +5121,13 @@ def wave_api_admin_rooms():
 # ---- GUILD EMOJIS ----
 @app.route('/api/guild_emojis')
 def api_guild_emojis():
-    """Return the list of custom emojis for a guild, fetched from the live bot."""
+    """Return custom emojis for the selected guild, fetching live if cache is empty."""
     if not session.get('logged_in'):
-        return jsonify({"error": "Unauthorized"}), 401
+        return jsonify({"ok": False, "emojis": [], "error": "Unauthorized"}), 401
     gid = request.args.get('guild_id', '').strip()
     bot_name = request.args.get('bot', 'sp4rk').strip()
-    if not gid:
-        return jsonify({"ok": False, "emojis": [], "error": "guild_id required"}), 400
-    emojis = []
+    if not gid or not gid.isdigit():
+        return jsonify({"ok": False, "emojis": [], "error": "A valid guild_id is required"}), 400
     try:
         if bot_name == 'server_official':
             import server_official as _so_mod
@@ -5136,21 +5135,73 @@ def api_guild_emojis():
         else:
             import main as _main_mod
             b = getattr(_main_mod, 'bot', None)
-        if b and b.is_ready():
-            guild = b.get_guild(int(gid))
-            if guild:
-                for e in guild.emojis:
-                    fmt = f'<a:{e.name}:{e.id}>' if e.animated else f'<:{e.name}:{e.id}>'
-                    emojis.append({
-                        'id':       str(e.id),
-                        'name':     e.name,
-                        'animated': e.animated,
-                        'url':      str(e.url),
-                        'format':   fmt,
-                    })
+        if not b or not b.is_ready():
+            return jsonify({"ok": False, "emojis": [], "error": "The selected bot is not connected to Discord yet."}), 503
+
+        import asyncio as _asyncio
+        guild = b.get_guild(int(gid))
+        if guild is None:
+            try:
+                guild = _asyncio.run_coroutine_threadsafe(b.fetch_guild(int(gid)), b.loop).result(timeout=10)
+            except Exception:
+                return jsonify({"ok": False, "emojis": [], "error": "The bot cannot access this server. Check that it has joined the selected server."}), 404
+
+        found = list(guild.emojis or [])
+        if not found:
+            try:
+                found = _asyncio.run_coroutine_threadsafe(guild.fetch_emojis(), b.loop).result(timeout=10)
+            except Exception as fetch_error:
+                app.logger.warning(f'[guild_emojis] fetch failed for {gid}: {fetch_error}')
+
+        emojis = []
+        for e in found:
+            fmt = f'<a:{e.name}:{e.id}>' if e.animated else f'<:{e.name}:{e.id}>'
+            emojis.append({
+                'id': str(e.id), 'name': e.name, 'animated': e.animated,
+                'url': str(e.url), 'format': fmt,
+            })
+        return jsonify({'ok': True, 'emojis': emojis, 'guild_id': gid, 'count': len(emojis)})
     except Exception as ex:
-        app.logger.warning(f'[guild_emojis] {ex}')
-    return jsonify({'ok': True, 'emojis': emojis})
+        app.logger.exception(f'[guild_emojis] {ex}')
+        return jsonify({"ok": False, "emojis": [], "error": "Could not load server emojis. Please retry."}), 500
+
+
+# ---- DASHBOARD IMAGE UPLOAD ----
+@app.route('/api/dashboard/upload_image', methods=['POST'])
+def api_dashboard_upload_image():
+    """Upload an image for dashboard image-URL fields; returns an absolute URL."""
+    if not session.get('logged_in'):
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    if 'image' not in request.files:
+        return jsonify({"ok": False, "error": "Choose an image first"}), 400
+    f = request.files['image']
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "Choose an image first"}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+    if ext not in {'png', 'jpg', 'jpeg', 'gif', 'webp'}:
+        return jsonify({"ok": False, "error": "Use PNG, JPG, GIF, or WebP"}), 400
+    data = f.read(8 * 1024 * 1024 + 1)
+    if not data or len(data) > 8 * 1024 * 1024:
+        return jsonify({"ok": False, "error": "Image must be smaller than 8 MB"}), 400
+    signatures = {
+        'png': data.startswith(b'\\x89PNG\\r\\n\\x1a\\n'),
+        'jpg': data.startswith(b'\\xff\\xd8\\xff'),
+        'jpeg': data.startswith(b'\\xff\\xd8\\xff'),
+        'gif': data.startswith((b'GIF87a', b'GIF89a')),
+        'webp': len(data) >= 12 and data[:4] == b'RIFF' and data[8:12] == b'WEBP',
+    }
+    if not signatures.get(ext):
+        return jsonify({"ok": False, "error": "The file content does not match its image type"}), 400
+    try:
+        import server_official as _so_upload
+        saved = _so_upload.save_announcement_image(data, ext)
+        if not saved.get('ok'):
+            return jsonify({"ok": False, "error": saved.get('error', 'Upload failed')}), 500
+        absolute_url = request.host_url.rstrip('/') + saved['url']
+        return jsonify({"ok": True, "url": absolute_url})
+    except Exception as ex:
+        app.logger.exception(f'[dashboard_image_upload] {ex}')
+        return jsonify({"ok": False, "error": "Image upload failed"}), 500
 
 
 # ---- SQL EDITOR ----
