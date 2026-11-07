@@ -11,10 +11,6 @@ CATEGORIES = {
     "roles": "role-logs", "channels": "channel-logs",
     "emoji": "emoji-logs", "invites": "invite-logs",
 }
-LEGACY = {
-    "messages": "message_log_channel", "members": "join_log_channel",
-    "join_leave": "join_log_channel", "voice": "voice_log_channel",
-}
 EVENT_CATEGORY = {
     "message_delete":"messages","message_edit":"messages","message_bulk_delete":"messages",
     "member_join":"join_leave","member_leave":"join_leave","member_kick":"moderation",
@@ -106,10 +102,8 @@ def _ignored(cfg, actor_id=None, channel_id=None, is_bot=False, subject_id=None,
 def _target(bot, guild, cfg, category):
     if guild is None:
         return None
-    mapping = cfg.get("logging_channels") or {}
-    raw = mapping.get(category) if isinstance(mapping,dict) else None
-    if not raw:
-        raw = cfg.get(LEGACY.get(category,"log_channel")) or cfg.get("log_channel")
+    # Every event category is routed to the one server-wide destination.
+    raw = cfg.get("log_channel")
     try:
         ident = int(raw)
     except (TypeError,ValueError):
@@ -387,14 +381,12 @@ async def create_log_channels(guild,save_cfg,setup_member=None):
                 await category.set_permissions(setup_member, view_channel=True, send_messages=True, read_message_history=True, reason="NVD logging setup operator")
         except discord.Forbidden:
             raise PermissionError("Manage Channels/Manage Roles is required to secure the SERVER LOGS category.")
-    mapping={}
-    for key,name in CATEGORIES.items():
-        channel=discord.utils.get(guild.text_channels,name=name)
-        if channel is None or channel.category_id!=category.id:
-            channel=await guild.create_text_channel(name,category=category,reason="NVD Official logging setup")
-        elif not channel.permissions_synced:
-            await channel.edit(sync_permissions=True,reason="Sync NVD log channel with private SERVER LOGS category")
-        mapping[key]=str(channel.id)
+    channel=discord.utils.get(guild.text_channels,name="server-logs")
+    if channel is None or channel.category_id!=category.id:
+        channel=await guild.create_text_channel("server-logs",category=category,reason="NVD Official unified logging setup")
+    elif not channel.permissions_synced:
+        await channel.edit(sync_permissions=True,reason="Sync unified NVD log channel with private SERVER LOGS category")
+    mapping={"all":str(channel.id)}
     current = _cfg(guild.id)
     events = dict(current.get("logging_events") or {})
     categories = dict(current.get("logging_categories") or {})
@@ -404,7 +396,8 @@ async def create_log_channels(guild,save_cfg,setup_member=None):
         categories.setdefault(key, True)
     updates = {
         "logging_enabled": True,
-        "logging_channels": mapping,
+        "log_channel": str(channel.id),
+        "logging_channels": {},
         "logging_events": events,
         "logging_categories": categories,
     }
@@ -416,7 +409,7 @@ async def create_log_channels(guild,save_cfg,setup_member=None):
     updates.setdefault("logging_format", current.get("logging_format", "detailed"))
     persisted = save_cfg(str(guild.id), updates)
     if persisted is False:
-        raise RuntimeError("Logging channels were created, but persistent config storage failed. Check Supabase Storage permissions or configure DATABASE_URL.")
+        raise RuntimeError("The unified log channel was created, but persistent config storage failed. Check Supabase Storage permissions or configure DATABASE_URL.")
     return category,mapping
 
 def register_commands(bot,guard,get_cfg,save_cfg):
@@ -424,15 +417,14 @@ def register_commands(bot,guard,get_cfg,save_cfg):
     cats=list(CATEGORIES)
     evts=list(EVENT_CATEGORY)
 
-    @group.command(name="setup",description="Create SERVER LOGS and all ten log channels.")
+    @group.command(name="setup",description="Create one private channel for every NVD server event log.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
     async def setup_cmd(interaction: discord.Interaction):
         if not await guard(interaction): return
         await interaction.response.defer(ephemeral=True,thinking=True)
         try:
             _,mapping=await create_log_channels(interaction.guild,save_cfg,interaction.user)
-            rows=[key.replace("_"," ").title()+" → <#"+value+">" for key,value in mapping.items()]
-            await interaction.followup.send("✅ Logging enabled.\n"+"\n".join(rows),ephemeral=True)
+            await interaction.followup.send("✅ Unified logging enabled. Every event category will be sent to <#"+mapping["all"]+">.",ephemeral=True)
         except Exception as exc:
             await interaction.followup.send("❌ Setup failed: "+str(exc)[:250],ephemeral=True)
 
@@ -472,16 +464,6 @@ def register_commands(bot,guard,get_cfg,save_cfg):
         if str(user.id) not in [str(x) for x in ids]: ids.append(str(user.id))
         save_cfg(interaction.guild.id,{"logging_ignore_users":ids})
         await interaction.response.send_message("Now ignoring "+str(user)+".",ephemeral=True)
-
-    @group.command(name="channel",description="Set the destination channel for one logging category.")
-    @discord.app_commands.choices(category=[discord.app_commands.Choice(name=x.replace("_"," ").title(),value=x) for x in cats])
-    @discord.app_commands.checks.has_permissions(manage_guild=True)
-    async def channel_cmd(interaction: discord.Interaction,category:str,channel:discord.TextChannel):
-        if not await guard(interaction): return
-        mapping=dict(get_cfg(interaction.guild.id).get("logging_channels") or {})
-        mapping[category]=str(channel.id)
-        save_cfg(interaction.guild.id,{"logging_channels":mapping})
-        await interaction.response.send_message(category+" logs will go to "+channel.mention,ephemeral=True)
 
     @group.command(name="ignore-channel",description="Ignore events from a channel.")
     @discord.app_commands.checks.has_permissions(manage_guild=True)
@@ -582,13 +564,13 @@ def register_commands(bot,guard,get_cfg,save_cfg):
     @discord.app_commands.checks.has_permissions(manage_guild=True)
     async def status(interaction: discord.Interaction):
         if not await guard(interaction): return
-        cfg=get_cfg(interaction.guild.id); mapping=cfg.get("logging_channels") or {}
+        cfg=get_cfg(interaction.guild.id)
         states=cfg.get("logging_categories") or {}
-        rows=["Master: "+("ON" if cfg.get("logging_enabled") else "OFF")]
-        for key in cats:
-            raw=mapping.get(key,"")
-            ch=interaction.guild.get_channel(int(raw)) if str(raw).isdigit() else None
-            rows.append(key.replace("_"," ").title()+": "+("ON" if states.get(key,True) else "OFF")+" — "+(ch.mention if ch else "Not configured"))
+        raw=cfg.get("log_channel","")
+        channel=interaction.guild.get_channel(int(raw)) if str(raw).isdigit() else None
+        rows=["Master: "+("ON" if cfg.get("logging_enabled") else "OFF"),
+              "Unified destination: "+(channel.mention if channel else "Not configured")]
+        rows.extend(key.replace("_"," ").title()+": "+("ON" if states.get(key,True) else "OFF") for key in cats)
         await interaction.response.send_message(embed=discord.Embed(title="NVD Logging Status",description="\n".join(rows)[:4000],color=0x3498DB),ephemeral=True)
 
     try:
